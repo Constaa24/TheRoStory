@@ -101,52 +101,67 @@ const AdminDashboard: React.FC = () => {
     categoryId: "", mediaUrl: "", isPublished: false, location: ""
   });
 
+  // Fetch categories and articles when user/role changes
   useEffect(() => {
-    if (user && (isAdmin || isWriter)) {
-      fetchData();
-    }
-  }, [user?.id, isAdmin, isWriter, usersPage]);
-
-  const fetchData = async () => {
+    if (!user || (!isAdmin && !isWriter)) return;
+    let cancelled = false;
     invalidatePublicContentCache();
-    if (isAdmin) setUsersLoadError(null);
-    try {
-      // Fetch categories and articles from Supabase - include unpublished for admin/writer
-      const data = await fetchPublicContent(false);
-      setCategories(data.categories);
-      
-      // If writer, filter to only show their own articles (use userId which has FK constraint)
-      const filteredArticles = isWriter
-        ? data.articles.filter((a: Article) => a.userId === user?.id)
-        : data.articles;
-      
-      setArticles(filteredArticles);
+    fetchPublicContent(false)
+      .then((data) => {
+        if (cancelled) return;
+        setCategories(data.categories);
+        const filteredArticles = isWriter
+          ? data.articles.filter((a: Article) => a.userId === user?.id)
+          : data.articles;
+        setArticles(filteredArticles);
+      })
+      .catch((error) => {
+        if (!isAbortError(error)) console.error("Error fetching content:", error);
+      });
+    return () => { cancelled = true; };
+  }, [user?.id, isAdmin, isWriter]);
 
-      // Fetch users if admin via Supabase Edge Function
-      if (isAdmin) {
-        try {
-          const usersPageData = await fetchAllUsers(usersPage, USERS_PER_PAGE);
-          setAllUsers(usersPageData.users || []);
-          setUsersTotal(usersPageData.total);
-          setUsersHasMore(usersPageData.hasMore);
-          setUsersLoadError(null);
-        } catch (error: any) {
-          setAllUsers([]);
-          setUsersTotal(null);
-          setUsersHasMore(false);
-          const message = error?.message || "Failed to load users";
-          setUsersLoadError(message);
-          toast.error(language === 'en' ? "Failed to load users" : "Eroare la încărcarea utilizatorilor");
-        }
-      } else {
+  // Fetch users separately so pagination doesn't re-fetch content
+  useEffect(() => {
+    if (!user || !isAdmin) {
+      setAllUsers([]);
+      setUsersTotal(null);
+      setUsersHasMore(false);
+      return;
+    }
+    let cancelled = false;
+    setUsersLoadError(null);
+    fetchAllUsers(usersPage, USERS_PER_PAGE)
+      .then((usersPageData) => {
+        if (cancelled) return;
+        setAllUsers(usersPageData.users || []);
+        setUsersTotal(usersPageData.total);
+        setUsersHasMore(usersPageData.hasMore);
+        setUsersLoadError(null);
+      })
+      .catch((error: any) => {
+        if (cancelled) return;
         setAllUsers([]);
         setUsersTotal(null);
         setUsersHasMore(false);
-      }
+        const message = error?.message || "Failed to load users";
+        setUsersLoadError(message);
+        toast.error(language === 'en' ? "Failed to load users" : "Eroare la încărcarea utilizatorilor");
+      });
+    return () => { cancelled = true; };
+  }, [user?.id, isAdmin, usersPage]);
+
+  const fetchData = async () => {
+    invalidatePublicContentCache();
+    try {
+      const data = await fetchPublicContent(false);
+      setCategories(data.categories);
+      const filteredArticles = isWriter
+        ? data.articles.filter((a: Article) => a.userId === user?.id)
+        : data.articles;
+      setArticles(filteredArticles);
     } catch (error) {
-      if (!isAbortError(error)) {
-        console.error("Error fetching data:", error);
-      }
+      if (!isAbortError(error)) console.error("Error fetching data:", error);
     }
   };
 
