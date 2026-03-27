@@ -1,0 +1,2 @@
+-- Seed data for local development
+-- Add seed records here for local `supabase db reset`

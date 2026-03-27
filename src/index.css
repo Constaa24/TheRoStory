@@ -1,0 +1,222 @@
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=Geist:wght@100..900&family=Geist+Mono:wght@100..900&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* The RoStory Custom Palette - Warm Editorial Style */
+    --background: 56 80% 97%;
+    --foreground: 0 0% 10%;
+    --card: 56 80% 98%;
+    --card-foreground: 0 0% 10%;
+    --popover: 56 80% 98%;
+    --popover-foreground: 0 0% 10%;
+    --primary: 0 0% 10%;
+    --primary-foreground: 56 80% 97%;
+    --secondary: 56 60% 94%;
+    --secondary-foreground: 33 32% 20%;
+    --muted: 33 15% 90%;
+    --muted-foreground: 33 20% 40%;
+    --accent: 33 44% 59%;
+    --accent-foreground: 56 80% 97%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 33 20% 85%;
+    --input: 33 20% 85%;
+    --ring: 33 44% 59%;
+
+    /* Charts */
+    --chart-1: 33 44% 59%;
+    --chart-2: 0 0% 10%;
+    --chart-3: 168 76% 36%;
+    --chart-4: 33 32% 20%;
+    --chart-5: 56 60% 94%;
+
+    /* Sidebar */
+    --sidebar: 56 60% 94%;
+    --sidebar-foreground: 33 32% 20%;
+    --sidebar-primary: 0 0% 10%;
+    --sidebar-primary-foreground: 56 80% 97%;
+    --sidebar-accent: 33 44% 59%;
+    --sidebar-accent-foreground: 56 80% 97%;
+    --sidebar-border: 33 20% 85%;
+    --sidebar-ring: 33 44% 59%;
+
+    /* Fonts */
+    --font-sans: "Geist", sans-serif;
+    --font-serif: "Playfair Display", serif;
+    --font-mono: "Geist Mono", monospace;
+
+    /* Shadows */
+    --shadow-2xs: 0px 4px 8px -1px hsl(33 32% 10% / 0.05);
+    --shadow-xs: 0px 4px 8px -1px hsl(33 32% 10% / 0.05);
+    --shadow-sm: 0px 4px 8px -1px hsl(33 32% 10% / 0.10), 0px 1px 2px -2px hsl(33 32% 10% / 0.10);
+    --shadow: 0px 4px 8px -1px hsl(33 32% 10% / 0.10), 0px 1px 2px -2px hsl(33 32% 10% / 0.10);
+    --shadow-md: 0px 4px 8px -1px hsl(33 32% 10% / 0.10), 0px 2px 4px -2px hsl(33 32% 10% / 0.10);
+    --shadow-lg: 0px 4px 8px -1px hsl(33 32% 10% / 0.10), 0px 4px 6px -2px hsl(33 32% 10% / 0.10);
+    --shadow-xl: 0px 4px 8px -1px hsl(33 32% 10% / 0.10), 0px 8px 10px -2px hsl(33 32% 10% / 0.10);
+    --shadow-2xl: 0px 4px 8px -1px hsl(33 32% 10% / 0.25);
+
+    /* Misc */
+    --tracking-normal: 0.01em;
+    --spacing: 0.25rem;
+    --radius: 0.25rem;
+  }
+
+  .dark {
+    --background: 0 0% 10%;
+    --foreground: 56 80% 97%;
+    --card: 0 0% 12%;
+    --card-foreground: 56 80% 97%;
+    --popover: 0 0% 12%;
+    --popover-foreground: 56 80% 97%;
+    --primary: 56 80% 97%;
+    --primary-foreground: 0 0% 10%;
+    --secondary: 0 0% 15%;
+    --secondary-foreground: 56 80% 97%;
+    --muted: 0 0% 20%;
+    --muted-foreground: 56 20% 70%;
+    --accent: 33 44% 59%;
+    --accent-foreground: 0 0% 10%;
+    --destructive: 0 62% 30%;
+    --destructive-foreground: 56 80% 97%;
+    --border: 0 0% 20%;
+    --input: 0 0% 20%;
+    --ring: 33 44% 59%;
+
+    --sidebar: 0 0% 8%;
+    --sidebar-foreground: 56 80% 97%;
+    --sidebar-primary: 33 44% 59%;
+    --sidebar-primary-foreground: 0 0% 10%;
+    --sidebar-accent: 0 0% 15%;
+    --sidebar-accent-foreground: 56 80% 97%;
+    --sidebar-border: 0 0% 20%;
+    --sidebar-ring: 33 44% 59%;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground transition-colors duration-300;
+    font-family: var(--font-sans);
+    letter-spacing: var(--tracking-normal);
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-serif);
+    @apply tracking-tight;
+  }
+}
+
+@layer components {
+  .parchment-effect {
+    background-color: hsl(var(--secondary));
+    background-image: url("/textures/old-paper.png");
+    box-shadow: 
+      0 20px 50px rgba(0,0,0,0.3),
+      inset 0 0 100px rgba(0,0,0,0.05);
+    position: relative;
+    overflow: hidden;
+    border: 1px solid rgba(0,0,0,0.1);
+  }
+
+  .parchment-effect::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-image: url("/textures/p6.png");
+    opacity: 0.1;
+    pointer-events: none;
+  }
+
+  .parchment-effect::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: radial-gradient(circle at center, transparent 0%, rgba(33, 32, 20, 0.05) 100%);
+    pointer-events: none;
+    z-index: 1;
+  }
+}
+
+.torn-edge {
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100%25' height='20' viewBox='0 0 100 20' preserveAspectRatio='none'%3E%3Cpath d='M0,10 Q1,12 2,10 T4,10 T6,11 T8,9 T10,10 T12,12 T14,9 T16,11 T18,10 T20,10 T22,12 T24,8 T26,11 T28,9 T30,10 T32,12 T34,9 T36,11 T38,10 T40,10 T42,12 T44,8 T46,11 T48,9 T50,10 T52,12 T54,9 T56,11 T58,10 T60,10 T62,12 T64,8 T66,11 T68,9 T70,10 T72,12 T74,9 T76,11 T78,10 T80,10 T82,12 T84,8 T86,11 T88,9 T90,10 T92,12 T94,9 T96,11 T98,10 T100,10 L100,20 L0,20 Z' fill='black'/%3E%3C/svg%3E");
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100%25' height='20' viewBox='0 0 100 20' preserveAspectRatio='none'%3E%3Cpath d='M0,10 Q1,12 2,10 T4,10 T6,11 T8,9 T10,10 T12,12 T14,9 T16,11 T18,10 T20,10 T22,12 T24,8 T26,11 T28,9 T30,10 T32,12 T34,9 T36,11 T38,10 T40,10 T42,12 T44,8 T46,11 T48,9 T50,10 T52,12 T54,9 T56,11 T58,10 T60,10 T62,12 T64,8 T66,11 T68,9 T70,10 T72,12 T74,9 T76,11 T78,10 T80,10 T82,12 T84,8 T86,11 T88,9 T90,10 T92,12 T94,9 T96,11 T98,10 T100,10 L100,20 L0,20 Z' fill='black'/%3E%3C/svg%3E");
+  mask-size: 100% 100%;
+}
+
+.burnt-edge {
+  box-shadow: inset 0 0 40px rgba(69, 26, 3, 0.15), inset 0 0 10px rgba(69, 26, 3, 0.2);
+}
+
+.romanian-motif {
+  background-image: url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M20 0l5 15h15l-12 9 5 16-13-10-13 10 5-16-12-9h15z' fill='%233F3F46' fill-opacity='0.1'/%3E%3C/svg%3E");
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 8px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: hsl(var(--accent) / 0.2);
+  border-radius: 10px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--accent) / 0.4);
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.grainy-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 9999;
+  opacity: 0.08;
+  background-image: url("/textures/black-paper.png");
+}
+
+.shadow-elegant {
+  box-shadow: 0 10px 40px -10px hsl(var(--primary) / 0.15);
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(20px); filter: blur(10px); }
+  to { opacity: 1; transform: translateY(0); filter: blur(0); }
+}
+
+@keyframes parchmentReveal {
+  0% { clip-path: inset(0 100% 0 0); }
+  100% { clip-path: inset(-10% -10% -10% -10%); }
+}
+
+.animate-parchment-reveal {
+  animation: parchmentReveal 1.8s cubic-bezier(0.77, 0, 0.175, 1) forwards;
+}
+
+.drop-cap::first-letter {
+  @apply text-6xl font-black float-left mr-3 mt-2 text-accent;
+  font-family: var(--font-serif);
+  text-shadow: 2px 2px 0px hsl(var(--secondary));
+}
+

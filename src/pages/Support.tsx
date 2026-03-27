@@ -1,0 +1,240 @@
+import React from "react";
+import { useLanguage } from "@/hooks/use-language";
+import { Heart, CreditCard, Sparkles, Landmark, Banknote } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { motion } from "framer-motion";
+import { HeroBanner } from "@/components/layout/HeroBanner";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogDescription
+} from "@/components/ui/dialog";
+
+const RevolutIcon = ({ className }: { className?: string }) => (
+  <svg 
+    viewBox="0 0 24 24" 
+    fill="none" 
+    stroke="currentColor" 
+    strokeWidth="2" 
+    strokeLinecap="round" 
+    strokeLinejoin="round" 
+    className={className}
+  >
+    <path d="M5 10h9.5a4.5 4.5 0 1 1 0 9h-3.5" />
+    <path d="M5 10h3v10h-3z" />
+  </svg>
+);
+
+const Support: React.FC = () => {
+  const { language } = useLanguage();
+
+  const content = {
+    en: {
+      title: "Support The RoStory",
+      subtitle: "Help us share Romania's rich culture with the world",
+      intro: "The RoStory is a passion project dedicated to showcasing the beauty, history, and traditions of Romania. Your support helps us continue creating quality content and reaching more people worldwide.",
+      whySupport: "Why Support Us?",
+      reasons: [
+        {
+          icon: Sparkles,
+          title: "Quality Content",
+          description: "Your support helps us research and create authentic, well-crafted stories about Romanian culture."
+        },
+        {
+          icon: Heart,
+          title: "Preserve Heritage",
+          description: "Help us document and share Romania's traditions before they're forgotten."
+        },
+        {
+          icon: Banknote,
+          title: "Independent Voice",
+          description: "Support independent storytelling free from commercial pressures."
+        }
+      ],
+      donateTitle: "Ways to Support",
+      donateIntro: "Every contribution, big or small, makes a difference.",
+      revolut: "Revolut",
+      paypal: "PayPal Donation",
+      bankTransfer: "Bank Transfer",
+      bankDetails: {
+        title: "Bank transfer (RON)",
+        beneficiary: "Beneficiary: Ionescu Emanuel-Constantin",
+        iban: "IBAN: RO95 REVO 0000 1310 9615 3763",
+        bank: "Bank: Revolut Bank",
+        reference: "Payment reference: RoStory donation"
+      },
+      thankYou: "Thank You",
+      thankYouMessage: "Whether you donate or simply share our stories, you're helping spread the beauty of Romania. Thank you from the heart!"
+    },
+    ro: {
+      title: "Susține The RoStory",
+      subtitle: "Ajută-ne să împărtășim bogata cultură a României cu lumea",
+      intro: "The RoStory este un proiect de suflet dedicat prezentării frumuseții, istoriei și tradițiilor României. Sprijinul tău ne ajută să continuăm să creăm conținut de calitate și să ajungem la mai mulți oameni din întreaga lume.",
+      whySupport: "De ce să ne susții?",
+      reasons: [
+        {
+          icon: Sparkles,
+          title: "Conținut de Calitate",
+          description: "Sprijinul tău ne ajută să cercetăm și să creăm povești autentice despre cultura românească."
+        },
+        {
+          icon: Heart,
+          title: "Păstrează Moștenirea",
+          description: "Ajută-ne să documentăm și să împărtășim tradițiile României."
+        },
+        {
+          icon: Banknote,
+          title: "Voce Independentă",
+          description: "Susține povestirile independente, libere de presiuni comerciale."
+        }
+      ],
+      donateTitle: "Modalități de Susținere",
+      donateIntro: "Fiecare contribuție, mare sau mică, contează.",
+      revolut: "Revolut",
+      paypal: "Donație PayPal",
+      bankTransfer: "Transfer bancar",
+      bankDetails: {
+        title: "Transfer bancar (RON)",
+        beneficiary: "Beneficiar: Ionescu Emanuel-Constantin",
+        iban: "IBAN: RO95 REVO 0000 1310 9615 3763",
+        bank: "Banca: Revolut Bank",
+        reference: "Detalii plată: Donație RoStory"
+      },
+      thankYou: "Mulțumesc",
+      thankYouMessage: "Fie că donezi sau pur și simplu împărtășești poveștile noastre, ajuți la răspândirea frumuseții României. Mulțumesc din suflet!"
+    }
+  };
+
+  const t = content[language];
+
+  return (
+    <div className="min-h-screen bg-background pb-20">
+      <HeroBanner 
+        title={t.title}
+        subtitle={t.subtitle}
+        imageUrl="https://images.unsplash.com/photo-1540928968736-b8a56effa42c?q=80&w=2000"
+        Icon={Heart}
+        height="h-[60vh]"
+      />
+
+      <div className="container mx-auto px-4 py-20 max-w-5xl">
+        {/* Introduction */}
+        <div className="text-center mb-24 max-w-3xl mx-auto">
+          <p className="text-2xl font-serif italic text-foreground/80 leading-relaxed">
+            {t.intro}
+          </p>
+          <div className="h-[1px] w-24 bg-accent mx-auto mt-10" />
+        </div>
+
+        {/* Why Support Section */}
+        <div className="mb-24">
+          <h2 className="text-4xl font-serif font-black italic text-primary text-center mb-12">
+            {t.whySupport}
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {t.reasons.map((reason, index) => (
+              <motion.div
+                key={index}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: index * 0.1 }}
+              >
+                <Card className="parchment-effect p-8 text-center border-none shadow-elegant hover:shadow-xl transition-all duration-500 h-full flex flex-col items-center justify-center space-y-4">
+                  <div className="bg-accent/10 rounded-full p-4 mb-2">
+                    <reason.icon className="h-8 w-8 text-accent" />
+                  </div>
+                  <h3 className="text-2xl font-serif italic font-bold text-primary">
+                    {reason.title}
+                  </h3>
+                  <p className="text-muted-foreground leading-relaxed">
+                    {reason.description}
+                  </p>
+                </Card>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+
+        {/* Donate Section */}
+        <div className="mb-16">
+          <h2 className="text-2xl font-serif italic text-primary text-center mb-4">
+            {t.donateTitle}
+          </h2>
+          <p className="text-center text-muted-foreground mb-8">
+            {t.donateIntro}
+          </p>
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <Button
+              variant="outline"
+              size="lg"
+              className="h-auto py-6 flex flex-col gap-2 rounded-xl hover:bg-accent hover:text-primary-foreground transition-all group"
+              onClick={() => window.open("https://revolut.me/manu2492", "_blank", "noopener,noreferrer")}
+            >
+              <RevolutIcon className="h-8 w-8 group-hover:scale-110 transition-transform" />
+              <span className="font-serif italic">{t.revolut}</span>
+            </Button>
+            
+            <Button
+              variant="outline"
+              size="lg"
+              className="h-auto py-6 flex flex-col gap-2 rounded-xl hover:bg-accent hover:text-primary-foreground transition-all group"
+              onClick={() => window.open("https://paypal.me/Constaa24?locale.x=ro_RO&country.x=RO", "_blank", "noopener,noreferrer")}
+            >
+              <CreditCard className="h-8 w-8 group-hover:scale-110 transition-transform" />
+              <span className="font-serif italic">{t.paypal}</span>
+            </Button>
+            
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="lg"
+                  className="h-auto py-6 flex flex-col gap-2 rounded-xl hover:bg-accent hover:text-primary-foreground transition-all group"
+                >
+                  <Landmark className="h-8 w-8 group-hover:scale-110 transition-transform" />
+                  <span className="font-serif italic">{t.bankTransfer}</span>
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="parchment-effect border-none shadow-2xl sm:max-w-md">
+                <DialogHeader>
+                  <DialogTitle className="text-2xl font-serif italic text-primary text-center">
+                    {t.bankDetails.title}
+                  </DialogTitle>
+                  <div className="sr-only">
+                    <DialogDescription>
+                      {t.bankDetails.title}
+                    </DialogDescription>
+                  </div>
+                </DialogHeader>
+                <div className="space-y-4 py-4 text-foreground/90 font-serif italic text-lg text-center">
+                  <p className="border-b border-accent/20 pb-2">{t.bankDetails.beneficiary}</p>
+                  <p className="border-b border-accent/20 pb-2 font-mono tracking-tight">{t.bankDetails.iban}</p>
+                  <p className="border-b border-accent/20 pb-2">{t.bankDetails.bank}</p>
+                  <p className="text-accent font-bold">{t.bankDetails.reference}</p>
+                </div>
+              </DialogContent>
+            </Dialog>
+          </div>
+        </div>
+
+        {/* Thank You Section */}
+        <div className="text-center py-12 bg-secondary/10 rounded-2xl border border-dashed border-border">
+          <h3 className="text-xl font-serif italic text-primary mb-4">
+            {t.thankYou}
+          </h3>
+          <p className="text-muted-foreground max-w-md mx-auto">
+            {t.thankYouMessage}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default Support;
