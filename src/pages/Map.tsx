@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import * as topojson from "topojson-client";
@@ -68,29 +68,28 @@ const MapPage: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    fetchData();
-    
+    let cancelled = false;
+    setIsLoading(true);
+    fetchPublicContent()
+      .then((data) => {
+        if (!cancelled) setArticles(data.articles || []);
+      })
+      .catch((error) => {
+        if (!isAbortError(error)) console.error("Error fetching data:", error);
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoading(false);
+      });
+
     // Restore selected location from state if returning from an article
     const state = location.state as { selectedLocation?: string } | null;
     if (state?.selectedLocation) {
       setSelectedLocation(state.selectedLocation);
       setIsZoomed(true);
     }
-  }, []);
 
-  const fetchData = async () => {
-    setIsLoading(true);
-    try {
-      const data = await fetchPublicContent();
-      setArticles(data.articles || []);
-    } catch (error) {
-      if (!isAbortError(error)) {
-        console.error("Error fetching data:", error);
-      }
-    } finally {
-      setIsLoading(false);
-    }
-  };
+    return () => { cancelled = true; };
+  }, []);
 
   const storiesPerLocation = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -107,7 +106,7 @@ const MapPage: React.FC = () => {
     return articles.filter(art => art.location === selectedLocation);
   }, [selectedLocation, articles]);
 
-  const handleLocationClick = (location: string) => {
+  const handleLocationClick = useCallback((location: string) => {
     if (selectedLocation === location) {
       setSelectedLocation(null);
       setIsZoomed(false);
@@ -115,16 +114,18 @@ const MapPage: React.FC = () => {
       setSelectedLocation(location);
       setIsZoomed(true);
     }
-  };
+  }, [selectedLocation]);
 
-  const closeList = () => {
+  const closeList = useCallback(() => {
     setSelectedLocation(null);
     setIsZoomed(false);
-  };
+  }, []);
 
   const selectedPath = useMemo(() => {
     return paths.find(p => p.id === selectedLocation);
   }, [selectedLocation, paths]);
+
+  const backgroundPath = useMemo(() => paths.map(c => c.d).join(" "), [paths]);
 
   if (isLoading) {
     return (
@@ -202,14 +203,14 @@ const MapPage: React.FC = () => {
             <svg
               viewBox="0 0 800 600"
               className={cn("w-full h-full transition-all duration-300", isAnimating && "pointer-events-none")}
-              style={{ 
-                filter: `drop-shadow(0 15px 35px hsl(var(--primary) / 0.15))`,
+              style={{
+                filter: isAnimating ? 'none' : 'drop-shadow(0 15px 35px hsl(var(--primary) / 0.15))',
                 shapeRendering: "geometricPrecision"
               }}
             >
               {/* Background fill for land to avoid gaps */}
-              <path 
-                d={paths.map(c => c.d).join(" ")} 
+              <path
+                d={backgroundPath}
                 fill="currentColor"
                 className="text-primary/5"
                 stroke="none"
@@ -255,24 +256,33 @@ const MapPage: React.FC = () => {
                       {county.name}
                     </text>
 
-                    {/* Story count badge */}
+                    {/* Story count badge — native SVG to avoid foreignObject compositing overhead */}
                     {count > 0 && (
-                      <foreignObject
-                        x={county.lx - 12}
-                        y={county.ly + 4}
-                        width="24"
-                        height="24"
-                        className="pointer-events-none"
-                      >
-                        <div className="flex items-center justify-center w-full h-full">
-                          <span className={cn(
-                            "flex items-center justify-center w-6 h-6 rounded-full text-[10px] font-black shadow-lg border border-primary/20",
-                            isSelected ? "bg-background text-accent" : "bg-accent text-accent-foreground"
-                          )}>
-                            {count}
-                          </span>
-                        </div>
-                      </foreignObject>
+                      <>
+                        <circle
+                          cx={county.lx}
+                          cy={county.ly + 16}
+                          r="10"
+                          strokeWidth="1"
+                          className={cn(
+                            "pointer-events-none",
+                            isSelected ? "fill-background stroke-accent" : "fill-accent stroke-none"
+                          )}
+                        />
+                        <text
+                          x={county.lx}
+                          y={county.ly + 16}
+                          textAnchor="middle"
+                          dominantBaseline="middle"
+                          className={cn(
+                            "pointer-events-none",
+                            isSelected ? "fill-accent" : "fill-white"
+                          )}
+                          style={{ fontSize: '9px', fontWeight: 900 }}
+                        >
+                          {count}
+                        </text>
+                      </>
                     )}
                   </g>
                 );
@@ -290,7 +300,7 @@ const MapPage: React.FC = () => {
               exit={{ opacity: 0, x: 50 }}
               className="lg:col-span-1 h-full"
             >
-              <Card className="h-full border-none shadow-elegant bg-background/50 backdrop-blur-md flex flex-col rounded-[2rem] overflow-hidden">
+              <Card className="h-full border-none shadow-elegant bg-background/50 backdrop-blur-sm flex flex-col rounded-[2rem] overflow-hidden">
                 <div className="p-6 bg-accent text-white flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <MapPin className="h-5 w-5" />
@@ -370,7 +380,7 @@ const MapPage: React.FC = () => {
         {/* Empty state when no location selected */}
         {!selectedLocation && (
           <div className="lg:col-span-1 hidden lg:flex flex-col h-full items-center justify-center text-center p-8 bg-secondary/5 rounded-[2rem] border border-dashed border-border/50">
-            <div className="p-6 bg-secondary/20 rounded-full mb-6 animate-bounce">
+            <div className="p-6 bg-secondary/20 rounded-full mb-6">
               <MapPin className="h-12 w-12 text-accent/20" />
             </div>
             <h3 className="font-serif font-black italic text-2xl text-primary mb-2">
