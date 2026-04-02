@@ -1,8 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Category, Article, getLocalized } from "@/lib/supabase";
-import { fetchPublicContent } from "@/lib/supabase";
+import { Category, getLocalized, fetchCategories, fetchArticleCategoryCounts } from "@/lib/supabase";
 import { useLanguage } from "@/hooks/use-language";
 import { BookOpen, Layers } from "lucide-react";
 import { isAbortError } from "@/lib/utils";
@@ -12,7 +11,7 @@ const Categories: React.FC = () => {
   const { language } = useLanguage();
   const navigate = useNavigate();
   const [categories, setCategories] = useState<Category[]>([]);
-  const [articles, setArticles] = useState<Article[]>([]);
+  const [categoryCounts, setCategoryCounts] = useState<Record<string, number>>({});
   const [isLoading, setIsLoading] = useState(true);
 
   const handleCategorySelect = (categoryId: string) => {
@@ -22,9 +21,12 @@ const Categories: React.FC = () => {
   useEffect(() => {
     const loadData = async () => {
       try {
-        const data = await fetchPublicContent();
-        setCategories(data.categories);
-        setArticles(data.articles);
+        const [cats, counts] = await Promise.all([
+          fetchCategories(),
+          fetchArticleCategoryCounts(),
+        ]);
+        setCategories(cats);
+        setCategoryCounts(counts);
       } catch (error) {
         if (!isAbortError(error)) {
           console.error("Error loading content:", error);
@@ -35,10 +37,6 @@ const Categories: React.FC = () => {
     };
     loadData();
   }, []);
-
-  const getCategoryArticleCount = (categoryId: string) => {
-    return articles.filter((a) => a.categoryId === categoryId).length;
-  };
 
   if (isLoading) {
     return (
@@ -90,7 +88,7 @@ const Categories: React.FC = () => {
                 <div className="w-16 h-[1px] bg-accent mx-auto group-hover:w-24 transition-all duration-500" />
                 
                 <p className="text-sm font-sans uppercase tracking-[0.3em] text-accent font-bold pt-4">
-                  {getCategoryArticleCount(category.id)} {language === "en" ? "Stories" : "Povești"}
+                  {categoryCounts[category.id] ?? 0} {language === "en" ? "Stories" : "Povești"}
                 </p>
               </div>
 

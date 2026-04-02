@@ -194,18 +194,37 @@ export const VideoThumbnail: React.FC<VideoThumbnailProps> = ({
     setPoster(posterSrc ?? posterCache.get(src) ?? null);
 
     if (posterSrc) {
-      return () => {
-        isMounted = false;
-      };
+      return () => { isMounted = false; };
     }
 
-    void getPosterForVideo(src).then((generatedPoster) => {
-      if (!isMounted || !generatedPoster) return;
-      setPoster(generatedPoster);
-    });
+    // If already cached, apply immediately without scheduling
+    if (posterCache.has(src)) {
+      const cached = posterCache.get(src);
+      if (cached && isMounted) setPoster(cached);
+      return () => { isMounted = false; };
+    }
+
+    // Defer the heavy extraction work until the browser is idle
+    const run = () => {
+      void getPosterForVideo(src).then((generatedPoster) => {
+        if (!isMounted || !generatedPoster) return;
+        setPoster(generatedPoster);
+      });
+    };
+
+    let idleId: number | undefined;
+    let fallbackId: ReturnType<typeof setTimeout> | undefined;
+
+    if (typeof window.requestIdleCallback === "function") {
+      idleId = window.requestIdleCallback(run, { timeout: 3000 });
+    } else {
+      fallbackId = setTimeout(run, 200);
+    }
 
     return () => {
       isMounted = false;
+      if (idleId !== undefined) window.cancelIdleCallback(idleId);
+      if (fallbackId !== undefined) clearTimeout(fallbackId);
     };
   }, [src, posterSrc]);
 

@@ -4,6 +4,20 @@ import { useAuth } from "@/hooks/use-auth";
 import { getLocalized, Article, CHAPTER_DELIMITER, Comment } from "@/lib/supabase";
 import { toggleFavorite, isArticleFavorited, fetchComments, postComment, deleteComment, updateComment, fetchPublicContent, fetchArticleViews, incrementView } from "@/lib/supabase";
 import { isAbortError } from "@/lib/utils";
+
+// Session-level cache — avoids re-fetching all articles every time a modal opens
+let _publicContentCache: Awaited<ReturnType<typeof fetchPublicContent>> | null = null;
+let _publicContentPending: Promise<Awaited<ReturnType<typeof fetchPublicContent>>> | null = null;
+const getCachedPublicContent = () => {
+  if (_publicContentCache) return Promise.resolve(_publicContentCache);
+  if (_publicContentPending) return _publicContentPending;
+  _publicContentPending = fetchPublicContent().then((data) => {
+    _publicContentCache = data;
+    _publicContentPending = null;
+    return data;
+  });
+  return _publicContentPending;
+};
 import { motion } from "framer-motion";
 import { X, BookOpen, Heart, Video, Eye, MessageSquare, Send, MapPin, Share2, Facebook, Link as LinkIcon, Images, Pencil, Trash2, Check } from "lucide-react";
 import { 
@@ -120,7 +134,7 @@ export const ParchmentArticle: React.FC<ParchmentArticleProps> = ({
       const [favResult, commentsResult, relatedResult] = await Promise.allSettled([
         user ? isArticleFavorited(user.id, article.id) : Promise.resolve(false),
         fetchComments(article.id),
-        fetchPublicContent(),
+        getCachedPublicContent(),
       ]);
 
       if (cancelled) return;
@@ -476,9 +490,9 @@ export const ParchmentArticle: React.FC<ParchmentArticleProps> = ({
           </div>
         </header>
 
-        <motion.div 
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
           transition={{ delay: 0.3, duration: 1, ease: "easeOut" }}
           className="relative aspect-video w-full overflow-hidden rounded-sm shadow-2xl bg-black/90 group ring-1 ring-white/10"
         >
@@ -486,8 +500,9 @@ export const ParchmentArticle: React.FC<ParchmentArticleProps> = ({
             src={article.mediaUrl || undefined}
             poster={article.posterUrl || undefined}
             controls
-            preload="auto"
+            preload="metadata"
             playsInline
+            type="video/mp4"
             className="w-full h-full object-contain"
           />
           <div className="absolute inset-0 border-[1px] border-white/10 pointer-events-none" />

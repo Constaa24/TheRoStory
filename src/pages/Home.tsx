@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Category, Article, getLocalized, fetchPublicContent, fetchArticlesPage, fetchRandomArticle } from "@/lib/supabase";
 import { useLanguage } from "@/hooks/use-language";
 import { useFavorites } from "@/hooks/use-favorites";
@@ -14,6 +14,9 @@ import { useNavigate } from "react-router-dom";
 
 const PAGE_SIZE = 9;
 
+// Per-element debounce map so rapid hovering doesn't queue multiple play() calls
+const videoPlayTimers = new WeakMap<HTMLVideoElement, ReturnType<typeof setTimeout>>();
+
 // Extracted animation variants to avoid re-creating objects on every render
 const fadeScaleIn = { initial: { opacity: 0, scale: 0.9 }, animate: { opacity: 1, scale: 1 } } as const;
 const fadeSlideUp30 = { initial: { opacity: 0, y: 30 }, animate: { opacity: 1, y: 0 } } as const;
@@ -26,6 +29,150 @@ const cardVariants = {
   exit: { opacity: 0, scale: 0.9, y: 20 },
   transition: { duration: 0.4, ease: "easeOut" as const },
 } as const;
+
+interface ArticleCardProps {
+  article: Article;
+  categoryName: string;
+  language: 'en' | 'ro';
+  t: (key: string) => string;
+  isArticleFavorited: boolean;
+  onOpen: (article: Article) => void;
+  onFavoriteToggle: (e: React.MouseEvent, articleId: string) => void;
+}
+
+const ArticleCard = React.memo<ArticleCardProps>(({
+  article,
+  categoryName,
+  language,
+  t,
+  isArticleFavorited,
+  onOpen,
+  onFavoriteToggle,
+}) => (
+  <Card
+    className="group overflow-hidden border border-border/10 shadow-elegant hover:shadow-2xl transition-all duration-700 bg-secondary/5 cursor-pointer h-full flex flex-col hover:-translate-y-3 relative rounded-2xl"
+    onClick={() => onOpen(article)}
+  >
+    <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none z-10">
+      <div className="absolute inset-0 bg-accent/10 mix-blend-overlay" />
+      <div className="absolute inset-0 border-2 border-accent/20 rounded-2xl m-2" />
+    </div>
+
+    <div className="aspect-[4/5] overflow-hidden relative">
+      {article.type === 'video' ? (
+        <div className="w-full h-full relative">
+          {article.mediaUrl ? (
+            <VideoThumbnail
+              src={article.mediaUrl}
+              posterSrc={article.posterUrl}
+              className="w-full h-full object-cover grayscale-[0.2] group-hover:grayscale-0 group-hover:scale-110 transition-all duration-700"
+              aria-label={getLocalized(article, "title", language)}
+              muted
+              onMouseOver={e => {
+                const v = e.currentTarget;
+                const t = videoPlayTimers.get(v);
+                if (t) clearTimeout(t);
+                videoPlayTimers.set(v, setTimeout(() => void v.play().catch(() => {}), 150));
+              }}
+              onMouseOut={e => {
+                const v = e.currentTarget;
+                const t = videoPlayTimers.get(v);
+                if (t) { clearTimeout(t); videoPlayTimers.delete(v); }
+                v.pause();
+                v.currentTime = 0;
+              }}
+            />
+          ) : (
+            <div className="w-full h-full bg-secondary/20 flex items-center justify-center">
+              <Video className="h-12 w-12 text-muted-foreground/30" />
+            </div>
+          )}
+          <div className="absolute inset-0 flex items-center justify-center bg-black/20 group-hover:bg-transparent transition-colors">
+            <div className="p-4 bg-white/20 backdrop-blur-md rounded-full">
+              <Video className="h-8 w-8 text-white" />
+            </div>
+          </div>
+        </div>
+      ) : article.type === 'carousel' ? (
+        <div className="w-full h-full relative">
+          <img
+            src={article.mediaUrls?.[0] || article.mediaUrl || "https://images.unsplash.com/photo-1701118737005-005fc66703be?q=80&w=800"}
+            alt={getLocalized(article, "title", language)}
+            className="w-full h-full object-cover grayscale-[0.2] group-hover:grayscale-0 group-hover:scale-110 transition-all duration-700"
+            loading="lazy"
+          />
+          <div className="absolute inset-0 flex items-center justify-center bg-black/10 group-hover:bg-transparent transition-colors">
+            <div className="p-4 bg-white/20 backdrop-blur-md rounded-full">
+              <Images className="h-8 w-8 text-white" />
+            </div>
+          </div>
+          {article.mediaUrls && (
+            <div className="absolute bottom-4 left-4 bg-black/50 backdrop-blur-md text-white text-[10px] px-2 py-0.5 rounded-full font-sans uppercase tracking-widest">
+              {article.mediaUrls.length} Photos
+            </div>
+          )}
+        </div>
+      ) : (
+        <img
+          src={article.mediaUrl || "https://images.unsplash.com/photo-1701118737005-005fc66703be?q=80&w=800"}
+          alt={getLocalized(article, "title", language)}
+          className="w-full h-full object-cover grayscale-[0.2] group-hover:grayscale-0 group-hover:scale-110 transition-all duration-700"
+          loading="lazy"
+        />
+      )}
+      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+      <div className="absolute top-4 right-4 flex flex-col items-end gap-2">
+        <Badge className="bg-accent text-white border-none font-serif italic rounded-full px-3">
+          {categoryName}
+        </Badge>
+        {article.location && (
+          <Badge variant="outline" className="bg-white/20 text-white border-white/30 font-serif italic backdrop-blur-md flex items-center gap-1 rounded-full px-3">
+            <MapPin className="h-3 w-3" />
+            {article.location}
+          </Badge>
+        )}
+        {article.type === 'video' && (
+          <Badge variant="outline" className="bg-white/10 text-white border-white/20 font-serif italic backdrop-blur-md rounded-full px-3">
+            Video
+          </Badge>
+        )}
+        {article.type === 'carousel' && (
+          <Badge variant="outline" className="bg-white/10 text-white border-white/20 font-serif italic backdrop-blur-md rounded-full px-3">
+            Carousel
+          </Badge>
+        )}
+        <Button
+          variant="ghost"
+          size="icon"
+          className={cn(
+            "rounded-full bg-black/20 backdrop-blur-md hover:bg-black/40 transition-colors",
+            isArticleFavorited ? "text-red-500" : "text-white"
+          )}
+          onClick={(e) => onFavoriteToggle(e, article.id)}
+        >
+          <Heart className={cn("h-5 w-5", isArticleFavorited && "fill-current")} />
+        </Button>
+      </div>
+    </div>
+    <CardHeader className="space-y-2 p-6 pb-2">
+      <h3 className="text-2xl font-serif font-bold text-secondary-foreground leading-tight group-hover:text-accent transition-colors">
+        {getLocalized(article, "title", language)}
+      </h3>
+    </CardHeader>
+    <CardContent className="p-6 pt-2 flex-1">
+      <p className="text-muted-foreground line-clamp-3 font-serif italic text-sm">
+        {getLocalized(article, "content", language).substring(0, 150)}...
+      </p>
+    </CardContent>
+    <CardFooter className="p-6 pt-0 border-t border-secondary-foreground/5 mt-auto">
+      <Button variant="link" className="p-0 text-accent gap-2 group/btn">
+        {t("articles.readMore")}
+        <BookOpen className="h-4 w-4 group-hover/btn:rotate-12 transition-transform" />
+      </Button>
+    </CardFooter>
+  </Card>
+));
+ArticleCard.displayName = "ArticleCard";
 
 const Home: React.FC = () => {
   const { language, t } = useLanguage();
@@ -46,6 +193,14 @@ const Home: React.FC = () => {
   const [activeArticle, setActiveArticle] = useState<Article | null>(null);
 
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
+
+  const categoryMap = useMemo(
+    () => new Map(categories.map((c) => [c.id, c])),
+    [categories]
+  );
+
+  const handleCloseArticle = useCallback(() => setActiveArticle(null), []);
+  const handleOpenArticle = useCallback((article: Article) => setActiveArticle(article), []);
 
   const handleRandomStory = async () => {
     const article = await fetchRandomArticle();
@@ -204,123 +359,20 @@ const Home: React.FC = () => {
                   {articles.map((article) => (
                     <motion.div
                       key={article.id}
-                      layout
                       initial={cardVariants.initial}
                       animate={cardVariants.animate}
                       exit={cardVariants.exit}
                       transition={cardVariants.transition}
                     >
-                      <Card 
-                        className="group overflow-hidden border border-border/10 shadow-elegant hover:shadow-2xl transition-all duration-700 bg-secondary/5 cursor-pointer h-full flex flex-col hover:-translate-y-3 relative rounded-2xl overflow-hidden"
-                        onClick={() => setActiveArticle(article)}
-                      >
-                        <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none z-10">
-                          <div className="absolute inset-0 bg-accent/10 mix-blend-overlay" />
-                          <div className="absolute inset-0 border-2 border-accent/20 rounded-2xl m-2 scale-95 group-hover:scale-100 transition-transform duration-700" />
-                        </div>
-
-                        <div className="aspect-[4/5] overflow-hidden relative">
-                          {article.type === 'video' ? (
-                            <div className="w-full h-full relative">
-                              {article.mediaUrl ? (
-                                <VideoThumbnail
-                                  src={article.mediaUrl}
-                                  posterSrc={article.posterUrl}
-                                  className="w-full h-full object-cover grayscale-[0.2] group-hover:grayscale-0 group-hover:scale-110 transition-all duration-700"
-                                  aria-label={getLocalized(article, "title", language)}
-                                  muted
-                                  onMouseOver={e => { void e.currentTarget.play().catch(() => {}); }}
-                                  onMouseOut={e => { e.currentTarget.pause(); e.currentTarget.currentTime = 0; }}
-                                />
-                              ) : (
-                                <div className="w-full h-full bg-secondary/20 flex items-center justify-center">
-                                  <Video className="h-12 w-12 text-muted-foreground/30" />
-                                </div>
-                              )}
-                              <div className="absolute inset-0 flex items-center justify-center bg-black/20 group-hover:bg-transparent transition-colors">
-                                <div className="p-4 bg-white/20 backdrop-blur-md rounded-full">
-                                  <Video className="h-8 w-8 text-white" />
-                                </div>
-                              </div>
-                            </div>
-                          ) : article.type === 'carousel' ? (
-                            <div className="w-full h-full relative">
-                              <img
-                                src={article.mediaUrls?.[0] || article.mediaUrl || "https://images.unsplash.com/photo-1701118737005-005fc66703be?q=80&w=800"}
-                                alt={getLocalized(article, "title", language)}
-                                className="w-full h-full object-cover grayscale-[0.2] group-hover:grayscale-0 group-hover:scale-110 transition-all duration-700"
-                                loading="lazy"
-                              />
-                              <div className="absolute inset-0 flex items-center justify-center bg-black/10 group-hover:bg-transparent transition-colors">
-                                <div className="p-4 bg-white/20 backdrop-blur-md rounded-full">
-                                  <Images className="h-8 w-8 text-white" />
-                                </div>
-                              </div>
-                              {article.mediaUrls && (
-                                <div className="absolute bottom-4 left-4 bg-black/50 backdrop-blur-md text-white text-[10px] px-2 py-0.5 rounded-full font-sans uppercase tracking-widest">
-                                  {article.mediaUrls.length} Photos
-                                </div>
-                              )}
-                            </div>
-                          ) : (
-                            <img
-                              src={article.mediaUrl || "https://images.unsplash.com/photo-1701118737005-005fc66703be?q=80&w=800"}
-                              alt={getLocalized(article, "title", language)}
-                              className="w-full h-full object-cover grayscale-[0.2] group-hover:grayscale-0 group-hover:scale-110 transition-all duration-700"
-                              loading="lazy"
-                            />
-                          )}
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-                          <div className="absolute top-4 right-4 flex flex-col items-end gap-2">
-                            <Badge className="bg-accent text-white border-none font-serif italic rounded-full px-3">
-                              {getLocalized(categories.find(c => c.id === article.categoryId) || {}, "name", language)}
-                            </Badge>
-                            {article.location && (
-                              <Badge variant="outline" className="bg-white/20 text-white border-white/30 font-serif italic backdrop-blur-md flex items-center gap-1 rounded-full px-3">
-                                <MapPin className="h-3 w-3" />
-                                {article.location}
-                              </Badge>
-                            )}
-                            {article.type === 'video' && (
-                              <Badge variant="outline" className="bg-white/10 text-white border-white/20 font-serif italic backdrop-blur-md rounded-full px-3">
-                                Video
-                              </Badge>
-                            )}
-                            {article.type === 'carousel' && (
-                              <Badge variant="outline" className="bg-white/10 text-white border-white/20 font-serif italic backdrop-blur-md rounded-full px-3">
-                                Carousel
-                              </Badge>
-                            )}
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className={cn(
-                                "rounded-full bg-black/20 backdrop-blur-md hover:bg-black/40 transition-colors",
-                                isFavorited(article.id) ? "text-red-500" : "text-white"
-                              )}
-                              onClick={(e) => handleFavoriteToggle(e, article.id)}
-                            >
-                              <Heart className={cn("h-5 w-5", isFavorited(article.id) && "fill-current")} />
-                            </Button>
-                          </div>
-                        </div>
-                        <CardHeader className="space-y-2 p-6 pb-2">
-                          <h3 className="text-2xl font-serif font-bold text-secondary-foreground leading-tight group-hover:text-accent transition-colors">
-                            {getLocalized(article, "title", language)}
-                          </h3>
-                        </CardHeader>
-                        <CardContent className="p-6 pt-2 flex-1">
-                          <p className="text-muted-foreground line-clamp-3 font-serif italic text-sm">
-                            {getLocalized(article, "content", language).substring(0, 150)}...
-                          </p>
-                        </CardContent>
-                        <CardFooter className="p-6 pt-0 border-t border-secondary-foreground/5 mt-auto">
-                          <Button variant="link" className="p-0 text-accent gap-2 group/btn">
-                            {t("articles.readMore")} 
-                            <BookOpen className="h-4 w-4 group-hover/btn:rotate-12 transition-transform" />
-                          </Button>
-                        </CardFooter>
-                      </Card>
+                      <ArticleCard
+                        article={article}
+                        categoryName={getLocalized(categoryMap.get(article.categoryId) || {}, "name", language)}
+                        language={language}
+                        t={t}
+                        isArticleFavorited={isFavorited(article.id)}
+                        onOpen={handleOpenArticle}
+                        onFavoriteToggle={handleFavoriteToggle}
+                      />
                     </motion.div>
                   ))}
                 </AnimatePresence>
@@ -399,9 +451,9 @@ const Home: React.FC = () => {
     {/* Parchment Article Viewer */}
     <AnimatePresence>
       {activeArticle && (
-        <ParchmentArticle 
-          article={activeArticle} 
-          onClose={() => setActiveArticle(null)} 
+        <ParchmentArticle
+          article={activeArticle}
+          onClose={handleCloseArticle}
         />
       )}
     </AnimatePresence>

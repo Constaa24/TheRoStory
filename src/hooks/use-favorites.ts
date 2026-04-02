@@ -43,7 +43,7 @@ export function useFavorites() {
     return () => { mountedRef.current = false; };
   }, [user, fetchFavorites]);
 
-  const handleFavoriteToggle = async (e: React.MouseEvent, articleId: string) => {
+  const handleFavoriteToggle = useCallback(async (e: React.MouseEvent, articleId: string) => {
     e.stopPropagation();
     if (!user) {
       toast.error(language === 'en' ? "Please log in to favorite articles" : "Vă rugăm să vă autentificați pentru a salva articolele favorite");
@@ -65,7 +65,7 @@ export function useFavorites() {
       toast.error(language === 'en' ? "Failed to update favorites" : "Eroare la actualizarea favoritelor");
       return null;
     }
-  };
+  }, [user, language, login]);
 
   const isFavorited = (articleId: string) => userFavorites.includes(articleId);
 

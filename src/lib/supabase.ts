@@ -174,6 +174,31 @@ const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 export const invalidatePublicContentCache = () => {
   publicContentCache.published = null;
   publicContentCache.all = null;
+  _categoryCountsCache = null;
+};
+
+// Lightweight cache for category article counts (category_id column only)
+let _categoryCountsCache: { data: Record<string, number>; time: number } | null = null;
+
+/**
+ * Fetches only the category_id column for all published articles and returns
+ * a map of categoryId → count. Much lighter than fetchPublicContent().
+ */
+export const fetchArticleCategoryCounts = async (): Promise<Record<string, number>> => {
+  if (_categoryCountsCache && Date.now() - _categoryCountsCache.time < CACHE_TTL) {
+    return _categoryCountsCache.data;
+  }
+  const { data, error } = await supabase
+    .from('articles')
+    .select('category_id')
+    .eq('is_published', true);
+  if (error) throw error;
+  const counts: Record<string, number> = {};
+  (data || []).forEach((row: { category_id: string }) => {
+    counts[row.category_id] = (counts[row.category_id] || 0) + 1;
+  });
+  _categoryCountsCache = { data: counts, time: Date.now() };
+  return counts;
 };
 
 export const fetchPublicContent = async (onlyPublished: boolean = true): Promise<{ categories: Category[]; articles: Article[] }> => {
