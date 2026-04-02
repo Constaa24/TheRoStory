@@ -6,6 +6,13 @@ import { Button } from "@/components/ui/button";
 import { Article, Category, searchArticles, fetchCategories, getLocalized } from "@/lib/supabase";
 import { useLanguage } from "@/hooks/use-language";
 
+// Module-level cache — categories don't change during a session
+let _categoriesCache: Category[] | null = null;
+const getCachedCategories = () => {
+  if (_categoriesCache) return Promise.resolve(_categoriesCache);
+  return fetchCategories().then((cats) => { _categoriesCache = cats; return cats; });
+};
+
 export const SearchBar: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -18,10 +25,11 @@ export const SearchBar: React.FC = () => {
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const debounceRef = useRef<number>();
+  const searchRequestIdRef = useRef(0);
 
   // Load categories once for result subtitle display
   useEffect(() => {
-    fetchCategories().then(setCategories).catch(() => {});
+    getCachedCategories().then(setCategories).catch(() => {});
   }, []);
 
   // Debounced DB search on every query change
@@ -36,16 +44,19 @@ export const SearchBar: React.FC = () => {
 
     setIsSearching(true);
     window.clearTimeout(debounceRef.current);
+    const requestId = ++searchRequestIdRef.current;
     debounceRef.current = window.setTimeout(async () => {
       try {
         const articles = await searchArticles(q);
+        if (searchRequestIdRef.current !== requestId) return;
         setResults(articles);
         setFetchError(false);
       } catch {
+        if (searchRequestIdRef.current !== requestId) return;
         setFetchError(true);
         setResults([]);
       } finally {
-        setIsSearching(false);
+        if (searchRequestIdRef.current === requestId) setIsSearching(false);
       }
     }, 300);
 

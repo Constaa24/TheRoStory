@@ -194,7 +194,8 @@ const Profile: React.FC = () => {
         .eq('id', user.id);
 
       if (profileError) {
-        await supabase.storage.from('avatars').remove([path]);
+        // Fire-and-forget cleanup — don't await so profileError always propagates
+        supabase.storage.from('avatars').remove([path]).catch(() => {});
         throw profileError;
       }
       

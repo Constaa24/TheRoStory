@@ -64,8 +64,9 @@ const VideoStoryCreate: React.FC = () => {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    if (!file.type.startsWith("video/")) {
-      toast.error(language === 'en' ? "Please upload a video file" : "Vă rugăm să încărcați un fișier video");
+    const ALLOWED_VIDEO_TYPES = ["video/mp4", "video/webm", "video/quicktime", "video/x-msvideo"];
+    if (!ALLOWED_VIDEO_TYPES.includes(file.type)) {
+      toast.error(language === 'en' ? "Please upload an MP4, WebM, MOV, or AVI video file" : "Vă rugăm să încărcați un fișier video MP4, WebM, MOV sau AVI");
       return;
     }
 
@@ -73,6 +74,9 @@ const VideoStoryCreate: React.FC = () => {
       toast.error(language === 'en' ? "Video must be under 500MB" : "Videoclipul trebuie să fie sub 500MB");
       return;
     }
+
+    // Clear input immediately so the same file can be re-selected if needed
+    if (event.target) event.target.value = "";
 
     setIsUploading(true);
     try {
@@ -86,26 +90,25 @@ const VideoStoryCreate: React.FC = () => {
       setPosterUrl("");
 
       const publicUrl = await uploadFile('articles', videoPath, file);
-
-      let uploadedPosterUrl = "";
-      try {
-        const posterFile = await createVideoPosterImageFile(file, `${uploadId}-poster.jpg`);
-        if (posterFile) {
-          uploadedPosterUrl = await uploadFile('articles', posterPath, posterFile);
-        }
-      } catch (posterError) {
-        console.warn("Poster generation/upload failed:", posterError);
-      }
-
       setVideoUrl(publicUrl);
-      setPosterUrl(uploadedPosterUrl);
       toast.success(language === 'en' ? "Video uploaded successfully" : "Video încărcat cu succes");
+
+      // Generate and upload poster in the background — don't block the UI
+      createVideoPosterImageFile(file, `${uploadId}-poster.jpg`)
+        .then(async (posterFile) => {
+          if (posterFile) {
+            const url = await uploadFile('articles', posterPath, posterFile);
+            setPosterUrl(url);
+          }
+        })
+        .catch((posterError) => {
+          console.warn("Poster generation/upload failed:", posterError);
+        });
     } catch (error) {
       console.error("Error uploading video:", error);
       toast.error(language === 'en' ? "Error uploading video" : "Eroare la încărcarea videoclipului");
     } finally {
       setIsUploading(false);
-      if (event.target) event.target.value = "";
     }
   };
 

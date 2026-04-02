@@ -5,14 +5,21 @@ import { getLocalized, Article, CHAPTER_DELIMITER, Comment } from "@/lib/supabas
 import { toggleFavorite, isArticleFavorited, fetchComments, postComment, deleteComment, updateComment, fetchPublicContent, fetchArticleViews, incrementView } from "@/lib/supabase";
 import { isAbortError } from "@/lib/utils";
 
-// Session-level cache — avoids re-fetching all articles every time a modal opens
+// Session-level cache — avoids re-fetching all articles every time a modal opens.
+// TTL ensures admins see freshly published content within 5 minutes.
+const PARCHMENT_CACHE_TTL_MS = 5 * 60 * 1000;
 let _publicContentCache: Awaited<ReturnType<typeof fetchPublicContent>> | null = null;
+let _publicContentCacheTime = 0;
 let _publicContentPending: Promise<Awaited<ReturnType<typeof fetchPublicContent>>> | null = null;
 const getCachedPublicContent = () => {
-  if (_publicContentCache) return Promise.resolve(_publicContentCache);
+  if (_publicContentCache && Date.now() - _publicContentCacheTime < PARCHMENT_CACHE_TTL_MS) {
+    return Promise.resolve(_publicContentCache);
+  }
+  _publicContentCache = null;
   if (_publicContentPending) return _publicContentPending;
   _publicContentPending = fetchPublicContent().then((data) => {
     _publicContentCache = data;
+    _publicContentCacheTime = Date.now();
     _publicContentPending = null;
     return data;
   });
@@ -61,7 +68,7 @@ export const ParchmentArticle: React.FC<ParchmentArticleProps> = ({
   const [commentsLoadError, setCommentsLoadError] = useState<string | null>(null);
   const [newComment, setNewComment] = useState("");
   const [isPosting, setIsPosting] = useState(false);
-  const lastCommentTimeRef = useRef(0);
+  const COMMENT_COOLDOWN_KEY = 'rostory_last_comment';
   const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
   const [editContent, setEditContent] = useState("");
   const [isDeletingComment, setIsDeletingComment] = useState<string | null>(null);
@@ -243,8 +250,9 @@ export const ParchmentArticle: React.FC<ParchmentArticleProps> = ({
 
     const now = Date.now();
     const cooldownMs = 10_000;
-    if (now - lastCommentTimeRef.current < cooldownMs) {
-      const secsLeft = Math.ceil((cooldownMs - (now - lastCommentTimeRef.current)) / 1000);
+    const lastCommentTime = parseInt(localStorage.getItem(COMMENT_COOLDOWN_KEY) || '0', 10);
+    if (now - lastCommentTime < cooldownMs) {
+      const secsLeft = Math.ceil((cooldownMs - (now - lastCommentTime)) / 1000);
       toast.error(language === 'en' ? `Please wait ${secsLeft}s before posting again` : `Așteaptă ${secsLeft}s înainte de a posta din nou`);
       return;
     }
@@ -259,7 +267,7 @@ export const ParchmentArticle: React.FC<ParchmentArticleProps> = ({
       });
 
       if (success) {
-        lastCommentTimeRef.current = Date.now();
+        localStorage.setItem(COMMENT_COOLDOWN_KEY, String(Date.now()));
         setNewComment("");
         await loadComments(article.id);
         toast.success(language === 'en' ? "Comment posted" : "Comentariu postat");

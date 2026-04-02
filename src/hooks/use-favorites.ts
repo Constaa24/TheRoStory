@@ -11,6 +11,7 @@ export function useFavorites() {
   const [userFavorites, setUserFavorites] = useState<string[]>([]);
   const mountedRef = useRef(true);
   const fetchIdRef = useRef(0);
+  const togglingRef = useRef(new Set<string>());
 
   const fetchFavorites = useCallback(async () => {
     if (!user) return;
@@ -51,6 +52,9 @@ export function useFavorites() {
       return;
     }
 
+    if (togglingRef.current.has(articleId)) return;
+    togglingRef.current.add(articleId);
+
     try {
       const added = await toggleFavorite(user.id, articleId);
       if (added) {
@@ -64,6 +68,8 @@ export function useFavorites() {
     } catch {
       toast.error(language === 'en' ? "Failed to update favorites" : "Eroare la actualizarea favoritelor");
       return null;
+    } finally {
+      togglingRef.current.delete(articleId);
     }
   }, [user, language, login]);
 

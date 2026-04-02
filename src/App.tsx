@@ -111,7 +111,6 @@ const App: React.FC = () => {
         {!hideAppChrome && <Navbar />}
         <main className="flex-1">
           <ErrorBoundary
-            key={location.pathname}
             fallback={
             <div className="flex flex-col items-center justify-center p-20 gap-4">
               <p className="text-lg font-serif text-muted-foreground">Something went wrong loading this page.</p>

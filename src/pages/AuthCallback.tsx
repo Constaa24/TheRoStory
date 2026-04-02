@@ -23,6 +23,7 @@ const AuthCallback: React.FC = () => {
 
   useEffect(() => {
     mountedRef.current = true;
+    const pendingTimeouts = new Set<ReturnType<typeof setTimeout>>();
 
     const scheduleRedirect = (path: string, delayMs: number) => {
       if (redirectTimerRef.current) clearTimeout(redirectTimerRef.current);
@@ -40,10 +41,14 @@ const AuthCallback: React.FC = () => {
           promise,
           new Promise<T>((_, reject) => {
             timeoutId = setTimeout(() => reject(new Error(`${label} timed out. Please try again.`)), ms);
+            pendingTimeouts.add(timeoutId!);
           })
         ]);
       } finally {
-        if (timeoutId) clearTimeout(timeoutId);
+        if (timeoutId !== null) {
+          clearTimeout(timeoutId);
+          pendingTimeouts.delete(timeoutId);
+        }
       }
     };
 
@@ -188,6 +193,7 @@ const AuthCallback: React.FC = () => {
 
     return () => {
       mountedRef.current = false;
+      pendingTimeouts.forEach(clearTimeout);
       if (redirectTimerRef.current) clearTimeout(redirectTimerRef.current);
     };
   }, [language, navigate]);

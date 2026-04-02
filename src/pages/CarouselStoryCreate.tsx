@@ -20,6 +20,52 @@ import { toast } from "sonner";
 import { cn, isAbortError } from "@/lib/utils";
 import { COUNTIES } from "@/lib/constants";
 
+interface GalleryGridProps {
+  mediaUrls: string[];
+  isUploading: boolean;
+  onRemove: (index: number) => void;
+  onAdd: () => void;
+}
+
+const GalleryGrid = React.memo<GalleryGridProps>(({ mediaUrls, isUploading, onRemove, onAdd }) => (
+  <div className="grid grid-cols-2 gap-2">
+    {mediaUrls.map((url, index) => (
+      <div key={index} className="relative group aspect-square rounded-xl overflow-hidden shadow-sm border border-border">
+        <img src={url} className="w-full h-full object-cover" alt={`Image ${index + 1}`} loading="lazy" />
+        <button
+          className="absolute top-2 right-2 h-6 w-6 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+          onClick={() => onRemove(index)}
+          type="button"
+        >
+          <X className="h-3 w-3" />
+        </button>
+        <div className="absolute bottom-2 left-2 bg-black/50 text-white text-[10px] px-2 py-0.5 rounded-full backdrop-blur-sm">
+          {index + 1}
+        </div>
+      </div>
+    ))}
+    <button
+      className={cn(
+        "aspect-square rounded-xl border-2 border-dashed flex flex-col items-center justify-center transition-colors gap-2",
+        isUploading ? "border-accent/50 bg-accent/5" : "border-muted-foreground/20 hover:border-accent/50 hover:bg-accent/5"
+      )}
+      onClick={onAdd}
+      disabled={isUploading}
+      type="button"
+    >
+      {isUploading ? (
+        <Loader2 className="h-6 w-6 animate-spin text-accent" />
+      ) : (
+        <>
+          <Plus className="h-6 w-6 text-accent" />
+          <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Add Image</span>
+        </>
+      )}
+    </button>
+  </div>
+));
+GalleryGrid.displayName = "GalleryGrid";
+
 const CarouselStoryCreate: React.FC = () => {
   const { user, isAdmin } = useAuth();
   const { language, t } = useLanguage();
@@ -90,7 +136,13 @@ const CarouselStoryCreate: React.FC = () => {
   };
 
   const removeImage = (index: number) => {
+    const url = mediaUrls[index];
     setMediaUrls(prev => prev.filter((_, i) => i !== index));
+    // Best-effort cleanup of the uploaded file from storage
+    const match = url?.match(/\/object\/public\/articles\/(.+)$/);
+    if (match) {
+      supabase.storage.from('articles').remove([match[1]]).catch(() => {});
+    }
   };
 
   const handleSave = async () => {
@@ -248,44 +300,14 @@ const CarouselStoryCreate: React.FC = () => {
             <h2 className="text-xl font-serif italic mb-4">{language === 'en' ? "Images Gallery" : "Galerie Imagini"}</h2>
             
             <div className="flex-1 space-y-4">
-              <div className="grid grid-cols-2 gap-2">
-                {mediaUrls.map((url, index) => (
-                  <div key={index} className="relative group aspect-square rounded-xl overflow-hidden shadow-sm border border-border">
-                    <img src={url} className="w-full h-full object-cover" alt={`Image ${index + 1}`} loading="lazy" />
-                    <Button 
-                      variant="destructive" 
-                      size="icon" 
-                      className="absolute top-2 right-2 h-6 w-6 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                      onClick={() => removeImage(index)}
-                    >
-                      <X className="h-3 w-3" />
-                    </Button>
-                    <div className="absolute bottom-2 left-2 bg-black/50 text-white text-[10px] px-2 py-0.5 rounded-full backdrop-blur-sm">
-                      {index + 1}
-                    </div>
-                  </div>
-                ))}
-                
-                <button 
-                  className={cn(
-                    "aspect-square rounded-xl border-2 border-dashed flex flex-col items-center justify-center transition-colors gap-2",
-                    isUploading ? "border-accent/50 bg-accent/5" : "border-muted-foreground/20 hover:border-accent/50 hover:bg-accent/5"
-                  )}
-                  onClick={() => imageInputRef.current?.click()}
-                  disabled={isUploading}
-                >
-                  {isUploading ? (
-                    <Loader2 className="h-6 w-6 animate-spin text-accent" />
-                  ) : (
-                    <>
-                      <Plus className="h-6 w-6 text-accent" />
-                      <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Add Image</span>
-                    </>
-                  )}
-                </button>
-              </div>
+              <GalleryGrid
+                mediaUrls={mediaUrls}
+                isUploading={isUploading}
+                onRemove={removeImage}
+                onAdd={() => imageInputRef.current?.click()}
+              />
 
-              <input 
+              <input
                 type="file" 
                 ref={imageInputRef} 
                 onChange={handleImageUpload} 

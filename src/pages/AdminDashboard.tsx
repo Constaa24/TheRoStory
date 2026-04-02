@@ -202,6 +202,10 @@ const AdminDashboard: React.FC = () => {
       toast.error("Please fill all fields");
       return;
     }
+    if (!/^[a-z0-9-]+$/.test(newCategory.slug)) {
+      toast.error("Slug must be lowercase letters, numbers, and hyphens only (e.g. my-category)");
+      return;
+    }
     try {
       const id = `cat_${Date.now()}`;
       const { error } = await supabase.from('categories').insert({
@@ -349,6 +353,8 @@ const AdminDashboard: React.FC = () => {
       if (allUsers.length === 1 && usersPage > 1) {
         setUsersPage(prev => Math.max(1, prev - 1));
       } else {
+        setAllUsers(prev => prev.filter(u => u.id !== id));
+        setUsersTotal(prev => prev !== null ? prev - 1 : null);
         fetchData();
       }
       toast.success("User deleted");

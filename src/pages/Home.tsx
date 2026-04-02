@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Category, Article, getLocalized, fetchPublicContent, fetchArticlesPage, fetchRandomArticle } from "@/lib/supabase";
 import { useLanguage } from "@/hooks/use-language";
 import { useFavorites } from "@/hooks/use-favorites";
@@ -13,6 +13,7 @@ import { cn, isAbortError } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
 
 const PAGE_SIZE = 9;
+const FALLBACK_IMAGE_URL = "https://images.unsplash.com/photo-1701118737005-005fc66703be?q=80&w=800";
 
 // Per-element debounce map so rapid hovering doesn't queue multiple play() calls
 const videoPlayTimers = new WeakMap<HTMLVideoElement, ReturnType<typeof setTimeout>>();
@@ -48,7 +49,17 @@ const ArticleCard = React.memo<ArticleCardProps>(({
   isArticleFavorited,
   onOpen,
   onFavoriteToggle,
-}) => (
+}) => {
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  useEffect(() => {
+    return () => {
+      if (videoRef.current) {
+        const timer = videoPlayTimers.get(videoRef.current);
+        if (timer !== undefined) { clearTimeout(timer); videoPlayTimers.delete(videoRef.current); }
+      }
+    };
+  }, []);
+  return (
   <Card
     className="group overflow-hidden border border-border/10 shadow-elegant hover:shadow-2xl transition-all duration-700 bg-secondary/5 cursor-pointer h-full flex flex-col hover:-translate-y-3 relative rounded-2xl"
     onClick={() => onOpen(article)}
@@ -69,7 +80,8 @@ const ArticleCard = React.memo<ArticleCardProps>(({
               aria-label={getLocalized(article, "title", language)}
               muted
               onMouseOver={e => {
-                const v = e.currentTarget;
+                const v = e.currentTarget as HTMLVideoElement;
+                videoRef.current = v;
                 const t = videoPlayTimers.get(v);
                 if (t) clearTimeout(t);
                 videoPlayTimers.set(v, setTimeout(() => void v.play().catch(() => {}), 150));
@@ -96,7 +108,7 @@ const ArticleCard = React.memo<ArticleCardProps>(({
       ) : article.type === 'carousel' ? (
         <div className="w-full h-full relative">
           <img
-            src={article.mediaUrls?.[0] || article.mediaUrl || "https://images.unsplash.com/photo-1701118737005-005fc66703be?q=80&w=800"}
+            src={article.mediaUrls?.[0] || article.mediaUrl || FALLBACK_IMAGE_URL}
             alt={getLocalized(article, "title", language)}
             className="w-full h-full object-cover grayscale-[0.2] group-hover:grayscale-0 group-hover:scale-110 transition-all duration-700"
             loading="lazy"
@@ -114,7 +126,7 @@ const ArticleCard = React.memo<ArticleCardProps>(({
         </div>
       ) : (
         <img
-          src={article.mediaUrl || "https://images.unsplash.com/photo-1701118737005-005fc66703be?q=80&w=800"}
+          src={article.mediaUrl || FALLBACK_IMAGE_URL}
           alt={getLocalized(article, "title", language)}
           className="w-full h-full object-cover grayscale-[0.2] group-hover:grayscale-0 group-hover:scale-110 transition-all duration-700"
           loading="lazy"
@@ -171,7 +183,8 @@ const ArticleCard = React.memo<ArticleCardProps>(({
       </Button>
     </CardFooter>
   </Card>
-));
+  );
+});
 ArticleCard.displayName = "ArticleCard";
 
 const Home: React.FC = () => {
