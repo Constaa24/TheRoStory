@@ -180,7 +180,7 @@ export const ParchmentArticle: React.FC<ParchmentArticleProps> = ({
 
     loadData();
     return () => { cancelled = true; };
-  }, [user, article.id, article.categoryId, language]);
+  }, [user, article.id, article.categoryId]);
 
   const handleShare = (platform: 'facebook' | 'x' | 'copy') => {
     const url = `${window.location.origin}/article/${article.id}`;
@@ -451,6 +451,8 @@ export const ParchmentArticle: React.FC<ParchmentArticleProps> = ({
 
   const renderVideoStory = () => {
     const description = getLocalized(article, "content", language);
+    const articleDate = new Date(article.createdAt);
+    const locale = language === 'en' ? 'en-US' : 'ro-RO';
     
     return (
       <div className="space-y-12">
@@ -481,11 +483,7 @@ export const ParchmentArticle: React.FC<ParchmentArticleProps> = ({
               </span>
             )}
             <span className="bg-secondary-foreground/5 px-3 py-1 rounded-full border border-secondary-foreground/10">
-              {new Date(article.createdAt).toLocaleDateString(language === 'en' ? 'en-US' : 'ro-RO', {
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric'
-              })}
+              {articleDate.toLocaleDateString(locale, { year: 'numeric', month: 'long', day: 'numeric' })}
             </span>
           </div>
         </header>
@@ -502,7 +500,6 @@ export const ParchmentArticle: React.FC<ParchmentArticleProps> = ({
             controls
             preload="metadata"
             playsInline
-            type="video/mp4"
             className="w-full h-full object-contain"
           />
           <div className="absolute inset-0 border-[1px] border-white/10 pointer-events-none" />
@@ -532,10 +529,7 @@ export const ParchmentArticle: React.FC<ParchmentArticleProps> = ({
           <div className="flex flex-col items-center gap-2">
             <div className="h-10 w-[1px] bg-accent/30" />
             <p className="text-[10px] font-sans uppercase tracking-[0.5em] text-muted-foreground/60">
-              {new Date(article.createdAt).toLocaleDateString(language === 'en' ? 'en-US' : 'ro-RO', {
-                year: 'numeric',
-                month: 'long'
-              })}
+              {articleDate.toLocaleDateString(locale, { year: 'numeric', month: 'long' })}
             </p>
           </div>
         </div>
@@ -670,13 +664,13 @@ export const ParchmentArticle: React.FC<ParchmentArticleProps> = ({
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-10 bg-primary/40 backdrop-blur-sm"
+      className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-10 bg-primary/40 backdrop-blur-[1px]"
       onClick={onClose}
     >
         <motion.div
-          initial={{ y: 50, scale: 0.9, opacity: 0 }}
-          animate={{ y: 0, scale: 1, opacity: 1 }}
-          exit={{ y: 50, scale: 0.9, opacity: 0 }}
+          initial={{ y: 40, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          exit={{ y: 40, opacity: 0 }}
           transition={{ type: "spring", damping: 25, stiffness: 200 }}
           className="parchment-effect burnt-edge w-full max-w-4xl max-h-[90vh] flex flex-col rounded-sm overflow-hidden relative shadow-2xl"
           onClick={(e) => e.stopPropagation()}
