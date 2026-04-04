@@ -103,6 +103,7 @@ const VideoStoryCreate: React.FC = () => {
         })
         .catch((posterError) => {
           console.warn("Poster generation/upload failed:", posterError);
+          toast.warning(language === 'en' ? "Poster generation failed — you can upload one manually." : "Generarea posterului a eșuat — îl poți încărca manual.");
         });
     } catch (error) {
       console.error("Error uploading video:", error);

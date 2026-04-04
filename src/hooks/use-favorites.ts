@@ -25,7 +25,7 @@ export function useFavorites() {
       if (error) throw error;
       // Only apply if this is still the latest fetch (user hasn't changed)
       if (mountedRef.current && fetchIdRef.current === currentFetchId) {
-        setUserFavorites(data.map((f: any) => f.article_id));
+        setUserFavorites(data.map((f: { article_id: string }) => f.article_id));
       }
     } catch (error: any) {
       if (!isAbortError(error)) {

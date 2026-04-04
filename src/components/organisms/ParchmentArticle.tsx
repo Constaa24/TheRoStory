@@ -68,7 +68,7 @@ export const ParchmentArticle: React.FC<ParchmentArticleProps> = ({
   const [commentsLoadError, setCommentsLoadError] = useState<string | null>(null);
   const [newComment, setNewComment] = useState("");
   const [isPosting, setIsPosting] = useState(false);
-  const COMMENT_COOLDOWN_KEY = 'rostory_last_comment';
+  const COMMENT_COOLDOWN_KEY = `rostory_last_comment_${article.id}`;
   const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
   const [editContent, setEditContent] = useState("");
   const [isDeletingComment, setIsDeletingComment] = useState<string | null>(null);
@@ -187,7 +187,7 @@ export const ParchmentArticle: React.FC<ParchmentArticleProps> = ({
 
     loadData();
     return () => { cancelled = true; };
-  }, [user, article.id, article.categoryId]);
+  }, [user, article.id, article.categoryId, language]);
 
   const handleShare = (platform: 'facebook' | 'x' | 'copy') => {
     const url = `${window.location.origin}/article/${article.id}`;
