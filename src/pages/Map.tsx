@@ -12,7 +12,7 @@ import {
 import { useLanguage } from "@/hooks/use-language";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { VideoThumbnail } from "@/components/ui/video-thumbnail";
+import { StoryThumbnail } from "@/components/ui/story-thumbnail";
 import { 
   X, 
   MapPin, 
@@ -339,7 +339,7 @@ const MapPage: React.FC = () => {
                           {art.mediaUrl && (
                             <div className="h-16 w-16 rounded-xl overflow-hidden shrink-0 shadow-sm">
                               {art.type === 'video' ? (
-                                <VideoThumbnail src={art.mediaUrl} posterSrc={art.posterUrl} className="h-full w-full object-cover" />
+                                <StoryThumbnail posterUrl={art.posterUrl} className="h-full w-full object-cover" />
                               ) : (
                                 <img src={art.mediaUrl} alt="" className="h-full w-full object-cover" loading="lazy" />
                               )}

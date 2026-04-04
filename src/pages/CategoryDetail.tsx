@@ -6,7 +6,7 @@ import { useLanguage } from "@/hooks/use-language";
 import { useFavorites } from "@/hooks/use-favorites";
 import { ArrowLeft, ArrowRight, BookOpen, Heart, Video } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { VideoThumbnail } from "@/components/ui/video-thumbnail";
+import { StoryThumbnail } from "@/components/ui/story-thumbnail";
 import { cn, isAbortError } from "@/lib/utils";
 import { ParchmentArticle } from "@/components/organisms/ParchmentArticle";
 import { AnimatePresence } from "framer-motion";
@@ -121,13 +121,10 @@ const CategoryDetail: React.FC = () => {
                   <div className="aspect-[16/10] overflow-hidden relative">
                     {article.type === 'video' ? (
                       <div className="w-full h-full relative">
-                        <VideoThumbnail
-                          src={article.mediaUrl} 
-                          posterSrc={article.posterUrl}
+                        <StoryThumbnail
+                          posterUrl={article.posterUrl}
+                          alt={getLocalized(article, "title", language)}
                           className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
-                          muted
-                          onMouseOver={e => e.currentTarget.play()}
-                          onMouseOut={e => { e.currentTarget.pause(); e.currentTarget.currentTime = 0; }}
                         />
                         <div className="absolute inset-0 flex items-center justify-center bg-black/20 group-hover:bg-transparent transition-colors">
                           <div className="p-3 bg-white/20 backdrop-blur-md rounded-full">

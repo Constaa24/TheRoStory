@@ -1,11 +1,11 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Category, Article, getLocalized, fetchPublicContent, fetchArticlesPage, fetchRandomArticle } from "@/lib/supabase";
 import { useLanguage } from "@/hooks/use-language";
 import { useFavorites } from "@/hooks/use-favorites";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
-import { VideoThumbnail } from "@/components/ui/video-thumbnail";
+import { StoryThumbnail } from "@/components/ui/story-thumbnail";
 import { ParchmentArticle } from "@/components/organisms/ParchmentArticle";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronRight, ChevronLeft, BookOpen, Heart, Video, MapPin, Images } from "lucide-react";
@@ -14,9 +14,6 @@ import { useNavigate } from "react-router-dom";
 
 const PAGE_SIZE = 9;
 const FALLBACK_IMAGE_URL = "https://images.unsplash.com/photo-1701118737005-005fc66703be?q=80&w=800";
-
-// Per-element debounce map so rapid hovering doesn't queue multiple play() calls
-const videoPlayTimers = new WeakMap<HTMLVideoElement, ReturnType<typeof setTimeout>>();
 
 // Extracted animation variants to avoid re-creating objects on every render
 const fadeScaleIn = { initial: { opacity: 0, scale: 0.9 }, animate: { opacity: 1, scale: 1 } } as const;
@@ -50,15 +47,6 @@ const ArticleCard = React.memo<ArticleCardProps>(({
   onOpen,
   onFavoriteToggle,
 }) => {
-  const videoRef = useRef<HTMLVideoElement | null>(null);
-  useEffect(() => {
-    return () => {
-      if (videoRef.current) {
-        const timer = videoPlayTimers.get(videoRef.current);
-        if (timer !== undefined) { clearTimeout(timer); videoPlayTimers.delete(videoRef.current); }
-      }
-    };
-  }, []);
   return (
   <Card
     className="group overflow-hidden border border-border/10 shadow-elegant hover:shadow-2xl transition-all duration-700 bg-secondary/5 cursor-pointer h-full flex flex-col hover:-translate-y-3 relative rounded-2xl"
@@ -72,33 +60,11 @@ const ArticleCard = React.memo<ArticleCardProps>(({
     <div className="aspect-[4/5] overflow-hidden relative">
       {article.type === 'video' ? (
         <div className="w-full h-full relative">
-          {article.mediaUrl ? (
-            <VideoThumbnail
-              src={article.mediaUrl}
-              posterSrc={article.posterUrl}
-              className="w-full h-full object-cover grayscale-[0.2] group-hover:grayscale-0 group-hover:scale-110 transition-all duration-700"
-              aria-label={getLocalized(article, "title", language)}
-              muted
-              onMouseOver={e => {
-                const v = e.currentTarget as HTMLVideoElement;
-                videoRef.current = v;
-                const t = videoPlayTimers.get(v);
-                if (t) clearTimeout(t);
-                videoPlayTimers.set(v, setTimeout(() => void v.play().catch(() => {}), 150));
-              }}
-              onMouseOut={e => {
-                const v = e.currentTarget;
-                const t = videoPlayTimers.get(v);
-                if (t) { clearTimeout(t); videoPlayTimers.delete(v); }
-                v.pause();
-                v.currentTime = 0;
-              }}
-            />
-          ) : (
-            <div className="w-full h-full bg-secondary/20 flex items-center justify-center">
-              <Video className="h-12 w-12 text-muted-foreground/30" />
-            </div>
-          )}
+          <StoryThumbnail
+            posterUrl={article.posterUrl}
+            alt={getLocalized(article, "title", language)}
+            className="w-full h-full object-cover grayscale-[0.2] group-hover:grayscale-0 group-hover:scale-110 transition-all duration-700"
+          />
           <div className="absolute inset-0 flex items-center justify-center bg-black/20 group-hover:bg-transparent transition-colors">
             <div className="p-4 bg-white/20 backdrop-blur-md rounded-full">
               <Video className="h-8 w-8 text-white" />

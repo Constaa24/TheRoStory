@@ -64,7 +64,7 @@ const VideoStoryCreate: React.FC = () => {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    const ALLOWED_VIDEO_TYPES = ["video/mp4", "video/webm", "video/quicktime", "video/x-msvideo"];
+    const ALLOWED_VIDEO_TYPES = ["video/mp4", "video/webm", "video/quicktime"];
     if (!ALLOWED_VIDEO_TYPES.includes(file.type)) {
       toast.error(language === 'en' ? "Please upload an MP4, WebM, MOV, or AVI video file" : "Vă rugăm să încărcați un fișier video MP4, WebM, MOV sau AVI");
       return;
@@ -83,8 +83,8 @@ const VideoStoryCreate: React.FC = () => {
       const ownerId = user?.id || "anonymous";
       const uploadId = Date.now();
       const extension = file.name.split('.').pop() || "mp4";
-      const videoPath = `${ownerId}/${uploadId}.${extension}`;
-      const posterPath = `${ownerId}/${uploadId}-poster.jpg`;
+      const videoPath = `stories/videos/${ownerId}/${uploadId}/original.${extension}`;
+      const posterPath = `stories/posters/${ownerId}/${uploadId}/poster.jpg`;
 
       setVideoUrl("");
       setPosterUrl("");
@@ -126,7 +126,7 @@ const VideoStoryCreate: React.FC = () => {
       const ownerId = user?.id || "anonymous";
       const uploadId = Date.now();
       const extension = file.name.split('.').pop() || "jpg";
-      const path = `${ownerId}/${uploadId}-poster.${extension}`;
+      const path = `stories/posters/${ownerId}/${uploadId}/poster.${extension}`;
       const publicUrl = await uploadFile('articles', path, file);
 
       setPosterUrl(publicUrl);
@@ -350,7 +350,7 @@ const VideoStoryCreate: React.FC = () => {
                 type="file" 
                 ref={videoInputRef} 
                 onChange={handleVideoUpload} 
-                accept="video/*" 
+                accept=".mp4,.webm,.mov,video/mp4,video/webm,video/quicktime"
                 className="hidden" 
               />
             </div>

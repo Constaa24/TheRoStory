@@ -46,7 +46,7 @@ export const createVideoPosterImageFile = async (
 
   const objectUrl = URL.createObjectURL(videoFile);
   const video = document.createElement("video");
-  video.preload = "auto";
+  video.preload = "metadata";
   video.muted = true;
   video.playsInline = true;
 
@@ -94,7 +94,7 @@ export const createVideoPosterImageFile = async (
         }
       };
 
-      overallTimeout = window.setTimeout(() => finish(null), 10000);
+      overallTimeout = window.setTimeout(() => finish(null), 6000);
 
       video.addEventListener("loadeddata", handleLoadedData, { once: true });
       video.addEventListener("error", handleError, { once: true });
