@@ -243,7 +243,6 @@ const AdminDashboard: React.FC = () => {
         location: newArticle.location,
         media_url: newArticle.mediaUrl,
         poster_url: newArticle.posterUrl || null,
-        author_id: user.id,
         user_id: user.id,
         is_published: isPublished,
         type: 'text',

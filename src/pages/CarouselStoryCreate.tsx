@@ -164,7 +164,6 @@ const CarouselStoryCreate: React.FC = () => {
         location: location,
         media_urls: mediaUrls,
         media_url: mediaUrls[0], // Set first image as main media_url for compatibility
-        author_id: user.id,
         user_id: user.id,
         is_published: isAdmin,
         type: 'carousel',

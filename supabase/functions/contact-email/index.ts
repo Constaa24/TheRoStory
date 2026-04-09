@@ -15,7 +15,7 @@ const ALLOWED_ORIGINS = IS_LOCAL ? [...PROD_ORIGINS, ...DEV_ORIGINS] : PROD_ORIG
 
 function isAllowedOrigin(origin: string): boolean {
   if (ALLOWED_ORIGINS.includes(origin)) return true;
-  if (/^https:\/\/the-rostory[\w-]*\.vercel\.app$/.test(origin)) return true;
+  if (/^https:\/\/the-rostory-[a-z0-9][a-z0-9-]*\.vercel\.app$/.test(origin)) return true;
   return false;
 }
 
@@ -171,8 +171,8 @@ Deno.serve(async (req) => {
     });
 
     if (!resendResp.ok) {
-      const errText = await resendResp.text();
-      return new Response(JSON.stringify({ ok: false, error: errText }), {
+      console.error("Resend API error:", resendResp.status, await resendResp.text());
+      return new Response(JSON.stringify({ ok: false, error: "Failed to send message. Please try again later." }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });

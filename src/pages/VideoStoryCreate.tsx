@@ -160,7 +160,6 @@ const VideoStoryCreate: React.FC = () => {
         location: location,
         media_url: videoUrl,
         poster_url: posterUrl || null,
-        author_id: user.id,
         user_id: user.id,
         is_published: isAdmin, // Supabase boolean
         type: 'video',

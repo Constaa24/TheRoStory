@@ -22,7 +22,6 @@ const COLUMN_MAP: Record<string, string> = {
   categoryId: 'category_id',
   mediaUrl: 'media_url',
   posterUrl: 'poster_url',
-  authorId: 'author_id',
   userId: 'user_id',
   isPublished: 'is_published',
   createdAt: 'created_at',
@@ -39,23 +38,23 @@ const REVERSE_MAP: Record<string, string> = Object.fromEntries(
   Object.entries(COLUMN_MAP).map(([k, v]) => [v, k])
 );
 
-export function toSnakeCase(obj: Record<string, any>): Record<string, any> {
-  const result: Record<string, any> = {};
+export function toSnakeCase(obj: Record<string, unknown>): Record<string, unknown> {
+  const result: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(obj)) {
     result[COLUMN_MAP[key] || key] = value;
   }
   return result;
 }
 
-export function toCamelCase<T>(obj: Record<string, any>): T {
-  const result: Record<string, any> = {};
+export function toCamelCase<T>(obj: Record<string, unknown>): T {
+  const result: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(obj)) {
     result[REVERSE_MAP[key] || key] = value;
   }
   return result as T;
 }
 
-export function toCamelCaseArray<T>(arr: Record<string, any>[]): T[] {
+export function toCamelCaseArray<T>(arr: Record<string, unknown>[]): T[] {
   return arr.map(item => toCamelCase<T>(item));
 }
 
@@ -78,8 +77,7 @@ export type Article = {
   categoryId: string;
   mediaUrl?: string;
   posterUrl?: string;
-  authorId: string;
-  userId?: string; // Required for RLS
+  userId: string;
   isPublished: boolean;
   type: 'text' | 'video' | 'carousel';
   mediaUrls?: string[];
@@ -144,9 +142,9 @@ export type ContactMessageResult = {
 
 // ---- Localization utility ----
 
-export const getLocalized = (obj: any, field: string, lang: 'en' | 'ro') => {
+export const getLocalized = (obj: Record<string, unknown>, field: string, lang: 'en' | 'ro'): string => {
   const localizedKey = `${field}${lang === 'en' ? 'En' : 'Ro'}`;
-  return obj[localizedKey] || obj[field] || '';
+  return String(obj[localizedKey] ?? obj[field] ?? '');
 };
 
 // ---- Constants and Parsers ----
@@ -548,7 +546,7 @@ const isFunction401 = (error: any): boolean => {
   return response?.status === 401;
 };
 
-const invokeAdminApi = async <T = any>(body: Record<string, any>): Promise<T> => {
+const invokeAdminApi = async <T = unknown>(body: Record<string, unknown>): Promise<T> => {
   let headers = await getAuthHeaders();
   let result = await supabase.functions.invoke('admin-api', { body, headers });
 

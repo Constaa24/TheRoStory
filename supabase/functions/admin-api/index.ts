@@ -17,7 +17,7 @@ const ALLOWED_ORIGINS = IS_LOCAL ? [...PROD_ORIGINS, ...DEV_ORIGINS] : PROD_ORIG
 function isAllowedOrigin(origin: string): boolean {
   if (ALLOWED_ORIGINS.includes(origin)) return true;
   // Allow Vercel preview deployments
-  if (/^https:\/\/the-rostory[\w-]*\.vercel\.app$/.test(origin)) return true;
+  if (/^https:\/\/the-rostory-[a-z0-9][a-z0-9-]*\.vercel\.app$/.test(origin)) return true;
   return false;
 }
 
