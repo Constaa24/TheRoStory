@@ -9,14 +9,28 @@ import { useLanguage } from "@/hooks/use-language";
 import { Button } from "@/components/ui/button";
 import { AlertCircle } from "lucide-react";
 import { PaperOverlay } from "@/components/ui/PaperOverlay";
+import { SocialLinks } from "@/components/ui/social-links";
 import { toast } from "sonner";
 
-class ErrorBoundary extends React.Component<
-  { fallback: React.ReactNode; children: React.ReactNode },
-  { hasError: boolean }
-> {
-  state = { hasError: false };
-  static getDerivedStateFromError() { return { hasError: true }; }
+// next-themes@0.4.x dropped children from ThemeProviderProps for RSC compatibility;
+// re-add it via a typed wrapper so JSX children work without errors.
+const ThemedProvider = ThemeProvider as React.ComponentType<
+  React.PropsWithChildren<{ attribute: string; defaultTheme: string }>
+>;
+
+type ErrorBoundaryProps = { fallback: React.ReactNode; children: React.ReactNode };
+type ErrorBoundaryState = { hasError: boolean };
+
+class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  // `declare` avoids useDefineForClassFields conflict with React 19 types
+  declare state: ErrorBoundaryState;
+  declare props: Readonly<ErrorBoundaryProps>;
+
+  constructor(props: ErrorBoundaryProps) {
+    super(props);
+    this.state = { hasError: false };
+  }
+  static getDerivedStateFromError(): ErrorBoundaryState { return { hasError: true }; }
   componentDidCatch(error: Error, info: React.ErrorInfo) {
     console.error("ErrorBoundary caught:", error, info);
   }
@@ -84,7 +98,7 @@ const App: React.FC = () => {
   };
 
   return (
-    <ThemeProvider attribute="class" defaultTheme="light">
+    <ThemedProvider attribute="class" defaultTheme="light">
       <div className="min-h-screen bg-background text-foreground flex flex-col relative">
         <ScrollToTopOnRoute />
         <PaperOverlay />
@@ -158,11 +172,12 @@ const App: React.FC = () => {
         </main>
         {!hideAppChrome && (
         <footer className="py-10 border-t border-border bg-secondary/30 text-center">
-          <div className="container mx-auto px-4">
+          <div className="container mx-auto px-4 flex flex-col items-center gap-5">
             <p className="font-serif text-lg italic text-secondary-foreground/70">
               "Storytelling is the essential human activity. The harder the situation, the more essential it is."
             </p>
-            <p className="mt-4 text-sm text-muted-foreground">
+            <SocialLinks />
+            <p className="text-sm text-muted-foreground">
               © {new Date().getFullYear()} The RoStory. All rights reserved.
             </p>
           </div>
@@ -170,7 +185,7 @@ const App: React.FC = () => {
         )}
         <ScrollToTop />
       </div>
-    </ThemeProvider>
+    </ThemedProvider>
   );
 };
 

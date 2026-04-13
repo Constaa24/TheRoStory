@@ -10,6 +10,7 @@ import {
   DropdownMenuTrigger 
 } from "@/components/ui/dropdown-menu";
 import { Globe, User, Menu, X, Shield, Heart } from "lucide-react";
+import { SocialLinks } from "@/components/ui/social-links";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
@@ -230,7 +231,11 @@ export const Navbar: React.FC = () => {
             </Link>
           ))}
           <div className="h-px bg-border w-full my-2" />
-          
+
+          <SocialLinks className="justify-center" />
+
+          <div className="h-px bg-border w-full my-2" />
+
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-2">

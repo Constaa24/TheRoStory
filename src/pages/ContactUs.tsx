@@ -11,6 +11,7 @@ import { sendContactMessage } from "@/lib/supabase";
 import { toast } from "sonner";
 import { Mail, Send, MessageSquare, User } from "lucide-react";
 import { HeroBanner } from "@/components/layout/HeroBanner";
+import { SocialLinks } from "@/components/ui/social-links";
 
 type ContactFormValues = {
   name: string;
@@ -111,6 +112,15 @@ const ContactUs: React.FC = () => {
                   <p className="text-[10px] font-sans uppercase tracking-[0.2em] text-accent font-bold mb-1">{t("contact.emailLabel")}</p>
                   <p className="font-serif italic text-lg">support@therostory.com</p>
                 </div>
+              </div>
+
+              <div className="h-[1px] w-full bg-accent/20" />
+
+              <div>
+                <p className="text-[10px] font-sans uppercase tracking-[0.2em] text-accent font-bold mb-3">
+                  {t("contact.followUs")}
+                </p>
+                <SocialLinks iconSize="h-6 w-6" />
               </div>
             </div>
           </div>
