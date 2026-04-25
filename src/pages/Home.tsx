@@ -234,7 +234,7 @@ const Home: React.FC = () => {
     <>
       <div className="space-y-16 animate-fade-in pb-20">
         {/* Hero Section */}
-      <section className="relative h-[80vh] flex items-center justify-center overflow-hidden">
+      <section className="relative min-h-[80vh] pt-20 flex items-center justify-center overflow-hidden">
         <div 
           className="absolute inset-0 bg-cover bg-center transition-transform duration-1000 scale-105"
           style={{ 
@@ -253,7 +253,7 @@ const Home: React.FC = () => {
           </motion.div>
           <motion.h1
             {...fadeSlideUp30}
-            className="text-6xl md:text-8xl font-serif font-black text-white tracking-tight animate-parchment-reveal px-4 pb-4"
+            className="text-4xl sm:text-5xl md:text-7xl lg:text-8xl font-serif font-black text-white tracking-tight animate-parchment-reveal px-4 pb-4"
           >
             {t("hero.title")}
           </motion.h1>
@@ -389,11 +389,15 @@ const Home: React.FC = () => {
               )}
             </>
           ) : (
-            <div className="py-20 text-center space-y-4">
-              <BookOpen className="h-12 w-12 text-muted-foreground mx-auto opacity-20" />
-              <p className="text-xl font-serif italic text-muted-foreground">
+            <div className="py-24 text-center space-y-6">
+              <div className="relative inline-flex items-center justify-center w-24 h-24 rounded-full bg-accent/5 mb-4 shadow-inner ring-1 ring-border/10 backdrop-blur-sm">
+                <div className="absolute inset-0 rounded-full bg-gradient-to-tr from-accent/20 to-transparent blur-xl" />
+                <BookOpen className="h-10 w-10 text-accent/50 relative z-10" />
+              </div>
+              <p className="text-2xl font-serif italic text-muted-foreground">
                 {t("articles.noArticles")}
               </p>
+              <div className="h-px w-16 bg-border mx-auto" />
             </div>
           )}
         </div>
@@ -405,7 +409,7 @@ const Home: React.FC = () => {
           <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -mr-32 -mt-32 blur-3xl group-hover:bg-white/20 transition-all duration-700" />
           
           <div className="space-y-4 max-w-xl text-center md:text-left relative z-10">
-            <h2 className="text-3xl md:text-5xl font-serif font-black italic">
+            <h2 className="text-2xl sm:text-3xl md:text-5xl font-serif font-black italic">
               {language === 'en' ? "Share Your Romanian Story" : "Împărtășește Povestea Ta Românească"}
             </h2>
             <p className="text-lg text-white/80 font-serif italic">

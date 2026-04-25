@@ -53,7 +53,7 @@ export const Navbar: React.FC = () => {
               alt="The RoStory Logo"
               className="h-9 w-9 sm:h-10 sm:w-10 rounded-md shrink-0 object-contain"
             />
-            <span className="text-2xl sm:text-3xl font-serif font-black tracking-tighter text-primary">
+            <span className="text-2xl sm:text-3xl font-serif font-black tracking-tighter text-primary whitespace-nowrap">
               The <span className="text-accent">Ro</span>Story
             </span>
           </Link>
