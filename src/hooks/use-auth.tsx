@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
-import { User } from "@supabase/supabase-js";
+import type { AuthResponse, AuthTokenResponsePassword, OAuthResponse, User, UserResponse } from "@supabase/supabase-js";
 import { isAbortError } from "@/lib/utils";
 
 // Extended user type that includes our custom profile fields
@@ -24,12 +24,12 @@ interface AuthContextType {
   isRecoveryMode: boolean;
   login: () => void;
   logout: () => void;
-  signUp: (params: { email: string; password: string; displayName: string; metadata?: Record<string, any> }) => Promise<any>;
-  signIn: (email: string, password: string) => Promise<any>;
-  signInWithGoogle: () => Promise<any>;
-  sendVerification: () => Promise<any>;
-  sendPasswordReset: (email: string) => Promise<any>;
-  confirmPasswordReset: (newPassword: string) => Promise<any>;
+  signUp: (params: { email: string; password: string; displayName: string; metadata?: Record<string, unknown> }) => Promise<AuthResponse>;
+  signIn: (email: string, password: string) => Promise<AuthTokenResponsePassword>;
+  signInWithGoogle: () => Promise<OAuthResponse>;
+  sendVerification: () => Promise<AuthResponse | void>;
+  sendPasswordReset: (email: string) => Promise<{ data: object | null; error: Error | null }>;
+  confirmPasswordReset: (newPassword: string) => Promise<UserResponse>;
   refreshUser: () => Promise<void>;
   enterRecoveryMode: () => void;
   exitRecoveryMode: (options?: { signOut?: boolean }) => Promise<void>;
@@ -301,7 +301,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     void supabase.auth.signOut();
   };
 
-  const signUp = async (params: { email: string; password: string; displayName: string; metadata?: Record<string, any> }) => {
+  const signUp = async (params: { email: string; password: string; displayName: string; metadata?: Record<string, unknown> }): Promise<AuthResponse> => {
     const { email, password, displayName, metadata } = params;
     const origin = window.location.origin;
     return supabase.auth.signUp({
@@ -329,7 +329,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
 
-  const sendVerification = async () => {
+  const sendVerification = async (): Promise<AuthResponse | void> => {
     // Resend the confirmation email for the current user
     if (user?.email) {
       const origin = window.location.origin;
@@ -339,7 +339,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         options: { emailRedirectTo: `${origin}/auth/callback` }
       });
     }
-    return Promise.resolve();
+    return;
   };
 
   const sendPasswordReset = (email: string) => {

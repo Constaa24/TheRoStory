@@ -85,7 +85,7 @@ export const Navbar: React.FC = () => {
             {/* Language Switcher */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="rounded-full">
+                <Button variant="ghost" size="icon" className="rounded-full" aria-label={t("nav.changeLanguage")}>
                   <Globe className="h-5 w-5" />
                 </Button>
               </DropdownMenuTrigger>
@@ -163,7 +163,7 @@ export const Navbar: React.FC = () => {
             {user ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="rounded-full border border-border p-0 overflow-hidden">
+                  <Button variant="ghost" size="icon" className="rounded-full border border-border p-0 overflow-hidden" aria-label={t("nav.userMenu")}>
                     <Avatar className="h-9 w-9">
                       <AvatarImage src={user.avatarUrl} alt={user.displayName || user.email || ''} />
                       <AvatarFallback className="text-sm bg-accent/10 text-accent">
@@ -202,12 +202,12 @@ export const Navbar: React.FC = () => {
                 </DropdownMenuContent>
               </DropdownMenu>
             ) : (
-              <Button onClick={login} variant="ghost" size="icon" className="rounded-full border border-border">
+              <Button onClick={login} variant="ghost" size="icon" className="rounded-full border border-border" aria-label={t("nav.login")}>
                 <User className="h-5 w-5" />
               </Button>
             )}
-            
-            <Button variant="ghost" size="icon" onClick={() => setIsMenuOpen(!isMenuOpen)}>
+
+            <Button variant="ghost" size="icon" onClick={() => setIsMenuOpen(!isMenuOpen)} aria-label={isMenuOpen ? t("nav.closeMenu") : t("nav.openMenu")} aria-expanded={isMenuOpen}>
               {isMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
             </Button>
           </div>

@@ -19,17 +19,16 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
 }) => {
   return (
     <section className={`relative ${height} flex items-center justify-center overflow-hidden`}>
-      <div
-        role="img"
-        aria-label={title}
-        className="absolute inset-0 bg-cover bg-center transition-transform duration-1000 scale-105"
-        style={{
-          backgroundImage: `url("${imageUrl}")`,
-        }}
-      >
-        <div className="absolute inset-0 bg-black/50" />
-      </div>
-      
+      <img
+        src={imageUrl}
+        alt={title}
+        loading="eager"
+        fetchPriority="high"
+        decoding="async"
+        className="absolute inset-0 w-full h-full object-cover transition-transform duration-1000 scale-105"
+      />
+      <div className="absolute inset-0 bg-black/50" />
+
       <div className="relative z-10 text-center space-y-6 px-4 max-w-4xl">
         {Icon && (
           <motion.div

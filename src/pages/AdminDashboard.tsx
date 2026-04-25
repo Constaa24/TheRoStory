@@ -1061,7 +1061,7 @@ const AdminDashboard: React.FC = () => {
                             disabled={isUploading}
                           >
                             {isUploading ? <Loader2 className="mr-2 h-3 w-3 animate-spin" /> : <Plus className="mr-2 h-3 w-3" />}
-                            Add Image
+                            {t("admin.addImage")}
                           </Button>
                         </label>
                         

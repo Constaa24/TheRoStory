@@ -23,11 +23,12 @@ import { COUNTIES } from "@/lib/constants";
 interface GalleryGridProps {
   mediaUrls: string[];
   isUploading: boolean;
+  addImageLabel: string;
   onRemove: (index: number) => void;
   onAdd: () => void;
 }
 
-const GalleryGrid = React.memo<GalleryGridProps>(({ mediaUrls, isUploading, onRemove, onAdd }) => (
+const GalleryGrid = React.memo<GalleryGridProps>(({ mediaUrls, isUploading, addImageLabel, onRemove, onAdd }) => (
   <div className="grid grid-cols-2 gap-2">
     {mediaUrls.map((url, index) => (
       <div key={index} className="relative group aspect-square rounded-xl overflow-hidden shadow-sm border border-border">
@@ -58,7 +59,7 @@ const GalleryGrid = React.memo<GalleryGridProps>(({ mediaUrls, isUploading, onRe
       ) : (
         <>
           <Plus className="h-6 w-6 text-accent" />
-          <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Add Image</span>
+          <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">{addImageLabel}</span>
         </>
       )}
     </button>
@@ -302,6 +303,7 @@ const CarouselStoryCreate: React.FC = () => {
               <GalleryGrid
                 mediaUrls={mediaUrls}
                 isUploading={isUploading}
+                addImageLabel={t("admin.addImage")}
                 onRemove={removeImage}
                 onAdd={() => imageInputRef.current?.click()}
               />

@@ -84,6 +84,15 @@ export const ParchmentArticle: React.FC<ParchmentArticleProps> = ({
     };
   }, []);
 
+  // Close the article modal on Escape key — standard modal expectation.
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", handleEscape);
+    return () => window.removeEventListener("keydown", handleEscape);
+  }, [onClose]);
+
   useEffect(() => {
     currentArticleIdRef.current = article.id;
   }, [article.id]);
@@ -709,7 +718,7 @@ export const ParchmentArticle: React.FC<ParchmentArticleProps> = ({
           <div className="flex items-center gap-2">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-accent">
+                <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-accent" aria-label={t("share.title")}>
                   <Share2 className="h-5 w-5" />
                 </Button>
               </DropdownMenuTrigger>
@@ -735,16 +744,18 @@ export const ParchmentArticle: React.FC<ParchmentArticleProps> = ({
               </DropdownMenuContent>
             </DropdownMenu>
 
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              onClick={handleFavoriteToggle} 
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleFavoriteToggle}
               disabled={isFavoriting}
+              aria-label={isFavorited ? t("article.unfavorite") : t("article.favorite")}
+              aria-pressed={isFavorited}
               className={isFavorited ? "text-red-500 hover:text-red-600 bg-red-50/50" : "text-muted-foreground hover:text-red-500 hover:bg-red-50/50"}
             >
               <Heart className={isFavorited ? "h-6 w-6 fill-current" : "h-6 w-6"} />
             </Button>
-            <Button variant="ghost" size="icon" onClick={onClose} className="hover:bg-accent/10">
+            <Button variant="ghost" size="icon" onClick={onClose} className="hover:bg-accent/10" aria-label={t("article.close")}>
               <X className="h-6 w-6" />
             </Button>
           </div>

@@ -5,7 +5,8 @@ import { Article, getLocalized } from "@/lib/supabase";
 import { fetchPublicArticle, incrementView } from "@/lib/supabase";
 import { useLanguage } from "@/hooks/use-language";
 import { ParchmentArticle } from "@/components/organisms/ParchmentArticle";
-import { isAbortError } from "@/lib/utils";
+import { logError } from "@/lib/utils";
+import { SITE_NAME, SITE_URL } from "@/lib/constants";
 
 const ArticleDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -40,10 +41,8 @@ const ArticleDetailPage: React.FC = () => {
       } else {
         navigate(fromPath, { replace: true });
       }
-    } catch (error: any) {
-      if (!isAbortError(error)) {
-        console.error("Error fetching article:", error);
-      }
+    } catch (error) {
+      logError("ArticleDetail.fetchArticle", error);
       navigate(fromPath, { replace: true });
     } finally {
       setIsLoading(false);
@@ -71,23 +70,48 @@ const ArticleDetailPage: React.FC = () => {
 
   const title = getLocalized(article, "title", language);
   const description = getLocalized(article, "content", language).substring(0, 160);
-  const imageUrl = article.mediaUrl || "https://therostory.com/og-image.png";
-  const articleUrl = `${window.location.origin}/article/${article.id}`;
+  const imageUrl =
+    article.posterUrl ||
+    article.mediaUrl ||
+    article.mediaUrls?.[0] ||
+    `${SITE_URL}/og-image.png`;
+  const articleUrl = `${SITE_URL}/article/${article.id}`;
+
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "Article",
+    headline: title,
+    description,
+    image: imageUrl,
+    datePublished: article.createdAt,
+    dateModified: article.createdAt,
+    inLanguage: language === "en" ? "en" : "ro",
+    mainEntityOfPage: { "@type": "WebPage", "@id": articleUrl },
+    publisher: {
+      "@type": "Organization",
+      name: SITE_NAME,
+      logo: { "@type": "ImageObject", url: `${SITE_URL}/logo.png` },
+    },
+  };
 
   return (
     <>
       <Helmet>
-        <title>{title} — The RoStory</title>
+        <title>{title} — {SITE_NAME}</title>
         <meta name="description" content={description} />
+        <link rel="canonical" href={articleUrl} />
         <meta property="og:title" content={title} />
         <meta property="og:description" content={description} />
         <meta property="og:image" content={imageUrl} />
         <meta property="og:url" content={articleUrl} />
         <meta property="og:type" content="article" />
+        <meta property="og:site_name" content={SITE_NAME} />
+        <meta property="og:locale" content={language === "en" ? "en_US" : "ro_RO"} />
         <meta name="twitter:card" content="summary_large_image" />
         <meta name="twitter:title" content={title} />
         <meta name="twitter:description" content={description} />
         <meta name="twitter:image" content={imageUrl} />
+        <script type="application/ld+json">{JSON.stringify(jsonLd)}</script>
       </Helmet>
       <ParchmentArticle
         article={article}

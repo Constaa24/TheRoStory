@@ -2,5 +2,9 @@ User-agent: *
 Allow: /
 Disallow: /admin
 Disallow: /admin/*
+Disallow: /auth
+Disallow: /auth/callback
+Disallow: /reset-password
+Disallow: /profile
 
 Sitemap: https://therostory.com/sitemap.xml
