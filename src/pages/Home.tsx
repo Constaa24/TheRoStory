@@ -49,12 +49,12 @@ const ArticleCard = React.memo<ArticleCardProps>(({
 }) => {
   return (
   <Card
-    className="group overflow-hidden border border-border/10 shadow-elegant hover:shadow-2xl transition-all duration-700 bg-secondary/5 cursor-pointer h-full flex flex-col hover:-translate-y-3 relative rounded-2xl"
+    className="group overflow-hidden border-none shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_20px_60px_rgb(0,0,0,0.08)] transition-all duration-700 bg-secondary/5 cursor-pointer h-full flex flex-col hover:-translate-y-3 relative rounded-[2rem] md:rounded-[2.5rem]"
     onClick={() => onOpen(article)}
   >
     <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none z-10">
-      <div className="absolute inset-0 bg-accent/10 mix-blend-overlay" />
-      <div className="absolute inset-0 border-2 border-accent/20 rounded-2xl m-2" />
+      <div className="absolute inset-0 bg-accent/5 mix-blend-overlay" />
+      <div className="absolute inset-0 border-2 border-accent/20 rounded-[2rem] md:rounded-[2.5rem] m-2" />
     </div>
 
     <div className="aspect-[4/5] overflow-hidden relative">
@@ -238,7 +238,7 @@ const Home: React.FC = () => {
         <div 
           className="absolute inset-0 bg-cover bg-center transition-transform duration-1000 scale-105"
           style={{ 
-            backgroundImage: `url("https://images.unsplash.com/photo-1701118737005-005fc66703be?q=80&w=2000")`,
+            backgroundImage: `url("/hero/castle.jpg")`,
           }}
         >
           <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" />
@@ -287,39 +287,50 @@ const Home: React.FC = () => {
             </Button>
           </motion.div>
         </div>
+
+        {/* Hero Bottom Fade */}
+        <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-background to-transparent z-10 pointer-events-none" />
       </section>
 
       {/* Explore Section */}
-      <section id="explore" className="container mx-auto px-4 space-y-12">
-        <div className="flex flex-col md:flex-row items-center justify-between gap-6 border-b border-border pb-8">
-          <div className="space-y-2 text-center md:text-left">
-            <h2 className="text-3xl font-serif font-bold text-primary italic">
+      <section id="explore" className="container mx-auto px-4 space-y-16 py-12">
+        <div className="flex flex-col items-center justify-center gap-8 mb-16">
+          <div className="space-y-4 text-center">
+            <h2 className="text-4xl md:text-5xl font-serif font-black text-primary italic">
               {t("categories.title")}
             </h2>
-            <div className="h-1 w-20 bg-accent mx-auto md:mx-0" />
+            <div className="h-1 w-24 bg-accent mx-auto rounded-full" />
           </div>
 
-          {/* Category Filter */}
-          <div className="flex flex-wrap justify-center gap-2">
-            <Button
-              variant={selectedCategory === null ? "default" : "outline"}
-              size="sm"
-              onClick={() => handleCategoryChange(null)}
-              className="rounded-full px-6"
-            >
-              {t("home.all")}
-            </Button>
-            {categories.map((cat) => (
+          {/* Floating Category Filter */}
+          <div className="flex w-full md:w-auto overflow-x-auto pb-4 md:pb-0 hide-scrollbar -mx-4 px-4 md:mx-0 md:px-0">
+            <div className="flex flex-nowrap md:flex-wrap items-center justify-start md:justify-center p-2 bg-secondary/20 backdrop-blur-md rounded-full border border-border/40 shadow-sm mx-auto min-w-max">
               <Button
-                key={cat.id}
-                variant={selectedCategory === cat.id ? "default" : "outline"}
+                variant={selectedCategory === null ? "default" : "ghost"}
                 size="sm"
-                onClick={() => handleCategoryChange(cat.id)}
-                className="rounded-full px-6"
+                onClick={() => handleCategoryChange(null)}
+                className={cn(
+                  "rounded-full px-6 transition-all duration-300",
+                  selectedCategory === null ? "shadow-md scale-105" : "hover:bg-accent/10"
+                )}
               >
-                {getLocalized(cat, "name", language)}
+                {t("home.all")}
               </Button>
-            ))}
+              {categories.map((cat) => (
+                <Button
+                  key={cat.id}
+                  variant={selectedCategory === cat.id ? "default" : "ghost"}
+                  size="sm"
+                  onClick={() => handleCategoryChange(cat.id)}
+                  className={cn(
+                    "rounded-full px-6 transition-all duration-300",
+                    selectedCategory === cat.id ? "shadow-md scale-105" : "hover:bg-accent/10"
+                  )}
+                >
+                  {getLocalized(cat, "name", language)}
+                </Button>
+              ))}
+            </div>
           </div>
         </div>
 
@@ -404,15 +415,16 @@ const Home: React.FC = () => {
       </section>
 
       {/* Become a Writer CTA */}
-      <section className="container mx-auto px-4 py-20">
-        <div className="bg-accent text-white rounded-3xl p-10 md:p-16 flex flex-col md:flex-row items-center justify-between gap-8 relative overflow-hidden group">
-          <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -mr-32 -mt-32 blur-3xl group-hover:bg-white/20 transition-all duration-700" />
+      <section className="container mx-auto px-4 py-24">
+        <div className="bg-accent text-white rounded-[3rem] p-12 md:p-20 flex flex-col md:flex-row items-center justify-between gap-12 relative overflow-hidden group shadow-[0_20px_60px_-15px_rgba(217,119,6,0.3)]">
+          <div className="absolute top-0 right-0 w-96 h-96 bg-white/10 rounded-full -mr-48 -mt-48 blur-3xl group-hover:bg-white/20 transition-all duration-1000" />
+          <div className="absolute bottom-0 left-0 w-64 h-64 bg-black/10 rounded-full -ml-32 -mb-32 blur-2xl group-hover:bg-black/20 transition-all duration-1000" />
           
-          <div className="space-y-4 max-w-xl text-center md:text-left relative z-10">
-            <h2 className="text-2xl sm:text-3xl md:text-5xl font-serif font-black italic">
+          <div className="space-y-6 max-w-2xl text-center md:text-left relative z-10">
+            <h2 className="text-3xl sm:text-4xl md:text-6xl font-serif font-black italic leading-tight">
               {language === 'en' ? "Share Your Romanian Story" : "Împărtășește Povestea Ta Românească"}
             </h2>
-            <p className="text-lg text-white/80 font-serif italic">
+            <p className="text-xl text-white/90 font-serif italic max-w-xl">
               {language === 'en' 
                 ? "Are you passionate about Romanian culture? Join our community of storytellers and help us preserve our heritage." 
                 : "Ești pasionat de cultura română? Alătură-te comunității noastre de povestitori și ajută-ne să ne păstrăm moștenirea."}
@@ -422,7 +434,7 @@ const Home: React.FC = () => {
           <Button 
             size="lg" 
             variant="secondary" 
-            className="rounded-full px-10 h-16 text-xl font-serif italic group relative z-10"
+            className="rounded-full px-12 h-20 text-2xl font-serif italic group relative z-10 shadow-xl hover:scale-105 active:scale-95 transition-all"
             onClick={() => navigate('/contact-us')}
           >
             {language === 'en' ? "Become a Writer" : "Devino Scriitor"}

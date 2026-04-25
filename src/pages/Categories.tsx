@@ -53,15 +53,15 @@ const Categories: React.FC = () => {
         subtitle={language === "en"
           ? "Discover stories about Romania organized by themes. From ancient history to breathtaking nature."
           : "Descoperă povești despre România organizate pe teme. De la istorie antică la natură de vis."}
-        imageUrl="https://images.unsplash.com/photo-1754837067086-55787f63f9dd?q=80&w=2000"
+        imageUrl="/hero/delta.jpg"
         Icon={Layers}
         height="h-[60vh]"
       />
 
       {/* Categories Grid */}
-      <div className="container mx-auto px-4 py-20">
+      <div className="container mx-auto px-4 py-20 animate-fade-in">
         <motion.div 
-          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10"
+          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-12"
           initial={{ opacity: 0 }}
           whileInView={{ opacity: 1 }}
           viewport={{ once: true }}
@@ -70,7 +70,7 @@ const Categories: React.FC = () => {
             <motion.button
               key={category.id}
               onClick={() => handleCategorySelect(category.id)}
-              className="parchment-effect group relative p-10 rounded-sm border-none shadow-elegant hover:shadow-2xl transition-all duration-500 hover:-translate-y-2 text-left flex flex-col items-center justify-center space-y-4 min-h-[300px]"
+              className="parchment-effect group relative p-12 rounded-[2.5rem] md:rounded-[3rem] border-none shadow-elegant hover:shadow-2xl hover:shadow-accent/20 transition-all duration-700 hover:-translate-y-3 text-left flex flex-col items-center justify-center space-y-6 min-h-[320px]"
               initial={{ opacity: 0, y: 30 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
@@ -92,8 +92,8 @@ const Categories: React.FC = () => {
                 </p>
               </div>
 
-              <div className="absolute inset-0 border-[1px] border-secondary-foreground/5 pointer-events-none" />
-              <div className="absolute inset-2 border-[1px] border-accent/10 pointer-events-none group-hover:inset-1 transition-all duration-500" />
+              <div className="absolute inset-0 border-[1px] border-secondary-foreground/5 pointer-events-none rounded-[2.5rem] md:rounded-[3rem]" />
+              <div className="absolute inset-3 border-[1px] border-accent/20 pointer-events-none group-hover:inset-2 transition-all duration-700 rounded-[2.5rem] md:rounded-[3rem]" />
             </motion.button>
           ))}
         </motion.div>

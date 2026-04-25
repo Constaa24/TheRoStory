@@ -213,7 +213,7 @@ const Profile: React.FC = () => {
   };
 
   return (
-    <div className="container mx-auto px-4 py-20 max-w-4xl">
+    <div className="container mx-auto px-4 pt-32 pb-20 max-w-4xl">
       <Tabs value={activeTab} onValueChange={(val) => setSearchParams({ tab: val })} className="space-y-8">
         <div className="flex justify-center">
           <TabsList className="grid w-full max-w-md grid-cols-2 rounded-full p-1 h-12 bg-secondary/30 backdrop-blur-sm border border-border/40">
@@ -228,7 +228,7 @@ const Profile: React.FC = () => {
         </div>
 
         <TabsContent value="profile" className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-          <Card className="border-border/40 bg-secondary/20 backdrop-blur-sm max-w-2xl mx-auto">
+          <Card className="border-none shadow-[0_20px_60px_-15px_rgba(0,0,0,0.1)] bg-secondary/20 backdrop-blur-sm max-w-2xl mx-auto rounded-[2.5rem] md:rounded-[3rem] p-4 md:p-8">
             <CardHeader className="text-center relative">
               <div className="absolute top-6 right-6">
                 <Badge variant="outline" className="gap-1.5 py-1 px-3 border-accent/30 bg-accent/5">
@@ -437,9 +437,13 @@ const Profile: React.FC = () => {
                     exit={{ opacity: 0, scale: 0.95 }}
                   >
                     <Card 
-                      className="group overflow-hidden border border-border/40 shadow-sm hover:shadow-md transition-all duration-300 bg-secondary/10 cursor-pointer h-full flex flex-col"
+                      className="group overflow-hidden border-none shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_20px_60px_rgb(0,0,0,0.08)] transition-all duration-700 bg-secondary/5 cursor-pointer h-full flex flex-col rounded-[2rem] hover:-translate-y-2 relative"
                       onClick={() => setActiveArticle(article)}
                     >
+                      <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none z-10">
+                        <div className="absolute inset-0 bg-accent/5 mix-blend-overlay" />
+                        <div className="absolute inset-0 border-2 border-accent/20 rounded-[2rem] m-2" />
+                      </div>
                       <div className="flex h-full">
                         <div className="w-1/3 aspect-square overflow-hidden relative">
                           <img

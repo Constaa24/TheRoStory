@@ -117,7 +117,7 @@ export const SearchBar: React.FC = () => {
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder={t("search.placeholder")}
-                className="pl-9 pr-8 py-2 rounded-full border border-border bg-background text-sm w-40 sm:w-56 focus:outline-none focus:ring-2 focus:ring-accent/40 transition-[box-shadow]"
+                className="pl-9 pr-8 py-2 rounded-full border border-border bg-background/50 text-sm w-40 sm:w-56 focus:outline-none focus:ring-2 focus:ring-accent/40 transition-[box-shadow]"
               />
               {isSearching && (
                 <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground animate-spin pointer-events-none" />

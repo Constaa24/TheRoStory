@@ -29,8 +29,7 @@ const ContactUs: React.FC = () => {
     email: z.string().email({ message: t("contact.validation.email") }),
     message: z.string().min(10, { message: t("contact.validation.message") }).max(5000),
     website: z.string().optional(),
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }), [language]);
+  }), [language, t]);
 
   const resolver = React.useMemo(() => zodResolver(contactSchema), [contactSchema]);
 
@@ -84,16 +83,16 @@ const ContactUs: React.FC = () => {
       <HeroBanner 
         title={t("contact.title")}
         subtitle={t("contact.subtitle")}
-        imageUrl="https://images.unsplash.com/photo-1701118737005-005fc66703be?q=80&w=2000"
+        imageUrl="/hero/parliament.jpg"
         Icon={MessageSquare}
         height="h-[50vh]"
       />
 
-      <div className="container mx-auto px-4 py-20 max-w-5xl">
+      <div className="container mx-auto px-4 py-20 max-w-5xl animate-fade-in">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-12">
           {/* Contact Info */}
           <div className="md:col-span-1 space-y-8">
-            <div className="parchment-effect p-8 rounded-sm shadow-elegant space-y-4">
+            <div className="parchment-effect p-8 rounded-[2.5rem] md:rounded-[3rem] shadow-[0_8px_30px_rgb(0,0,0,0.04)] space-y-4">
               <h3 className="text-2xl font-serif font-black italic text-primary flex items-center gap-2">
                 <MessageSquare className="h-6 w-6 text-accent" />
                 {t("contact.getInTouch")}
@@ -105,12 +104,14 @@ const ContactUs: React.FC = () => {
               <div className="h-[1px] w-full bg-accent/20 my-6" />
               
               <div className="flex items-center gap-4">
-                <div className="h-12 w-12 rounded-full bg-accent/10 flex items-center justify-center text-accent shrink-0 border border-accent/20">
-                  <Mail className="h-6 w-6" />
+                <div className="h-16 w-16 rounded-full bg-accent/10 flex items-center justify-center text-accent shrink-0 border border-accent/20">
+                  <Mail className="h-8 w-8" />
                 </div>
                 <div>
                   <p className="text-[10px] font-sans uppercase tracking-[0.2em] text-accent font-bold mb-1">{t("contact.emailLabel")}</p>
-                  <p className="font-serif italic text-lg">support@therostory.com</p>
+                  <p className="font-serif italic text-[15px] sm:text-lg break-words">
+                    support@<wbr />therostory.com
+                  </p>
                 </div>
               </div>
 
@@ -126,14 +127,15 @@ const ContactUs: React.FC = () => {
           </div>
 
           {/* Contact Form */}
-          <Card className="md:col-span-2 border-none shadow-elegant overflow-hidden bg-secondary/20">
-            <CardHeader className="bg-accent/5 border-b border-secondary-foreground/5 p-8">
-              <CardTitle className="text-3xl font-serif font-black italic">{t("contact.formTitle")}</CardTitle>
-              <CardDescription className="text-lg font-serif italic">
+          <Card className="md:col-span-2 border-none shadow-[0_20px_60px_-15px_rgba(0,0,0,0.1)] overflow-hidden bg-background rounded-[2.5rem] md:rounded-[3rem] relative">
+            <div className="absolute top-0 right-0 w-64 h-64 bg-accent/5 rounded-full -mr-32 -mt-32 blur-3xl" />
+            <CardHeader className="bg-secondary/10 border-b border-secondary-foreground/5 p-10 md:p-12 pb-8">
+              <CardTitle className="text-4xl font-serif font-black italic">{t("contact.formTitle")}</CardTitle>
+              <CardDescription className="text-xl font-serif italic">
                 {t("contact.formDescription")}
               </CardDescription>
             </CardHeader>
-            <CardContent className="p-8">
+            <CardContent className="p-10 md:p-12 pt-8 relative z-10">
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
               <div className="sr-only" aria-hidden="true">
                 <label htmlFor="website">Website</label>
@@ -193,13 +195,13 @@ const ContactUs: React.FC = () => {
 
               <Button 
                 type="submit" 
-                className="w-full gap-2 font-medium" 
+                className="w-full h-16 text-xl font-serif italic rounded-full shadow-xl hover:scale-105 active:scale-95 transition-all duration-300" 
                 disabled={isSubmitting}
               >
                 {isSubmitting ? (
-                  <div className="h-4 w-4 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin" />
+                  <div className="h-5 w-5 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin mr-2" />
                 ) : (
-                  <Send className="h-4 w-4" />
+                  <Send className="h-5 w-5 mr-2" />
                 )}
                 {t("contact.send")}
               </Button>

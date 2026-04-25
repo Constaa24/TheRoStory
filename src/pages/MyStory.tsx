@@ -95,7 +95,7 @@ const MyStory: React.FC = () => {
         <div 
           className="absolute inset-0 bg-cover bg-center transition-transform duration-1000 scale-105"
           style={{ 
-            backgroundImage: `url("https://images.unsplash.com/photo-1629912042389-27477e17ab0c?q=80&w=2000")`,
+            backgroundImage: `url("/hero/salina.jpg")`,
           }}
         >
           <div className="absolute inset-0 bg-black/45" />
@@ -131,7 +131,7 @@ const MyStory: React.FC = () => {
         <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-background to-transparent" />
       </section>
 
-      <div className="container mx-auto px-4 py-12 max-w-4xl">
+      <div className="container mx-auto px-4 py-12 max-w-4xl animate-fade-in space-y-16">
         {/* Greeting */}
         <div className="text-center mb-12">
           <p className="text-2xl font-serif italic text-primary mb-4">
@@ -143,14 +143,17 @@ const MyStory: React.FC = () => {
         </div>
 
         {/* Mission */}
-        <Card className="p-8 mb-12 bg-accent/5 border-accent/20">
-          <h2 className="text-xl font-serif italic text-accent mb-4 flex items-center gap-2">
-            <Globe className="h-5 w-5" />
-            {t.missionTitle}
-          </h2>
-          <p className="text-lg text-foreground/90 font-medium">
-            "{t.mission}"
-          </p>
+        <Card className="p-10 md:p-12 mb-16 rounded-[2.5rem] md:rounded-[3rem] bg-accent/5 border-none shadow-[0_20px_60px_-15px_rgba(0,0,0,0.05)] relative overflow-hidden group">
+          <div className="absolute top-0 right-0 w-64 h-64 bg-accent/10 rounded-full -mr-32 -mt-32 blur-3xl group-hover:bg-accent/20 transition-colors duration-700" />
+          <div className="relative z-10">
+            <h2 className="text-2xl font-serif italic text-accent mb-6 flex items-center gap-3">
+              <Globe className="h-8 w-8" />
+              {t.missionTitle}
+            </h2>
+            <p className="text-xl md:text-2xl text-foreground/90 font-serif italic leading-relaxed">
+              "{t.mission}"
+            </p>
+          </div>
         </Card>
 
         {/* Problem */}
@@ -169,18 +172,18 @@ const MyStory: React.FC = () => {
             <MapPin className="h-6 w-6 text-accent" />
             {t.truthTitle}
           </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             {t.truths.map((truth, index) => (
-              <Card key={index} className="p-6 border-none bg-secondary/20 hover:bg-secondary/30 transition-colors">
-                <div className="flex items-start gap-4">
-                  <div className="bg-accent/10 rounded-full p-3 shrink-0">
-                    <truth.icon className="h-6 w-6 text-accent" />
+              <Card key={index} className="p-8 md:p-10 rounded-[2.5rem] border-none bg-secondary/10 hover:bg-secondary/20 transition-all duration-500 shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_20px_60px_rgb(0,0,0,0.08)] hover:-translate-y-2 group">
+                <div className="flex flex-col items-start gap-6">
+                  <div className="bg-accent/10 rounded-full p-5 shrink-0 group-hover:bg-accent/20 transition-colors duration-500">
+                    <truth.icon className="h-8 w-8 text-accent" />
                   </div>
                   <div>
-                    <h3 className="text-lg font-serif italic font-bold text-primary mb-2">
+                    <h3 className="text-2xl font-serif italic font-bold text-primary mb-3">
                       {truth.title}
                     </h3>
-                    <p className="text-sm text-muted-foreground">
+                    <p className="text-base text-muted-foreground leading-relaxed">
                       {truth.description}
                     </p>
                   </div>
@@ -201,16 +204,20 @@ const MyStory: React.FC = () => {
         </div>
 
         {/* Call to Action */}
-        <div className="text-center py-12 bg-gradient-to-br from-secondary/20 to-accent/5 rounded-2xl border border-border">
-          <h3 className="text-2xl font-serif italic text-primary mb-4">
-            {t.callToAction}
-          </h3>
-          <p className="text-muted-foreground max-w-lg mx-auto mb-8">
-            {t.callToActionText}
-          </p>
-          <p className="text-accent font-serif italic text-lg">
-            {t.signature} ❤️
-          </p>
+        <div className="text-center py-20 px-8 bg-gradient-to-br from-secondary/20 to-accent/5 rounded-[3rem] border-none shadow-[0_20px_60px_-15px_rgba(0,0,0,0.1)] relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-64 h-64 bg-accent/10 rounded-full -mr-32 -mt-32 blur-3xl" />
+          <div className="absolute bottom-0 left-0 w-64 h-64 bg-secondary/20 rounded-full -ml-32 -mb-32 blur-2xl" />
+          <div className="relative z-10">
+            <h3 className="text-3xl md:text-4xl font-serif italic font-black text-primary mb-6">
+              {t.callToAction}
+            </h3>
+            <p className="text-lg text-muted-foreground max-w-xl mx-auto mb-10 leading-relaxed">
+              {t.callToActionText}
+            </p>
+            <p className="text-accent font-serif italic text-2xl font-bold">
+              {t.signature} <span className="text-red-500">❤️</span>
+            </p>
+          </div>
         </div>
       </div>
     </div>

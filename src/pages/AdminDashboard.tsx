@@ -437,7 +437,7 @@ const AdminDashboard: React.FC = () => {
   }
 
   return (
-    <div className="container mx-auto px-3 sm:px-4 py-8 sm:py-12 max-w-6xl animate-fade-in">
+    <div className="container mx-auto px-3 sm:px-4 pt-28 pb-8 sm:pt-32 sm:pb-12 max-w-6xl animate-fade-in">
       <header className="mb-8 sm:mb-12 space-y-4">
         <h1 className="text-2xl sm:text-4xl font-serif font-black text-primary italic">
           {t("admin.title")}

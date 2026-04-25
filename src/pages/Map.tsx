@@ -24,6 +24,7 @@ import {
   Info
 } from "lucide-react";
 import { cn, isAbortError } from "@/lib/utils";
+import { HeroBanner } from "@/components/layout/HeroBanner";
 
 const MapPage: React.FC = () => {
   const { language, t } = useLanguage();
@@ -139,18 +140,18 @@ const MapPage: React.FC = () => {
   }
 
   return (
-    <div className="container mx-auto px-4 py-12 max-w-7xl">
-      <header className="mb-12 text-center space-y-4">
-        <h1 className="text-4xl sm:text-6xl font-serif font-black italic text-primary">
-          {language === 'en' ? "Story Map" : "Harta Poveștilor"}
-        </h1>
-        <p className="text-xl text-muted-foreground font-serif italic max-w-2xl mx-auto">
-          {language === 'en' 
-            ? "Explore Romania's rich cultural heritage through location-based storytelling." 
-            : "Explorează bogatul patrimoniu cultural al României prin povești bazate pe locație."}
-        </p>
-        <div className="h-1 w-32 bg-accent mx-auto mt-6" />
-      </header>
+    <div className="min-h-screen bg-background pb-20">
+      <HeroBanner 
+        title={language === 'en' ? "Story Map" : "Harta Poveștilor"}
+        subtitle={language === 'en' 
+          ? "Explore Romania's rich cultural heritage through location-based storytelling." 
+          : "Explorează bogatul patrimoniu cultural al României prin povești bazate pe locație."}
+        imageUrl="/hero/map.jpg"
+        Icon={MapPin}
+        height="h-[60vh]"
+      />
+
+      <div className="container mx-auto px-4 py-20 max-w-7xl space-y-16 animate-fade-in">
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
         {/* Map Section */}
@@ -417,6 +418,7 @@ const MapPage: React.FC = () => {
           </p>
         </Card>
       </section>
+      </div>
     </div>
   );
 };

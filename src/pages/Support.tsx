@@ -116,12 +116,12 @@ const Support: React.FC = () => {
       <HeroBanner 
         title={t.title}
         subtitle={t.subtitle}
-        imageUrl="https://images.unsplash.com/photo-1540928968736-b8a56effa42c?q=80&w=2000"
+        imageUrl="/hero/church.jpg"
         Icon={Heart}
         height="h-[60vh]"
       />
 
-      <div className="container mx-auto px-4 py-20 max-w-5xl">
+      <div className="container mx-auto px-4 py-20 max-w-5xl animate-fade-in">
         {/* Introduction */}
         <div className="text-center mb-24 max-w-3xl mx-auto">
           <p className="text-2xl font-serif italic text-foreground/80 leading-relaxed">
@@ -144,8 +144,9 @@ const Support: React.FC = () => {
                 viewport={{ once: true }}
                 transition={{ delay: index * 0.1 }}
               >
-                <Card className="parchment-effect p-8 text-center border-none shadow-elegant hover:shadow-xl transition-all duration-500 h-full flex flex-col items-center justify-center space-y-4">
-                  <div className="bg-accent/10 rounded-full p-4 mb-2">
+                <Card className="parchment-effect p-10 text-center border-none shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_20px_60px_rgb(0,0,0,0.08)] transition-all duration-700 hover:-translate-y-2 h-full flex flex-col items-center justify-center space-y-6 rounded-[2.5rem] md:rounded-[3rem] relative group">
+                  <div className="absolute inset-2 border-[1px] border-accent/10 pointer-events-none group-hover:inset-1 transition-all duration-700 rounded-[2.5rem] md:rounded-[3rem]" />
+                  <div className="bg-accent/10 rounded-full p-4 mb-2 group-hover:bg-accent/20 transition-colors duration-500">
                     <reason.icon className="h-8 w-8 text-accent" />
                   </div>
                   <h3 className="text-2xl font-serif italic font-bold text-primary">
@@ -173,21 +174,21 @@ const Support: React.FC = () => {
             <Button
               variant="outline"
               size="lg"
-              className="h-auto py-6 flex flex-col gap-2 rounded-xl hover:bg-accent hover:text-primary-foreground transition-all group"
+              className="h-auto py-8 flex flex-col gap-3 rounded-[2rem] hover:bg-accent hover:text-primary-foreground transition-all duration-500 group border-border/60 shadow-sm hover:shadow-xl hover:-translate-y-1"
               onClick={() => window.open("https://revolut.me/manu2492", "_blank", "noopener,noreferrer")}
             >
-              <RevolutIcon className="h-8 w-8 group-hover:scale-110 transition-transform" />
-              <span className="font-serif italic">{t.revolut}</span>
+              <RevolutIcon className="h-10 w-10 group-hover:scale-110 transition-transform duration-500" />
+              <span className="font-serif italic text-lg">{t.revolut}</span>
             </Button>
             
             <Button
               variant="outline"
               size="lg"
-              className="h-auto py-6 flex flex-col gap-2 rounded-xl hover:bg-accent hover:text-primary-foreground transition-all group"
+              className="h-auto py-8 flex flex-col gap-3 rounded-[2rem] hover:bg-accent hover:text-primary-foreground transition-all duration-500 group border-border/60 shadow-sm hover:shadow-xl hover:-translate-y-1"
               onClick={() => window.open("https://paypal.me/Constaa24?locale.x=ro_RO&country.x=RO", "_blank", "noopener,noreferrer")}
             >
-              <CreditCard className="h-8 w-8 group-hover:scale-110 transition-transform" />
-              <span className="font-serif italic">{t.paypal}</span>
+              <CreditCard className="h-10 w-10 group-hover:scale-110 transition-transform duration-500" />
+              <span className="font-serif italic text-lg">{t.paypal}</span>
             </Button>
             
             <Dialog>
@@ -195,13 +196,13 @@ const Support: React.FC = () => {
                 <Button
                   variant="outline"
                   size="lg"
-                  className="h-auto py-6 flex flex-col gap-2 rounded-xl hover:bg-accent hover:text-primary-foreground transition-all group"
+                  className="h-auto py-8 flex flex-col gap-3 rounded-[2rem] hover:bg-accent hover:text-primary-foreground transition-all duration-500 group border-border/60 shadow-sm hover:shadow-xl hover:-translate-y-1"
                 >
-                  <Landmark className="h-8 w-8 group-hover:scale-110 transition-transform" />
-                  <span className="font-serif italic">{t.bankTransfer}</span>
+                  <Landmark className="h-10 w-10 group-hover:scale-110 transition-transform duration-500" />
+                  <span className="font-serif italic text-lg">{t.bankTransfer}</span>
                 </Button>
               </DialogTrigger>
-              <DialogContent className="parchment-effect border-none shadow-2xl sm:max-w-md">
+              <DialogContent className="parchment-effect border-none shadow-2xl sm:max-w-md rounded-[2.5rem]">
                 <DialogHeader>
                   <DialogTitle className="text-2xl font-serif italic text-primary text-center">
                     {t.bankDetails.title}
@@ -224,7 +225,7 @@ const Support: React.FC = () => {
         </div>
 
         {/* Thank You Section */}
-        <div className="text-center py-12 bg-secondary/10 rounded-2xl border border-dashed border-border">
+        <div className="text-center py-16 px-8 bg-secondary/10 rounded-[3rem] border border-dashed border-border/50 shadow-sm mt-12">
           <h3 className="text-xl font-serif italic text-primary mb-4">
             {t.thankYou}
           </h3>
