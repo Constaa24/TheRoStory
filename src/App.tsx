@@ -1,6 +1,7 @@
 import React, { Suspense, lazy } from "react";
 import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { ThemeProvider } from "next-themes";
+import { Link } from "react-router-dom";
 import { Navbar } from "@/components/layout/Navbar";
 import { ScrollToTop } from "@/components/ui/ScrollToTop";
 import ScrollToTopOnRoute from "@/components/ui/ScrollToTopOnRoute";
@@ -55,6 +56,8 @@ const MyStory = lazy(() => import("@/pages/MyStory"));
 const ContactUs = lazy(() => import("@/pages/ContactUs"));
 const Profile = lazy(() => import("@/pages/Profile"));
 const AuthCallback = lazy(() => import("@/pages/AuthCallback"));
+const Privacy = lazy(() => import("@/pages/Privacy"));
+const Terms = lazy(() => import("@/pages/Terms"));
 
 const App: React.FC = () => {
   const { isAdmin, isWriter, isLoading, user, isEmailVerified, sendVerification, isRecoveryMode } = useAuth();
@@ -151,6 +154,8 @@ const App: React.FC = () => {
               <Route path="/support" element={<Support />} />
               <Route path="/my-story" element={<MyStory />} />
               <Route path="/contact-us" element={<ContactUs />} />
+              <Route path="/privacy" element={<Privacy />} />
+              <Route path="/terms" element={<Terms />} />
               <Route path="/profile" element={<Profile />} />
               <Route path="/article/:id" element={<ArticleDetail />} />
               <Route
@@ -177,6 +182,15 @@ const App: React.FC = () => {
               "Storytelling is the essential human activity. The harder the situation, the more essential it is."
             </p>
             <SocialLinks />
+            <div className="flex items-center gap-4 text-sm text-muted-foreground">
+              <Link to="/privacy" className="hover:text-accent transition-colors">
+                {language === "en" ? "Privacy Policy" : "Confidențialitate"}
+              </Link>
+              <span aria-hidden="true">·</span>
+              <Link to="/terms" className="hover:text-accent transition-colors">
+                {language === "en" ? "Terms" : "Termeni"}
+              </Link>
+            </div>
             <p className="text-sm text-muted-foreground">
               © {new Date().getFullYear()} The RoStory. All rights reserved.
             </p>

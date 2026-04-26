@@ -49,11 +49,18 @@ function getRateLimitStore(): RateLimitStore {
 }
 
 function getClientIp(req: Request): string {
+  // Prefer cf-connecting-ip — Cloudflare sets this and clients can't forge it.
+  // Only fall back to x-forwarded-for if CF isn't fronting the request.
+  const cfIp = req.headers.get("cf-connecting-ip");
+  if (cfIp) return cfIp;
   const forwarded = req.headers.get("x-forwarded-for");
   if (forwarded) {
-    return forwarded.split(",")[0]?.trim() || "unknown";
+    // Take the LAST entry — closest to our server, less likely to be spoofed
+    // by a malicious client prepending values.
+    const parts = forwarded.split(",").map((p) => p.trim()).filter(Boolean);
+    return parts[parts.length - 1] || "unknown";
   }
-  return req.headers.get("cf-connecting-ip") || "unknown";
+  return "unknown";
 }
 
 function isRateLimited(req: Request): boolean {

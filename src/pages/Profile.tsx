@@ -22,9 +22,9 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { Article, getLocalized } from "@/lib/supabase";
-import { fetchUserFavorites, toggleFavorite, deleteOwnAccount, supabase } from "@/lib/supabase";
+import { fetchUserFavorites, toggleFavorite, deleteOwnAccount, exportOwnData, supabase } from "@/lib/supabase";
 import { isAbortError } from "@/lib/utils";
-import { Camera, Loader2, Shield, Heart, ChevronRight, CheckCircle2, AlertCircle, Trash2 } from "lucide-react";
+import { Camera, Loader2, Shield, Heart, ChevronRight, CheckCircle2, AlertCircle, Trash2, Download } from "lucide-react";
 import { ParchmentArticle } from "@/components/organisms/ParchmentArticle";
 import { AnimatePresence, motion } from "framer-motion";
 
@@ -44,6 +44,7 @@ const Profile: React.FC = () => {
   const [favoritesLoadError, setFavoritesLoadError] = useState<string | null>(null);
   const [activeArticle, setActiveArticle] = useState<Article | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
   const activeTab = searchParams.get("tab") || "profile";
@@ -97,6 +98,31 @@ const Profile: React.FC = () => {
       }
     } catch {
       toast.error(language === 'en' ? "Failed to update favorites" : "Eroare la actualizarea favoritelor");
+    }
+  };
+
+  const handleExportData = async () => {
+    setIsExporting(true);
+    try {
+      const data = await exportOwnData();
+      if (!data) {
+        toast.error(language === 'en' ? "Failed to export data" : "Eroare la exportul datelor");
+        return;
+      }
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `rostory-data-${new Date().toISOString().slice(0, 10)}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast.success(language === 'en' ? "Your data has been downloaded" : "Datele tale au fost descărcate");
+    } catch {
+      toast.error(language === 'en' ? "Failed to export data" : "Eroare la exportul datelor");
+    } finally {
+      setIsExporting(false);
     }
   };
 
@@ -325,6 +351,39 @@ const Profile: React.FC = () => {
                   )}
                 </Button>
               </form>
+
+              {/* Export My Data */}
+              <div className="pt-6 border-t border-border/50">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                  <div className="space-y-1">
+                    <h3 className="text-sm font-bold">
+                      {language === 'en' ? 'Export My Data' : 'Exportă datele mele'}
+                    </h3>
+                    <p className="text-xs text-muted-foreground">
+                      {language === 'en'
+                        ? 'Download a JSON copy of your account, profile, articles, comments, and favorites.'
+                        : 'Descarcă o copie JSON a contului, profilului, articolelor, comentariilor și favoritelor tale.'}
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleExportData}
+                    disabled={isExporting}
+                    className="rounded-full"
+                  >
+                    {isExporting ? (
+                      <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Download className="mr-2 h-3.5 w-3.5" />
+                    )}
+                    {isExporting
+                      ? (language === 'en' ? 'Preparing...' : 'Se pregătește...')
+                      : (language === 'en' ? 'Download JSON' : 'Descarcă JSON')}
+                  </Button>
+                </div>
+              </div>
 
               {/* Delete Account */}
               <div className="pt-6 border-t border-destructive/20">

@@ -5,26 +5,11 @@ import { getLocalized, Article, CHAPTER_DELIMITER, Comment } from "@/lib/supabas
 import { toggleFavorite, isArticleFavorited, fetchComments, postComment, deleteComment, updateComment, fetchPublicContent, fetchArticleViews, incrementView } from "@/lib/supabase";
 import { isAbortError } from "@/lib/utils";
 
-// Session-level cache — avoids re-fetching all articles every time a modal opens.
-// TTL ensures admins see freshly published content within 5 minutes.
-const PARCHMENT_CACHE_TTL_MS = 5 * 60 * 1000;
-let _publicContentCache: Awaited<ReturnType<typeof fetchPublicContent>> | null = null;
-let _publicContentCacheTime = 0;
-let _publicContentPending: Promise<Awaited<ReturnType<typeof fetchPublicContent>>> | null = null;
-const getCachedPublicContent = () => {
-  if (_publicContentCache && Date.now() - _publicContentCacheTime < PARCHMENT_CACHE_TTL_MS) {
-    return Promise.resolve(_publicContentCache);
-  }
-  _publicContentCache = null;
-  if (_publicContentPending) return _publicContentPending;
-  _publicContentPending = fetchPublicContent().then((data) => {
-    _publicContentCache = data;
-    _publicContentCacheTime = Date.now();
-    _publicContentPending = null;
-    return data;
-  });
-  return _publicContentPending;
-};
+// Use the shared cache exposed by `fetchPublicContent` so admin edits
+// (which call `invalidatePublicContentCache`) immediately invalidate
+// related-article lookups here too. Previously we had a separate
+// module-level cache that could go stale relative to the home page.
+const getCachedPublicContent = () => fetchPublicContent();
 import { motion } from "framer-motion";
 import { X, BookOpen, Heart, Video, Eye, MessageSquare, Send, MapPin, Share2, Facebook, Link as LinkIcon, Images, Pencil, Trash2, Check } from "lucide-react";
 import { 
@@ -65,6 +50,9 @@ export const ParchmentArticle: React.FC<ParchmentArticleProps> = ({
   const [isFavorited, setIsFavorited] = useState(false);
   const [isFavoriting, setIsFavoriting] = useState(false);
   const [comments, setComments] = useState<Comment[]>([]);
+  const [commentsTotal, setCommentsTotal] = useState(0);
+  const [commentsPage, setCommentsPage] = useState(0);
+  const [isLoadingMoreComments, setIsLoadingMoreComments] = useState(false);
   const [commentsLoadError, setCommentsLoadError] = useState<string | null>(null);
   const [newComment, setNewComment] = useState("");
   const [isPosting, setIsPosting] = useState(false);
@@ -149,7 +137,7 @@ export const ParchmentArticle: React.FC<ParchmentArticleProps> = ({
       // Run all three independent fetches in parallel
       const [favResult, commentsResult, relatedResult] = await Promise.allSettled([
         user ? isArticleFavorited(user.id, article.id) : Promise.resolve(false),
-        fetchComments(article.id),
+        fetchComments(article.id, 0),
         getCachedPublicContent(),
       ]);
 
@@ -164,7 +152,9 @@ export const ParchmentArticle: React.FC<ParchmentArticleProps> = ({
 
       // Handle comments
       if (commentsResult.status === 'fulfilled') {
-        setComments(commentsResult.value);
+        setComments(commentsResult.value.comments);
+        setCommentsTotal(commentsResult.value.total);
+        setCommentsPage(0);
       } else if (!isAbortError(commentsResult.reason)) {
         console.error("Error loading comments:", commentsResult.reason);
         setCommentsLoadError(language === 'en' ? "Failed to load comments. Please try again." : "Comentariile nu au putut fi încărcate. Încearcă din nou.");
@@ -228,9 +218,11 @@ export const ParchmentArticle: React.FC<ParchmentArticleProps> = ({
 
   const loadComments = async (targetArticleId: string = article.id): Promise<boolean> => {
     try {
-      const data = await fetchComments(targetArticleId);
+      const data = await fetchComments(targetArticleId, 0);
       if (!mountedRef.current || currentArticleIdRef.current !== targetArticleId) return false;
-      setComments(data);
+      setComments(data.comments);
+      setCommentsTotal(data.total);
+      setCommentsPage(0);
       setCommentsLoadError(null);
       return true;
     } catch (error) {
@@ -240,6 +232,26 @@ export const ParchmentArticle: React.FC<ParchmentArticleProps> = ({
         setCommentsLoadError(language === 'en' ? "Failed to refresh comments." : "Comentariile nu au putut fi reîmprospătate.");
       }
       return false;
+    }
+  };
+
+  const loadMoreComments = async () => {
+    if (isLoadingMoreComments || comments.length >= commentsTotal) return;
+    setIsLoadingMoreComments(true);
+    try {
+      const nextPage = commentsPage + 1;
+      const data = await fetchComments(article.id, nextPage);
+      if (!mountedRef.current || currentArticleIdRef.current !== article.id) return;
+      setComments(prev => [...prev, ...data.comments]);
+      setCommentsTotal(data.total);
+      setCommentsPage(nextPage);
+    } catch (error) {
+      if (!isAbortError(error)) {
+        console.error("Error loading more comments:", error);
+        toast.error(language === 'en' ? "Failed to load more comments" : "Nu s-au putut încărca mai multe comentarii");
+      }
+    } finally {
+      if (mountedRef.current) setIsLoadingMoreComments(false);
     }
   };
 
@@ -711,7 +723,7 @@ export const ParchmentArticle: React.FC<ParchmentArticleProps> = ({
               </span>
               <div className="flex items-center gap-2 text-[10px] text-muted-foreground uppercase tracking-tighter">
                 <span className="flex items-center gap-1"><Eye className="h-3 w-3" /> {views}</span>
-                <span className="flex items-center gap-1"><MessageSquare className="h-3 w-3" /> {comments.length}</span>
+                <span className="flex items-center gap-1"><MessageSquare className="h-3 w-3" /> {commentsTotal}</span>
               </div>
             </div>
           </div>
@@ -779,7 +791,7 @@ export const ParchmentArticle: React.FC<ParchmentArticleProps> = ({
               <div className="flex items-center gap-2 mb-8">
                 <MessageSquare className="h-5 w-5 text-accent" />
                 <h3 className="text-xl font-serif font-bold text-secondary-foreground">
-                  {language === 'en' ? 'Comments' : 'Comentarii'} ({comments.length})
+                  {language === 'en' ? 'Comments' : 'Comentarii'} ({commentsTotal})
                 </h3>
               </div>
 
@@ -894,6 +906,23 @@ export const ParchmentArticle: React.FC<ParchmentArticleProps> = ({
                     );
                   })
                 ) : null}
+
+                {comments.length > 0 && comments.length < commentsTotal && (
+                  <div className="flex justify-center pt-4">
+                    <Button
+                      variant="ghost"
+                      onClick={loadMoreComments}
+                      disabled={isLoadingMoreComments}
+                      className="font-serif italic text-sm"
+                    >
+                      {isLoadingMoreComments
+                        ? (language === 'en' ? 'Loading...' : 'Se încarcă...')
+                        : (language === 'en'
+                            ? `Load more (${commentsTotal - comments.length} remaining)`
+                            : `Încarcă mai multe (${commentsTotal - comments.length} rămase)`)}
+                    </Button>
+                  </div>
+                )}
               </div>
             </section>
 

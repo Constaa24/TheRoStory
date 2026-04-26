@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Article, Category, searchArticles, fetchCategories, getLocalized } from "@/lib/supabase";
 import { useLanguage } from "@/hooks/use-language";
+import { cn } from "@/lib/utils";
 
 // Module-level cache — categories don't change during a session
 let _categoriesCache: Category[] | null = null;
@@ -99,25 +100,41 @@ export const SearchBar: React.FC = () => {
   const showDropdown = isOpen && query.trim().length > 0;
 
   return (
-    <div ref={containerRef} className="relative flex items-center">
-      <AnimatePresence mode="wait">
-        {isOpen ? (
+    <div ref={containerRef} className="relative h-9 w-9 flex items-center justify-end">
+      {/* Trigger button — keeps a fixed slot in the navbar so other items don't shift */}
+      <Button
+        variant="ghost"
+        size="icon"
+        className={cn(
+          "rounded-full h-9 w-9 transition-opacity",
+          isOpen && "opacity-0 pointer-events-none"
+        )}
+        onClick={() => setIsOpen(true)}
+        aria-label={t("search.label")}
+        aria-expanded={isOpen}
+      >
+        <Search className="h-5 w-5" />
+      </Button>
+
+      {/* Expanded search — anchored to the right, grows leftward over empty navbar space */}
+      <AnimatePresence>
+        {isOpen && (
           <motion.div
             key="search-open"
-            initial={{ opacity: 0, maxWidth: 0 }}
-            animate={{ opacity: 1, maxWidth: 320 }}
-            exit={{ opacity: 0, maxWidth: 0 }}
+            initial={{ opacity: 0, width: 36 }}
+            animate={{ opacity: 1, width: 320 }}
+            exit={{ opacity: 0, width: 36 }}
             transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
-            className="flex items-center gap-1.5 overflow-hidden"
+            className="absolute right-0 top-0 h-9 flex items-center gap-1.5 overflow-hidden"
           >
-            <div className="relative shrink-0">
+            <div className="relative flex-1 min-w-0">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
               <input
                 ref={inputRef}
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder={t("search.placeholder")}
-                className="pl-9 pr-8 py-2 rounded-full border border-border bg-background/50 text-sm w-40 sm:w-56 focus:outline-none focus:ring-2 focus:ring-accent/40 transition-[box-shadow]"
+                className="w-full pl-9 pr-8 py-2 rounded-full border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-accent/40 transition-[box-shadow]"
               />
               {isSearching && (
                 <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground animate-spin pointer-events-none" />
@@ -131,24 +148,6 @@ export const SearchBar: React.FC = () => {
               aria-label={t("search.close")}
             >
               <X className="h-4 w-4" />
-            </Button>
-          </motion.div>
-        ) : (
-          <motion.div
-            key="search-closed"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.15 }}
-          >
-            <Button
-              variant="ghost"
-              size="icon"
-              className="rounded-full"
-              onClick={() => setIsOpen(true)}
-              aria-label={t("search.label")}
-            >
-              <Search className="h-5 w-5" />
             </Button>
           </motion.div>
         )}

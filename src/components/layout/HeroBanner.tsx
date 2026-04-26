@@ -16,12 +16,12 @@ const fadeSlideUp30 = { initial: { opacity: 0, y: 30 }, animate: { opacity: 1, y
 const fadeSlideUp20 = { initial: { opacity: 0, y: 20 }, animate: { opacity: 1, y: 0 } } as const;
 const heroSubtitleTransition = { delay: 0.2 } as const;
 
-export const HeroBanner: React.FC<HeroBannerProps> = ({ 
-  title, 
-  subtitle, 
-  imageUrl, 
+export const HeroBanner: React.FC<HeroBannerProps> = ({
+  title,
+  subtitle,
+  imageUrl,
   Icon,
-  height = "h-[60vh]"
+  height = "h-[60vh]",
 }) => {
   return (
     <section className={`relative ${height} flex items-center justify-center overflow-hidden`}>
@@ -34,7 +34,7 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
         <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" />
       </div>
 
-      <div className="relative z-10 text-center space-y-6 px-4 pt-24 max-w-4xl mx-auto">
+      <div className="relative z-20 text-center space-y-6 px-4 pt-24 max-w-4xl mx-auto">
         {Icon && (
           <motion.div
             {...fadeScaleIn}

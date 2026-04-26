@@ -107,6 +107,47 @@ Deno.serve(async (req) => {
       })
     }
 
+    // GDPR data export — returns all data we hold about the requesting user.
+    if (action === 'exportOwnData') {
+      try {
+        const [profileRes, articlesRes, commentsRes, favoritesRes, roleRes] = await Promise.all([
+          adminClient.from('profiles').select('*').eq('id', user.id).maybeSingle(),
+          adminClient.from('articles').select('*').eq('user_id', user.id),
+          adminClient.from('comments').select('*').eq('user_id', user.id),
+          adminClient.from('favorites').select('*').eq('user_id', user.id),
+          adminClient.from('user_roles').select('role').eq('user_id', user.id).maybeSingle(),
+        ])
+
+        const exported = {
+          exportedAt: new Date().toISOString(),
+          account: {
+            id: user.id,
+            email: user.email,
+            createdAt: user.created_at,
+            emailConfirmedAt: user.email_confirmed_at,
+            lastSignInAt: user.last_sign_in_at,
+            role: roleRes.data?.role ?? 'reader',
+          },
+          profile: profileRes.data ?? null,
+          articles: articlesRes.data ?? [],
+          comments: commentsRes.data ?? [],
+          favorites: favoritesRes.data ?? [],
+        }
+
+        return new Response(JSON.stringify(exported), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 200,
+        })
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error)
+        console.error('exportOwnData failed', message)
+        return new Response(JSON.stringify({ error: 'Failed to export data' }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 500,
+        })
+      }
+    }
+
     // Check admin role
     const { data: roleData, error: roleError } = await adminClient
       .from('user_roles')
@@ -234,10 +275,10 @@ Deno.serve(async (req) => {
 
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    console.error('admin-api error:', message, '| request URL:', req.url);
+    console.error('admin-api error:', message)
     return new Response(JSON.stringify({ error: 'An internal error occurred' }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 400,
+      status: 500,
     })
   }
 })

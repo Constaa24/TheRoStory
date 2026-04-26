@@ -332,22 +332,38 @@ export const fetchPublicArticle = async (id: string): Promise<{ article: Article
   }
 };
 
-export const fetchComments = async (articleId: string): Promise<Comment[]> => {
+export const COMMENTS_PAGE_SIZE = 25;
+
+/**
+ * Fetches comments for an article in pages of `COMMENTS_PAGE_SIZE`.
+ * Returns the page of comments plus the total count so the UI can
+ * decide whether to show "Load more".
+ */
+export const fetchComments = async (
+  articleId: string,
+  page: number = 0
+): Promise<{ comments: Comment[]; total: number }> => {
   try {
-    const { data, error } = await supabase
+    const start = page * COMMENTS_PAGE_SIZE;
+    const end = start + COMMENTS_PAGE_SIZE - 1;
+    const { data, error, count } = await supabase
       .from('comments')
-      .select('*')
+      .select('*', { count: 'exact' })
       .eq('article_id', articleId)
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: false })
+      .range(start, end);
 
     if (error) throw error;
-    return toCamelCaseArray<Comment>(data || []);
+    return {
+      comments: toCamelCaseArray<Comment>(data || []),
+      total: count ?? 0,
+    };
   } catch (error) {
     if (!isAbortError(error)) {
       console.error("Error fetching comments from Supabase:", error);
       throw error;
     }
-    return [];
+    return { comments: [], total: 0 };
   }
 };
 
@@ -609,6 +625,31 @@ export const deleteOwnAccount = async (): Promise<boolean> => {
   } catch (error) {
     console.error("Error deleting own account:", error);
     return false;
+  }
+};
+
+export type UserDataExport = {
+  exportedAt: string;
+  account: {
+    id: string;
+    email?: string;
+    createdAt?: string;
+    emailConfirmedAt?: string | null;
+    lastSignInAt?: string | null;
+    role?: string;
+  };
+  profile: Record<string, unknown> | null;
+  articles: Record<string, unknown>[];
+  comments: Record<string, unknown>[];
+  favorites: Record<string, unknown>[];
+};
+
+export const exportOwnData = async (): Promise<UserDataExport | null> => {
+  try {
+    return await invokeAdminApi<UserDataExport>({ action: 'exportOwnData' });
+  } catch (error) {
+    console.error("Error exporting user data:", error);
+    return null;
   }
 };
 
