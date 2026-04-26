@@ -27,6 +27,7 @@ import { isAbortError } from "@/lib/utils";
 import { Camera, Loader2, Shield, Heart, ChevronRight, CheckCircle2, AlertCircle, Trash2, Download } from "lucide-react";
 import { ParchmentArticle } from "@/components/organisms/ParchmentArticle";
 import { AnimatePresence, motion } from "framer-motion";
+import { Helmet } from "react-helmet-async";
 
 const Profile: React.FC = () => {
   const { user, role, refreshUser, logout } = useAuth();
@@ -240,6 +241,11 @@ const Profile: React.FC = () => {
 
   return (
     <div className="container mx-auto px-4 pt-32 pb-20 max-w-4xl">
+      <Helmet>
+        <html lang={language} />
+        <title>{language === "en" ? "Profile" : "Profil"} — The RoStory</title>
+        <meta name="robots" content="noindex, nofollow" />
+      </Helmet>
       <Tabs value={activeTab} onValueChange={(val) => setSearchParams({ tab: val })} className="space-y-8">
         <div className="flex justify-center">
           <TabsList className="grid w-full max-w-md grid-cols-2 rounded-full p-1 h-12 bg-secondary/30 backdrop-blur-sm border border-border/40">

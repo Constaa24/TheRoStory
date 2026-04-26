@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import { Mail, Send, MessageSquare, User } from "lucide-react";
 import { HeroBanner } from "@/components/layout/HeroBanner";
 import { SocialLinks } from "@/components/ui/social-links";
+import { PageHead } from "@/components/layout/PageHead";
 
 type ContactFormValues = {
   name: string;
@@ -20,9 +21,19 @@ type ContactFormValues = {
   website?: string;
 };
 
+const COOLDOWN_SECONDS = 30;
+
 const ContactUs: React.FC = () => {
   const { t, language } = useLanguage();
   const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const [cooldownRemaining, setCooldownRemaining] = React.useState(0);
+
+  // Tick down the cooldown timer once per second after a successful submit
+  React.useEffect(() => {
+    if (cooldownRemaining <= 0) return;
+    const id = window.setTimeout(() => setCooldownRemaining(s => s - 1), 1000);
+    return () => window.clearTimeout(id);
+  }, [cooldownRemaining]);
 
   const contactSchema = React.useMemo(() => z.object({
     name: z.string().min(2, { message: t("contact.validation.name") }),
@@ -51,6 +62,7 @@ const ContactUs: React.FC = () => {
       if (result.ok) {
         toast.success(t("contact.success"));
         form.reset();
+        setCooldownRemaining(COOLDOWN_SECONDS);
       } else {
         if (result.status === 429) {
           toast.error(
@@ -80,7 +92,12 @@ const ContactUs: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-background pb-20">
-      <HeroBanner 
+      <PageHead
+        title={t("contact.title")}
+        description={t("contact.subtitle")}
+        language={language}
+      />
+      <HeroBanner
         title={t("contact.title")}
         subtitle={t("contact.subtitle")}
         imageUrl="/hero/parliament.jpg"
@@ -193,17 +210,21 @@ const ContactUs: React.FC = () => {
                 )}
               </div>
 
-              <Button 
-                type="submit" 
-                className="w-full h-16 text-xl font-serif italic rounded-full shadow-xl hover:scale-105 active:scale-95 transition-all duration-300" 
-                disabled={isSubmitting}
+              <Button
+                type="submit"
+                className="w-full h-16 text-xl font-serif italic rounded-full shadow-xl hover:scale-105 active:scale-95 transition-all duration-300"
+                disabled={isSubmitting || cooldownRemaining > 0}
               >
                 {isSubmitting ? (
                   <div className="h-5 w-5 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin mr-2" />
                 ) : (
                   <Send className="h-5 w-5 mr-2" />
                 )}
-                {t("contact.send")}
+                {cooldownRemaining > 0
+                  ? (language === "en"
+                      ? `Wait ${cooldownRemaining}s before sending another`
+                      : `Așteaptă ${cooldownRemaining}s pentru a trimite alt mesaj`)
+                  : t("contact.send")}
               </Button>
             </form>
           </CardContent>

@@ -6,6 +6,8 @@ import { useLanguage } from "@/hooks/use-language";
 import { BookOpen, Layers } from "lucide-react";
 import { isAbortError } from "@/lib/utils";
 import { HeroBanner } from "@/components/layout/HeroBanner";
+import { PageHead } from "@/components/layout/PageHead";
+import { SITE_URL } from "@/lib/constants";
 
 const Categories: React.FC = () => {
   const { language } = useLanguage();
@@ -46,9 +48,28 @@ const Categories: React.FC = () => {
     );
   }
 
+  const pageTitle = language === "en" ? "Categories" : "Categorii";
+  const pageDescription = language === "en"
+    ? "Browse stories of Romania organized by theme — history, traditions, nature, food, regions, and more."
+    : "Răsfoiește poveștile României organizate pe teme — istorie, tradiții, natură, mâncare, regiuni și multe altele.";
+
+  const itemListLd = {
+    "@context": "https://schema.org",
+    "@type": "ItemList",
+    itemListElement: categories.map((cat, i) => ({
+      "@type": "ListItem",
+      position: i + 1,
+      name: getLocalized(cat, "name", language),
+      url: `${SITE_URL}/category/${cat.id}`,
+    })),
+  };
+
   return (
     <div className="min-h-screen bg-background pb-20">
-      <HeroBanner 
+      <PageHead title={pageTitle} description={pageDescription} language={language}>
+        <script type="application/ld+json">{JSON.stringify(itemListLd)}</script>
+      </PageHead>
+      <HeroBanner
         title={language === "en" ? "Explore Categories" : "Explorează Categoriile"}
         subtitle={language === "en"
           ? "Discover stories about Romania organized by themes. From ancient history to breathtaking nature."

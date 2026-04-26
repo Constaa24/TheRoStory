@@ -4,12 +4,15 @@ import { Category, Article, getLocalized } from "@/lib/supabase";
 import { fetchPublicContent } from "@/lib/supabase";
 import { useLanguage } from "@/hooks/use-language";
 import { useFavorites } from "@/hooks/use-favorites";
-import { ArrowLeft, ArrowRight, BookOpen, Heart, Video } from "lucide-react";
+import { ArrowLeft, ArrowRight, BookOpen, Heart, Video, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { StoryThumbnail } from "@/components/ui/story-thumbnail";
 import { cn, isAbortError } from "@/lib/utils";
 import { ParchmentArticle } from "@/components/organisms/ParchmentArticle";
 import { AnimatePresence } from "framer-motion";
+import { Link } from "react-router-dom";
+import { PageHead } from "@/components/layout/PageHead";
+import { SITE_URL } from "@/lib/constants";
 
 const CategoryDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -53,11 +56,63 @@ const CategoryDetail: React.FC = () => {
 
   if (!category) return null;
 
+  const categoryName = getLocalized(category, "name", language);
+  const pageTitle = categoryName;
+  const pageDescription = language === "en"
+    ? `Stories about ${categoryName} — explore Romania through ${articles.length} ${articles.length === 1 ? "story" : "stories"} curated by The RoStory.`
+    : `Povești despre ${categoryName} — descoperă România prin ${articles.length} ${articles.length === 1 ? "poveste" : "povești"} pe The RoStory.`;
+
+  const breadcrumbLd = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: language === "en" ? "Home" : "Acasă", item: `${SITE_URL}/` },
+      { "@type": "ListItem", position: 2, name: language === "en" ? "Categories" : "Categorii", item: `${SITE_URL}/categories` },
+      { "@type": "ListItem", position: 3, name: categoryName, item: `${SITE_URL}/category/${category.id}` },
+    ],
+  };
+
+  const itemListLd = {
+    "@context": "https://schema.org",
+    "@type": "ItemList",
+    itemListElement: articles.map((a, i) => ({
+      "@type": "ListItem",
+      position: i + 1,
+      url: `${SITE_URL}/article/${a.id}`,
+      name: getLocalized(a, "title", language),
+    })),
+  };
+
   return (
     <div className="min-h-screen bg-background">
+      <PageHead title={pageTitle} description={pageDescription} language={language}>
+        <script type="application/ld+json">{JSON.stringify(breadcrumbLd)}</script>
+        <script type="application/ld+json">{JSON.stringify(itemListLd)}</script>
+      </PageHead>
       {/* Header */}
       <section className="relative py-16 bg-gradient-to-b from-secondary/30 to-background border-b border-border">
         <div className="container mx-auto px-4">
+          {/* Breadcrumb */}
+          <nav aria-label="Breadcrumb" className="mb-6 text-sm text-muted-foreground">
+            <ol className="flex flex-wrap items-center gap-1.5">
+              <li>
+                <Link to="/" className="hover:text-accent transition-colors">
+                  {language === "en" ? "Home" : "Acasă"}
+                </Link>
+              </li>
+              <li aria-hidden="true"><ChevronRight className="h-3.5 w-3.5" /></li>
+              <li>
+                <Link to="/categories" className="hover:text-accent transition-colors">
+                  {language === "en" ? "Categories" : "Categorii"}
+                </Link>
+              </li>
+              <li aria-hidden="true"><ChevronRight className="h-3.5 w-3.5" /></li>
+              <li className="text-foreground/80 font-medium" aria-current="page">
+                {categoryName}
+              </li>
+            </ol>
+          </nav>
+
           <Button
             variant="ghost"
             className="mb-8 group"
@@ -66,7 +121,7 @@ const CategoryDetail: React.FC = () => {
             <ArrowLeft className="mr-2 h-4 w-4 group-hover:-translate-x-1 transition-transform" />
             {language === "en" ? "Back to Categories" : "Înapoi la Categorii"}
           </Button>
-          
+
           <div className="flex flex-col md:flex-row items-center justify-between gap-6">
             <div className="text-center md:text-left">
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-accent/10 text-accent text-sm font-medium mb-4">
@@ -74,7 +129,7 @@ const CategoryDetail: React.FC = () => {
                 {articles.length} {language === "en" ? "stories" : "povești"}
               </div>
               <h1 className="text-4xl md:text-5xl font-serif font-black text-primary italic">
-                {getLocalized(category, "name", language)}
+                {categoryName}
               </h1>
             </div>
           </div>

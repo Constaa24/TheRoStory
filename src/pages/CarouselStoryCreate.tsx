@@ -24,15 +24,16 @@ interface GalleryGridProps {
   mediaUrls: string[];
   isUploading: boolean;
   addImageLabel: string;
+  galleryLabel: string;
   onRemove: (index: number) => void;
   onAdd: () => void;
 }
 
-const GalleryGrid = React.memo<GalleryGridProps>(({ mediaUrls, isUploading, addImageLabel, onRemove, onAdd }) => (
+const GalleryGrid = React.memo<GalleryGridProps>(({ mediaUrls, isUploading, addImageLabel, galleryLabel, onRemove, onAdd }) => (
   <div className="grid grid-cols-2 gap-2">
     {mediaUrls.map((url, index) => (
       <div key={index} className="relative group aspect-square rounded-xl overflow-hidden shadow-sm border border-border">
-        <img src={url} className="w-full h-full object-cover" alt={`Image ${index + 1}`} loading="lazy" />
+        <img src={url} className="w-full h-full object-cover" alt={`${galleryLabel} ${index + 1}/${mediaUrls.length}`} loading="lazy" />
         <button
           className="absolute top-2 right-2 h-6 w-6 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
           onClick={() => onRemove(index)}
@@ -304,6 +305,7 @@ const CarouselStoryCreate: React.FC = () => {
                 mediaUrls={mediaUrls}
                 isUploading={isUploading}
                 addImageLabel={t("admin.addImage")}
+                galleryLabel={language === 'en' ? "Carousel image" : "Imagine carusel"}
                 onRemove={removeImage}
                 onAdd={() => imageInputRef.current?.click()}
               />

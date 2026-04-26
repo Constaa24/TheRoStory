@@ -11,6 +11,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { ChevronRight, ChevronLeft, BookOpen, Heart, Video, MapPin, Images } from "lucide-react";
 import { cn, isAbortError } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
+import { PageHead } from "@/components/layout/PageHead";
+import { SITE_NAME, SITE_URL } from "@/lib/constants";
 
 const PAGE_SIZE = 9;
 const FALLBACK_IMAGE_URL = "https://images.unsplash.com/photo-1701118737005-005fc66703be?q=80&w=800";
@@ -230,8 +232,41 @@ const Home: React.FC = () => {
     return () => { cancelled = true; };
   }, [currentPage, selectedCategory]);
 
+  const pageTitle = language === "en"
+    ? "The RoStory — Stories of Romania"
+    : "The RoStory — Povești din România";
+  const pageDescription = language === "en"
+    ? "Discover the culture, history, and traditions of Romania through visual stories — articles, videos, and photo galleries from every region."
+    : "Descoperă cultura, istoria și tradițiile României prin povești vizuale — articole, videoclipuri și galerii foto din fiecare regiune.";
+
+  const organizationLd = {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    name: SITE_NAME,
+    url: SITE_URL,
+    logo: `${SITE_URL}/logo.png`,
+    sameAs: [
+      "https://www.instagram.com/therostory",
+      "https://www.tiktok.com/@therostory",
+      "https://www.youtube.com/@therostory",
+    ],
+  };
+
+  // rel=prev/next for paginated home content
+  const prevPageUrl = currentPage > 1
+    ? `${SITE_URL}/?page=${currentPage - 1}`
+    : null;
+  const nextPageUrl = currentPage < totalPages
+    ? `${SITE_URL}/?page=${currentPage + 1}`
+    : null;
+
   return (
     <>
+      <PageHead title={pageTitle} description={pageDescription} language={language}>
+        <script type="application/ld+json">{JSON.stringify(organizationLd)}</script>
+        {prevPageUrl && <link rel="prev" href={prevPageUrl} />}
+        {nextPageUrl && <link rel="next" href={nextPageUrl} />}
+      </PageHead>
       <div className="space-y-16 animate-fade-in pb-20">
         {/* Hero Section */}
       <section className="relative min-h-[80vh] pt-20 flex items-center justify-center overflow-hidden">

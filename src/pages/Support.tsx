@@ -13,6 +13,7 @@ import {
   DialogTrigger,
   DialogDescription
 } from "@/components/ui/dialog";
+import { PageHead } from "@/components/layout/PageHead";
 
 const RevolutIcon = ({ className }: { className?: string }) => (
   <svg 
@@ -113,7 +114,8 @@ const Support: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-background pb-20">
-      <HeroBanner 
+      <PageHead title={t.title} description={t.subtitle} language={language} />
+      <HeroBanner
         title={t.title}
         subtitle={t.subtitle}
         imageUrl="/hero/church.jpg"

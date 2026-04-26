@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import { cn, isAbortError } from "@/lib/utils";
 import { HeroBanner } from "@/components/layout/HeroBanner";
+import { PageHead } from "@/components/layout/PageHead";
 
 const MapPage: React.FC = () => {
   const { language, t } = useLanguage();
@@ -139,12 +140,18 @@ const MapPage: React.FC = () => {
     );
   }
 
+  const mapTitle = language === 'en' ? "Story Map" : "Harta Poveștilor";
+  const mapDescription = language === 'en'
+    ? "Explore Romania's rich cultural heritage through location-based storytelling — click any county to discover its stories."
+    : "Explorează bogatul patrimoniu cultural al României prin povești bazate pe locație — apasă orice județ pentru a-i descoperi poveștile.";
+
   return (
     <div className="min-h-screen bg-background pb-20">
-      <HeroBanner 
-        title={language === 'en' ? "Story Map" : "Harta Poveștilor"}
-        subtitle={language === 'en' 
-          ? "Explore Romania's rich cultural heritage through location-based storytelling." 
+      <PageHead title={mapTitle} description={mapDescription} language={language} />
+      <HeroBanner
+        title={mapTitle}
+        subtitle={language === 'en'
+          ? "Explore Romania's rich cultural heritage through location-based storytelling."
           : "Explorează bogatul patrimoniu cultural al României prin povești bazate pe locație."}
         imageUrl="/hero/map.jpg"
         Icon={MapPin}

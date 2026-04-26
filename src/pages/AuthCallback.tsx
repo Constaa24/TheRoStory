@@ -20,6 +20,10 @@ const AuthCallback: React.FC = () => {
   const hasHandledRef = useRef(false);
   const mountedRef = useRef(true);
   const redirectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Read language via a ref so the callback effect doesn't re-run on
+  // language switch — the PKCE exchange must only happen once.
+  const languageRef = useRef(language);
+  useEffect(() => { languageRef.current = language; }, [language]);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -172,7 +176,7 @@ const AuthCallback: React.FC = () => {
         } else {
           setStatus("error");
           setErrorMessage(
-            language === "en"
+            languageRef.current === "en"
               ? "The verification link is invalid or has expired."
               : "Link-ul de verificare este invalid sau a expirat."
           );
@@ -196,7 +200,10 @@ const AuthCallback: React.FC = () => {
       pendingTimeouts.forEach(clearTimeout);
       if (redirectTimerRef.current) clearTimeout(redirectTimerRef.current);
     };
-  }, [language, navigate]);
+    // language intentionally omitted — read via languageRef so the PKCE
+    // exchange isn't re-triggered when the user toggles language mid-callback.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [navigate]);
 
   return (
     <div className="container mx-auto px-4 py-20 flex justify-center items-center min-h-[70vh]">

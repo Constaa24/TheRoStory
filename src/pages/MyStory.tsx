@@ -3,6 +3,7 @@ import { useLanguage } from "@/hooks/use-language";
 import { MapPin, Heart, Globe, Lightbulb, Mountain, Castle, BookOpen } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { motion } from "framer-motion";
+import { PageHead } from "@/components/layout/PageHead";
 
 const MyStory: React.FC = () => {
   const { language } = useLanguage();
@@ -90,6 +91,13 @@ const MyStory: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      <PageHead
+        title={t.title}
+        description={language === "en"
+          ? "The story behind The RoStory — why this project exists, who's behind it, and the love for Romania that drives it."
+          : "Povestea din spatele The RoStory — de ce există acest proiect, cine este în spatele lui și dragostea pentru România care îl motivează."}
+        language={language}
+      />
       {/* Hero Section */}
       <section className="relative h-[70vh] flex items-center justify-center overflow-hidden">
         <div 

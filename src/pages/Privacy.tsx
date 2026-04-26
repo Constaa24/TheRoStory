@@ -2,6 +2,7 @@ import React from "react";
 import { useLanguage } from "@/hooks/use-language";
 import { Shield } from "lucide-react";
 import { HeroBanner } from "@/components/layout/HeroBanner";
+import { PageHead } from "@/components/layout/PageHead";
 
 const Privacy: React.FC = () => {
   const { language } = useLanguage();
@@ -101,6 +102,11 @@ const Privacy: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-background pb-20">
+      <PageHead
+        title={c.title}
+        description={c.subtitle}
+        language={language}
+      />
       <HeroBanner
         title={c.title}
         subtitle={c.subtitle}

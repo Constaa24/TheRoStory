@@ -94,6 +94,15 @@ const ArticleDetailPage: React.FC = () => {
     },
   };
 
+  const breadcrumbLd = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: language === "en" ? "Home" : "Acasă", item: `${SITE_URL}/` },
+      { "@type": "ListItem", position: 2, name: title, item: articleUrl },
+    ],
+  };
+
   return (
     <>
       <Helmet>
@@ -111,7 +120,9 @@ const ArticleDetailPage: React.FC = () => {
         <meta name="twitter:title" content={title} />
         <meta name="twitter:description" content={description} />
         <meta name="twitter:image" content={imageUrl} />
+        <html lang={language} />
         <script type="application/ld+json">{JSON.stringify(jsonLd)}</script>
+        <script type="application/ld+json">{JSON.stringify(breadcrumbLd)}</script>
       </Helmet>
       <ParchmentArticle
         article={article}
