@@ -30,7 +30,16 @@ const toRoman = (n: number): string => {
 // module-level cache that could go stale relative to the home page.
 const getCachedPublicContent = () => fetchPublicContent();
 import { motion } from "framer-motion";
-import { X, BookOpen, Heart, Video, Eye, MessageSquare, Send, MapPin, Share2, Facebook, Link as LinkIcon, Images, Pencil, Trash2, Check } from "lucide-react";
+import { X, BookOpen, Heart, Video, Eye, MessageSquare, Send, MapPin, Share2, Facebook, Link as LinkIcon, Images, Pencil, Trash2, Check, Play, LayoutGrid, Maximize2 } from "lucide-react";
+import { ImageLightbox } from "@/components/organisms/ImageLightbox";
+
+/** Format seconds as M:SS — used for video duration display. */
+const formatDuration = (seconds: number | null): string | null => {
+  if (seconds == null || !Number.isFinite(seconds) || seconds <= 0) return null;
+  const m = Math.floor(seconds / 60);
+  const s = Math.floor(seconds % 60);
+  return `${m}:${s.toString().padStart(2, "0")}`;
+};
 import { 
   DropdownMenu, 
   DropdownMenuContent, 
@@ -83,6 +92,14 @@ export const ParchmentArticle: React.FC<ParchmentArticleProps> = ({
   const [allCategories, setAllCategories] = useState<Category[]>([]);
   const [views, setViews] = useState(initialViews);
   const [activeChapterIndex, setActiveChapterIndex] = useState(0);
+  // Video-specific UI state (used only by video stories)
+  const [videoStarted, setVideoStarted] = useState(false);
+  const [videoDuration, setVideoDuration] = useState<number | null>(null);
+  // Carousel-specific UI state (used only by carousel stories)
+  const [carouselSlide, setCarouselSlide] = useState(0);
+  const [showMosaic, setShowMosaic] = useState(false);
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+  const videoElRef = useRef<HTMLVideoElement>(null);
   const mountedRef = useRef(true);
   const currentArticleIdRef = useRef(article.id);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -160,11 +177,16 @@ export const ParchmentArticle: React.FC<ParchmentArticleProps> = ({
     return () => { cancelled = true; };
   }, [article.id, initialViews, incrementViewOnOpen]);
 
-  // Scroll to top when article changes
+  // Scroll to top + reset per-article UI state when article changes
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTo({ top: 0, behavior: 'instant' });
     }
+    setVideoStarted(false);
+    setVideoDuration(null);
+    setCarouselSlide(0);
+    setShowMosaic(false);
+    setLightboxIndex(null);
   }, [article.id]);
 
   // Track active chapter (for the table of contents) via IntersectionObserver
@@ -650,8 +672,12 @@ export const ParchmentArticle: React.FC<ParchmentArticleProps> = ({
 
           <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-2 text-xs font-serif italic text-muted-foreground">
             <span>{articleDate.toLocaleDateString(locale, { year: 'numeric', month: 'long', day: 'numeric' })}</span>
-            <span aria-hidden="true">·</span>
-            <span>{readingMinutes} {language === 'en' ? "min read" : "min de citit"}</span>
+            {formatDuration(videoDuration) && (
+              <>
+                <span aria-hidden="true">·</span>
+                <span>{formatDuration(videoDuration)}</span>
+              </>
+            )}
             {article.location && (
               <>
                 <span aria-hidden="true">·</span>
@@ -668,61 +694,114 @@ export const ParchmentArticle: React.FC<ParchmentArticleProps> = ({
           </div>
         </header>
 
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.3, duration: 1, ease: "easeOut" }}
-          className="relative aspect-video w-full overflow-hidden rounded-sm shadow-2xl bg-black/90 group ring-1 ring-white/10"
+        {/* Cinematic full-bleed video */}
+        <motion.figure
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2, duration: 0.8 }}
+          className="-mx-8 md:-mx-16 relative group"
         >
-          <video
-            src={article.mediaUrl || undefined}
-            poster={article.posterUrl || undefined}
-            controls
-            preload="metadata"
-            playsInline
-            className="w-full h-full object-contain"
-          />
-          <div className="absolute inset-0 border-[1px] border-white/10 pointer-events-none" />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent pointer-events-none" />
-        </motion.div>
-
-        <div className="max-w-2xl mx-auto">
-          <motion.div 
-            initial={{ opacity: 0, x: -20 }}
-            whileInView={{ opacity: 1, x: 0 }}
-            viewport={{ once: true }}
-            className="relative p-10 bg-secondary-foreground/5 backdrop-blur-sm border-l-4 border-accent shadow-xl"
-          >
-            <div className="absolute top-0 right-0 p-4 opacity-10">
-              <Video className="h-12 w-12" />
-            </div>
-            <h3 className="text-xs font-sans uppercase tracking-[0.3em] text-accent mb-6 font-black">
-              {language === 'en' ? 'Story Insight' : 'Informații Poveste'}
-            </h3>
-            <p className="font-serif text-2xl md:text-3xl leading-relaxed text-secondary-foreground/90 italic">
-              {description}
-            </p>
-          </motion.div>
-        </div>
-
-        <div className="flex justify-center pt-8">
-          <div className="flex flex-col items-center gap-2">
-            <div className="h-10 w-[1px] bg-accent/30" />
-            <p className="text-[10px] font-sans uppercase tracking-[0.5em] text-muted-foreground/60">
-              {articleDate.toLocaleDateString(locale, { year: 'numeric', month: 'long' })}
-            </p>
+          <div className="relative aspect-[16/9] md:aspect-[21/9] w-full overflow-hidden bg-black">
+            <video
+              ref={videoElRef}
+              src={article.mediaUrl || undefined}
+              poster={article.posterUrl || undefined}
+              controls={videoStarted}
+              preload="metadata"
+              playsInline
+              onLoadedMetadata={(e) => {
+                const v = e.currentTarget;
+                if (v.duration && Number.isFinite(v.duration)) setVideoDuration(v.duration);
+              }}
+              onPlay={() => setVideoStarted(true)}
+              className="w-full h-full object-cover"
+            />
+            {/* Custom parchment-styled poster overlay (only before first play) */}
+            {!videoStarted && (
+              <div
+                className="video-poster-overlay group/poster"
+                onClick={() => {
+                  setVideoStarted(true);
+                  videoElRef.current?.play().catch(() => {});
+                }}
+                role="button"
+                aria-label={language === 'en' ? "Play video" : "Redă video"}
+              >
+                <div className="video-poster-play-button">
+                  <Play className="h-8 w-8 fill-current ml-1" />
+                </div>
+                <p className="video-poster-label">
+                  {language === 'en' ? "Watch story" : "Vizionează povestea"}
+                  {formatDuration(videoDuration) && (
+                    <span className="opacity-80"> · {formatDuration(videoDuration)}</span>
+                  )}
+                </p>
+              </div>
+            )}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent pointer-events-none" />
           </div>
-        </div>
+          {article.location && (
+            <figcaption className="text-center text-xs font-serif italic text-muted-foreground mt-3">
+              {article.location}
+            </figcaption>
+          )}
+        </motion.figure>
+
+        {/* Editorial-column description */}
+        {description && description.trim() && (
+          <div className="max-w-[680px] mx-auto space-y-6">
+            <div className="text-center">
+              <p className="article-eyebrow">
+                {language === 'en' ? "About this story" : "Despre această poveste"}
+              </p>
+            </div>
+            {description
+              .trim()
+              .split(/\n\s*\n/)
+              .filter(p => p.trim().length > 0)
+              .map((rawPara, idx) => {
+                const trimmed = rawPara.trim();
+                if (trimmed.startsWith("> ")) {
+                  return (
+                    <blockquote key={idx} className="pull-quote">
+                      {trimmed.slice(2).trim()}
+                    </blockquote>
+                  );
+                }
+                return (
+                  <p
+                    key={idx}
+                    className={`font-serif text-lg md:text-xl leading-[1.85] text-secondary-foreground/90 whitespace-pre-wrap ${
+                      idx === 0 ? "drop-cap" : ""
+                    }`}
+                  >
+                    {trimmed}
+                  </p>
+                );
+              })}
+          </div>
+        )}
       </div>
     );
-
   };
 
   const renderCarouselStory = () => {
     const description = getLocalized(article, "content", language);
     const images = article.mediaUrls || [];
+    const captions = article.mediaCaptions || [];
     const articleDate = new Date(article.createdAt);
     const locale = language === 'en' ? 'en-US' : 'ro-RO';
+
+    const captionFor = (idx: number): string => {
+      const c = captions[idx];
+      if (!c) return "";
+      return language === 'en' ? (c.en || c.ro || "") : (c.ro || c.en || "");
+    };
+
+    const lightboxImages = images.map((url, i) => ({
+      url,
+      caption: captionFor(i) || undefined,
+    }));
 
     return (
       <div className="space-y-12">
@@ -769,81 +848,206 @@ export const ParchmentArticle: React.FC<ParchmentArticleProps> = ({
           </div>
         </header>
 
-        <motion.div 
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ delay: 0.3, duration: 1, ease: "easeOut" }}
-          className="relative w-full max-w-2xl mx-auto"
-        >
-          <Carousel className="w-full">
-            <CarouselContent>
-              {images.length === 0 && (
-                <CarouselItem>
-                  <div className="relative h-[50vh] md:h-[65vh] w-full overflow-hidden rounded-sm shadow-2xl bg-black/5 ring-1 ring-white/10 flex items-center justify-center">
-                    <div className="text-center space-y-2 text-muted-foreground">
-                      <Images className="h-12 w-12 mx-auto opacity-30" />
-                      <p className="font-serif italic">{language === 'en' ? 'No images available' : 'Nicio imagine disponibilă'}</p>
-                    </div>
-                  </div>
-                </CarouselItem>
-              )}
-              {images.map((url, index) => (
-                <CarouselItem key={index}>
-                  <div className="relative h-[50vh] md:h-[65vh] w-full overflow-hidden rounded-sm shadow-2xl bg-black/90 ring-1 ring-white/10 flex items-center justify-center">
-                    <img
-                      src={url}
-                      alt={`${getLocalized(article, "title", language)} - ${index + 1}`}
-                      className="max-w-full max-h-full object-contain grayscale-[0.1] hover:grayscale-0 transition-all duration-700"
-                      loading={index === 0 ? "eager" : "lazy"}
-                      decoding="async"
-                    />
-                    <div className="absolute inset-0 border-[1px] border-white/10 pointer-events-none" />
-                    <div className="absolute bottom-4 right-4 bg-black/50 backdrop-blur-md text-white text-[10px] px-3 py-1 rounded-full font-sans uppercase tracking-widest">
-                      {index + 1} / {images.length}
-                    </div>
-                  </div>
-                </CarouselItem>
-              ))}
-            </CarouselContent>
-            {images.length > 1 && (
-              <>
-                <CarouselPrevious className="hidden md:flex -left-12 bg-secondary/50 border-accent/20 hover:bg-accent hover:text-white" />
-                <CarouselNext className="hidden md:flex -right-12 bg-secondary/50 border-accent/20 hover:bg-accent hover:text-white" />
-              </>
-            )}
-          </Carousel>
-        </motion.div>
-
-        <div className="max-w-2xl mx-auto">
-          <motion.div 
-            initial={{ opacity: 0, x: -20 }}
-            whileInView={{ opacity: 1, x: 0 }}
-            viewport={{ once: true }}
-            className="relative p-10 bg-secondary/30 backdrop-blur-sm border-l-4 border-accent shadow-xl"
-          >
-            <div className="absolute top-0 right-0 p-4 opacity-10">
-              <Images className="h-12 w-12" />
+        {/* View toggle: carousel ↔ mosaic */}
+        {images.length > 1 && (
+          <div className="flex justify-center -mt-4">
+            <div className="inline-flex rounded-full border border-border bg-background/60 p-1">
+              <button
+                type="button"
+                onClick={() => setShowMosaic(false)}
+                className={`px-4 py-1.5 rounded-full text-xs font-serif italic transition-colors flex items-center gap-1.5 ${
+                  !showMosaic ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:text-foreground"
+                }`}
+                aria-pressed={!showMosaic}
+              >
+                <Images className="h-3.5 w-3.5" />
+                {language === 'en' ? "Story" : "Poveste"}
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowMosaic(true)}
+                className={`px-4 py-1.5 rounded-full text-xs font-serif italic transition-colors flex items-center gap-1.5 ${
+                  showMosaic ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:text-foreground"
+                }`}
+                aria-pressed={showMosaic}
+              >
+                <LayoutGrid className="h-3.5 w-3.5" />
+                {language === 'en' ? "View all" : "Vezi tot"}
+              </button>
             </div>
-            <h3 className="text-xs font-sans uppercase tracking-[0.3em] text-accent mb-6 font-black">
-              {language === 'en' ? 'Visual Story' : 'Poveste Vizuală'}
-            </h3>
-            <p className="font-serif text-2xl md:text-3xl leading-relaxed text-secondary-foreground/90 italic">
-              {description}
-            </p>
-          </motion.div>
-        </div>
-
-        <div className="flex justify-center pt-8">
-          <div className="flex flex-col items-center gap-2">
-            <div className="h-10 w-[1px] bg-accent/30" />
-            <p className="text-[10px] font-sans uppercase tracking-[0.5em] text-muted-foreground/60">
-              {new Date(article.createdAt).toLocaleDateString(language === 'en' ? 'en-US' : 'ro-RO', {
-                year: 'numeric',
-                month: 'long'
-              })}
-            </p>
           </div>
-        </div>
+        )}
+
+        {/* Full-bleed gallery */}
+        {showMosaic ? (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="-mx-8 md:-mx-16"
+          >
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+              {images.map((url, index) => (
+                <button
+                  key={index}
+                  type="button"
+                  onClick={() => setLightboxIndex(index)}
+                  className="group relative aspect-[4/5] overflow-hidden bg-secondary/30"
+                  aria-label={language === 'en' ? `Open image ${index + 1}` : `Deschide imaginea ${index + 1}`}
+                >
+                  <img
+                    src={url}
+                    alt={captionFor(index) || `${getLocalized(article, "title", language)} - ${index + 1}`}
+                    loading="lazy"
+                    decoding="async"
+                    className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                  />
+                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
+                    <Maximize2 className="h-6 w-6 text-white drop-shadow-md" />
+                  </div>
+                  {captionFor(index) && (
+                    <div className="absolute bottom-0 left-0 right-0 p-2 bg-gradient-to-t from-black/80 to-transparent text-white text-[11px] font-serif italic line-clamp-2">
+                      {captionFor(index)}
+                    </div>
+                  )}
+                </button>
+              ))}
+            </div>
+          </motion.div>
+        ) : (
+          <motion.figure
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2, duration: 0.8 }}
+            className="-mx-8 md:-mx-16 relative"
+          >
+            <Carousel
+              className="w-full"
+              opts={{ loop: false }}
+              setApi={(api) => {
+                if (!api) return;
+                api.on("select", () => setCarouselSlide(api.selectedScrollSnap()));
+              }}
+            >
+              <CarouselContent>
+                {images.length === 0 && (
+                  <CarouselItem>
+                    <div className="relative aspect-[16/9] md:aspect-[21/9] w-full bg-black/5 flex items-center justify-center">
+                      <div className="text-center space-y-2 text-muted-foreground">
+                        <Images className="h-12 w-12 mx-auto opacity-30" />
+                        <p className="font-serif italic">{language === 'en' ? 'No images available' : 'Nicio imagine disponibilă'}</p>
+                      </div>
+                    </div>
+                  </CarouselItem>
+                )}
+                {images.map((url, index) => (
+                  <CarouselItem key={index}>
+                    <button
+                      type="button"
+                      onClick={() => setLightboxIndex(index)}
+                      className="block w-full relative aspect-[16/9] md:aspect-[21/9] overflow-hidden bg-black group/slide"
+                      aria-label={language === 'en' ? "Expand image" : "Mărește imaginea"}
+                    >
+                      <img
+                        src={url}
+                        alt={captionFor(index) || `${getLocalized(article, "title", language)} - ${index + 1}`}
+                        className="w-full h-full object-cover transition-transform duration-700 group-hover/slide:scale-[1.02]"
+                        loading={index === 0 ? "eager" : "lazy"}
+                        decoding="async"
+                      />
+                      <div className="absolute top-3 right-3 h-9 w-9 rounded-full bg-black/40 backdrop-blur-md text-white flex items-center justify-center opacity-0 group-hover/slide:opacity-100 transition-opacity">
+                        <Maximize2 className="h-4 w-4" />
+                      </div>
+                    </button>
+                  </CarouselItem>
+                ))}
+              </CarouselContent>
+              {images.length > 1 && (
+                <>
+                  <CarouselPrevious className="hidden md:flex left-4 bg-black/40 border-white/20 text-white hover:bg-black/60 hover:text-white" />
+                  <CarouselNext className="hidden md:flex right-4 bg-black/40 border-white/20 text-white hover:bg-black/60 hover:text-white" />
+                </>
+              )}
+            </Carousel>
+
+            {/* Caption + index indicator */}
+            <div className="text-center pt-4 px-8 md:px-16 space-y-1.5 min-h-[3.5rem]">
+              <p className="text-xs font-serif italic text-muted-foreground">
+                {carouselSlide + 1} / {images.length}
+              </p>
+              {captionFor(carouselSlide) && (
+                <p className="font-serif italic text-base md:text-lg text-secondary-foreground/85 max-w-2xl mx-auto">
+                  {captionFor(carouselSlide)}
+                </p>
+              )}
+            </div>
+
+            {/* Thumbnail strip */}
+            {images.length > 1 && (
+              <div className="px-8 md:px-16 pt-4 overflow-x-auto custom-scrollbar">
+                <div className="flex items-center justify-start md:justify-center gap-2 pb-2">
+                  {images.map((url, index) => (
+                    <button
+                      key={index}
+                      type="button"
+                      onClick={() => setCarouselSlide(index)}
+                      className={`carousel-thumb ${
+                        carouselSlide === index ? "carousel-thumb-active" : "carousel-thumb-inactive"
+                      }`}
+                      aria-label={language === 'en' ? `Go to image ${index + 1}` : `Mergi la imaginea ${index + 1}`}
+                      aria-current={carouselSlide === index ? "true" : undefined}
+                    >
+                      <img src={url} alt="" className="w-full h-full object-cover" loading="lazy" />
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </motion.figure>
+        )}
+
+        {/* Editorial-column description */}
+        {description && description.trim() && (
+          <div className="max-w-[680px] mx-auto space-y-6">
+            <div className="text-center">
+              <p className="article-eyebrow">
+                {language === 'en' ? "Photographer's note" : "Notă de la fotograf"}
+              </p>
+            </div>
+            {description
+              .trim()
+              .split(/\n\s*\n/)
+              .filter(p => p.trim().length > 0)
+              .map((rawPara, idx) => {
+                const trimmed = rawPara.trim();
+                if (trimmed.startsWith("> ")) {
+                  return (
+                    <blockquote key={idx} className="pull-quote">
+                      {trimmed.slice(2).trim()}
+                    </blockquote>
+                  );
+                }
+                return (
+                  <p
+                    key={idx}
+                    className={`font-serif text-lg md:text-xl leading-[1.85] text-secondary-foreground/90 whitespace-pre-wrap ${
+                      idx === 0 ? "drop-cap" : ""
+                    }`}
+                  >
+                    {trimmed}
+                  </p>
+                );
+              })}
+          </div>
+        )}
+
+        {/* Lightbox — full-screen image viewer */}
+        <ImageLightbox
+          images={lightboxImages}
+          startIndex={lightboxIndex ?? 0}
+          open={lightboxIndex !== null}
+          onClose={() => setLightboxIndex(null)}
+          language={language}
+        />
       </div>
     );
   };

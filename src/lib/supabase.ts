@@ -32,6 +32,7 @@ const COLUMN_MAP: Record<string, string> = {
   avatarUrl: 'avatar_url',
   location: 'location',
   mediaUrls: 'media_urls',
+  mediaCaptions: 'media_captions',
 };
 
 const REVERSE_MAP: Record<string, string> = Object.fromEntries(
@@ -68,6 +69,8 @@ export type Category = {
   createdAt: string;
 };
 
+export type MediaCaption = { en: string; ro: string };
+
 export type Article = {
   id: string;
   titleEn: string;
@@ -81,6 +84,7 @@ export type Article = {
   isPublished: boolean;
   type: 'text' | 'video' | 'carousel';
   mediaUrls?: string[];
+  mediaCaptions?: MediaCaption[];
   location?: string;
   createdAt: string;
   // UI-only fields for chapter editing (not stored in DB)
@@ -256,6 +260,7 @@ export type NewArticleInput = {
   mediaUrl?: string | null;
   posterUrl?: string | null;
   mediaUrls?: string[];
+  mediaCaptions?: MediaCaption[];
 };
 
 export const createArticle = async (input: NewArticleInput): Promise<{ id: string }> => {
@@ -274,6 +279,7 @@ export const createArticle = async (input: NewArticleInput): Promise<{ id: strin
     media_url: input.mediaUrl ?? null,
     poster_url: input.posterUrl ?? null,
     media_urls: input.mediaUrls ?? null,
+    media_captions: input.mediaCaptions ?? null,
     user_id: input.userId,
     is_published: input.isPublished,
     type: input.type,

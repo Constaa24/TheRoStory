@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Category } from "@/lib/supabase";
+import { Category, MediaCaption } from "@/lib/supabase";
 import { fetchCategories, supabase, uploadFile, createArticle } from "@/lib/supabase";
 import { useLanguage } from "@/hooks/use-language";
 import { useAuth } from "@/hooks/use-auth";
@@ -166,6 +166,7 @@ const CarouselStoryCreate: React.FC = () => {
   const [categoryId, setCategoryId] = useState("");
   const [location, setLocation] = useState("");
   const [mediaUrls, setMediaUrls] = useState<string[]>([]);
+  const [mediaCaptions, setMediaCaptions] = useState<MediaCaption[]>([]);
 
   const isDirty =
     titleEn.trim() !== "" ||
@@ -213,8 +214,9 @@ const CarouselStoryCreate: React.FC = () => {
       const path = `carousels/${user?.id}/${Date.now()}.${extension}`;
       
       const publicUrl = await uploadFile('articles', path, file);
-      
+
       setMediaUrls(prev => [...prev, publicUrl]);
+      setMediaCaptions(prev => [...prev, { en: "", ro: "" }]);
       toast.success(language === 'en' ? "Image uploaded successfully" : "Imagine încărcată cu succes");
     } catch (error) {
       console.error("Error uploading image:", error);
@@ -228,6 +230,7 @@ const CarouselStoryCreate: React.FC = () => {
   const removeImage = (index: number) => {
     const url = mediaUrls[index];
     setMediaUrls(prev => prev.filter((_, i) => i !== index));
+    setMediaCaptions(prev => prev.filter((_, i) => i !== index));
     // Best-effort cleanup of the uploaded file from storage
     const match = url?.match(/\/object\/public\/articles\/(.+)$/);
     if (match) {
@@ -243,6 +246,22 @@ const CarouselStoryCreate: React.FC = () => {
       next.splice(to, 0, moved);
       return next;
     });
+    setMediaCaptions(prev => {
+      const next = [...prev];
+      const [moved] = next.splice(from, 1);
+      next.splice(to, 0, moved);
+      return next;
+    });
+  };
+
+  const updateCaption = (index: number, lang: "en" | "ro", value: string) => {
+    setMediaCaptions(prev => {
+      const next = [...prev];
+      // Pad with empty objects if needed (for backward compat)
+      while (next.length <= index) next.push({ en: "", ro: "" });
+      next[index] = { ...next[index], [lang]: value };
+      return next;
+    });
   };
 
   const handleSave = async () => {
@@ -253,6 +272,9 @@ const CarouselStoryCreate: React.FC = () => {
 
     setIsSaving(true);
     try {
+      // Only persist captions if at least one has content
+      const hasAnyCaption = mediaCaptions.some(c => c?.en?.trim() || c?.ro?.trim());
+
       await createArticle({
         type: 'carousel',
         titleEn,
@@ -265,6 +287,7 @@ const CarouselStoryCreate: React.FC = () => {
         location: location || undefined,
         mediaUrl: mediaUrls[0],
         mediaUrls,
+        mediaCaptions: hasAnyCaption ? mediaCaptions : undefined,
       });
 
       toast.success(language === 'en' ? "Carousel story created successfully!" : "Povestea de tip carusel a fost creată cu succes!");
@@ -425,6 +448,56 @@ const CarouselStoryCreate: React.FC = () => {
                     : "Plasează cursorul peste o imagine pentru a o reordona, seta ca și copertă sau elimina. Prima imagine este folosită ca și copertă."}
                 </p>
               </div>
+
+              {/* Per-image captions — optional, shown beneath the gallery */}
+              {mediaUrls.length > 0 && (
+                <div className="space-y-3 pt-2">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-bold uppercase tracking-wider text-accent">
+                      {language === 'en' ? "Image Captions" : "Legende imagini"}
+                    </h3>
+                    <span className="text-[10px] uppercase tracking-widest text-muted-foreground font-bold">
+                      {language === 'en' ? "Optional" : "Opțional"}
+                    </span>
+                  </div>
+                  <p className="text-xs text-muted-foreground italic">
+                    {language === 'en'
+                      ? "A short line shown beneath each image when readers view the story."
+                      : "O linie scurtă afișată sub fiecare imagine când cititorii văd povestea."}
+                  </p>
+                  <div className="space-y-3">
+                    {mediaUrls.map((url, index) => {
+                      const caption = mediaCaptions[index] ?? { en: "", ro: "" };
+                      return (
+                        <div key={url} className="flex items-start gap-3 p-3 rounded-xl bg-background/40 border border-border/40">
+                          <div className="relative h-14 w-14 rounded-lg overflow-hidden shrink-0 border border-border">
+                            <img src={url} alt="" className="w-full h-full object-cover" />
+                            <span className="absolute bottom-0.5 left-0.5 bg-black/60 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full">
+                              {index + 1}
+                            </span>
+                          </div>
+                          <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-2 min-w-0">
+                            <Input
+                              placeholder={language === 'en' ? "Caption (English)" : "Legendă (Engleză)"}
+                              value={caption.en}
+                              onChange={e => updateCaption(index, "en", e.target.value)}
+                              className="text-sm"
+                              maxLength={200}
+                            />
+                            <Input
+                              placeholder={language === 'en' ? "Caption (Romanian)" : "Legendă (Română)"}
+                              value={caption.ro}
+                              onChange={e => updateCaption(index, "ro", e.target.value)}
+                              className="text-sm"
+                              maxLength={200}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
 
             <Button 

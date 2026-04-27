@@ -319,3 +319,37 @@
          transition-all duration-500;
 }
 
+/* Carousel thumbnail strip — small previews under the main image */
+.carousel-thumb {
+  @apply relative shrink-0 h-14 w-20 rounded-md overflow-hidden border-2
+         transition-all duration-200 cursor-pointer;
+}
+.carousel-thumb-active {
+  @apply border-accent ring-2 ring-accent/30;
+}
+.carousel-thumb-inactive {
+  @apply border-transparent opacity-60 hover:opacity-100 hover:border-accent/40;
+}
+
+/* Custom video poster overlay — parchment-styled play button before
+   the user starts the video. Clicking anywhere on the poster begins
+   playback and reveals the native controls. */
+.video-poster-overlay {
+  @apply absolute inset-0 flex flex-col items-center justify-center gap-4
+         bg-black/30 cursor-pointer transition-opacity duration-300
+         group-hover:bg-black/40;
+}
+.video-poster-play-button {
+  @apply h-20 w-20 rounded-full bg-background/95 backdrop-blur-md
+         flex items-center justify-center shadow-2xl
+         border border-accent/40 text-accent
+         transition-transform duration-300;
+}
+.video-poster-overlay:hover .video-poster-play-button {
+  transform: scale(1.08);
+}
+.video-poster-label {
+  @apply text-white font-serif italic text-sm md:text-base
+         tracking-wide drop-shadow-lg;
+}
+
