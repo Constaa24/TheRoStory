@@ -49,6 +49,7 @@ const ArticleDetail = lazy(() => import("@/pages/ArticleDetail"));
 const AdminDashboard = lazy(() => import("@/pages/AdminDashboard"));
 const VideoStoryCreate = lazy(() => import("@/pages/VideoStoryCreate"));
 const CarouselStoryCreate = lazy(() => import("@/pages/CarouselStoryCreate"));
+const TextStoryCreate = lazy(() => import("@/pages/TextStoryCreate"));
 const Categories = lazy(() => import("@/pages/Categories"));
 const CategoryDetail = lazy(() => import("@/pages/CategoryDetail"));
 const Support = lazy(() => import("@/pages/Support"));
@@ -165,6 +166,10 @@ const App: React.FC = () => {
               <Route
                 path="/admin/carousel-story/create"
                 element={canAccessAdmin ? <CarouselStoryCreate /> : <Navigate to="/" replace />}
+              />
+              <Route
+                path="/admin/text-story/create"
+                element={canAccessAdmin ? <TextStoryCreate /> : <Navigate to="/" replace />}
               />
               <Route
                 path="/admin/*"

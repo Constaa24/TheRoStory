@@ -237,6 +237,56 @@ export const fetchPublicContent = async (onlyPublished: boolean = true): Promise
   }
 };
 
+/**
+ * Unified article creation. All three story types funnel through here:
+ * one INSERT shape, one validation pass, UUID-based IDs, and consistent
+ * cache invalidation. Replaces three near-identical inserts spread across
+ * AdminDashboard / VideoStoryCreate / CarouselStoryCreate.
+ */
+export type NewArticleInput = {
+  type: 'text' | 'video' | 'carousel';
+  titleEn: string;
+  titleRo: string;
+  contentEn: string;
+  contentRo: string;
+  categoryId: string;
+  userId: string;
+  isPublished: boolean;
+  location?: string;
+  mediaUrl?: string | null;
+  posterUrl?: string | null;
+  mediaUrls?: string[];
+};
+
+export const createArticle = async (input: NewArticleInput): Promise<{ id: string }> => {
+  const id = (typeof crypto !== 'undefined' && 'randomUUID' in crypto)
+    ? `art_${crypto.randomUUID()}`
+    : `art_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+
+  const row: Record<string, unknown> = {
+    id,
+    title_en: input.titleEn.trim(),
+    title_ro: input.titleRo.trim(),
+    content_en: input.contentEn,
+    content_ro: input.contentRo,
+    category_id: input.categoryId,
+    location: input.location || null,
+    media_url: input.mediaUrl ?? null,
+    poster_url: input.posterUrl ?? null,
+    media_urls: input.mediaUrls ?? null,
+    user_id: input.userId,
+    is_published: input.isPublished,
+    type: input.type,
+    created_at: new Date().toISOString(),
+  };
+
+  const { error } = await supabase.from('articles').insert(row);
+  if (error) throw error;
+
+  invalidatePublicContentCache();
+  return { id };
+};
+
 export const fetchCategories = async (): Promise<Category[]> => {
   const { data, error } = await supabase
     .from('categories')

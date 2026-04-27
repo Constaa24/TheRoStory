@@ -1,21 +1,22 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Category } from "@/lib/supabase";
-import { fetchPublicContent, supabase, uploadFile } from "@/lib/supabase";
+import { fetchCategories, supabase, uploadFile, createArticle } from "@/lib/supabase";
 import { useLanguage } from "@/hooks/use-language";
 import { useAuth } from "@/hooks/use-auth";
+import { useUnsavedChangesWarning } from "@/hooks/use-unsaved-changes";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { 
-  Select, 
-  SelectContent, 
-  SelectItem, 
-  SelectTrigger, 
-  SelectValue 
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
 } from "@/components/ui/select";
 import { Card } from "@/components/ui/card";
-import { ArrowLeft, Images, Loader2, Save, X, Plus } from "lucide-react";
+import { ArrowLeft, Images, Loader2, Save, X, Plus, ArrowUp, ArrowDown, Star } from "lucide-react";
 import { toast } from "sonner";
 import { cn, isAbortError } from "@/lib/utils";
 import { COUNTIES } from "@/lib/constants";
@@ -25,27 +26,105 @@ interface GalleryGridProps {
   isUploading: boolean;
   addImageLabel: string;
   galleryLabel: string;
+  coverLabel: string;
+  moveUpLabel: string;
+  moveDownLabel: string;
+  setCoverLabel: string;
+  removeLabel: string;
   onRemove: (index: number) => void;
+  onMove: (from: number, to: number) => void;
   onAdd: () => void;
 }
 
-const GalleryGrid = React.memo<GalleryGridProps>(({ mediaUrls, isUploading, addImageLabel, galleryLabel, onRemove, onAdd }) => (
+const GalleryGrid = React.memo<GalleryGridProps>(({
+  mediaUrls,
+  isUploading,
+  addImageLabel,
+  galleryLabel,
+  coverLabel,
+  moveUpLabel,
+  moveDownLabel,
+  setCoverLabel,
+  removeLabel,
+  onRemove,
+  onMove,
+  onAdd,
+}) => (
   <div className="grid grid-cols-2 gap-2">
-    {mediaUrls.map((url, index) => (
-      <div key={index} className="relative group aspect-square rounded-xl overflow-hidden shadow-sm border border-border">
-        <img src={url} className="w-full h-full object-cover" alt={`${galleryLabel} ${index + 1}/${mediaUrls.length}`} loading="lazy" />
-        <button
-          className="absolute top-2 right-2 h-6 w-6 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-          onClick={() => onRemove(index)}
-          type="button"
-        >
-          <X className="h-3 w-3" />
-        </button>
-        <div className="absolute bottom-2 left-2 bg-black/50 text-white text-[10px] px-2 py-0.5 rounded-full backdrop-blur-sm">
-          {index + 1}
+    {mediaUrls.map((url, index) => {
+      const isFirst = index === 0;
+      const isLast = index === mediaUrls.length - 1;
+      return (
+        <div key={url} className="relative group aspect-square rounded-xl overflow-hidden shadow-sm border border-border">
+          <img
+            src={url}
+            className="w-full h-full object-cover"
+            alt={`${galleryLabel} ${index + 1}/${mediaUrls.length}`}
+            loading="lazy"
+          />
+
+          {/* Index + cover badge (always visible) */}
+          <div className="absolute bottom-2 left-2 flex items-center gap-1.5">
+            <div className="bg-black/60 text-white text-[10px] font-bold px-2 py-0.5 rounded-full backdrop-blur-sm">
+              {index + 1}
+            </div>
+            {isFirst && (
+              <div className="bg-accent text-accent-foreground text-[10px] font-bold px-2 py-0.5 rounded-full backdrop-blur-sm flex items-center gap-1">
+                <Star className="h-2.5 w-2.5 fill-current" />
+                {coverLabel}
+              </div>
+            )}
+          </div>
+
+          {/* Hover controls */}
+          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
+            <div className="flex items-center gap-1 bg-background/95 rounded-full p-1 shadow-lg">
+              <button
+                type="button"
+                onClick={() => onMove(index, index - 1)}
+                disabled={isFirst}
+                className="h-7 w-7 rounded-full flex items-center justify-center hover:bg-accent/10 disabled:opacity-30 disabled:cursor-not-allowed"
+                aria-label={moveUpLabel}
+                title={moveUpLabel}
+              >
+                <ArrowUp className="h-3.5 w-3.5" />
+              </button>
+              <button
+                type="button"
+                onClick={() => onMove(index, index + 1)}
+                disabled={isLast}
+                className="h-7 w-7 rounded-full flex items-center justify-center hover:bg-accent/10 disabled:opacity-30 disabled:cursor-not-allowed"
+                aria-label={moveDownLabel}
+                title={moveDownLabel}
+              >
+                <ArrowDown className="h-3.5 w-3.5" />
+              </button>
+              {!isFirst && (
+                <button
+                  type="button"
+                  onClick={() => onMove(index, 0)}
+                  className="h-7 w-7 rounded-full flex items-center justify-center hover:bg-accent/10"
+                  aria-label={setCoverLabel}
+                  title={setCoverLabel}
+                >
+                  <Star className="h-3.5 w-3.5" />
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => onRemove(index)}
+                className="h-7 w-7 rounded-full flex items-center justify-center text-destructive hover:bg-destructive/10"
+                aria-label={removeLabel}
+                title={removeLabel}
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          </div>
         </div>
-      </div>
-    ))}
+      );
+    })}
+
     <button
       className={cn(
         "aspect-square rounded-xl border-2 border-dashed flex flex-col items-center justify-center transition-colors gap-2",
@@ -88,22 +167,31 @@ const CarouselStoryCreate: React.FC = () => {
   const [location, setLocation] = useState("");
   const [mediaUrls, setMediaUrls] = useState<string[]>([]);
 
-  useEffect(() => {
-    fetchCategories();
-  }, []);
+  const isDirty =
+    titleEn.trim() !== "" ||
+    titleRo.trim() !== "" ||
+    descriptionEn.trim() !== "" ||
+    descriptionRo.trim() !== "" ||
+    categoryId !== "" ||
+    location !== "" ||
+    mediaUrls.length > 0;
 
-  const fetchCategories = async () => {
-    try {
-      const data = await fetchPublicContent();
-      setCategories(data.categories || []);
-    } catch (error) {
-      if (!isAbortError(error)) {
-        console.error("Error fetching categories:", error);
-      }
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  useUnsavedChangesWarning(isDirty && !isSaving);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchCategories()
+      .then(cats => {
+        if (!cancelled) setCategories(cats);
+      })
+      .catch(err => {
+        if (!isAbortError(err)) console.error("Error loading categories:", err);
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, []);
 
   const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -147,6 +235,16 @@ const CarouselStoryCreate: React.FC = () => {
     }
   };
 
+  const moveImage = (from: number, to: number) => {
+    if (from === to || from < 0 || to < 0 || from >= mediaUrls.length || to >= mediaUrls.length) return;
+    setMediaUrls(prev => {
+      const next = [...prev];
+      const [moved] = next.splice(from, 1);
+      next.splice(to, 0, moved);
+      return next;
+    });
+  };
+
   const handleSave = async () => {
     if (!titleEn || !titleRo || !categoryId || mediaUrls.length === 0 || !user) {
       toast.error(language === 'en' ? "Please fill all required fields and upload at least one image" : "Vă rugăm să completați toate câmpurile obligatorii și să încărcați cel puțin o imagine");
@@ -155,24 +253,19 @@ const CarouselStoryCreate: React.FC = () => {
 
     setIsSaving(true);
     try {
-      const id = `art_car_${Date.now()}`;
-      const { error } = await supabase.from('articles').insert({
-        id,
-        title_en: titleEn,
-        title_ro: titleRo,
-        content_en: descriptionEn,
-        content_ro: descriptionRo,
-        category_id: categoryId,
-        location: location,
-        media_urls: mediaUrls,
-        media_url: mediaUrls[0], // Set first image as main media_url for compatibility
-        user_id: user.id,
-        is_published: isAdmin,
+      await createArticle({
         type: 'carousel',
-        created_at: new Date().toISOString()
+        titleEn,
+        titleRo,
+        contentEn: descriptionEn,
+        contentRo: descriptionRo,
+        categoryId,
+        userId: user.id,
+        isPublished: isAdmin,
+        location: location || undefined,
+        mediaUrl: mediaUrls[0],
+        mediaUrls,
       });
-
-      if (error) throw error;
 
       toast.success(language === 'en' ? "Carousel story created successfully!" : "Povestea de tip carusel a fost creată cu succes!");
       navigate("/admin");
@@ -306,7 +399,13 @@ const CarouselStoryCreate: React.FC = () => {
                 isUploading={isUploading}
                 addImageLabel={t("admin.addImage")}
                 galleryLabel={language === 'en' ? "Carousel image" : "Imagine carusel"}
+                coverLabel={language === 'en' ? "Cover" : "Copertă"}
+                moveUpLabel={language === 'en' ? "Move earlier" : "Mută mai devreme"}
+                moveDownLabel={language === 'en' ? "Move later" : "Mută mai târziu"}
+                setCoverLabel={language === 'en' ? "Make cover" : "Setează copertă"}
+                removeLabel={language === 'en' ? "Remove" : "Elimină"}
                 onRemove={removeImage}
+                onMove={moveImage}
                 onAdd={() => imageInputRef.current?.click()}
               />
 
@@ -321,9 +420,9 @@ const CarouselStoryCreate: React.FC = () => {
               <div className="p-4 bg-accent/5 rounded-2xl border border-accent/10">
                 <p className="text-xs text-muted-foreground leading-relaxed">
                   <Images className="h-3 w-3 inline mr-1 text-accent" />
-                  {language === 'en' 
-                    ? "Upload multiple images to create a carousel. You can reorder images by deleting and re-uploading them." 
-                    : "Încarcă mai multe imagini pentru a crea un carusel. Poți reordona imaginile prin ștergere și re-încărcare."}
+                  {language === 'en'
+                    ? "Hover any image to reorder, set as cover, or remove. The first image is used as the cover."
+                    : "Plasează cursorul peste o imagine pentru a o reordona, seta ca și copertă sau elimina. Prima imagine este folosită ca și copertă."}
                 </p>
               </div>
             </div>

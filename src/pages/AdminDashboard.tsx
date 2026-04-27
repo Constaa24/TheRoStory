@@ -601,12 +601,12 @@ const AdminDashboard: React.FC = () => {
                     </DialogDescription>
                   </DialogHeader>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 py-6">
-                    <Button 
-                      variant="outline" 
+                    <Button
+                      variant="outline"
                       className="h-32 flex flex-col gap-3 rounded-2xl hover:border-accent hover:bg-accent/5 transition-all group"
                       onClick={() => {
                         setShowTypeSelection(false);
-                        setIsAdding(true);
+                        navigate("/admin/text-story/create");
                       }}
                     >
                       <div className="p-3 bg-accent/10 rounded-xl group-hover:scale-110 transition-transform">

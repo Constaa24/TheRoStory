@@ -1,9 +1,10 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Category } from "@/lib/supabase";
-import { fetchPublicContent, supabase, uploadFile } from "@/lib/supabase";
+import { fetchCategories, uploadFile, createArticle } from "@/lib/supabase";
 import { useLanguage } from "@/hooks/use-language";
 import { useAuth } from "@/hooks/use-auth";
+import { useUnsavedChangesWarning } from "@/hooks/use-unsaved-changes";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -43,22 +44,32 @@ const VideoStoryCreate: React.FC = () => {
   const [videoUrl, setVideoUrl] = useState("");
   const [posterUrl, setPosterUrl] = useState("");
 
-  useEffect(() => {
-    fetchCategories();
-  }, []);
+  const isDirty =
+    titleEn.trim() !== "" ||
+    titleRo.trim() !== "" ||
+    descriptionEn.trim() !== "" ||
+    descriptionRo.trim() !== "" ||
+    categoryId !== "" ||
+    location !== "" ||
+    videoUrl !== "" ||
+    posterUrl !== "";
 
-  const fetchCategories = async () => {
-    try {
-      const data = await fetchPublicContent();
-      setCategories(data.categories || []);
-    } catch (error) {
-      if (!isAbortError(error)) {
-        console.error("Error fetching categories:", error);
-      }
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  useUnsavedChangesWarning(isDirty && !isSaving);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchCategories()
+      .then(cats => {
+        if (!cancelled) setCategories(cats);
+      })
+      .catch(err => {
+        if (!isAbortError(err)) console.error("Error loading categories:", err);
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, []);
 
   const handleVideoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -149,24 +160,19 @@ const VideoStoryCreate: React.FC = () => {
 
     setIsSaving(true);
     try {
-      const id = `art_vid_${Date.now()}`;
-      const { error } = await supabase.from('articles').insert({
-        id,
-        title_en: titleEn,
-        title_ro: titleRo,
-        content_en: descriptionEn, // For videos, content can be the description
-        content_ro: descriptionRo,
-        category_id: categoryId,
-        location: location,
-        media_url: videoUrl,
-        poster_url: posterUrl || null,
-        user_id: user.id,
-        is_published: isAdmin, // Supabase boolean
+      await createArticle({
         type: 'video',
-        created_at: new Date().toISOString()
+        titleEn,
+        titleRo,
+        contentEn: descriptionEn,
+        contentRo: descriptionRo,
+        categoryId,
+        userId: user.id,
+        isPublished: isAdmin,
+        location: location || undefined,
+        mediaUrl: videoUrl,
+        posterUrl: posterUrl || null,
       });
-
-      if (error) throw error;
 
       toast.success(language === 'en' ? "Video story created successfully!" : "Povestea video a fost creată cu succes!");
       navigate("/admin");

@@ -89,8 +89,8 @@ const CategoryDetail: React.FC = () => {
         <script type="application/ld+json">{JSON.stringify(breadcrumbLd)}</script>
         <script type="application/ld+json">{JSON.stringify(itemListLd)}</script>
       </PageHead>
-      {/* Header */}
-      <section className="relative py-16 bg-gradient-to-b from-secondary/30 to-background border-b border-border">
+      {/* Header — extra top padding so the sticky navbar doesn't cover the breadcrumb */}
+      <section className="relative pt-32 pb-16 bg-gradient-to-b from-secondary/30 to-background border-b border-border">
         <div className="container mx-auto px-4">
           {/* Breadcrumb */}
           <nav aria-label="Breadcrumb" className="mb-6 text-sm text-muted-foreground">
