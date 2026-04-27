@@ -1,9 +1,28 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useLanguage } from "@/hooks/use-language";
 import { useAuth } from "@/hooks/use-auth";
-import { getLocalized, Article, CHAPTER_DELIMITER, Comment } from "@/lib/supabase";
+import { getLocalized, Article, Category, CHAPTER_DELIMITER, Comment } from "@/lib/supabase";
 import { toggleFavorite, isArticleFavorited, fetchComments, postComment, deleteComment, updateComment, fetchPublicContent, fetchArticleViews, incrementView } from "@/lib/supabase";
 import { isAbortError } from "@/lib/utils";
+import { useReadingProgress, getReadingTimeMinutes } from "@/hooks/use-reading-progress";
+
+/** Convert 1..N integer to a Roman numeral, used for chapter labels. */
+const toRoman = (n: number): string => {
+  const map: [number, string][] = [
+    [1000, "M"], [900, "CM"], [500, "D"], [400, "CD"],
+    [100, "C"], [90, "XC"], [50, "L"], [40, "XL"],
+    [10, "X"], [9, "IX"], [5, "V"], [4, "IV"], [1, "I"],
+  ];
+  let result = "";
+  let remaining = n;
+  for (const [val, sym] of map) {
+    while (remaining >= val) {
+      result += sym;
+      remaining -= val;
+    }
+  }
+  return result || "I";
+};
 
 // Use the shared cache exposed by `fetchPublicContent` so admin edits
 // (which call `invalidatePublicContentCache`) immediately invalidate
@@ -61,9 +80,30 @@ export const ParchmentArticle: React.FC<ParchmentArticleProps> = ({
   const [editContent, setEditContent] = useState("");
   const [isDeletingComment, setIsDeletingComment] = useState<string | null>(null);
   const [relatedArticles, setRelatedArticles] = useState<Article[]>([]);
+  const [allCategories, setAllCategories] = useState<Category[]>([]);
   const [views, setViews] = useState(initialViews);
+  const [activeChapterIndex, setActiveChapterIndex] = useState(0);
   const mountedRef = useRef(true);
   const currentArticleIdRef = useRef(article.id);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const chapterRefs = useRef<Array<HTMLDivElement | null>>([]);
+  const commentsAnchorRef = useRef<HTMLDivElement>(null);
+  const readingProgress = useReadingProgress(scrollRef);
+
+  const articleCategory = useMemo(
+    () => allCategories.find(c => c.id === article.categoryId) || null,
+    [allCategories, article.categoryId]
+  );
+
+  const fullBodyText = useMemo(
+    () => getLocalized(article, "content", language),
+    [article, language]
+  );
+
+  const readingMinutes = useMemo(
+    () => getReadingTimeMinutes(fullBodyText),
+    [fullBodyText]
+  );
 
   useEffect(() => {
     mountedRef.current = true;
@@ -122,11 +162,46 @@ export const ParchmentArticle: React.FC<ParchmentArticleProps> = ({
 
   // Scroll to top when article changes
   useEffect(() => {
-    const contentArea = document.querySelector('.custom-scrollbar');
-    if (contentArea) {
-      contentArea.scrollTo({ top: 0, behavior: 'instant' });
+    if (scrollRef.current) {
+      scrollRef.current.scrollTo({ top: 0, behavior: 'instant' });
     }
   }, [article.id]);
+
+  // Track active chapter (for the table of contents) via IntersectionObserver
+  useEffect(() => {
+    if (!scrollRef.current || chapterRefs.current.length === 0) return;
+    const root = scrollRef.current;
+    const observer = new IntersectionObserver(
+      entries => {
+        // Find the topmost intersecting chapter
+        const visible = entries
+          .filter(e => e.isIntersecting)
+          .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)[0];
+        if (visible) {
+          const idx = Number(visible.target.getAttribute('data-chapter-index'));
+          if (!Number.isNaN(idx)) setActiveChapterIndex(idx);
+        }
+      },
+      { root, rootMargin: '-30% 0px -55% 0px', threshold: 0 }
+    );
+    chapterRefs.current.forEach(el => el && observer.observe(el));
+    return () => observer.disconnect();
+  }, [article.id, language]);
+
+  const scrollToChapter = (index: number) => {
+    const el = chapterRefs.current[index];
+    if (el && scrollRef.current) {
+      const top = el.offsetTop - 32;
+      scrollRef.current.scrollTo({ top, behavior: 'smooth' });
+    }
+  };
+
+  const scrollToComments = () => {
+    if (commentsAnchorRef.current && scrollRef.current) {
+      const top = commentsAnchorRef.current.offsetTop - 32;
+      scrollRef.current.scrollTo({ top, behavior: 'smooth' });
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -160,9 +235,10 @@ export const ParchmentArticle: React.FC<ParchmentArticleProps> = ({
         setCommentsLoadError(language === 'en' ? "Failed to load comments. Please try again." : "Comentariile nu au putut fi încărcate. Încearcă din nou.");
       }
 
-      // Handle related articles
+      // Handle related articles + capture categories for the eyebrow label
       if (relatedResult.status === 'fulfilled') {
         const data = relatedResult.value;
+        setAllCategories(data.categories || []);
         const filtered = data.articles
           .filter(a => a.id !== article.id)
           .filter(a => a.categoryId === article.categoryId)
@@ -380,139 +456,214 @@ export const ParchmentArticle: React.FC<ParchmentArticleProps> = ({
   const isVideo = article.type === 'video';
   const isCarousel = article.type === 'carousel';
 
+  // Chapter list (used for the table-of-contents rail in long text articles)
+  const textChapters = useMemo(() => {
+    if (article.type !== 'text') return [];
+    const content = getLocalized(article, "content", language);
+    return content.includes(CHAPTER_DELIMITER)
+      ? content.split(CHAPTER_DELIMITER).filter((ch: string) => ch.trim())
+      : [content];
+  }, [article, language]);
+
+  const showChapterToc = article.type === 'text' && textChapters.length >= 3;
+
   const renderTextStory = () => {
     const content = getLocalized(article, "content", language);
-    const chapters = content.includes(CHAPTER_DELIMITER) 
+    const chapters = content.includes(CHAPTER_DELIMITER)
       ? content.split(CHAPTER_DELIMITER).filter((ch: string) => ch.trim())
       : [content];
 
+    // Render a chapter's body. Paragraphs are split on blank lines.
+    // A leading "> " on a paragraph promotes it to a pull-quote.
+    const renderChapterBody = (chapter: string, isFirst: boolean) => {
+      const paragraphs = chapter
+        .trim()
+        .split(/\n\s*\n/)
+        .filter(p => p.trim().length > 0);
+
+      return (
+        <div className="space-y-6">
+          {paragraphs.map((rawPara, pIdx) => {
+            const trimmed = rawPara.trim();
+            if (trimmed.startsWith("> ")) {
+              return (
+                <blockquote key={pIdx} className="pull-quote">
+                  {trimmed.slice(2).trim()}
+                </blockquote>
+              );
+            }
+            const isOpening = isFirst && pIdx === 0;
+            return (
+              <p
+                key={pIdx}
+                className={`font-serif text-lg md:text-xl leading-[1.85] text-secondary-foreground/90 whitespace-pre-wrap ${
+                  isOpening ? "drop-cap" : ""
+                }`}
+              >
+                {trimmed}
+              </p>
+            );
+          })}
+        </div>
+      );
+    };
+
     return (
       <div className="space-y-12">
-        <header className="text-center space-y-6">
-          <motion.div
-            initial={{ opacity: 0, scale: 0.8 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.5 }}
-          >
-            <h1 className="text-5xl md:text-7xl font-serif font-black text-secondary-foreground leading-tight tracking-tight px-4">
-              {getLocalized(article, "title", language)}
-            </h1>
-          </motion.div>
-          <div className="flex items-center justify-center gap-6">
-            <div className="h-[1px] w-12 md:w-24 bg-accent/30" />
-            <div className="w-3 h-3 rotate-45 border border-accent/50 bg-accent/10" />
-            <div className="h-[1px] w-12 md:w-24 bg-accent/30" />
-          </div>
-          <div className="flex flex-col md:flex-row items-center justify-center gap-4 text-xs font-sans uppercase tracking-[0.2em] text-muted-foreground font-medium">
-            {article.location && (
-              <span className="flex items-center gap-1.5 text-accent font-bold bg-accent/5 px-3 py-1 rounded-full border border-accent/10">
-                <MapPin className="h-3 w-3" />
-                {article.location}
+        {/* Magazine-style header */}
+        <header className="text-center space-y-6 max-w-3xl mx-auto">
+          {articleCategory && (
+            <motion.p
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="article-eyebrow"
+            >
+              <span className="inline-flex items-center gap-1.5">
+                <BookOpen className="h-3 w-3" />
+                {getLocalized(articleCategory, "name", language)}
+                {' · '}
+                {language === 'en' ? "Story" : "Poveste"}
               </span>
-            )}
-            <span className="bg-secondary-foreground/5 px-3 py-1 rounded-full border border-secondary-foreground/10">
+            </motion.p>
+          )}
+
+          <motion.h1
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+            className="text-5xl md:text-7xl font-serif font-black italic text-secondary-foreground leading-[1.05] tracking-tight"
+          >
+            {getLocalized(article, "title", language)}
+          </motion.h1>
+
+          <div className="chapter-ornament">✦</div>
+
+          <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-2 text-xs font-serif italic text-muted-foreground">
+            <span>
               {new Date(article.createdAt).toLocaleDateString(language === 'en' ? 'en-US' : 'ro-RO', {
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric'
+                year: 'numeric', month: 'long', day: 'numeric'
               })}
+            </span>
+            <span aria-hidden="true">·</span>
+            <span>
+              {readingMinutes} {language === 'en'
+                ? `min read`
+                : `min de citit`}
+            </span>
+            {article.location && (
+              <>
+                <span aria-hidden="true">·</span>
+                <span className="inline-flex items-center gap-1 text-accent">
+                  <MapPin className="h-3 w-3" />
+                  {article.location}
+                </span>
+              </>
+            )}
+            <span aria-hidden="true">·</span>
+            <span className="inline-flex items-center gap-1">
+              <Eye className="h-3 w-3" /> {views}
             </span>
           </div>
         </header>
 
+        {/* Cinematic hero image */}
         {article.mediaUrl && (
-          <motion.div 
-            initial={{ opacity: 0, y: 30 }}
+          <motion.figure
+            initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3, duration: 0.8 }}
-            className="relative group p-1 bg-secondary-foreground/10 rounded-sm"
+            transition={{ delay: 0.2, duration: 0.8 }}
+            className="-mx-8 md:-mx-16 relative group"
           >
-            <div className="overflow-hidden relative rounded-sm">
+            <div className="overflow-hidden relative aspect-[16/9] md:aspect-[21/9] bg-secondary/30">
               <img
                 src={article.mediaUrl}
                 alt={getLocalized(article, "title", language)}
-                className="w-full h-auto shadow-2xl grayscale-[0.2] group-hover:grayscale-0 group-hover:scale-105 transition-all duration-1000 ease-out"
+                className="w-full h-full object-cover grayscale-[0.15] group-hover:grayscale-0 group-hover:scale-[1.02] transition-all duration-1000 ease-out"
                 loading="lazy"
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent pointer-events-none" />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent pointer-events-none" />
             </div>
-            <div className="absolute inset-0 border-[1px] border-white/20 pointer-events-none" />
-          </motion.div>
+            {article.location && (
+              <figcaption className="text-center text-xs font-serif italic text-muted-foreground mt-3">
+                {article.location}
+              </figcaption>
+            )}
+          </motion.figure>
         )}
 
-        <div className="max-w-3xl mx-auto space-y-12">
+        {/* Chapters */}
+        <div className="max-w-[680px] mx-auto space-y-16">
           {chapters.map((chapter: string, index: number) => (
-            <motion.div 
-              key={index} 
+            <motion.section
+              key={index}
+              ref={el => { chapterRefs.current[index] = el; }}
+              data-chapter-index={index}
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: index * 0.1 }}
+              viewport={{ once: true, margin: "-80px" }}
+              transition={{ duration: 0.6 }}
               className="relative"
             >
               {chapters.length > 1 && (
-                <div className="flex items-center gap-4 mb-6">
-                  <span className="text-xs font-sans uppercase tracking-widest text-accent font-black">
-                    {language === 'en' ? `Chapter ${index + 1}` : `Capitolul ${index + 1}`}
-                  </span>
-                  <div className="h-[1px] flex-1 bg-accent/10" />
+                <div className="text-center mb-8">
+                  <div className="chapter-roman">{toRoman(index + 1)}</div>
+                  <div className="chapter-ornament">✦</div>
                 </div>
               )}
-              <div 
-                className={`font-serif text-xl md:text-2xl leading-[1.7] text-secondary-foreground/90 whitespace-pre-wrap ${
-                  index === 0 ? "drop-cap" : ""
-                }`}
-              >
-                {chapter.trim()}
-              </div>
-              {index < chapters.length - 1 && (
-                <div className="flex justify-center my-16">
-                  <div className="romanian-motif w-full h-10 bg-repeat-x opacity-20" />
-                </div>
-              )}
-            </motion.div>
+              {renderChapterBody(chapter, index === 0)}
+            </motion.section>
           ))}
         </div>
       </div>
     );
-
   };
 
   const renderVideoStory = () => {
     const description = getLocalized(article, "content", language);
     const articleDate = new Date(article.createdAt);
     const locale = language === 'en' ? 'en-US' : 'ro-RO';
-    
+
     return (
       <div className="space-y-12">
-        <header className="text-center space-y-6">
-          <motion.div
-            initial={{ opacity: 0, scale: 0.8 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.5 }}
-          >
-            <h1 className="text-5xl md:text-8xl font-serif font-black text-secondary-foreground leading-tight tracking-tight px-4">
-              {getLocalized(article, "title", language)}
-            </h1>
-          </motion.div>
-          <div className="flex items-center justify-center gap-6">
-            <div className="h-[1px] w-12 md:w-24 bg-accent/30" />
-            <div className="flex items-center gap-2">
-              <div className="w-2 h-2 rounded-full bg-accent/50" />
-              <Video className="h-4 w-4 text-accent" />
-              <div className="w-2 h-2 rounded-full bg-accent/50" />
-            </div>
-            <div className="h-[1px] w-12 md:w-24 bg-accent/30" />
-          </div>
-          <div className="flex flex-col md:flex-row items-center justify-center gap-4 text-xs font-sans uppercase tracking-[0.2em] text-muted-foreground font-medium">
-            {article.location && (
-              <span className="flex items-center gap-1.5 text-accent font-bold bg-accent/5 px-3 py-1 rounded-full border border-accent/10">
-                <MapPin className="h-3 w-3" />
-                {article.location}
+        <header className="text-center space-y-6 max-w-3xl mx-auto">
+          {articleCategory && (
+            <p className="article-eyebrow">
+              <span className="inline-flex items-center gap-1.5">
+                <Video className="h-3 w-3" />
+                {getLocalized(articleCategory, "name", language)}
+                {' · '}
+                {language === 'en' ? "Video Story" : "Poveste Video"}
               </span>
+            </p>
+          )}
+
+          <motion.h1
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+            className="text-5xl md:text-7xl font-serif font-black italic text-secondary-foreground leading-[1.05] tracking-tight"
+          >
+            {getLocalized(article, "title", language)}
+          </motion.h1>
+
+          <div className="chapter-ornament">✦</div>
+
+          <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-2 text-xs font-serif italic text-muted-foreground">
+            <span>{articleDate.toLocaleDateString(locale, { year: 'numeric', month: 'long', day: 'numeric' })}</span>
+            <span aria-hidden="true">·</span>
+            <span>{readingMinutes} {language === 'en' ? "min read" : "min de citit"}</span>
+            {article.location && (
+              <>
+                <span aria-hidden="true">·</span>
+                <span className="inline-flex items-center gap-1 text-accent">
+                  <MapPin className="h-3 w-3" />
+                  {article.location}
+                </span>
+              </>
             )}
-            <span className="bg-secondary-foreground/5 px-3 py-1 rounded-full border border-secondary-foreground/10">
-              {articleDate.toLocaleDateString(locale, { year: 'numeric', month: 'long', day: 'numeric' })}
+            <span aria-hidden="true">·</span>
+            <span className="inline-flex items-center gap-1">
+              <Eye className="h-3 w-3" /> {views}
             </span>
           </div>
         </header>
@@ -570,41 +721,50 @@ export const ParchmentArticle: React.FC<ParchmentArticleProps> = ({
   const renderCarouselStory = () => {
     const description = getLocalized(article, "content", language);
     const images = article.mediaUrls || [];
-    
+    const articleDate = new Date(article.createdAt);
+    const locale = language === 'en' ? 'en-US' : 'ro-RO';
+
     return (
       <div className="space-y-12">
-        <header className="text-center space-y-6">
-          <motion.div
-            initial={{ opacity: 0, scale: 0.8 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.5 }}
-          >
-            <h1 className="text-5xl md:text-8xl font-serif font-black text-secondary-foreground leading-tight tracking-tight px-4">
-              {getLocalized(article, "title", language)}
-            </h1>
-          </motion.div>
-          <div className="flex items-center justify-center gap-6">
-            <div className="h-[1px] w-12 md:w-24 bg-accent/30" />
-            <div className="flex items-center gap-2">
-              <div className="w-2 h-2 rounded-full bg-accent/50" />
-              <Images className="h-4 w-4 text-accent" />
-              <div className="w-2 h-2 rounded-full bg-accent/50" />
-            </div>
-            <div className="h-[1px] w-12 md:w-24 bg-accent/30" />
-          </div>
-          <div className="flex flex-col md:flex-row items-center justify-center gap-4 text-xs font-sans uppercase tracking-[0.2em] text-muted-foreground font-medium">
-            {article.location && (
-              <span className="flex items-center gap-1.5 text-accent font-bold bg-accent/5 px-3 py-1 rounded-full border border-accent/10">
-                <MapPin className="h-3 w-3" />
-                {article.location}
+        <header className="text-center space-y-6 max-w-3xl mx-auto">
+          {articleCategory && (
+            <p className="article-eyebrow">
+              <span className="inline-flex items-center gap-1.5">
+                <Images className="h-3 w-3" />
+                {getLocalized(articleCategory, "name", language)}
+                {' · '}
+                {language === 'en' ? "Photo Story" : "Poveste Foto"}
               </span>
+            </p>
+          )}
+
+          <motion.h1
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+            className="text-5xl md:text-7xl font-serif font-black italic text-secondary-foreground leading-[1.05] tracking-tight"
+          >
+            {getLocalized(article, "title", language)}
+          </motion.h1>
+
+          <div className="chapter-ornament">✦</div>
+
+          <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-2 text-xs font-serif italic text-muted-foreground">
+            <span>{articleDate.toLocaleDateString(locale, { year: 'numeric', month: 'long', day: 'numeric' })}</span>
+            <span aria-hidden="true">·</span>
+            <span>{images.length} {language === 'en' ? (images.length === 1 ? "image" : "images") : (images.length === 1 ? "imagine" : "imagini")}</span>
+            {article.location && (
+              <>
+                <span aria-hidden="true">·</span>
+                <span className="inline-flex items-center gap-1 text-accent">
+                  <MapPin className="h-3 w-3" />
+                  {article.location}
+                </span>
+              </>
             )}
-            <span className="bg-secondary-foreground/5 px-3 py-1 rounded-full border border-secondary-foreground/10">
-              {new Date(article.createdAt).toLocaleDateString(language === 'en' ? 'en-US' : 'ro-RO', {
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric'
-              })}
+            <span aria-hidden="true">·</span>
+            <span className="inline-flex items-center gap-1">
+              <Eye className="h-3 w-3" /> {views}
             </span>
           </div>
         </header>
@@ -704,11 +864,20 @@ export const ParchmentArticle: React.FC<ParchmentArticleProps> = ({
           className="parchment-effect burnt-edge w-full max-w-4xl max-h-[90vh] flex flex-col rounded-sm overflow-hidden relative shadow-2xl"
           onClick={(e) => e.stopPropagation()}
         >
+          {/* Reading progress bar — fills as the reader scrolls */}
+          <div
+            className="reading-progress-bar"
+            style={{ width: `${readingProgress * 100}%` }}
+            aria-hidden="true"
+          />
+
           <div className="absolute top-0 left-0 w-full h-2 bg-secondary/50 torn-edge rotate-180 z-20" />
           <div className="absolute bottom-0 left-0 w-full h-2 bg-secondary/50 torn-edge z-20" />
 
-        {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-secondary-foreground/10 bg-secondary/20">
+        {/* Compact top header — only shown on mobile/tablet (the desktop
+            right-rail covers the same actions, and the magazine eyebrow
+            inside the article body covers the category/type label). */}
+        <div className="lg:hidden flex items-center justify-between p-6 border-b border-secondary-foreground/10 bg-secondary/20">
           <div className="flex items-center gap-3">
             {article.type === 'video' ? (
               <Video className="h-6 w-6 text-accent" />
@@ -773,198 +942,391 @@ export const ParchmentArticle: React.FC<ParchmentArticleProps> = ({
           </div>
         </div>
 
+        {/* Chapter table of contents — only for text articles with 3+ chapters */}
+        {showChapterToc && (
+          <nav
+            aria-label={language === 'en' ? "Chapters" : "Capitole"}
+            className="hidden lg:flex flex-col items-center gap-2 absolute left-3 top-1/2 -translate-y-1/2 z-30 bg-background/80 backdrop-blur-md rounded-full p-2 shadow-lg border border-border"
+          >
+            <span className="text-[9px] font-sans uppercase tracking-widest text-muted-foreground font-bold py-1">
+              {language === 'en' ? "TOC" : "Cap."}
+            </span>
+            {textChapters.map((_, idx) => (
+              <button
+                key={idx}
+                type="button"
+                onClick={() => scrollToChapter(idx)}
+                aria-label={language === 'en' ? `Go to chapter ${idx + 1}` : `Mergi la capitolul ${idx + 1}`}
+                aria-current={activeChapterIndex === idx ? "true" : undefined}
+                className={`h-7 w-7 flex items-center justify-center rounded-full font-serif italic text-[11px] transition-colors ${
+                  activeChapterIndex === idx
+                    ? "bg-accent text-accent-foreground"
+                    : "text-muted-foreground hover:bg-accent/10 hover:text-accent"
+                }`}
+              >
+                {toRoman(idx + 1)}
+              </button>
+            ))}
+          </nav>
+        )}
+
+        {/* Desktop floating action rail */}
+        <div className="action-rail">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={handleFavoriteToggle}
+            disabled={isFavoriting}
+            aria-label={isFavorited ? t("article.unfavorite") : t("article.favorite")}
+            aria-pressed={isFavorited}
+            className={isFavorited
+              ? "text-red-500 hover:text-red-600 bg-red-50/50 rounded-full h-10 w-10"
+              : "text-muted-foreground hover:text-red-500 hover:bg-red-50/50 rounded-full h-10 w-10"}
+          >
+            <Heart className={isFavorited ? "h-5 w-5 fill-current" : "h-5 w-5"} />
+          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="text-muted-foreground hover:text-accent rounded-full h-10 w-10"
+                aria-label={t("share.title")}
+              >
+                <Share2 className="h-5 w-5" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="z-[110]">
+              <DropdownMenuItem onClick={() => handleShare('copy')} className="flex items-center gap-2 cursor-pointer">
+                <LinkIcon className="h-4 w-4" />
+                {t("share.copyLink")}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleShare('facebook')} className="flex items-center gap-2 cursor-pointer">
+                <Facebook className="h-4 w-4" />
+                {t("share.facebook")}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleShare('x')} className="flex items-center gap-2 cursor-pointer">
+                <svg viewBox="0 0 24 24" aria-hidden="true" className="h-4 w-4 fill-current">
+                  <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"></path>
+                </svg>
+                {t("share.twitter")}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={scrollToComments}
+            className="text-muted-foreground hover:text-accent rounded-full h-10 w-10"
+            aria-label={language === 'en' ? "Jump to comments" : "Sari la comentarii"}
+          >
+            <MessageSquare className="h-5 w-5" />
+          </Button>
+          <div className="h-px w-6 bg-border my-1" aria-hidden="true" />
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onClose}
+            className="text-muted-foreground hover:text-accent rounded-full h-10 w-10"
+            aria-label={t("article.close")}
+          >
+            <X className="h-5 w-5" />
+          </Button>
+        </div>
+
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-8 md:p-16 custom-scrollbar">
+        <div ref={scrollRef} className="flex-1 overflow-y-auto p-8 md:p-16 custom-scrollbar relative">
           <article className="max-w-4xl mx-auto">
             {isCarousel ? renderCarouselStory() : isVideo ? renderVideoStory() : renderTextStory()}
 
-            <footer className="pt-12 flex justify-center">
-              <div className="flex items-center gap-4">
-                <div className="h-[1px] w-12 bg-secondary-foreground/20" />
-                <span className="font-serif italic text-accent">{t("parchment.theEnd")}</span>
-                <div className="h-[1px] w-12 bg-secondary-foreground/20" />
-              </div>
-            </footer>
+            {/* End-of-article ornament — magazine "FIN" flourish */}
+            <div className="article-end-ornament">
+              <span className="text-sm tracking-[0.4em] uppercase font-bold text-accent">
+                {t("parchment.theEnd")}
+              </span>
+            </div>
 
-            {/* Comments Section */}
-            <section className="mt-20 pt-10 border-t border-secondary-foreground/10">
-              <div className="flex items-center gap-2 mb-8">
-                <MessageSquare className="h-5 w-5 text-accent" />
-                <h3 className="text-xl font-serif font-bold text-secondary-foreground">
-                  {language === 'en' ? 'Comments' : 'Comentarii'} ({commentsTotal})
-                </h3>
+            {/* Inline share row — "loved this? share it" */}
+            <div className="max-w-[680px] mx-auto pt-2 pb-12 text-center space-y-4">
+              <p className="text-xs font-sans uppercase tracking-[0.25em] text-muted-foreground font-bold">
+                {language === 'en' ? "Enjoyed this story?" : "Ți-a plăcut povestea?"}
+              </p>
+              <div className="flex items-center justify-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleFavoriteToggle}
+                  disabled={isFavoriting}
+                  className={`rounded-full font-serif italic ${
+                    isFavorited ? "text-red-500 border-red-200 bg-red-50/50" : ""
+                  }`}
+                >
+                  <Heart className={`h-3.5 w-3.5 mr-2 ${isFavorited ? "fill-current" : ""}`} />
+                  {isFavorited
+                    ? (language === 'en' ? "Saved" : "Salvat")
+                    : (language === 'en' ? "Save" : "Salvează")}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleShare('copy')}
+                  className="rounded-full font-serif italic"
+                >
+                  <LinkIcon className="h-3.5 w-3.5 mr-2" />
+                  {t("share.copyLink")}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleShare('facebook')}
+                  className="rounded-full font-serif italic"
+                  aria-label={t("share.facebook")}
+                >
+                  <Facebook className="h-3.5 w-3.5" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleShare('x')}
+                  className="rounded-full font-serif italic"
+                  aria-label={t("share.twitter")}
+                >
+                  <svg viewBox="0 0 24 24" aria-hidden="true" className="h-3.5 w-3.5 fill-current">
+                    <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+                  </svg>
+                </Button>
               </div>
+            </div>
 
-              {/* Add Comment Form */}
-              <div className="mb-10 space-y-4">
-                <Textarea
-                  placeholder={language === 'en' ? 'Share your thoughts on this story...' : 'Împărtășiți-vă gândurile despre această poveste...'}
-                  value={newComment}
-                  onChange={(e) => setNewComment(e.target.value)}
-                  className="bg-secondary/20 border-secondary-foreground/10 font-serif focus:ring-accent/20"
-                />
-                <div className="flex justify-end">
-                  <Button 
-                    onClick={handlePostComment} 
-                    disabled={isPosting || !newComment.trim()}
-                    className="bg-accent hover:bg-accent/90 text-white font-serif italic"
-                  >
-                    {isPosting ? '...' : (language === 'en' ? 'Post Comment' : 'Postează')} <Send className="ml-2 h-4 w-4" />
-                  </Button>
+            {/* Comments Section — darker parchment background */}
+            <section
+              ref={commentsAnchorRef}
+              className="mt-12 -mx-8 md:-mx-16 px-8 md:px-16 py-12 bg-secondary/20 border-t border-secondary-foreground/10"
+            >
+              <div className="max-w-[680px] mx-auto">
+                <div className="flex items-center justify-center gap-3 mb-2">
+                  <div className="h-px flex-1 bg-secondary-foreground/15 max-w-12" />
+                  <MessageSquare className="h-4 w-4 text-accent" />
+                  <h3 className="text-2xl font-serif italic font-bold text-secondary-foreground">
+                    {language === 'en' ? 'The Conversation' : 'Conversația'}
+                  </h3>
+                  <div className="h-px flex-1 bg-secondary-foreground/15 max-w-12" />
                 </div>
-              </div>
+                <p className="text-center text-xs font-serif italic text-muted-foreground mb-8">
+                  {commentsTotal === 0
+                    ? (language === 'en' ? "No replies yet" : "Niciun răspuns încă")
+                    : `${commentsTotal} ${language === 'en' ? (commentsTotal === 1 ? "reply" : "replies") : (commentsTotal === 1 ? "răspuns" : "răspunsuri")}`}
+                </p>
 
-              {/* Comments List */}
-              <div className="space-y-6">
-                {commentsLoadError && (
-                  <p className="text-center text-sm font-serif italic text-destructive bg-destructive/5 border border-destructive/10 rounded-sm px-4 py-3">
-                    {commentsLoadError}
-                  </p>
-                )}
-                {comments.length === 0 && !commentsLoadError ? (
-                  <p className="text-center italic text-muted-foreground font-serif py-10">
-                    {language === 'en' ? 'No comments yet. Be the first to start the conversation!' : 'Niciun comentariu încă. Fii primul care începe conversația!'}
-                  </p>
-                ) : comments.length > 0 ? (
-                  comments.map((comment) => {
+                {/* Add Comment Form */}
+                <div className="mb-10 space-y-3 comment-card">
+                  <Textarea
+                    placeholder={language === 'en' ? 'Share your thoughts on this story...' : 'Împărtășește-ți gândurile despre această poveste...'}
+                    value={newComment}
+                    onChange={(e) => setNewComment(e.target.value)}
+                    className="bg-background/50 border-secondary-foreground/10 font-serif focus:ring-accent/20 min-h-[90px]"
+                    maxLength={1000}
+                  />
+                  <div className="flex items-center justify-between text-xs text-muted-foreground">
+                    <span className="font-serif italic">
+                      {newComment.length}/1000
+                    </span>
+                    <Button
+                      onClick={handlePostComment}
+                      disabled={isPosting || !newComment.trim()}
+                      className="bg-accent hover:bg-accent/90 text-white font-serif italic rounded-full"
+                      size="sm"
+                    >
+                      {isPosting ? '...' : (language === 'en' ? 'Post Comment' : 'Postează')}
+                      <Send className="ml-2 h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Comments List */}
+                <div className="space-y-4">
+                  {commentsLoadError && (
+                    <p className="text-center text-sm font-serif italic text-destructive bg-destructive/5 border border-destructive/10 rounded-2xl px-4 py-3">
+                      {commentsLoadError}
+                    </p>
+                  )}
+                  {comments.length === 0 && !commentsLoadError && (
+                    <p className="text-center italic text-muted-foreground font-serif py-6">
+                      {language === 'en' ? 'Be the first to start the conversation' : 'Fii primul care începe conversația'}
+                    </p>
+                  )}
+                  {comments.map((comment) => {
                     const isOwn = user?.id === comment.userId;
                     const isEditing = editingCommentId === comment.id;
                     return (
-                    <div key={comment.id} className="group animate-in fade-in slide-in-from-bottom-2">
-                      <div className="flex items-start gap-4">
-                        <div className="h-10 w-10 rounded-full bg-accent/10 border border-accent/20 flex items-center justify-center font-serif font-bold text-accent shrink-0">
-                          {comment.userDisplayName?.charAt(0).toUpperCase() || '?'}
-                        </div>
-                        <div className="flex-1 space-y-1">
-                          <div className="flex items-center justify-between">
-                            <span className="font-serif font-bold text-secondary-foreground">
-                              {comment.userDisplayName}
-                            </span>
-                            <div className="flex items-center gap-2">
-                              {isOwn && !isEditing && (
-                                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                  <button
-                                    onClick={() => handleStartEdit(comment)}
-                                    className="p-1 rounded hover:bg-accent/10 text-muted-foreground hover:text-accent transition-colors"
-                                    title={language === 'en' ? 'Edit' : 'Editează'}
-                                  >
-                                    <Pencil className="h-3.5 w-3.5" />
-                                  </button>
-                                  <button
-                                    onClick={() => handleDeleteComment(comment.id)}
-                                    disabled={isDeletingComment === comment.id}
-                                    className="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors disabled:opacity-50"
-                                    title={language === 'en' ? 'Delete' : 'Șterge'}
-                                  >
-                                    <Trash2 className="h-3.5 w-3.5" />
-                                  </button>
-                                </div>
-                              )}
-                              <span className="text-[10px] uppercase tracking-widest text-muted-foreground">
-                                {new Date(comment.createdAt).toLocaleDateString()}
-                              </span>
-                            </div>
+                      <div key={comment.id} className="comment-card group animate-in fade-in slide-in-from-bottom-2">
+                        <div className="flex items-start gap-4">
+                          <div className="h-10 w-10 rounded-full bg-accent/10 border border-accent/20 flex items-center justify-center font-serif font-bold text-accent shrink-0">
+                            {comment.userDisplayName?.charAt(0).toUpperCase() || '?'}
                           </div>
-                          {isEditing ? (
-                            <div className="space-y-2">
-                              <Textarea
-                                value={editContent}
-                                onChange={(e) => setEditContent(e.target.value)}
-                                className="font-serif italic text-lg bg-secondary/5 border-secondary-foreground/10 min-h-[80px]"
-                                maxLength={1000}
-                              />
-                              <div className="flex items-center gap-2 justify-end">
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={handleCancelEdit}
-                                  className="text-xs font-serif italic"
-                                >
-                                  <X className="h-3 w-3 mr-1" />
-                                  {language === 'en' ? 'Cancel' : 'Anulează'}
-                                </Button>
-                                <Button
-                                  variant="default"
-                                  size="sm"
-                                  onClick={() => handleSaveEdit(comment.id)}
-                                  disabled={isPosting || !editContent.trim()}
-                                  className="text-xs font-serif italic"
-                                >
-                                  <Check className="h-3 w-3 mr-1" />
-                                  {isPosting ? '...' : (language === 'en' ? 'Save' : 'Salvează')}
-                                </Button>
+                          <div className="flex-1 min-w-0 space-y-2">
+                            <div className="flex items-center justify-between flex-wrap gap-2">
+                              <span className="font-serif font-bold text-secondary-foreground">
+                                {comment.userDisplayName}
+                              </span>
+                              <div className="flex items-center gap-2">
+                                {isOwn && !isEditing && (
+                                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <button
+                                      onClick={() => handleStartEdit(comment)}
+                                      className="p-1 rounded hover:bg-accent/10 text-muted-foreground hover:text-accent transition-colors"
+                                      title={language === 'en' ? 'Edit' : 'Editează'}
+                                    >
+                                      <Pencil className="h-3.5 w-3.5" />
+                                    </button>
+                                    <button
+                                      onClick={() => handleDeleteComment(comment.id)}
+                                      disabled={isDeletingComment === comment.id}
+                                      className="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors disabled:opacity-50"
+                                      title={language === 'en' ? 'Delete' : 'Șterge'}
+                                    >
+                                      <Trash2 className="h-3.5 w-3.5" />
+                                    </button>
+                                  </div>
+                                )}
+                                <span className="text-[10px] uppercase tracking-widest text-muted-foreground font-serif italic">
+                                  {new Date(comment.createdAt).toLocaleDateString()}
+                                </span>
                               </div>
                             </div>
-                          ) : (
-                          <div className="font-serif text-lg leading-relaxed text-secondary-foreground/80 bg-secondary/5 p-4 rounded-sm border border-secondary-foreground/5 italic">
-                            {comment.content}
+                            {isEditing ? (
+                              <div className="space-y-2">
+                                <Textarea
+                                  value={editContent}
+                                  onChange={(e) => setEditContent(e.target.value)}
+                                  className="font-serif italic bg-background/50 border-secondary-foreground/10 min-h-[80px]"
+                                  maxLength={1000}
+                                />
+                                <div className="flex items-center gap-2 justify-end">
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={handleCancelEdit}
+                                    className="text-xs font-serif italic"
+                                  >
+                                    <X className="h-3 w-3 mr-1" />
+                                    {language === 'en' ? 'Cancel' : 'Anulează'}
+                                  </Button>
+                                  <Button
+                                    variant="default"
+                                    size="sm"
+                                    onClick={() => handleSaveEdit(comment.id)}
+                                    disabled={isPosting || !editContent.trim()}
+                                    className="text-xs font-serif italic"
+                                  >
+                                    <Check className="h-3 w-3 mr-1" />
+                                    {isPosting ? '...' : (language === 'en' ? 'Save' : 'Salvează')}
+                                  </Button>
+                                </div>
+                              </div>
+                            ) : (
+                              <p className="font-serif text-base leading-relaxed text-secondary-foreground/85 italic">
+                                {comment.content}
+                              </p>
+                            )}
                           </div>
-                          )}
                         </div>
                       </div>
-                    </div>
                     );
-                  })
-                ) : null}
+                  })}
 
-                {comments.length > 0 && comments.length < commentsTotal && (
-                  <div className="flex justify-center pt-4">
-                    <Button
-                      variant="ghost"
-                      onClick={loadMoreComments}
-                      disabled={isLoadingMoreComments}
-                      className="font-serif italic text-sm"
-                    >
-                      {isLoadingMoreComments
-                        ? (language === 'en' ? 'Loading...' : 'Se încarcă...')
-                        : (language === 'en'
-                            ? `Load more (${commentsTotal - comments.length} remaining)`
-                            : `Încarcă mai multe (${commentsTotal - comments.length} rămase)`)}
-                    </Button>
-                  </div>
-                )}
+                  {comments.length > 0 && comments.length < commentsTotal && (
+                    <div className="flex justify-center pt-4">
+                      <Button
+                        variant="ghost"
+                        onClick={loadMoreComments}
+                        disabled={isLoadingMoreComments}
+                        className="font-serif italic text-sm"
+                      >
+                        {isLoadingMoreComments
+                          ? (language === 'en' ? 'Loading...' : 'Se încarcă...')
+                          : (language === 'en'
+                              ? `Load more (${commentsTotal - comments.length} remaining)`
+                              : `Încarcă mai multe (${commentsTotal - comments.length} rămase)`)}
+                      </Button>
+                    </div>
+                  )}
+                </div>
               </div>
             </section>
 
-            {/* Related Stories Section */}
+            {/* Further Reading — editorial card grid */}
             {relatedArticles.length > 0 && (
-              <section className="mt-20 pt-10 border-t border-secondary-foreground/10">
-                <h3 className="text-xl font-serif font-bold text-secondary-foreground mb-8">
-                  {t("related.title")}
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  {relatedArticles.map((rel) => (
-                    <div 
-                      key={rel.id}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        navigate(`/article/${rel.id}`, { 
-                          state: { 
-                            from: window.location.pathname,
-                            selectedLocation: (location.state as { selectedLocation?: string } | null)?.selectedLocation
-                          } 
-                        });
-                      }}
-                      className="group cursor-pointer space-y-3"
-                    >
-                      <div className="aspect-[16/10] overflow-hidden rounded-sm relative">
-                        <img
-                          src={(rel.type === 'video' ? rel.posterUrl || rel.mediaUrl : rel.mediaUrl) || "https://images.unsplash.com/photo-1701118737005-005fc66703be?q=80&w=600"}
-                          alt={getLocalized(rel, "title", language)}
-                          className="w-full h-full object-cover grayscale-[0.3] group-hover:grayscale-0 group-hover:scale-110 transition-all duration-500"
-                          loading="lazy"
-                        />
-                        {rel.type === 'video' && (
-                          <div className="absolute inset-0 flex items-center justify-center bg-black/10">
-                            <Video className="h-6 w-6 text-white" />
+              <section className="-mx-8 md:-mx-16 px-8 md:px-16 py-16 bg-secondary/10 border-t border-secondary-foreground/10">
+                <div className="max-w-4xl mx-auto">
+                  <div className="text-center mb-12 space-y-2">
+                    <p className="article-eyebrow">
+                      {language === 'en' ? "More to read" : "Mai multe de citit"}
+                    </p>
+                    <h3 className="text-3xl font-serif italic font-black text-secondary-foreground">
+                      {language === 'en' ? "Further Reading" : "Lecturi suplimentare"}
+                    </h3>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    {relatedArticles.map((rel) => {
+                      const cat = allCategories.find(c => c.id === rel.categoryId);
+                      const relReadingMinutes = rel.type === 'text'
+                        ? getReadingTimeMinutes(getLocalized(rel, "content", language))
+                        : null;
+                      return (
+                        <button
+                          key={rel.id}
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(`/article/${rel.id}`, {
+                              state: {
+                                from: window.location.pathname,
+                                selectedLocation: (location.state as { selectedLocation?: string } | null)?.selectedLocation
+                              }
+                            });
+                          }}
+                          className="further-reading-card group text-left"
+                        >
+                          <div className="aspect-[16/10] overflow-hidden relative">
+                            <img
+                              src={(rel.type === 'video' ? rel.posterUrl || rel.mediaUrl : rel.mediaUrl) || "https://images.unsplash.com/photo-1701118737005-005fc66703be?q=80&w=600"}
+                              alt={getLocalized(rel, "title", language)}
+                              className="w-full h-full object-cover grayscale-[0.2] group-hover:grayscale-0 group-hover:scale-105 transition-all duration-700"
+                              loading="lazy"
+                            />
+                            {rel.type === 'video' && (
+                              <div className="absolute inset-0 flex items-center justify-center bg-black/10">
+                                <div className="p-3 bg-white/20 backdrop-blur-md rounded-full">
+                                  <Video className="h-5 w-5 text-white" />
+                                </div>
+                              </div>
+                            )}
+                            {rel.type === 'carousel' && (
+                              <div className="absolute top-3 right-3 bg-black/60 backdrop-blur-sm text-white text-[10px] font-bold px-2 py-1 rounded-full uppercase tracking-wider flex items-center gap-1">
+                                <Images className="h-3 w-3" /> {rel.mediaUrls?.length ?? 0}
+                              </div>
+                            )}
                           </div>
-                        )}
-                      </div>
-                      <h4 className="font-serif font-bold italic text-sm leading-tight group-hover:text-accent transition-colors">
-                        {getLocalized(rel, "title", language)}
-                      </h4>
-                    </div>
-                  ))}
+                          <div className="p-5 space-y-2">
+                            {cat && (
+                              <p className="text-[10px] font-sans uppercase tracking-[0.25em] text-accent font-bold">
+                                {getLocalized(cat, "name", language)}
+                              </p>
+                            )}
+                            <h4 className="font-serif font-bold italic text-lg leading-snug text-secondary-foreground group-hover:text-accent transition-colors">
+                              {getLocalized(rel, "title", language)}
+                            </h4>
+                            {relReadingMinutes !== null && (
+                              <p className="text-xs font-serif italic text-muted-foreground">
+                                {relReadingMinutes} {language === 'en' ? "min read" : "min de citit"}
+                              </p>
+                            )}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
               </section>
             )}

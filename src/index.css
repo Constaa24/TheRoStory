@@ -220,3 +220,102 @@
   text-shadow: 2px 2px 0px hsl(var(--secondary));
 }
 
+/* ============================================================
+   Article Redesign — magazine/editorial styling
+   ============================================================ */
+
+/* Magazine-style category eyebrow over the article title */
+.article-eyebrow {
+  @apply text-xs font-sans uppercase tracking-[0.3em] font-bold text-accent;
+}
+.article-eyebrow::before,
+.article-eyebrow::after {
+  content: "";
+  display: inline-block;
+  width: 1.5rem;
+  height: 1px;
+  background-color: hsl(var(--accent) / 0.5);
+  vertical-align: middle;
+  margin: 0 0.75rem;
+}
+
+/* Roman-numeral chapter heading + ornament beneath */
+.chapter-roman {
+  @apply text-3xl md:text-4xl font-serif italic text-accent text-center;
+  font-feature-settings: "smcp", "c2sc";
+}
+.chapter-ornament {
+  @apply flex items-center justify-center gap-3 my-2 text-accent/60 font-serif italic text-lg;
+}
+.chapter-ornament::before,
+.chapter-ornament::after {
+  content: "";
+  display: block;
+  width: 3rem;
+  height: 1px;
+  background-color: hsl(var(--accent) / 0.3);
+}
+
+/* Pull-quote — for paragraphs prefixed with `> ` in source */
+.pull-quote {
+  @apply relative my-10 px-8 py-6 font-serif italic text-2xl md:text-3xl
+         leading-relaxed text-secondary-foreground text-center
+         border-y-2 border-accent/30;
+}
+.pull-quote::before {
+  content: "“";
+  @apply absolute -top-4 left-2 text-7xl text-accent/20 font-serif leading-none;
+}
+.pull-quote::after {
+  content: "”";
+  @apply absolute -bottom-10 right-4 text-7xl text-accent/20 font-serif leading-none;
+}
+
+/* End-of-article ornament — final ✦ FIN ✦ flourish */
+.article-end-ornament {
+  @apply flex items-center justify-center gap-4 py-12 text-accent/60 font-serif italic;
+}
+.article-end-ornament::before,
+.article-end-ornament::after {
+  content: "";
+  display: block;
+  width: 4rem;
+  height: 1px;
+  background: linear-gradient(
+    to right,
+    transparent,
+    hsl(var(--accent) / 0.4),
+    transparent
+  );
+}
+
+/* Reading progress bar — sits at the very top of the article container */
+.reading-progress-bar {
+  @apply absolute top-0 left-0 h-[3px] bg-accent z-30 transition-[width]
+         duration-100 ease-out pointer-events-none;
+}
+
+/* Right-side floating action rail (desktop only) */
+.action-rail {
+  @apply hidden lg:flex flex-col items-center gap-1 absolute right-3 top-1/2
+         -translate-y-1/2 z-30 bg-background/80 backdrop-blur-md
+         rounded-full p-1.5 shadow-lg border border-border;
+}
+
+/* Comment card on a slightly darker parchment */
+.comment-card {
+  @apply relative rounded-2xl bg-secondary/30 border border-secondary-foreground/10
+         p-5 transition-colors hover:bg-secondary/40;
+}
+
+/* "Further Reading" related-article card.
+   Apply the `group` utility directly on the JSX element alongside this
+   class — Tailwind doesn't allow `group` inside @apply (it's a marker
+   class with no styles of its own). */
+.further-reading-card {
+  @apply block cursor-pointer rounded-2xl overflow-hidden
+         bg-secondary/20 border border-secondary-foreground/10
+         hover:border-accent/40 hover:shadow-xl hover:-translate-y-1
+         transition-all duration-500;
+}
+
