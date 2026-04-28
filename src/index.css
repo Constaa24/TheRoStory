@@ -295,10 +295,14 @@
          duration-100 ease-out pointer-events-none;
 }
 
-/* Right-side floating action rail (desktop only) */
+/* Right-side floating action rail (desktop only).
+   Pinned to the viewport via `fixed` so it sits in the dark overlay area
+   to the right of the parchment article, not on top of it. The parchment
+   has overflow:hidden, so the rail must be rendered as a sibling of the
+   parchment (inside the modal overlay), not as a child. */
 .action-rail {
-  @apply hidden lg:flex flex-col items-center gap-1 absolute right-3 top-1/2
-         -translate-y-1/2 z-30 bg-background/80 backdrop-blur-md
+  @apply hidden lg:flex flex-col items-center gap-1 fixed right-3 top-1/2
+         -translate-y-1/2 z-[105] bg-background/80 backdrop-blur-md
          rounded-full p-1.5 shadow-lg border border-border;
 }
 

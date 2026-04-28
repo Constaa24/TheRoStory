@@ -1178,70 +1178,6 @@ export const ParchmentArticle: React.FC<ParchmentArticleProps> = ({
           </nav>
         )}
 
-        {/* Desktop floating action rail */}
-        <div className="action-rail">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={handleFavoriteToggle}
-            disabled={isFavoriting}
-            aria-label={isFavorited ? t("article.unfavorite") : t("article.favorite")}
-            aria-pressed={isFavorited}
-            className={isFavorited
-              ? "text-red-500 hover:text-red-600 bg-red-50/50 rounded-full h-10 w-10"
-              : "text-muted-foreground hover:text-red-500 hover:bg-red-50/50 rounded-full h-10 w-10"}
-          >
-            <Heart className={isFavorited ? "h-5 w-5 fill-current" : "h-5 w-5"} />
-          </Button>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="text-muted-foreground hover:text-accent rounded-full h-10 w-10"
-                aria-label={t("share.title")}
-              >
-                <Share2 className="h-5 w-5" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="z-[110]">
-              <DropdownMenuItem onClick={() => handleShare('copy')} className="flex items-center gap-2 cursor-pointer">
-                <LinkIcon className="h-4 w-4" />
-                {t("share.copyLink")}
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleShare('facebook')} className="flex items-center gap-2 cursor-pointer">
-                <Facebook className="h-4 w-4" />
-                {t("share.facebook")}
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleShare('x')} className="flex items-center gap-2 cursor-pointer">
-                <svg viewBox="0 0 24 24" aria-hidden="true" className="h-4 w-4 fill-current">
-                  <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"></path>
-                </svg>
-                {t("share.twitter")}
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={scrollToComments}
-            className="text-muted-foreground hover:text-accent rounded-full h-10 w-10"
-            aria-label={language === 'en' ? "Jump to comments" : "Sari la comentarii"}
-          >
-            <MessageSquare className="h-5 w-5" />
-          </Button>
-          <div className="h-px w-6 bg-border my-1" aria-hidden="true" />
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={onClose}
-            className="text-muted-foreground hover:text-accent rounded-full h-10 w-10"
-            aria-label={t("article.close")}
-          >
-            <X className="h-5 w-5" />
-          </Button>
-        </div>
-
         {/* Content */}
         <div ref={scrollRef} className="flex-1 overflow-y-auto p-8 md:p-16 custom-scrollbar relative">
           <article className="max-w-4xl mx-auto">
@@ -1550,6 +1486,71 @@ export const ParchmentArticle: React.FC<ParchmentArticleProps> = ({
           </Button>
         </div>
       </motion.div>
+
+      {/* Desktop floating action rail — sibling of the parchment so it can
+          sit outside its overflow:hidden box, in the dark overlay area. */}
+      <div className="action-rail" onClick={(e) => e.stopPropagation()}>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={handleFavoriteToggle}
+          disabled={isFavoriting}
+          aria-label={isFavorited ? t("article.unfavorite") : t("article.favorite")}
+          aria-pressed={isFavorited}
+          className={isFavorited
+            ? "text-red-500 hover:text-red-600 bg-red-50/50 rounded-full h-10 w-10"
+            : "text-muted-foreground hover:text-red-500 hover:bg-red-50/50 rounded-full h-10 w-10"}
+        >
+          <Heart className={isFavorited ? "h-5 w-5 fill-current" : "h-5 w-5"} />
+        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="text-muted-foreground hover:text-accent rounded-full h-10 w-10"
+              aria-label={t("share.title")}
+            >
+              <Share2 className="h-5 w-5" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="z-[110]">
+            <DropdownMenuItem onClick={() => handleShare('copy')} className="flex items-center gap-2 cursor-pointer">
+              <LinkIcon className="h-4 w-4" />
+              {t("share.copyLink")}
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => handleShare('facebook')} className="flex items-center gap-2 cursor-pointer">
+              <Facebook className="h-4 w-4" />
+              {t("share.facebook")}
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => handleShare('x')} className="flex items-center gap-2 cursor-pointer">
+              <svg viewBox="0 0 24 24" aria-hidden="true" className="h-4 w-4 fill-current">
+                <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"></path>
+              </svg>
+              {t("share.twitter")}
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={scrollToComments}
+          className="text-muted-foreground hover:text-accent rounded-full h-10 w-10"
+          aria-label={language === 'en' ? "Jump to comments" : "Sari la comentarii"}
+        >
+          <MessageSquare className="h-5 w-5" />
+        </Button>
+        <div className="h-px w-6 bg-border my-1" aria-hidden="true" />
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={onClose}
+          className="text-muted-foreground hover:text-accent rounded-full h-10 w-10"
+          aria-label={t("article.close")}
+        >
+          <X className="h-5 w-5" />
+        </Button>
+      </div>
     </motion.div>
   );
 };
