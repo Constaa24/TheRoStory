@@ -3,16 +3,25 @@ import { useNavigate } from "react-router-dom";
 import { Search, X, Loader2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { Article, Category, searchArticles, fetchCategories, getLocalized } from "@/lib/supabase";
+import {
+  Article,
+  Category,
+  searchArticles,
+  fetchCategories,
+  getLocalized,
+  subscribeToPublicContentInvalidation,
+} from "@/lib/supabase";
 import { useLanguage } from "@/hooks/use-language";
 import { cn } from "@/lib/utils";
 
-// Module-level cache — categories don't change during a session
+// Module-level cache for categories. Cleared whenever an admin invalidates
+// public content so newly added/renamed categories show up without reload.
 let _categoriesCache: Category[] | null = null;
 const getCachedCategories = () => {
   if (_categoriesCache) return Promise.resolve(_categoriesCache);
   return fetchCategories().then((cats) => { _categoriesCache = cats; return cats; });
 };
+subscribeToPublicContentInvalidation(() => { _categoriesCache = null; });
 
 export const SearchBar: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);

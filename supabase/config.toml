@@ -398,3 +398,10 @@ entrypoint = "./functions/contact-email/index.ts"
 # Specifies static files to be bundled with the function. Supports glob patterns.
 # For example, if you want to serve static HTML pages in your function:
 # static_files = [ "./functions/contact-email/*.html" ]
+
+[functions.increment-view]
+enabled = true
+# Anonymous and authenticated visitors both increment view counts; the
+# function applies its own per-IP rate limit instead of relying on JWT.
+verify_jwt = false
+entrypoint = "./functions/increment-view/index.ts"

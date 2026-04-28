@@ -14,9 +14,8 @@ const IS_LOCAL = Deno.env.get("SUPABASE_URL")?.includes("localhost") || Deno.env
 const ALLOWED_ORIGINS = IS_LOCAL ? [...PROD_ORIGINS, ...DEV_ORIGINS] : PROD_ORIGINS;
 
 function isAllowedOrigin(origin: string): boolean {
-  if (ALLOWED_ORIGINS.includes(origin)) return true;
-  if (/^https:\/\/the-rostory-[a-z0-9][a-z0-9-]*\.vercel\.app$/.test(origin)) return true;
-  return false;
+  // Production-only CORS — see admin-api for rationale.
+  return ALLOWED_ORIGINS.includes(origin);
 }
 
 function getCorsHeaders(req: Request) {

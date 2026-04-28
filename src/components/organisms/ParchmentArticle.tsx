@@ -378,10 +378,14 @@ export const ParchmentArticle: React.FC<ParchmentArticleProps> = ({
 
     setIsPosting(true);
     try {
+      // Only persist a display name if the user has actually set one.
+      // Falling back to the email local-part would leak it publicly via the
+      // anon-readable `comments` table.
+      const displayName = user.displayName?.trim();
       const success = await postComment({
         articleId: article.id,
         userId: user.id,
-        userDisplayName: user.displayName || user.email?.split('@')[0],
+        userDisplayName: displayName || undefined,
         content: newComment.trim()
       });
 
@@ -1362,16 +1366,18 @@ export const ParchmentArticle: React.FC<ParchmentArticleProps> = ({
                   {comments.map((comment) => {
                     const isOwn = user?.id === comment.userId;
                     const isEditing = editingCommentId === comment.id;
+                    const displayName = comment.userDisplayName?.trim()
+                      || (language === 'en' ? 'Anonymous' : 'Anonim');
                     return (
                       <div key={comment.id} className="comment-card group animate-in fade-in slide-in-from-bottom-2">
                         <div className="flex items-start gap-4">
                           <div className="h-10 w-10 rounded-full bg-accent/10 border border-accent/20 flex items-center justify-center font-serif font-bold text-accent shrink-0">
-                            {comment.userDisplayName?.charAt(0).toUpperCase() || '?'}
+                            {displayName.charAt(0).toUpperCase()}
                           </div>
                           <div className="flex-1 min-w-0 space-y-2">
                             <div className="flex items-center justify-between flex-wrap gap-2">
                               <span className="font-serif font-bold text-secondary-foreground">
-                                {comment.userDisplayName}
+                                {displayName}
                               </span>
                               <div className="flex items-center gap-2">
                                 {isOwn && !isEditing && (

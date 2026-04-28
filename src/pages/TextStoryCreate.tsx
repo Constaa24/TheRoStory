@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { Category, CHAPTER_DELIMITER } from "@/lib/supabase";
-import { fetchCategories, supabase, uploadFile, createArticle } from "@/lib/supabase";
+import { fetchCategories, uploadUserFile, createArticle } from "@/lib/supabase";
 import { useLanguage } from "@/hooks/use-language";
 import { useAuth } from "@/hooks/use-auth";
 import { useUnsavedChangesWarning } from "@/hooks/use-unsaved-changes";
@@ -85,26 +85,25 @@ const TextStoryCreate: React.FC = () => {
   const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
-    if (!file.type.startsWith("image/")) {
-      toast.error(language === "en" ? "Please upload an image file" : "Vă rugăm să încărcați o imagine");
-      return;
-    }
-    if (file.size > 10 * 1024 * 1024) {
-      toast.error(language === "en" ? "Image must be under 10MB" : "Imaginea trebuie să fie sub 10MB");
+    if (!user?.id) {
+      toast.error(language === "en" ? "Not authenticated" : "Neautentificat");
+      event.target.value = "";
       return;
     }
 
     setIsUploading(true);
     try {
-      const ownerId = user?.id || "anonymous";
-      const extension = file.name.split(".").pop() || "jpg";
-      const path = `${ownerId}/${Date.now()}.${extension}`;
-      const url = await uploadFile("articles", path, file);
-      setMediaUrl(url);
+      const { publicUrl } = await uploadUserFile(file, {
+        bucket: "articles",
+        kind: "image",
+        userId: user.id,
+      });
+      setMediaUrl(publicUrl);
       toast.success(language === "en" ? "Image uploaded" : "Imagine încărcată");
     } catch (error) {
       console.error("Error uploading image:", error);
-      toast.error(language === "en" ? "Error uploading image" : "Eroare la încărcarea imaginii");
+      const message = error instanceof Error ? error.message : (language === "en" ? "Error uploading image" : "Eroare la încărcarea imaginii");
+      toast.error(message);
     } finally {
       setIsUploading(false);
       if (event.target) event.target.value = "";

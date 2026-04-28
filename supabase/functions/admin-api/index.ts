@@ -15,10 +15,12 @@ const IS_LOCAL = Deno.env.get('SUPABASE_URL')?.includes('localhost') || Deno.env
 const ALLOWED_ORIGINS = IS_LOCAL ? [...PROD_ORIGINS, ...DEV_ORIGINS] : PROD_ORIGINS
 
 function isAllowedOrigin(origin: string): boolean {
-  if (ALLOWED_ORIGINS.includes(origin)) return true;
-  // Allow Vercel preview deployments
-  if (/^https:\/\/the-rostory-[a-z0-9][a-z0-9-]*\.vercel\.app$/.test(origin)) return true;
-  return false;
+  // Production-only CORS. Preview deployments are intentionally excluded:
+  // the previous regex matched any `the-rostory-*.vercel.app`, which Vercel
+  // doesn't reserve globally — anyone could deploy a project with that name
+  // prefix and call this function from their origin. Use a staging Supabase
+  // project for preview deploys instead.
+  return ALLOWED_ORIGINS.includes(origin);
 }
 
 function getCorsHeaders(req: Request) {

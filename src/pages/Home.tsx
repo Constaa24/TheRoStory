@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Category, Article, getLocalized, fetchPublicContent, fetchArticlesPage, fetchRandomArticle } from "@/lib/supabase";
+import { Category, Article, getLocalized, fetchCategories, fetchArticlesPage, fetchRandomArticle } from "@/lib/supabase";
 import { useLanguage } from "@/hooks/use-language";
 import { useFavorites } from "@/hooks/use-favorites";
 import { Button } from "@/components/ui/button";
@@ -193,10 +193,11 @@ const Home: React.FC = () => {
     setCurrentPage(1);
   };
 
-  // Fetch categories once
+  // Fetch categories once. Previously this called fetchPublicContent(),
+  // which also fetched up to 500 articles we immediately discarded.
   useEffect(() => {
-    fetchPublicContent()
-      .then((data) => setCategories(data.categories))
+    fetchCategories()
+      .then(setCategories)
       .catch(() => {});
   }, []);
 

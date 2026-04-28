@@ -11,7 +11,9 @@ import {
   fetchAllUsers,
   deleteUser as deleteUserFunc,
   updateUserRole as updateUserRoleFunc,
-  uploadFile
+  uploadUserFile,
+  createArticle,
+  ARTICLE_LIMITS
 } from "@/lib/supabase";
 import { supabase } from "@/lib/supabase";
 import { useLanguage } from "@/hooks/use-language";
@@ -169,18 +171,20 @@ const AdminDashboard: React.FC = () => {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    // Check if it's an image
-    if (!file.type.startsWith("image/")) {
-      toast.error("Please upload an image file");
+    if (!user?.id) {
+      toast.error(language === 'en' ? "Not authenticated" : "Neautentificat");
+      event.target.value = "";
       return;
     }
 
     setIsUploading(true);
     try {
-      const extension = file.name.split('.').pop();
-      const path = `${user?.id}/${crypto.randomUUID()}.${extension}`;
-      const publicUrl = await uploadFile('articles', path, file);
-      
+      const { publicUrl } = await uploadUserFile(file, {
+        bucket: 'articles',
+        kind: 'image',
+        userId: user.id,
+      });
+
       if (isEdit && editingArticle) {
         setEditingArticle({ ...editingArticle, mediaUrl: publicUrl });
       } else {
@@ -189,7 +193,8 @@ const AdminDashboard: React.FC = () => {
       toast.success("Image uploaded successfully");
     } catch (error) {
       console.error("Error uploading image:", error);
-      toast.error("Error uploading image");
+      const message = error instanceof Error ? error.message : "Error uploading image";
+      toast.error(message);
     } finally {
       setIsUploading(false);
       // Reset input value to allow uploading same file again
@@ -207,11 +212,11 @@ const AdminDashboard: React.FC = () => {
       return;
     }
     try {
-      const id = `cat_${Date.now()}`;
+      const id = `cat_${crypto.randomUUID()}`;
       const { error } = await supabase.from('categories').insert({
         id,
-        name_en: newCategory.nameEn,
-        name_ro: newCategory.nameRo,
+        name_en: newCategory.nameEn.trim(),
+        name_ro: newCategory.nameRo.trim(),
         slug: newCategory.slug
       });
       if (error) throw error;
@@ -229,30 +234,25 @@ const AdminDashboard: React.FC = () => {
       return;
     }
     try {
-      const id = `art_${Date.now()}`;
-      // Writers can only save as draft
+      // Writers can only save as draft. Admin chooses via the checkbox.
       const isPublished = isAdmin ? (!!newArticle.isPublished) : false;
-      
-      const { error } = await supabase.from('articles').insert({
-        id,
-        title_en: newArticle.titleEn,
-        title_ro: newArticle.titleRo,
-        content_en: combineChapters(newArticle.chaptersEn || [""]),
-        content_ro: combineChapters(newArticle.chaptersRo || [""]),
-        category_id: newArticle.categoryId,
-        location: newArticle.location,
-        media_url: newArticle.mediaUrl,
-        poster_url: newArticle.posterUrl || null,
-        user_id: user.id,
-        is_published: isPublished,
+
+      await createArticle({
         type: 'text',
-        created_at: new Date().toISOString()
+        titleEn: newArticle.titleEn || "",
+        titleRo: newArticle.titleRo || "",
+        contentEn: combineChapters(newArticle.chaptersEn || [""]),
+        contentRo: combineChapters(newArticle.chaptersRo || [""]),
+        categoryId: newArticle.categoryId,
+        userId: user.id,
+        isPublished,
+        location: newArticle.location,
+        mediaUrl: newArticle.mediaUrl ?? null,
+        posterUrl: newArticle.posterUrl ?? null,
       });
 
-      if (error) throw error;
-
       setNewArticle({
-        titleEn: "", titleRo: "", 
+        titleEn: "", titleRo: "",
         chaptersEn: ["", "", "", "", ""], chaptersRo: ["", "", "", "", ""],
         categoryId: "", mediaUrl: "", isPublished: false, location: ""
       });
@@ -260,8 +260,9 @@ const AdminDashboard: React.FC = () => {
       setShowTypeSelection(false);
       fetchData();
       toast.success("Article added successfully");
-    } catch {
-      toast.error("Error adding article");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Error adding article";
+      toast.error(message);
     }
   };
 
@@ -271,17 +272,37 @@ const AdminDashboard: React.FC = () => {
       return;
     }
     try {
-      const updates: any = {
-        title_en: editingArticle.titleEn,
-        title_ro: editingArticle.titleRo,
-        content_en: (editingArticle.type === 'video' || editingArticle.type === 'carousel')
-          ? editingArticle.contentEn 
-          : combineChapters(editingArticle.chaptersEn || [""]),
-        content_ro: (editingArticle.type === 'video' || editingArticle.type === 'carousel')
-          ? editingArticle.contentRo 
-          : combineChapters(editingArticle.chaptersRo || [""]),
+      const titleEn = editingArticle.titleEn.trim();
+      const titleRo = editingArticle.titleRo.trim();
+      const contentEn = (editingArticle.type === 'video' || editingArticle.type === 'carousel')
+        ? editingArticle.contentEn
+        : combineChapters(editingArticle.chaptersEn || [""]);
+      const contentRo = (editingArticle.type === 'video' || editingArticle.type === 'carousel')
+        ? editingArticle.contentRo
+        : combineChapters(editingArticle.chaptersRo || [""]);
+
+      // Mirror the createArticle limits — the DB has no length constraints,
+      // so client-side caps are the only gate.
+      if (titleEn.length > ARTICLE_LIMITS.TITLE_MAX || titleRo.length > ARTICLE_LIMITS.TITLE_MAX) {
+        throw new Error(`Title exceeds ${ARTICLE_LIMITS.TITLE_MAX} characters`);
+      }
+      if (contentEn.length > ARTICLE_LIMITS.CONTENT_MAX || contentRo.length > ARTICLE_LIMITS.CONTENT_MAX) {
+        throw new Error(`Content exceeds ${ARTICLE_LIMITS.CONTENT_MAX} characters`);
+      }
+      if (editingArticle.location && editingArticle.location.length > ARTICLE_LIMITS.LOCATION_MAX) {
+        throw new Error(`Location exceeds ${ARTICLE_LIMITS.LOCATION_MAX} characters`);
+      }
+      if (editingArticle.mediaUrls && editingArticle.mediaUrls.length > ARTICLE_LIMITS.MEDIA_URLS_MAX) {
+        throw new Error(`Too many gallery images (max ${ARTICLE_LIMITS.MEDIA_URLS_MAX})`);
+      }
+
+      const updates: Record<string, unknown> = {
+        title_en: titleEn,
+        title_ro: titleRo,
+        content_en: contentEn,
+        content_ro: contentRo,
         category_id: editingArticle.categoryId,
-        location: editingArticle.location,
+        location: editingArticle.location || null,
         media_url: editingArticle.mediaUrl,
         poster_url: editingArticle.posterUrl || null,
         media_urls: editingArticle.mediaUrls,
@@ -301,8 +322,9 @@ const AdminDashboard: React.FC = () => {
       setEditingArticle(null);
       fetchData();
       toast.success("Article updated successfully");
-    } catch {
-      toast.error("Error updating article");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Error updating article";
+      toast.error(message);
     }
   };
 
@@ -381,22 +403,26 @@ const AdminDashboard: React.FC = () => {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    if (!file.type.startsWith("image/")) {
-      toast.error("Please upload an image file");
+    if (!user?.id) {
+      toast.error(language === 'en' ? "Not authenticated" : "Neautentificat");
+      event.target.value = "";
       return;
     }
 
     setIsUploading(true);
     try {
-      const extension = file.name.split('.').pop();
-      const path = `carousels/${user?.id}/${Date.now()}.${extension}`;
-      const publicUrl = await uploadFile('articles', path, file);
-      
+      const { publicUrl } = await uploadUserFile(file, {
+        bucket: 'articles',
+        kind: 'image',
+        userId: user.id,
+        subfolder: 'carousels',
+      });
+
       if (editingArticle) {
         const currentUrls = editingArticle.mediaUrls || [];
         const newUrls = [...currentUrls, publicUrl];
-        setEditingArticle({ 
-          ...editingArticle, 
+        setEditingArticle({
+          ...editingArticle,
           mediaUrls: newUrls,
           mediaUrl: editingArticle.mediaUrl || publicUrl // Set first if none
         });
@@ -404,7 +430,8 @@ const AdminDashboard: React.FC = () => {
       toast.success("Image added to gallery");
     } catch (error) {
       console.error("Error uploading image:", error);
-      toast.error("Error uploading image");
+      const message = error instanceof Error ? error.message : "Error uploading image";
+      toast.error(message);
     } finally {
       setIsUploading(false);
       if (event.target) event.target.value = "";
@@ -851,38 +878,42 @@ const AdminDashboard: React.FC = () => {
                         onChange={async (e) => {
                           const file = e.target.files?.[0];
                           if (!file) return;
-                          
-                          if (editingArticle.type === 'video' && !file.type.startsWith("video/")) {
-                            toast.error("Please upload a video file");
-                            return;
-                          }
-                          if ((editingArticle.type === 'text' || editingArticle.type === 'carousel') && !file.type.startsWith("image/")) {
-                            toast.error("Please upload an image file");
+
+                          if (!user?.id) {
+                            toast.error(language === 'en' ? "Not authenticated" : "Neautentificat");
+                            e.target.value = "";
                             return;
                           }
 
                           setIsUploading(true);
                           try {
-                            const ownerId = user?.id || "anonymous";
-                            const uploadId = Date.now();
-                            const extension = file.name.split('.').pop() || (editingArticle.type === 'video' ? "mp4" : "jpg");
-                            const path = `${ownerId}/${uploadId}.${extension}`;
-                            const bucket = 'articles';
-                            const publicUrl = await uploadFile(bucket, path, file);
-                             
-                            if (editingArticle.type === 'carousel') {
+                            const isCarousel = editingArticle.type === 'carousel';
+                            const isVideo = editingArticle.type === 'video';
+                            const { publicUrl } = await uploadUserFile(file, {
+                              bucket: 'articles',
+                              kind: isVideo ? 'video' : 'image',
+                              userId: user.id,
+                              subfolder: isCarousel ? 'carousels' : undefined,
+                            });
+
+                            if (isCarousel) {
                               const currentUrls = editingArticle.mediaUrls || [];
-                              setEditingArticle({ 
-                                ...editingArticle, 
+                              setEditingArticle({
+                                ...editingArticle,
                                 mediaUrls: [publicUrl, ...currentUrls],
-                                mediaUrl: publicUrl 
+                                mediaUrl: publicUrl
                               });
-                            } else if (editingArticle.type === 'video') {
+                            } else if (isVideo) {
                               let posterPublicUrl = "";
                               try {
-                                const posterFile = await createVideoPosterImageFile(file, `${uploadId}-poster.jpg`);
+                                const posterFile = await createVideoPosterImageFile(file, `${crypto.randomUUID()}-poster.jpg`);
                                 if (posterFile) {
-                                  posterPublicUrl = await uploadFile(bucket, `${ownerId}/${uploadId}-poster.jpg`, posterFile);
+                                  const posterRes = await uploadUserFile(posterFile, {
+                                    bucket: 'articles',
+                                    kind: 'image',
+                                    userId: user.id,
+                                  });
+                                  posterPublicUrl = posterRes.publicUrl;
                                 }
                               } catch (posterError) {
                                 console.warn("Poster generation/upload failed:", posterError);
@@ -896,8 +927,9 @@ const AdminDashboard: React.FC = () => {
                               setEditingArticle({ ...editingArticle, mediaUrl: publicUrl });
                             }
                             toast.success("File uploaded successfully");
-                          } catch {
-                            toast.error("Error uploading file");
+                          } catch (error) {
+                            const message = error instanceof Error ? error.message : "Error uploading file";
+                            toast.error(message);
                           } finally {
                             setIsUploading(false);
                             e.target.value = "";
@@ -979,24 +1011,25 @@ const AdminDashboard: React.FC = () => {
                               const file = e.target.files?.[0];
                               if (!file) return;
 
-                              if (!file.type.startsWith("image/")) {
-                                toast.error("Please upload an image file");
+                              if (!user?.id) {
+                                toast.error(language === 'en' ? "Not authenticated" : "Neautentificat");
+                                e.target.value = "";
                                 return;
                               }
 
                               setIsUploading(true);
                               try {
-                                const ownerId = user?.id || "anonymous";
-                                const uploadId = Date.now();
-                                const extension = file.name.split('.').pop() || "jpg";
-                                const bucket = "articles";
-                                const path = `${ownerId}/${uploadId}-poster.${extension}`;
-                                const publicUrl = await uploadFile(bucket, path, file);
+                                const { publicUrl } = await uploadUserFile(file, {
+                                  bucket: 'articles',
+                                  kind: 'image',
+                                  userId: user.id,
+                                });
 
                                 setEditingArticle({ ...editingArticle, posterUrl: publicUrl });
                                 toast.success("Poster uploaded successfully");
-                              } catch {
-                                toast.error("Error uploading poster");
+                              } catch (error) {
+                                const message = error instanceof Error ? error.message : "Error uploading poster";
+                                toast.error(message);
                               } finally {
                                 setIsUploading(false);
                                 e.target.value = "";

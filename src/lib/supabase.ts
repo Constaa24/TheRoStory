@@ -172,11 +172,24 @@ const publicContentCache: {
 
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
+// Listeners notified whenever public content is invalidated. Used by views
+// that maintain their own derived caches (e.g. SearchBar's category list)
+// so they don't display stale data after admin edits.
+const cacheInvalidationListeners = new Set<() => void>();
+
+export const subscribeToPublicContentInvalidation = (listener: () => void): (() => void) => {
+  cacheInvalidationListeners.add(listener);
+  return () => { cacheInvalidationListeners.delete(listener); };
+};
+
 /** Invalidate the public content cache (call after admin creates/edits/deletes content). */
 export const invalidatePublicContentCache = () => {
   publicContentCache.published = null;
   publicContentCache.all = null;
   _categoryCountsCache = null;
+  cacheInvalidationListeners.forEach((listener) => {
+    try { listener(); } catch { /* ignore listener errors */ }
+  });
 };
 
 // Lightweight cache for category article counts (category_id column only)
@@ -263,19 +276,66 @@ export type NewArticleInput = {
   mediaCaptions?: MediaCaption[];
 };
 
+// Article field caps. The DB has no length constraints, so a malicious or
+// buggy client could otherwise insert arbitrarily large content and abuse
+// row size / bandwidth. Enforced here so every create-path agrees.
+export const ARTICLE_LIMITS = {
+  TITLE_MAX: 200,
+  // 50k chars per language ≈ ~10k words, generous for any long-form story.
+  CONTENT_MAX: 50_000,
+  LOCATION_MAX: 100,
+  MEDIA_URL_MAX: 2_000,
+  MEDIA_URLS_MAX: 30,
+  MEDIA_CAPTION_MAX: 500,
+} as const;
+
+const assertLen = (value: string, max: number, field: string) => {
+  if (value.length > max) {
+    throw new Error(`${field} exceeds ${max} characters`);
+  }
+};
+
 export const createArticle = async (input: NewArticleInput): Promise<{ id: string }> => {
-  const id = (typeof crypto !== 'undefined' && 'randomUUID' in crypto)
-    ? `art_${crypto.randomUUID()}`
-    : `art_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+  const titleEn = input.titleEn.trim();
+  const titleRo = input.titleRo.trim();
+  const location = input.location?.trim() || null;
+
+  if (!titleEn) throw new Error('Title (English) is required');
+  if (!titleRo) throw new Error('Title (Romanian) is required');
+  if (!input.categoryId) throw new Error('Category is required');
+  if (!input.userId) throw new Error('Not authenticated');
+
+  assertLen(titleEn, ARTICLE_LIMITS.TITLE_MAX, 'Title (English)');
+  assertLen(titleRo, ARTICLE_LIMITS.TITLE_MAX, 'Title (Romanian)');
+  assertLen(input.contentEn, ARTICLE_LIMITS.CONTENT_MAX, 'Content (English)');
+  assertLen(input.contentRo, ARTICLE_LIMITS.CONTENT_MAX, 'Content (Romanian)');
+  if (location) assertLen(location, ARTICLE_LIMITS.LOCATION_MAX, 'Location');
+  if (input.mediaUrl) assertLen(input.mediaUrl, ARTICLE_LIMITS.MEDIA_URL_MAX, 'Media URL');
+  if (input.posterUrl) assertLen(input.posterUrl, ARTICLE_LIMITS.MEDIA_URL_MAX, 'Poster URL');
+
+  if (input.mediaUrls) {
+    if (input.mediaUrls.length > ARTICLE_LIMITS.MEDIA_URLS_MAX) {
+      throw new Error(`Too many gallery images (max ${ARTICLE_LIMITS.MEDIA_URLS_MAX})`);
+    }
+    input.mediaUrls.forEach((url, i) => assertLen(url, ARTICLE_LIMITS.MEDIA_URL_MAX, `Gallery image #${i + 1}`));
+  }
+  if (input.mediaCaptions) {
+    input.mediaCaptions.forEach((cap, i) => {
+      if (cap?.en) assertLen(cap.en, ARTICLE_LIMITS.MEDIA_CAPTION_MAX, `Caption #${i + 1} (English)`);
+      if (cap?.ro) assertLen(cap.ro, ARTICLE_LIMITS.MEDIA_CAPTION_MAX, `Caption #${i + 1} (Romanian)`);
+    });
+  }
+
+  const id = `art_${crypto.randomUUID()}`;
 
   const row: Record<string, unknown> = {
     id,
-    title_en: input.titleEn.trim(),
-    title_ro: input.titleRo.trim(),
+    title_en: titleEn,
+    title_ro: titleRo,
     content_en: input.contentEn,
     content_ro: input.contentRo,
     category_id: input.categoryId,
-    location: input.location || null,
+    location,
     media_url: input.mediaUrl ?? null,
     poster_url: input.posterUrl ?? null,
     media_urls: input.mediaUrls ?? null,
@@ -302,9 +362,30 @@ export const fetchCategories = async (): Promise<Category[]> => {
   return toCamelCaseArray<Category>(data || []);
 };
 
+/**
+ * Sanitize a user-supplied search term for use inside PostgREST `or()` filters.
+ *
+ * PostgREST parses the string itself (commas separate clauses, parentheses
+ * group, colons delimit operators, `*` is a wildcard). It also passes the
+ * value through to PostgreSQL `ILIKE`, where `%` and `_` are wildcards and
+ * `\` is the escape char.
+ *
+ * Without escaping, a user typing `a, b` would silently turn one filter into
+ * two, and a query containing `(` could break the whole request.
+ */
+const escapePostgrestLikeTerm = (term: string): string =>
+  term
+    // ILIKE escape char first, so we don't double-escape the next two
+    .replace(/\\/g, '\\\\')
+    .replace(/%/g, '\\%')
+    .replace(/_/g, '\\_')
+    // PostgREST OR-filter syntax separators
+    .replace(/[,():*]/g, ' ');
+
 export const searchArticles = async (query: string, limit = 6): Promise<Article[]> => {
   if (!query.trim()) return [];
-  const q = query.trim();
+  const q = escapePostgrestLikeTerm(query.trim());
+  if (!q.trim()) return [];
   const { data, error } = await supabase
     .from('articles')
     .select('*')
@@ -426,7 +507,7 @@ export const fetchComments = async (
 export const postComment = async (comment: Omit<Comment, 'id' | 'createdAt'>) => {
   try {
     const { error } = await supabase.from('comments').insert(toSnakeCase({
-      id: `cmt_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      id: `cmt_${crypto.randomUUID()}`,
       ...comment
     }));
     return !error;
@@ -491,14 +572,18 @@ export const incrementView = async (articleId: string): Promise<boolean> => {
     // sessionStorage unavailable — proceed anyway
   }
 
+  // Routes through the `increment-view` Edge Function so we get a per-IP
+  // rate limit. Calling the RPC directly is no longer permitted — anon
+  // and authenticated roles had EXECUTE revoked in migration
+  // 20260428000000_lock_increment_article_view.sql.
   try {
-    const { error } = await supabase.rpc('increment_article_view', {
-      p_article_id: articleId
+    const { error } = await supabase.functions.invoke('increment-view', {
+      body: { articleId }
     });
     if (error) throw error;
     return true;
   } catch (error) {
-    console.warn("Error incrementing view in Supabase:", error);
+    console.warn("Error incrementing view:", error);
     return false;
   }
 };
@@ -540,10 +625,13 @@ export const fetchUserFavorites = async (userId: string): Promise<Article[]> => 
     if (!data || data.length === 0) return [];
     
     const articleIds = (data as { article_id: string }[]).map((f) => f.article_id);
-    
+
+    // Hide favorites whose article was unpublished after the favorite was
+    // created — clicking such an entry would 404 via fetchPublicArticle.
     const { data: articlesData, error: articlesError } = await supabase
       .from('articles')
       .select('*')
+      .eq('is_published', true)
       .in('id', articleIds);
 
     if (articlesError) throw articlesError;
@@ -775,4 +863,77 @@ export const uploadFile = async (
     .getPublicUrl(path);
 
   return data.publicUrl;
+};
+
+const IMAGE_EXTENSIONS = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'avif'] as const;
+const IMAGE_MIME_PREFIXES = ['image/'] as const;
+const VIDEO_EXTENSIONS = ['mp4', 'webm', 'mov', 'm4v'] as const;
+const VIDEO_MIME_PREFIXES = ['video/'] as const;
+
+const MAX_IMAGE_BYTES = 10 * 1024 * 1024; // 10 MB
+const MAX_VIDEO_BYTES = 200 * 1024 * 1024; // 200 MB
+
+export type UploadKind = 'image' | 'video';
+
+export type UploadUserFileOptions = {
+  /** 'articles' | 'avatars' — the storage bucket to write to. */
+  bucket: string;
+  /** What the file must be — controls extension allowlist + MIME check. */
+  kind: UploadKind;
+  /** Authenticated user id. RLS requires the path to live under this folder. */
+  userId: string;
+  /**
+   * Optional segment that is prefixed under the user folder, e.g. 'carousels'.
+   * Must already be allowed by the storage RLS policy.
+   */
+  subfolder?: string;
+  /** Max bytes — falls back to a kind-specific default if omitted. */
+  maxBytes?: number;
+};
+
+export type UploadUserFileResult = {
+  publicUrl: string;
+  /** Path inside the bucket; useful for cleanup on rollback. */
+  storagePath: string;
+};
+
+/**
+ * Validates a user-supplied file against an extension allowlist and MIME
+ * prefix, then uploads it to a UUID-named path under the user's folder.
+ *
+ * Throws Error on validation failure or upload failure. Callers should
+ * surface a localized message to the user.
+ */
+export const uploadUserFile = async (
+  file: File,
+  opts: UploadUserFileOptions
+): Promise<UploadUserFileResult> => {
+  const { bucket, kind, userId, subfolder } = opts;
+  if (!userId) throw new Error('Not authenticated');
+
+  const allowedExtensions = kind === 'image' ? IMAGE_EXTENSIONS : VIDEO_EXTENSIONS;
+  const allowedMime = kind === 'image' ? IMAGE_MIME_PREFIXES : VIDEO_MIME_PREFIXES;
+  const maxBytes = opts.maxBytes ?? (kind === 'image' ? MAX_IMAGE_BYTES : MAX_VIDEO_BYTES);
+
+  if (!file) throw new Error('No file provided');
+  if (file.size > maxBytes) {
+    throw new Error(`File too large (max ${(maxBytes / (1024 * 1024)).toFixed(0)}MB)`);
+  }
+
+  const mimeOk = allowedMime.some((prefix) => file.type.startsWith(prefix));
+  if (!mimeOk) throw new Error('Unsupported file type');
+
+  const rawExtension = (file.name.split('.').pop() || '').toLowerCase();
+  if (!(allowedExtensions as readonly string[]).includes(rawExtension)) {
+    throw new Error('Unsupported file extension');
+  }
+
+  const id = crypto.randomUUID();
+
+  const path = subfolder
+    ? `${subfolder}/${userId}/${id}.${rawExtension}`
+    : `${userId}/${id}.${rawExtension}`;
+
+  const publicUrl = await uploadFile(bucket, path, file);
+  return { publicUrl, storagePath: path };
 };

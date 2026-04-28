@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Category } from "@/lib/supabase";
-import { fetchCategories, uploadFile, createArticle } from "@/lib/supabase";
+import { fetchCategories, uploadUserFile, createArticle } from "@/lib/supabase";
 import { useLanguage } from "@/hooks/use-language";
 import { useAuth } from "@/hooks/use-auth";
 import { useUnsavedChangesWarning } from "@/hooks/use-unsaved-changes";
@@ -75,14 +75,9 @@ const VideoStoryCreate: React.FC = () => {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    const ALLOWED_VIDEO_TYPES = ["video/mp4", "video/webm", "video/quicktime"];
-    if (!ALLOWED_VIDEO_TYPES.includes(file.type)) {
-      toast.error(language === 'en' ? "Please upload an MP4, WebM, MOV, or AVI video file" : "Vă rugăm să încărcați un fișier video MP4, WebM, MOV sau AVI");
-      return;
-    }
-
-    if (file.size > 500 * 1024 * 1024) {
-      toast.error(language === 'en' ? "Video must be under 500MB" : "Videoclipul trebuie să fie sub 500MB");
+    if (!user?.id) {
+      toast.error(language === 'en' ? "Not authenticated" : "Neautentificat");
+      event.target.value = "";
       return;
     }
 
@@ -91,26 +86,30 @@ const VideoStoryCreate: React.FC = () => {
 
     setIsUploading(true);
     try {
-      const ownerId = user?.id || "anonymous";
-      const uploadId = Date.now();
-      const extension = file.name.split('.').pop() || "mp4";
-      const videoPath = `stories/videos/${ownerId}/${uploadId}/original.${extension}`;
-      const posterPath = `stories/posters/${ownerId}/${uploadId}/poster.jpg`;
-
       setVideoUrl("");
       setPosterUrl("");
 
-      const publicUrl = await uploadFile('articles', videoPath, file);
+      const { publicUrl } = await uploadUserFile(file, {
+        bucket: 'articles',
+        kind: 'video',
+        userId: user.id,
+        subfolder: 'stories/videos',
+        maxBytes: 500 * 1024 * 1024,
+      });
       setVideoUrl(publicUrl);
       toast.success(language === 'en' ? "Video uploaded successfully" : "Video încărcat cu succes");
 
       // Generate and upload poster in the background — don't block the UI
-      createVideoPosterImageFile(file, `${uploadId}-poster.jpg`)
+      createVideoPosterImageFile(file, `${crypto.randomUUID()}-poster.jpg`)
         .then(async (posterFile) => {
-          if (posterFile) {
-            const url = await uploadFile('articles', posterPath, posterFile);
-            setPosterUrl(url);
-          }
+          if (!posterFile) return;
+          const posterRes = await uploadUserFile(posterFile, {
+            bucket: 'articles',
+            kind: 'image',
+            userId: user.id,
+            subfolder: 'stories/posters',
+          });
+          setPosterUrl(posterRes.publicUrl);
         })
         .catch((posterError) => {
           console.warn("Poster generation/upload failed:", posterError);
@@ -118,7 +117,8 @@ const VideoStoryCreate: React.FC = () => {
         });
     } catch (error) {
       console.error("Error uploading video:", error);
-      toast.error(language === 'en' ? "Error uploading video" : "Eroare la încărcarea videoclipului");
+      const message = error instanceof Error ? error.message : (language === 'en' ? "Error uploading video" : "Eroare la încărcarea videoclipului");
+      toast.error(message);
     } finally {
       setIsUploading(false);
     }
@@ -128,24 +128,27 @@ const VideoStoryCreate: React.FC = () => {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    if (!file.type.startsWith("image/")) {
-      toast.error(language === 'en' ? "Please upload an image file" : "Vă rugăm să încărcați o imagine");
+    if (!user?.id) {
+      toast.error(language === 'en' ? "Not authenticated" : "Neautentificat");
+      event.target.value = "";
       return;
     }
 
     setIsUploading(true);
     try {
-      const ownerId = user?.id || "anonymous";
-      const uploadId = Date.now();
-      const extension = file.name.split('.').pop() || "jpg";
-      const path = `stories/posters/${ownerId}/${uploadId}/poster.${extension}`;
-      const publicUrl = await uploadFile('articles', path, file);
+      const { publicUrl } = await uploadUserFile(file, {
+        bucket: 'articles',
+        kind: 'image',
+        userId: user.id,
+        subfolder: 'stories/posters',
+      });
 
       setPosterUrl(publicUrl);
       toast.success(language === 'en' ? "Poster uploaded successfully" : "Poster încărcat cu succes");
     } catch (error) {
       console.error("Error uploading poster:", error);
-      toast.error(language === 'en' ? "Error uploading poster" : "Eroare la încărcarea posterului");
+      const message = error instanceof Error ? error.message : (language === 'en' ? "Error uploading poster" : "Eroare la încărcarea posterului");
+      toast.error(message);
     } finally {
       setIsUploading(false);
       if (event.target) event.target.value = "";

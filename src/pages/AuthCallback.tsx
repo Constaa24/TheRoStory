@@ -156,31 +156,35 @@ const AuthCallback: React.FC = () => {
           return;
         }
 
-        const { data: { session } } = await withTimeout(
-          supabase.auth.getSession(),
-          10000,
-          "Session lookup"
-        );
-        if (!mountedRef.current) return;
+        // No code, no token_hash. The only legitimate reason we'd land here
+        // is a recovery flow whose session was already exchanged in a prior
+        // tab — recognize that case and redirect, but don't silently
+        // celebrate "Signed In" for a user who just navigated to the URL
+        // manually.
+        if (isRecoveryFlow) {
+          const { data: { session } } = await withTimeout(
+            supabase.auth.getSession(),
+            10000,
+            "Session lookup"
+          );
+          if (!mountedRef.current) return;
 
-        if (session) {
-          setStatus("success");
-          if (isRecoveryFlow) {
+          if (session) {
             enterRecoveryMode();
             setIsPasswordRecovery(true);
+            setStatus("success");
             scheduleRedirect("/reset-password?mode=reset", 1500);
-          } else {
-            void exitRecoveryMode();
-            scheduleRedirect("/", 2000);
+            return;
           }
-        } else {
-          setStatus("error");
-          setErrorMessage(
-            languageRef.current === "en"
-              ? "The verification link is invalid or has expired."
-              : "Link-ul de verificare este invalid sau a expirat."
-          );
         }
+
+        if (!mountedRef.current) return;
+        setStatus("error");
+        setErrorMessage(
+          languageRef.current === "en"
+            ? "The verification link is invalid or has expired."
+            : "Link-ul de verificare este invalid sau a expirat."
+        );
       } catch (err: any) {
         if (!mountedRef.current) return;
 
@@ -233,32 +237,32 @@ const AuthCallback: React.FC = () => {
             </div>
             <CardTitle className="text-3xl font-serif italic text-primary">
               {status === "loading" && (isPasswordRecovery
-                ? (language === "en" ? "Authenticating..." : "Se autentific\u0103...")
+                ? (language === "en" ? "Authenticating..." : "Se autentifică...")
                 : (isEmailVerificationFlow
-                  ? (language === "en" ? "Verifying..." : "Se verific\u0103...")
-                  : (language === "en" ? "Signing In..." : "Se autentific\u0103...")))}
+                  ? (language === "en" ? "Verifying..." : "Se verifică...")
+                  : (language === "en" ? "Signing In..." : "Se autentifică...")))}
               {status === "success" && !isPasswordRecovery && isEmailVerificationFlow && (language === "en" ? "Email Verified!" : "Email Verificat!")}
               {status === "success" && !isPasswordRecovery && !isEmailVerificationFlow && (language === "en" ? "Signed In" : "Autentificat")}
               {status === "success" && isPasswordRecovery && (language === "en" ? "Authenticated" : "Autentificat")}
               {status === "error" && (isPasswordRecovery || isEmailVerificationFlow
-                ? (language === "en" ? "Verification Failed" : "Verificare E\u0219uat\u0103")
-                : (language === "en" ? "Authentication Failed" : "Autentificare E\u0219uat\u0103"))}
+                ? (language === "en" ? "Verification Failed" : "Verificare Eșuată")
+                : (language === "en" ? "Authentication Failed" : "Autentificare Eșuată"))}
             </CardTitle>
             <CardDescription className="text-muted-foreground font-serif italic text-lg">
               {status === "loading" && (isPasswordRecovery
                 ? (language === "en"
                   ? "Please wait while we prepare password reset..."
-                  : "Te rug\u0103m s\u0103 a\u0219tep\u021bi preg\u0103tirea reset\u0103rii parolei...")
+                  : "Te rugăm să aștepți pregătirea resetării parolei...")
                 : (isEmailVerificationFlow
                   ? (language === "en"
                     ? "Please wait while we verify your email..."
-                    : "Te rug\u0103m s\u0103 a\u0219tep\u021bi verificarea email-ului...")
+                    : "Te rugăm să aștepți verificarea email-ului...")
                   : (language === "en"
                     ? "Please wait while we complete sign-in..."
-                    : "Te rug\u0103m s\u0103 a\u0219tep\u021bi finalizarea autentific\u0103rii...")))}
-              {status === "success" && !isPasswordRecovery && isEmailVerificationFlow && (language === "en" ? "Your email has been confirmed. Redirecting..." : "Email-ul t\u0103u a fost confirmat. Redirec\u021bionare...")}
-              {status === "success" && !isPasswordRecovery && !isEmailVerificationFlow && (language === "en" ? "Authentication successful. Redirecting..." : "Autentificare reu\u0219it\u0103. Redirec\u021bionare...")}
-              {status === "success" && isPasswordRecovery && (language === "en" ? "Redirecting to set new password..." : "Redirec\u021bionare pentru parola nou\u0103...")}
+                    : "Te rugăm să aștepți finalizarea autentificării...")))}
+              {status === "success" && !isPasswordRecovery && isEmailVerificationFlow && (language === "en" ? "Your email has been confirmed. Redirecting..." : "Email-ul tău a fost confirmat. Redirecționare...")}
+              {status === "success" && !isPasswordRecovery && !isEmailVerificationFlow && (language === "en" ? "Authentication successful. Redirecting..." : "Autentificare reușită. Redirecționare...")}
+              {status === "success" && isPasswordRecovery && (language === "en" ? "Redirecting to set new password..." : "Redirecționare pentru parola nouă...")}
               {status === "error" && errorMessage}
             </CardDescription>
           </CardHeader>
@@ -269,15 +273,15 @@ const AuthCallback: React.FC = () => {
                 onClick={() => navigate(isEmailVerificationFlow ? "/auth?mode=signup" : "/auth")}
               >
                 {isEmailVerificationFlow
-                  ? (language === "en" ? "Back to Sign Up" : "\u00cenapoi la \u00cenregistrare")
-                  : (language === "en" ? "Back to Login" : "\u00cenapoi la Autentificare")}
+                  ? (language === "en" ? "Back to Sign Up" : "Înapoi la Înregistrare")
+                  : (language === "en" ? "Back to Login" : "Înapoi la Autentificare")}
               </Button>
               <Button
                 variant="outline"
                 className="w-full rounded-full h-12 font-serif italic"
                 onClick={() => navigate("/")}
               >
-                {language === "en" ? "Go to Home" : "Mergi la Acas\u0103"}
+                {language === "en" ? "Go to Home" : "Mergi la Acasă"}
               </Button>
             </CardContent>
           )}

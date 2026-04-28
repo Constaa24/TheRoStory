@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useLanguage } from "@/hooks/use-language";
 import { useNavigate, useSearchParams, useLocation } from "react-router-dom";
@@ -45,6 +45,19 @@ const Auth: React.FC = () => {
   const [view, setView] = useState<"auth" | "forgot-password" | "reset-password">(
     (isResetPasswordPath || isResetMode) ? "reset-password" : "auth"
   );
+
+  // Keep tab/view in sync when the URL changes mid-mount (e.g. user clicks a
+  // /auth?mode=signup link from elsewhere in the app while Auth is already
+  // mounted). Without this the page would silently keep its initial tab.
+  useEffect(() => {
+    const mode = searchParams.get("mode");
+    if (mode === "signup") setActiveTab("signup");
+    else if (mode === "login") setActiveTab("login");
+  }, [searchParams]);
+
+  useEffect(() => {
+    if (isResetPasswordPath || isResetMode) setView("reset-password");
+  }, [isResetPasswordPath, isResetMode]);
 
   // Form states
   const [email, setEmail] = useState("");
