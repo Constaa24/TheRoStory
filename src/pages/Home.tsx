@@ -282,7 +282,7 @@ const Home: React.FC = () => {
         <div className="relative z-10 text-center space-y-8 px-4 w-full max-w-7xl mx-auto">
           <motion.div
             {...fadeScaleIn}
-            className="inline-block px-4 py-1 rounded-full bg-accent/20 backdrop-blur-md border border-accent/30 text-accent font-serif italic text-sm mb-4"
+            className="inline-block px-4 py-1 rounded-full bg-accent/20 backdrop-blur-md border border-accent/30 text-white font-serif italic text-sm mb-4"
           >
             {t("hero.badge")}
           </motion.div>
