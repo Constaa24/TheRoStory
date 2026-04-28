@@ -1,6 +1,6 @@
-import React from "react";
+import React, { useState } from "react";
 import { useLanguage } from "@/hooks/use-language";
-import { Heart, CreditCard, Sparkles, Landmark, Banknote } from "lucide-react";
+import { Heart, CreditCard, Sparkles, Landmark, Banknote, Copy, Check, User, Building2, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { motion } from "framer-motion";
@@ -14,6 +14,7 @@ import {
   DialogDescription
 } from "@/components/ui/dialog";
 import { PageHead } from "@/components/layout/PageHead";
+import { toast } from "sonner";
 
 const RevolutIcon = ({ className }: { className?: string }) => (
   <svg 
@@ -63,10 +64,19 @@ const Support: React.FC = () => {
       bankTransfer: "Bank Transfer",
       bankDetails: {
         title: "Bank transfer (RON)",
-        beneficiary: "Beneficiary: Ionescu Emanuel-Constantin",
-        iban: "IBAN: RO95 REVO 0000 1310 9615 3763",
-        bank: "Bank: Revolut Bank",
-        reference: "Payment reference: RoStory donation"
+        subtitle: "Use these details from any bank app.",
+        beneficiaryLabel: "Beneficiary",
+        beneficiaryValue: "Ionescu Emanuel-Constantin",
+        ibanLabel: "IBAN",
+        ibanValue: "RO95 REVO 0000 1310 9615 3763",
+        bankLabel: "Bank",
+        bankValue: "Revolut Bank",
+        referenceLabel: "Payment reference",
+        referenceValue: "RoStory donation",
+        copy: "Copy",
+        copied: "Copied",
+        copySuccess: "Copied to clipboard",
+        copyError: "Couldn't copy — please copy manually"
       },
       thankYou: "Thank You",
       thankYouMessage: "Whether you donate or simply share our stories, you're helping spread the beauty of Romania. Thank you from the heart!"
@@ -100,10 +110,19 @@ const Support: React.FC = () => {
       bankTransfer: "Transfer bancar",
       bankDetails: {
         title: "Transfer bancar (RON)",
-        beneficiary: "Beneficiar: Ionescu Emanuel-Constantin",
-        iban: "IBAN: RO95 REVO 0000 1310 9615 3763",
-        bank: "Banca: Revolut Bank",
-        reference: "Detalii plată: Donație RoStory"
+        subtitle: "Folosește aceste detalii din orice aplicație bancară.",
+        beneficiaryLabel: "Beneficiar",
+        beneficiaryValue: "Ionescu Emanuel-Constantin",
+        ibanLabel: "IBAN",
+        ibanValue: "RO95 REVO 0000 1310 9615 3763",
+        bankLabel: "Banca",
+        bankValue: "Revolut Bank",
+        referenceLabel: "Detalii plată",
+        referenceValue: "Donație RoStory",
+        copy: "Copiază",
+        copied: "Copiat",
+        copySuccess: "Copiat în clipboard",
+        copyError: "Nu s-a putut copia — copiază manual"
       },
       thankYou: "Mulțumesc",
       thankYouMessage: "Fie că donezi sau pur și simplu împărtășești poveștile noastre, ajuți la răspândirea frumuseții României. Mulțumesc din suflet!"
@@ -111,6 +130,24 @@ const Support: React.FC = () => {
   };
 
   const t = content[language];
+
+  // Tracks which field was last copied so we can flash a "Copied" check next
+  // to its button. Resets after a couple of seconds so repeat clicks still
+  // give visual feedback.
+  const [copiedField, setCopiedField] = useState<"iban" | "reference" | null>(null);
+
+  const handleCopy = async (value: string, field: "iban" | "reference") => {
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopiedField(field);
+      toast.success(t.bankDetails.copySuccess);
+      window.setTimeout(() => {
+        setCopiedField((prev) => (prev === field ? null : prev));
+      }, 2000);
+    } catch {
+      toast.error(t.bankDetails.copyError);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-background pb-20">
@@ -204,22 +241,116 @@ const Support: React.FC = () => {
                   <span className="font-serif italic text-lg">{t.bankTransfer}</span>
                 </Button>
               </DialogTrigger>
-              <DialogContent className="parchment-effect border-none shadow-2xl sm:max-w-md rounded-[2.5rem]">
-                <DialogHeader>
-                  <DialogTitle className="text-2xl font-serif italic text-primary text-center">
+              <DialogContent className="parchment-effect border-none shadow-2xl sm:max-w-md rounded-[3rem] sm:rounded-[3.5rem] p-0 overflow-hidden">
+                <DialogHeader className="px-6 sm:px-8 pt-10 pb-5 space-y-3">
+                  <div className="flex justify-center">
+                    <div className="h-14 w-14 rounded-full bg-accent/15 border border-accent/30 flex items-center justify-center shadow-sm">
+                      <Landmark className="h-6 w-6 text-accent" />
+                    </div>
+                  </div>
+                  <DialogTitle className="text-2xl sm:text-3xl font-serif italic font-bold text-primary text-center leading-tight">
                     {t.bankDetails.title}
                   </DialogTitle>
-                  <div className="sr-only">
-                    <DialogDescription>
-                      {t.bankDetails.title}
-                    </DialogDescription>
-                  </div>
+                  <div className="h-[1px] w-20 bg-accent mx-auto" />
+                  <DialogDescription className="text-center text-sm font-serif italic text-muted-foreground">
+                    {t.bankDetails.subtitle}
+                  </DialogDescription>
                 </DialogHeader>
-                <div className="space-y-4 py-4 text-foreground/90 font-serif italic text-lg text-center">
-                  <p className="border-b border-accent/20 pb-2">{t.bankDetails.beneficiary}</p>
-                  <p className="border-b border-accent/20 pb-2 font-mono tracking-tight">{t.bankDetails.iban}</p>
-                  <p className="border-b border-accent/20 pb-2">{t.bankDetails.bank}</p>
-                  <p className="text-accent font-bold">{t.bankDetails.reference}</p>
+
+                <div className="px-6 sm:px-8 pb-8 space-y-5">
+                  {/* Beneficiary — quiet label/value row */}
+                  <div className="flex items-start gap-3">
+                    <div className="h-8 w-8 rounded-full bg-accent/10 flex items-center justify-center shrink-0 mt-0.5">
+                      <User className="h-3.5 w-3.5 text-accent" />
+                    </div>
+                    <div className="flex-1 min-w-0 space-y-0.5">
+                      <p className="text-[10px] uppercase tracking-[0.25em] font-bold text-muted-foreground">
+                        {t.bankDetails.beneficiaryLabel}
+                      </p>
+                      <p className="font-serif italic text-base sm:text-lg text-foreground/90">
+                        {t.bankDetails.beneficiaryValue}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* IBAN — hero block. Largest, monospaced, copy-first. */}
+                  <div className="rounded-3xl bg-accent/5 border border-accent/20 p-5 space-y-3 shadow-inner">
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-[10px] uppercase tracking-[0.25em] font-bold text-accent">
+                        {t.bankDetails.ibanLabel}
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => handleCopy(t.bankDetails.ibanValue.replace(/\s+/g, ""), "iban")}
+                        className="flex items-center gap-1.5 text-[11px] uppercase tracking-wider font-bold text-muted-foreground hover:text-accent transition-colors rounded-full px-2.5 py-1 hover:bg-accent/10"
+                        aria-label={t.bankDetails.copy}
+                      >
+                        {copiedField === "iban" ? (
+                          <>
+                            <Check className="h-3.5 w-3.5" />
+                            {t.bankDetails.copied}
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="h-3.5 w-3.5" />
+                            {t.bankDetails.copy}
+                          </>
+                        )}
+                      </button>
+                    </div>
+                    <p className="font-mono text-sm sm:text-base text-foreground/90 break-all leading-relaxed select-all">
+                      {t.bankDetails.ibanValue}
+                    </p>
+                  </div>
+
+                  {/* Bank — quiet label/value row */}
+                  <div className="flex items-start gap-3">
+                    <div className="h-8 w-8 rounded-full bg-accent/10 flex items-center justify-center shrink-0 mt-0.5">
+                      <Building2 className="h-3.5 w-3.5 text-accent" />
+                    </div>
+                    <div className="flex-1 min-w-0 space-y-0.5">
+                      <p className="text-[10px] uppercase tracking-[0.25em] font-bold text-muted-foreground">
+                        {t.bankDetails.bankLabel}
+                      </p>
+                      <p className="font-serif italic text-base sm:text-lg text-foreground/90">
+                        {t.bankDetails.bankValue}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Payment reference — gold callout, the second thing the
+                      user will paste into their banking app. */}
+                  <div className="rounded-3xl bg-accent/10 border border-accent/30 p-5 space-y-2">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2">
+                        <FileText className="h-3.5 w-3.5 text-accent" />
+                        <p className="text-[10px] uppercase tracking-[0.25em] font-bold text-accent">
+                          {t.bankDetails.referenceLabel}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleCopy(t.bankDetails.referenceValue, "reference")}
+                        className="flex items-center gap-1.5 text-[11px] uppercase tracking-wider font-bold text-muted-foreground hover:text-accent transition-colors rounded-full px-2.5 py-1 hover:bg-accent/15"
+                        aria-label={t.bankDetails.copy}
+                      >
+                        {copiedField === "reference" ? (
+                          <>
+                            <Check className="h-3.5 w-3.5" />
+                            {t.bankDetails.copied}
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="h-3.5 w-3.5" />
+                            {t.bankDetails.copy}
+                          </>
+                        )}
+                      </button>
+                    </div>
+                    <p className="font-serif italic font-bold text-lg text-accent select-all">
+                      {t.bankDetails.referenceValue}
+                    </p>
+                  </div>
                 </div>
               </DialogContent>
             </Dialog>

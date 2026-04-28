@@ -45,7 +45,9 @@ const DialogContent = React.forwardRef<
       {...props}
     >
       {children}
-      <DialogPrimitive.Close className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground">
+      <DialogPrimitive.Close
+        className="absolute right-5 top-5 sm:right-6 sm:top-6 z-20 h-8 w-8 flex items-center justify-center rounded-full bg-accent/10 border border-accent/20 text-foreground/70 hover:bg-accent/20 hover:text-foreground hover:border-accent/40 transition-colors focus:outline-none focus:ring-2 focus:ring-accent/40 focus:ring-offset-2 ring-offset-background disabled:pointer-events-none"
+      >
         <X className="h-4 w-4" />
         <span className="sr-only">Close</span>
       </DialogPrimitive.Close>
