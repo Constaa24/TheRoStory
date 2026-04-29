@@ -156,11 +156,16 @@ const AuthCallback: React.FC = () => {
           return;
         }
 
-        // No code, no token_hash. The only legitimate reason we'd land here
-        // is a recovery flow whose session was already exchanged in a prior
-        // tab — recognize that case and redirect, but don't silently
-        // celebrate "Signed In" for a user who just navigated to the URL
-        // manually.
+        // No code, no token_hash. Decide based on flow type:
+        //   - Recovery: look for a session that was already exchanged in
+        //     another tab.
+        //   - Verification: Supabase already verified the email server-side
+        //     before redirecting here. The presence of `type=signup` (or
+        //     `email_change`/`invite`) without an `error_code` param IS the
+        //     success signal — an expired link would have come back with
+        //     `error_code=otp_expired` which we caught above.
+        //   - Otherwise: someone navigated to /auth/callback manually;
+        //     don't silently celebrate "Signed In".
         if (isRecoveryFlow) {
           const { data: { session } } = await withTimeout(
             supabase.auth.getSession(),
@@ -176,6 +181,18 @@ const AuthCallback: React.FC = () => {
             scheduleRedirect("/reset-password?mode=reset", 1500);
             return;
           }
+        } else if (isVerificationFlow) {
+          // If supabase-js managed to extract a session from the URL hash
+          // (implicit flow), we can land the user signed-in. If not (server-
+          // side verify with no token handoff), they'll just need to log in
+          // — we still show success because the email IS verified.
+          const { data: { session } } = await supabase.auth.getSession();
+          if (!mountedRef.current) return;
+
+          void exitRecoveryMode();
+          setStatus("success");
+          scheduleRedirect(session ? "/" : "/auth", 2000);
+          return;
         }
 
         if (!mountedRef.current) return;
