@@ -50,10 +50,11 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { 
   Carousel, 
-  CarouselContent, 
-  CarouselItem, 
-  CarouselNext, 
-  CarouselPrevious 
+  CarouselContent,
+  CarouselItem,
+  CarouselNext,
+  CarouselPrevious,
+  type CarouselApi
 } from "@/components/ui/carousel";
 import { toast } from "sonner";
 import { useNavigate, useLocation } from "react-router-dom";
@@ -99,6 +100,10 @@ export const ParchmentArticle: React.FC<ParchmentArticleProps> = ({
   const [carouselSlide, setCarouselSlide] = useState(0);
   const [showMosaic, setShowMosaic] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+  // Stored embla API so the thumbnail strip can drive the carousel.
+  // Without this, clicking a thumbnail only updates React state and the
+  // carousel itself stays stuck on whatever slide embla last selected.
+  const carouselApiRef = useRef<CarouselApi | null>(null);
   const videoElRef = useRef<HTMLVideoElement>(null);
   const mountedRef = useRef(true);
   const currentArticleIdRef = useRef(article.id);
@@ -929,7 +934,13 @@ export const ParchmentArticle: React.FC<ParchmentArticleProps> = ({
               opts={{ loop: false }}
               setApi={(api) => {
                 if (!api) return;
+                carouselApiRef.current = api;
+                // Mirror embla's selection back into React state so the
+                // thumbnail strip and "N / total" indicator stay in sync
+                // when the user swipes/drags the carousel directly.
                 api.on("select", () => setCarouselSlide(api.selectedScrollSnap()));
+                // Initialize state to the carousel's current slide on mount
+                setCarouselSlide(api.selectedScrollSnap());
               }}
             >
               <CarouselContent>
@@ -993,7 +1004,14 @@ export const ParchmentArticle: React.FC<ParchmentArticleProps> = ({
                     <button
                       key={index}
                       type="button"
-                      onClick={() => setCarouselSlide(index)}
+                      onClick={() => {
+                        // Drive the embla carousel — the React state will
+                        // catch up via the "select" listener above. Setting
+                        // it eagerly too keeps the thumbnail border snappy
+                        // even before embla's animation lands.
+                        carouselApiRef.current?.scrollTo(index);
+                        setCarouselSlide(index);
+                      }}
                       className={`carousel-thumb ${
                         carouselSlide === index ? "carousel-thumb-active" : "carousel-thumb-inactive"
                       }`}
