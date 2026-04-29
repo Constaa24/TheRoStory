@@ -64,6 +64,9 @@ const Profile: React.FC = () => {
     if (user && activeTab === "favorites") {
       loadFavorites();
     }
+    // loadFavorites is defined inline in this component and stable enough
+    // for our purposes; the effect should re-run only when user/tab change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, activeTab]);
 
   const loadFavorites = async () => {

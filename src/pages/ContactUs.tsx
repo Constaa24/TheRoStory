@@ -40,7 +40,10 @@ const ContactUs: React.FC = () => {
     email: z.string().email({ message: t("contact.validation.email") }),
     message: z.string().min(10, { message: t("contact.validation.message") }).max(5000),
     website: z.string().optional(),
-  }), [language, t]);
+  // `t` is a fresh function on every LanguageProvider render and would bust
+  // the memo every time. `language` is stable state and a precise trigger.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }), [language]);
 
   const resolver = React.useMemo(() => zodResolver(contactSchema), [contactSchema]);
 

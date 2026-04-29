@@ -31,7 +31,7 @@ const Auth: React.FC = () => {
     isRecoveryMode,
     exitRecoveryMode,
   } = useAuth();
-  const { language, t } = useLanguage();
+  const { t } = useLanguage();
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams] = useSearchParams();

@@ -191,6 +191,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       fetchControllerRef.current?.abort();
       subscription.unsubscribe();
     };
+    // Auth bootstrap must run exactly once on mount. handleUserAuthenticated
+    // is intentionally not in deps — re-subscribing onAuthStateChange on
+    // every render would tear down/recreate listeners and lose events.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleUserAuthenticated = async (supabaseUser: User) => {

@@ -54,14 +54,13 @@ export const createVideoPosterImageFile = async (
     const blob = await new Promise<Blob | null>((resolve) => {
       let settled = false;
       let seekFallbackTimeout: number | undefined;
-      let overallTimeout: number | undefined;
 
       const finish = (value: Blob | null) => {
         if (settled) return;
         settled = true;
 
         if (seekFallbackTimeout) window.clearTimeout(seekFallbackTimeout);
-        if (overallTimeout) window.clearTimeout(overallTimeout);
+        window.clearTimeout(overallTimeout);
 
         video.removeEventListener("loadeddata", handleLoadedData);
         video.removeEventListener("seeked", handleSeeked);
@@ -94,7 +93,7 @@ export const createVideoPosterImageFile = async (
         }
       };
 
-      overallTimeout = window.setTimeout(() => finish(null), 6000);
+      const overallTimeout = window.setTimeout(() => finish(null), 6000);
 
       video.addEventListener("loadeddata", handleLoadedData, { once: true });
       video.addEventListener("error", handleError, { once: true });

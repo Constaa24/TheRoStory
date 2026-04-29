@@ -24,30 +24,37 @@ const ArticleDetailPage: React.FC = () => {
   const selectedLocation = fromState?.selectedLocation;
 
   useEffect(() => {
-    if (id) {
-      fetchArticle(id);
-      // Increment view count on open
-      incrementView(id);
-    }
-  }, [id]);
-
-  const fetchArticle = async (articleId: string) => {
+    if (!id) return;
+    let cancelled = false;
     setIsLoading(true);
-    try {
-      const { article, views } = await fetchPublicArticle(articleId);
-      if (article) {
-        setArticle(article);
-        setViews(views);
-      } else {
+
+    (async () => {
+      try {
+        const { article, views } = await fetchPublicArticle(id);
+        if (cancelled) return;
+        if (article) {
+          setArticle(article);
+          setViews(views);
+        } else {
+          navigate(fromPath, { replace: true });
+        }
+      } catch (error) {
+        if (cancelled) return;
+        logError("ArticleDetail.fetchArticle", error);
         navigate(fromPath, { replace: true });
+      } finally {
+        if (!cancelled) setIsLoading(false);
       }
-    } catch (error) {
-      logError("ArticleDetail.fetchArticle", error);
-      navigate(fromPath, { replace: true });
-    } finally {
-      setIsLoading(false);
-    }
-  };
+    })();
+
+    // Increment view count on open
+    incrementView(id);
+
+    return () => { cancelled = true; };
+    // navigate and fromPath come from router state — including them would
+    // re-fetch on every router-state change, not when the article id changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]);
 
   const handleClose = () => {
     // If we came from categories with a category selected, preserve it in the URL

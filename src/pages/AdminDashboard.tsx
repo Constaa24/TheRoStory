@@ -121,6 +121,9 @@ const AdminDashboard: React.FC = () => {
         if (!isAbortError(error)) console.error("Error fetching content:", error);
       });
     return () => { cancelled = true; };
+    // Tracking user.id rather than user prevents re-fetching when the user
+    // object identity changes but the same user is still logged in.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id, isAdmin, isWriter]);
 
   // Fetch users separately so pagination doesn't re-fetch content
@@ -151,6 +154,9 @@ const AdminDashboard: React.FC = () => {
         toast.error(language === 'en' ? "Failed to load users" : "Eroare la încărcarea utilizatorilor");
       });
     return () => { cancelled = true; };
+    // user.id is stable across renders; language is read at error-toast time
+    // and we don't want to re-fetch the user list just because it switched.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id, isAdmin, usersPage]);
 
   const fetchData = async () => {
