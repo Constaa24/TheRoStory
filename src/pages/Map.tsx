@@ -210,15 +210,16 @@ const MapPage: React.FC = () => {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
         {/* Map Section */}
+        <div className="lg:col-span-2 space-y-4">
         <div className={cn(
-          "lg:col-span-2 relative bg-card/40 rounded-[2rem] p-4 sm:p-8 border-2 border-primary/10 overflow-hidden transition-all duration-700",
+          "relative bg-card/40 rounded-[2rem] p-4 sm:p-8 border-2 border-primary/10 overflow-hidden transition-all duration-700",
           isZoomed ? "shadow-2xl ring-2 ring-accent/40" : "shadow-elegant"
         )}>
           {/* Zoom controls */}
           <div className="absolute top-4 left-4 z-10 flex flex-col gap-2">
-            <Button 
-              variant="secondary" 
-              size="icon" 
+            <Button
+              variant="secondary"
+              size="icon"
               className="rounded-full shadow-md bg-background/90 backdrop-blur-sm border border-border/50"
               onClick={() => setIsZoomed(!isZoomed)}
               title={isZoomed ? t("map.zoomOut") : t("map.zoomIn")}
@@ -238,12 +239,6 @@ const MapPage: React.FC = () => {
             >
               <RotateCcw className="h-5 w-5 text-primary" />
             </Button>
-          </div>
-
-          {/* Hint */}
-          <div className="absolute bottom-4 left-4 z-10 flex items-center gap-2 px-4 py-2 bg-background/80 backdrop-blur-sm rounded-full text-xs font-serif italic text-muted-foreground shadow-sm">
-            <Info className="h-3 w-3" />
-            {t("map.clickToZoom")}
           </div>
 
           <motion.div
@@ -387,6 +382,14 @@ const MapPage: React.FC = () => {
               </div>
             ))}
           </div>
+        </div>
+
+        {/* Standalone hint card — separate from the map so it doesn't overlap
+            the legend when stacked at the bottom of the map container. */}
+        <div className="flex items-center justify-center gap-2 px-4 py-3 bg-background/60 backdrop-blur-sm rounded-2xl border border-border/40 text-xs font-serif italic text-muted-foreground shadow-sm">
+          <Info className="h-3.5 w-3.5 text-accent shrink-0" />
+          <span>{t("map.clickToZoom")}</span>
+        </div>
         </div>
 
         {/* Stories Panel */}
