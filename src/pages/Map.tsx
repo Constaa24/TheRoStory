@@ -72,29 +72,27 @@ const MapPage: React.FC = () => {
   const panelRef = useRef<HTMLDivElement | null>(null);
 
   // Process map data
-  const { paths } = useMemo(() => {
-    const geojson = topojson.feature(countiesTopoData, countiesTopoData.objects["romania.counties"]);
+  type CountyPath = { id: string; name: string; d: string; lx: number; ly: number };
+  const { paths } = useMemo<{ paths: CountyPath[] }>(() => {
+    // The GeoJSON Feature type from @types/geojson expects strict property
+    // shapes that TopoJSON-derived data doesn't match. We work with `any`
+    // here and project the trusted subset back into a typed CountyPath.
+    const geojson = topojson.feature(countiesTopoData, countiesTopoData.objects["romania.counties"]) as any;
 
-    // Create projection to fit Romania perfectly in our viewBox
     const projection = d3.geoMercator().fitSize([MAP_VIEW_W, MAP_VIEW_H], geojson);
     const pathGenerator = d3.geoPath().projection(projection);
 
-    // @ts-expect-error - GeoJSON Feature type from @types/geojson expects strict property types,
-    // but our custom TopoJSON-derived data uses a looser shape (string name, no typed geometry).
-    // Typed manually via `feature: any` below; safe to suppress here.
-    const countyPaths = geojson.features.map((feature: any) => {
-      let name = feature.properties.name;
-      
-      // Normalize names to match app's expectations
+    const countyPaths: CountyPath[] = (geojson.features as any[]).map((feature: any) => {
+      let name: string = feature.properties.name;
       if (name === "SatuMare") name = "Satu Mare";
-      
+
       const centroid = pathGenerator.centroid(feature);
       return {
         id: name,
-        name: name,
+        name,
         d: pathGenerator(feature) || "",
         lx: centroid[0],
-        ly: centroid[1]
+        ly: centroid[1],
       };
     });
 

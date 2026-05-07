@@ -55,11 +55,16 @@ export const Navbar: React.FC = () => {
             {/* Logo */}
             <div className="flex-1 flex justify-start">
               <Link to="/" className="flex items-center gap-2.5 hover:scale-105 transition-transform duration-300">
-              <img
-                src="/logo.png"
-                alt="The RoStory Logo"
-                className="h-10 w-10 sm:h-12 sm:w-12 rounded-xl shrink-0 object-contain shadow-sm"
-              />
+              <picture>
+                <source type="image/webp" srcSet="/logo.webp" />
+                <img
+                  src="/logo.png"
+                  alt="The RoStory Logo"
+                  width={48}
+                  height={48}
+                  className="h-10 w-10 sm:h-12 sm:w-12 rounded-xl shrink-0 object-contain shadow-sm"
+                />
+              </picture>
               <span className="text-xl sm:text-2xl font-serif font-black tracking-tighter text-primary whitespace-nowrap">
                 The <span className="text-accent">Ro</span>Story
               </span>

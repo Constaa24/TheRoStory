@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
-import { Helmet } from "react-helmet-async";
 import { Article, getLocalized } from "@/lib/supabase";
 import { fetchPublicArticle, incrementView } from "@/lib/supabase";
 import { useLanguage } from "@/hooks/use-language";
@@ -112,25 +111,22 @@ const ArticleDetailPage: React.FC = () => {
 
   return (
     <>
-      <Helmet>
-        <title>{title} — {SITE_NAME}</title>
-        <meta name="description" content={description} />
-        <link rel="canonical" href={articleUrl} />
-        <meta property="og:title" content={title} />
-        <meta property="og:description" content={description} />
-        <meta property="og:image" content={imageUrl} />
-        <meta property="og:url" content={articleUrl} />
-        <meta property="og:type" content="article" />
-        <meta property="og:site_name" content={SITE_NAME} />
-        <meta property="og:locale" content={language === "en" ? "en_US" : "ro_RO"} />
-        <meta name="twitter:card" content="summary_large_image" />
-        <meta name="twitter:title" content={title} />
-        <meta name="twitter:description" content={description} />
-        <meta name="twitter:image" content={imageUrl} />
-        <html lang={language} />
-        <script type="application/ld+json">{JSON.stringify(jsonLd)}</script>
-        <script type="application/ld+json">{JSON.stringify(breadcrumbLd)}</script>
-      </Helmet>
+      <title>{`${title} — ${SITE_NAME}`}</title>
+      <meta name="description" content={description} />
+      <link rel="canonical" href={articleUrl} />
+      <meta property="og:title" content={title} />
+      <meta property="og:description" content={description} />
+      <meta property="og:image" content={imageUrl} />
+      <meta property="og:url" content={articleUrl} />
+      <meta property="og:type" content="article" />
+      <meta property="og:site_name" content={SITE_NAME} />
+      <meta property="og:locale" content={language === "en" ? "en_US" : "ro_RO"} />
+      <meta name="twitter:card" content="summary_large_image" />
+      <meta name="twitter:title" content={title} />
+      <meta name="twitter:description" content={description} />
+      <meta name="twitter:image" content={imageUrl} />
+      <script type="application/ld+json">{JSON.stringify(jsonLd)}</script>
+      <script type="application/ld+json">{JSON.stringify(breadcrumbLd)}</script>
       <ParchmentArticle
         article={article}
         views={views}

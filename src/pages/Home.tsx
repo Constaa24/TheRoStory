@@ -297,12 +297,20 @@ const Home: React.FC = () => {
       <div className="space-y-16 animate-fade-in pb-20">
         {/* Hero Section */}
       <section className="relative min-h-[80vh] pt-20 flex items-center justify-center overflow-hidden">
-        <div 
-          className="absolute inset-0 bg-cover bg-center transition-transform duration-1000 scale-105"
-          style={{ 
-            backgroundImage: `url("/hero/castle.jpg")`,
-          }}
-        >
+        <div className="absolute inset-0 transition-transform duration-1000 scale-105">
+          <picture>
+            <source type="image/avif" srcSet="/hero/castle.avif" />
+            <source type="image/webp" srcSet="/hero/castle.webp" />
+            <img
+              src="/hero/castle.jpg"
+              alt=""
+              aria-hidden="true"
+              className="w-full h-full object-cover object-center"
+              loading="eager"
+              fetchPriority="high"
+              decoding="async"
+            />
+          </picture>
           <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" />
         </div>
         

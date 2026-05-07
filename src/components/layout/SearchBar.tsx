@@ -34,7 +34,7 @@ export const SearchBar: React.FC = () => {
   const navigate = useNavigate();
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const debounceRef = useRef<number>();
+  const debounceRef = useRef<number | undefined>(undefined);
   const searchRequestIdRef = useRef(0);
 
   // Load categories once for result subtitle display

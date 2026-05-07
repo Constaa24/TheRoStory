@@ -5,7 +5,7 @@ import { useEffect, useState, RefObject } from "react";
  * returning a number from 0 to 1. Used to drive the article reading
  * progress bar.
  */
-export function useReadingProgress(scrollRef: RefObject<HTMLElement>): number {
+export function useReadingProgress(scrollRef: RefObject<HTMLElement | null>): number {
   const [progress, setProgress] = useState(0);
 
   useEffect(() => {

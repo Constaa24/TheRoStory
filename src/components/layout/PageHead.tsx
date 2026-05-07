@@ -1,5 +1,4 @@
 import React from "react";
-import { Helmet } from "react-helmet-async";
 import { useLocation } from "react-router-dom";
 import { SITE_NAME, SITE_URL } from "@/lib/constants";
 
@@ -12,14 +11,20 @@ interface PageHeadProps {
   imageUrl?: string;
   /** Locale: 'en' or 'ro'. Drives og:locale and html lang */
   language: "en" | "ro";
-  /** Any extra <Helmet> children — JSON-LD scripts, link rels, etc. */
+  /** Any extra head children — JSON-LD scripts, link rels, etc. */
   children?: React.ReactNode;
 }
 
 /**
  * Centralizes per-page <head> metadata: title, description, OG/Twitter tags,
- * canonical URL, and the html lang attribute. Pages compose this with
- * additional Helmet children (e.g. JSON-LD, rel=next) when needed.
+ * and canonical URL.
+ *
+ * Uses React 19's built-in support for hoisting <title>, <meta>, <link>, and
+ * <script> elements rendered in component output. This replaces the previous
+ * react-helmet-async wrapper, which is no longer maintained for React 19.
+ *
+ * The html `lang` attribute is set globally by LanguageProvider so it stays
+ * in sync across the app — including pages that don't use PageHead.
  */
 export const PageHead: React.FC<PageHeadProps> = ({
   title,
@@ -35,8 +40,7 @@ export const PageHead: React.FC<PageHeadProps> = ({
   const ogLocale = language === "en" ? "en_US" : "ro_RO";
 
   return (
-    <Helmet>
-      <html lang={language} />
+    <>
       <title>{fullTitle}</title>
       <meta name="description" content={description} />
       <link rel="canonical" href={canonical} />
@@ -55,6 +59,6 @@ export const PageHead: React.FC<PageHeadProps> = ({
       <meta name="twitter:image" content={image} />
 
       {children}
-    </Helmet>
+    </>
   );
 };

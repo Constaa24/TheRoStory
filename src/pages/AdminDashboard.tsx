@@ -160,7 +160,7 @@ const AdminDashboard: React.FC = () => {
         setUsersHasMore(false);
         const message = error?.message || "Failed to load users";
         setUsersLoadError(message);
-        toast.error(language === 'en' ? "Failed to load users" : "Eroare la încărcarea utilizatorilor");
+        toast.error(t("admin.users.errLoad"));
       });
     return () => { cancelled = true; };
     // user.id is stable across renders; language is read at error-toast time
@@ -184,11 +184,11 @@ const AdminDashboard: React.FC = () => {
 
   const handleAddCategory = async () => {
     if (!newCategory.nameEn || !newCategory.nameRo || !newCategory.slug) {
-      toast.error("Please fill all fields");
+      toast.error(t("admin.categories.fillAll"));
       return;
     }
     if (!/^[a-z0-9-]+$/.test(newCategory.slug)) {
-      toast.error("Slug must be lowercase letters, numbers, and hyphens only (e.g. my-category)");
+      toast.error(t("admin.categories.slugHint"));
       return;
     }
     try {
@@ -202,15 +202,15 @@ const AdminDashboard: React.FC = () => {
       if (error) throw error;
       setNewCategory({ nameEn: "", nameRo: "", slug: "" });
       fetchData();
-      toast.success("Category added successfully");
+      toast.success(t("admin.categories.added"));
     } catch {
-      toast.error("Error adding category");
+      toast.error(t("admin.categories.errAdd"));
     }
   };
 
   const handleUpdateArticle = async () => {
     if (!editingArticle || !editingArticle.titleEn || !editingArticle.titleRo || !editingArticle.categoryId) {
-      toast.error("Please fill required fields");
+      toast.error(t("admin.articles.fillRequired"));
       return;
     }
     try {
@@ -235,7 +235,7 @@ const AdminDashboard: React.FC = () => {
       // combineChapters() returns "" when every chapter is blank, and a
       // story with no body shouldn't be persistable from the dashboard.
       if (editingArticle.type === 'text' && !contentEn?.trim() && !contentRo?.trim()) {
-        throw new Error(language === 'en' ? "A text story must have at least one chapter with content" : "O poveste text trebuie să aibă cel puțin un capitol cu conținut");
+        throw new Error(t("admin.common.contentRequired"));
       }
       if (editingArticle.location && editingArticle.location.length > ARTICLE_LIMITS.LOCATION_MAX) {
         throw new Error(`Location exceeds ${ARTICLE_LIMITS.LOCATION_MAX} characters`);
@@ -269,16 +269,16 @@ const AdminDashboard: React.FC = () => {
 
       setEditingArticle(null);
       fetchData();
-      toast.success("Article updated successfully");
+      toast.success(t("admin.articles.updated"));
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Error updating article";
+      const message = error instanceof Error ? error.message : t("admin.articles.errUpdate");
       toast.error(message);
     }
   };
 
   const togglePublish = async (article: Article) => {
     if (!isAdmin) {
-      toast.error("Only admins can publish articles");
+      toast.error(t("admin.articles.adminOnlyPublish"));
       return;
     }
     try {
@@ -290,9 +290,9 @@ const AdminDashboard: React.FC = () => {
 
       if (error) throw error;
       fetchData();
-      toast.success(newValue ? "Published" : "Unpublished");
+      toast.success(newValue ? t("admin.articles.publishedToast") : t("admin.articles.unpublishedToast"));
     } catch {
-      toast.error("Error updating article");
+      toast.error(t("admin.articles.errUpdate"));
     }
   };
 
@@ -301,20 +301,18 @@ const AdminDashboard: React.FC = () => {
       const { error } = await supabase.from('articles').delete().eq('id', id);
       if (error) throw error;
       fetchData();
-      toast.success(language === 'en' ? "Article deleted" : "Articol șters");
+      toast.success(t("admin.articles.deleted"));
     } catch {
-      toast.error(language === 'en' ? "Error deleting article" : "Eroare la ștergerea articolului");
+      toast.error(t("admin.articles.errDelete"));
     }
   };
 
   const requestDeleteArticle = (id: string) => {
     setConfirmDialog({
-      title: language === 'en' ? "Delete this story?" : "Ștergi această poveste?",
-      description: language === 'en'
-        ? "This will permanently remove the story. This action cannot be undone."
-        : "Aceasta va șterge permanent povestea. Acțiunea nu poate fi anulată.",
-      confirmLabel: language === 'en' ? "Delete" : "Șterge",
-      cancelLabel: language === 'en' ? "Cancel" : "Anulează",
+      title: t("admin.articles.deleteTitle"),
+      description: t("admin.articles.deleteDesc"),
+      confirmLabel: t("admin.common.delete"),
+      cancelLabel: t("admin.common.cancel"),
       onConfirm: () => performDeleteArticle(id),
     });
   };
@@ -340,45 +338,41 @@ const AdminDashboard: React.FC = () => {
         }
         fetchData();
       }
-      toast.success(language === 'en' ? "User deleted" : "Utilizator șters");
+      toast.success(t("admin.users.deleted"));
     } catch {
-      toast.error(language === 'en' ? "Error deleting user" : "Eroare la ștergerea utilizatorului");
+      toast.error(t("admin.users.errDelete"));
     }
   };
 
   const requestDeleteUser = (id: string) => {
     if (!isAdmin) return;
     if (id === user?.id) {
-      toast.error(language === 'en' ? "You cannot delete yourself" : "Nu te poți șterge pe tine însuți");
+      toast.error(t("admin.users.deleteSelf"));
       return;
     }
     setConfirmDialog({
-      title: language === 'en' ? "Delete this user?" : "Ștergi acest utilizator?",
-      description: language === 'en'
-        ? "This will permanently remove the user account. This action cannot be undone."
-        : "Aceasta va șterge permanent contul utilizatorului. Acțiunea nu poate fi anulată.",
-      confirmLabel: language === 'en' ? "Delete" : "Șterge",
-      cancelLabel: language === 'en' ? "Cancel" : "Anulează",
+      title: t("admin.users.deleteTitle"),
+      description: t("admin.users.deleteDesc"),
+      confirmLabel: t("admin.common.delete"),
+      cancelLabel: t("admin.common.cancel"),
       onConfirm: () => performDeleteUser(id),
     });
   };
 
   const requestDeleteCategory = (catId: string) => {
     setConfirmDialog({
-      title: language === 'en' ? "Delete this category?" : "Ștergi această categorie?",
-      description: language === 'en'
-        ? "Articles in this category will keep their content but lose the link. You can reassign them afterwards."
-        : "Articolele din această categorie își păstrează conținutul, dar pierd legătura. Le poți reasigna ulterior.",
-      confirmLabel: language === 'en' ? "Delete" : "Șterge",
-      cancelLabel: language === 'en' ? "Cancel" : "Anulează",
+      title: t("admin.categories.deleteTitle"),
+      description: t("admin.categories.deleteDesc"),
+      confirmLabel: t("admin.categories.confirm"),
+      cancelLabel: t("admin.common.cancel"),
       onConfirm: async () => {
         const { error } = await supabase.from('categories').delete().eq('id', catId);
         if (error) {
-          toast.error(language === 'en' ? "Error deleting category" : "Eroare la ștergerea categoriei");
+          toast.error(t("admin.categories.errDelete"));
           return;
         }
         fetchData();
-        toast.success(language === 'en' ? "Category deleted" : "Categorie ștearsă");
+        toast.success(t("admin.categories.deleted"));
       },
     });
   };
@@ -390,11 +384,11 @@ const AdminDashboard: React.FC = () => {
       const success = await updateUserRoleFunc(userId, newRole);
       if (!success) throw new Error("Failed to update role");
       
-      setAllUsers(allUsers.map(u => u.id === userId ? { ...u, role: newRole } : u));
-      toast.success("User role updated");
+      setAllUsers(allUsers.map(u => u.id === userId ? { ...u, role: newRole as AdminUserSummary['role'] } : u));
+      toast.success(t("admin.users.roleUpdated"));
     } catch (error) {
       console.error("Error updating role:", error);
-      toast.error("Error updating role");
+      toast.error(t("admin.users.errRoleUpdate"));
     }
   };
 
@@ -403,7 +397,7 @@ const AdminDashboard: React.FC = () => {
     if (!file) return;
 
     if (!user?.id) {
-      toast.error(language === 'en' ? "Not authenticated" : "Neautentificat");
+      toast.error(t("admin.common.notAuthenticated"));
       event.target.value = "";
       return;
     }
@@ -426,10 +420,10 @@ const AdminDashboard: React.FC = () => {
           mediaUrl: editingArticle.mediaUrl || publicUrl // Set first if none
         });
       }
-      toast.success("Image added to gallery");
+      toast.success(t("admin.common.imageUploaded"));
     } catch (error) {
       console.error("Error uploading image:", error);
-      const message = error instanceof Error ? error.message : "Error uploading image";
+      const message = error instanceof Error ? error.message : t("admin.common.errUpload");
       toast.error(message);
     } finally {
       setIsUploading(false);
@@ -455,9 +449,9 @@ const AdminDashboard: React.FC = () => {
     return (
       <div className="container mx-auto px-4 py-24 text-center">
         <Lock className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-        <h1 className="text-2xl font-serif italic mb-2">Access Restricted</h1>
-        <p className="text-muted-foreground">You do not have permission to access the dashboard.</p>
-        <Button className="mt-6 rounded-full" onClick={() => window.location.href = "/"}>Back to Home</Button>
+        <h1 className="text-2xl font-serif italic mb-2">{t("admin.access.restricted")}</h1>
+        <p className="text-muted-foreground">{t("admin.access.noPermission")}</p>
+        <Button className="mt-6 rounded-full" onClick={() => window.location.href = "/"}>{t("admin.access.backHome")}</Button>
       </div>
     );
   }
@@ -473,19 +467,19 @@ const AdminDashboard: React.FC = () => {
 
       <Tabs defaultValue="articles" className="space-y-8">
         <TabsList className="bg-secondary/50 p-1 rounded-xl sm:rounded-full flex flex-wrap gap-1 w-full sm:w-auto h-auto">
-          <TabsTrigger value="articles" className="rounded-full px-4 sm:px-8 flex gap-1 sm:gap-2 text-xs sm:text-sm">
-            <FileText className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> <span className="hidden xs:inline">{isWriter ? "My Stories" : "Articles"}</span><span className="xs:hidden">Stories</span>
+          <TabsTrigger value="articles" className="rounded-full px-4 sm:px-8 flex gap-1 sm:gap-2 text-xs sm:text-sm" aria-label={isWriter ? t("admin.tabs.myStories") : t("admin.tabs.articles")}>
+            <FileText className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> <span className="hidden xs:inline">{isWriter ? t("admin.tabs.myStories") : t("admin.tabs.articles")}</span><span className="xs:hidden">{t("admin.tabs.stories")}</span>
           </TabsTrigger>
           {isAdmin && (
             <>
-              <TabsTrigger value="categories" className="rounded-full px-4 sm:px-8 flex gap-1 sm:gap-2 text-xs sm:text-sm">
-                <Tag className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> <span className="hidden sm:inline">Categories</span><span className="sm:hidden">Cats</span>
+              <TabsTrigger value="categories" className="rounded-full px-4 sm:px-8 flex gap-1 sm:gap-2 text-xs sm:text-sm" aria-label={t("admin.tabs.categories")}>
+                <Tag className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> <span className="hidden sm:inline">{t("admin.tabs.categories")}</span><span className="sm:hidden">{t("admin.tabs.categoriesShort")}</span>
               </TabsTrigger>
-              <TabsTrigger value="users" className="rounded-full px-4 sm:px-8 flex gap-1 sm:gap-2 text-xs sm:text-sm">
-                <Users className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> Users
+              <TabsTrigger value="users" className="rounded-full px-4 sm:px-8 flex gap-1 sm:gap-2 text-xs sm:text-sm" aria-label={t("admin.tabs.users")}>
+                <Users className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> {t("admin.tabs.users")}
               </TabsTrigger>
-              <TabsTrigger value="permissions" className="rounded-full px-4 sm:px-8 flex gap-1 sm:gap-2 text-xs sm:text-sm">
-                <ShieldCheck className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> <span className="hidden sm:inline">Permissions</span><span className="sm:hidden">Perms</span>
+              <TabsTrigger value="permissions" className="rounded-full px-4 sm:px-8 flex gap-1 sm:gap-2 text-xs sm:text-sm" aria-label={t("admin.tabs.permissions")}>
+                <ShieldCheck className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> <span className="hidden sm:inline">{t("admin.tabs.permissions")}</span><span className="sm:hidden">{t("admin.tabs.permissionsShort")}</span>
               </TabsTrigger>
             </>
           )}
@@ -493,62 +487,62 @@ const AdminDashboard: React.FC = () => {
 
         <TabsContent value="permissions" className="space-y-6">
           <div className="flex flex-col gap-4">
-          <h2 className="text-xl sm:text-2xl font-serif italic text-secondary-foreground">Roles & Permissions Summary</h2>
-            <p className="text-muted-foreground">Review the access levels for each user role in The RoStory system.</p>
+          <h2 className="text-xl sm:text-2xl font-serif italic text-secondary-foreground">{t("admin.permissions.heading")}</h2>
+            <p className="text-muted-foreground">{t("admin.permissions.subheading")}</p>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
             {[
               {
-                role: "Guest",
+                role: t("admin.permissions.role.guest"),
                 icon: <Users className="h-6 w-6 text-muted-foreground" />,
-                description: "Unauthenticated visitors browsing the site.",
+                description: t("admin.permissions.role.guestDesc"),
                 permissions: [
-                  { label: "Browse Categories", allowed: true },
-                  { label: "Read Published Stories", allowed: true },
-                  { label: "Support Contact", allowed: true },
-                  { label: "Favorite Stories", allowed: false },
-                  { label: "Create Stories", allowed: false },
-                  { label: "Manage System", allowed: false },
+                  { label: t("admin.permissions.perm.browseCategories"), allowed: true },
+                  { label: t("admin.permissions.perm.readPublished"), allowed: true },
+                  { label: t("admin.permissions.perm.supportContact"), allowed: true },
+                  { label: t("admin.permissions.perm.favoriteStories"), allowed: false },
+                  { label: t("admin.permissions.perm.createStories"), allowed: false },
+                  { label: t("admin.permissions.perm.manageSystem"), allowed: false },
                 ]
               },
               {
-                role: "Reader",
+                role: t("admin.permissions.role.reader"),
                 icon: <CheckCircle2 className="h-6 w-6 text-green-600" />,
-                description: "Default authenticated users who enjoy reading.",
+                description: t("admin.permissions.role.readerDesc"),
                 permissions: [
-                  { label: "All Guest Features", allowed: true },
-                  { label: "Favorite Stories", allowed: true },
-                  { label: "Custom Profile", allowed: true },
-                  { label: "Create Stories", allowed: false },
-                  { label: "Edit Stories", allowed: false },
-                  { label: "Manage System", allowed: false },
+                  { label: t("admin.permissions.perm.allGuestFeatures"), allowed: true },
+                  { label: t("admin.permissions.perm.favoriteStories"), allowed: true },
+                  { label: t("admin.permissions.perm.customProfile"), allowed: true },
+                  { label: t("admin.permissions.perm.createStories"), allowed: false },
+                  { label: t("admin.permissions.perm.editStories"), allowed: false },
+                  { label: t("admin.permissions.perm.manageSystem"), allowed: false },
                 ]
               },
               {
-                role: "Writer",
+                role: t("admin.permissions.role.writer"),
                 icon: <Edit className="h-6 w-6 text-blue-600" />,
-                description: "Content creators who contribute stories.",
+                description: t("admin.permissions.role.writerDesc"),
                 permissions: [
-                  { label: "All Reader Features", allowed: true },
-                  { label: "Create Stories", allowed: true },
-                  { label: "Edit Own Stories", allowed: true },
-                  { label: "Publish Stories", allowed: false },
-                  { label: "Manage Categories", allowed: false },
-                  { label: "Manage Users", allowed: false },
+                  { label: t("admin.permissions.perm.allReaderFeatures"), allowed: true },
+                  { label: t("admin.permissions.perm.createStories"), allowed: true },
+                  { label: t("admin.permissions.perm.editOwnStories"), allowed: true },
+                  { label: t("admin.permissions.perm.publishStories"), allowed: false },
+                  { label: t("admin.permissions.perm.manageCategories"), allowed: false },
+                  { label: t("admin.permissions.perm.manageUsers"), allowed: false },
                 ]
               },
               {
-                role: "Admin",
+                role: t("admin.permissions.role.admin"),
                 icon: <ShieldCheck className="h-6 w-6 text-accent" />,
-                description: "Full system administrators with complete control.",
+                description: t("admin.permissions.role.adminDesc"),
                 permissions: [
-                  { label: "All Writer Features", allowed: true },
-                  { label: "Publish/Unpublish", allowed: true },
-                  { label: "Manage Categories", allowed: true },
-                  { label: "Manage Users", allowed: true },
-                  { label: "Delete Any Content", allowed: true },
-                  { label: "Change User Roles", allowed: true },
+                  { label: t("admin.permissions.perm.allWriterFeatures"), allowed: true },
+                  { label: t("admin.permissions.perm.publishUnpublish"), allowed: true },
+                  { label: t("admin.permissions.perm.manageCategories"), allowed: true },
+                  { label: t("admin.permissions.perm.manageUsers"), allowed: true },
+                  { label: t("admin.permissions.perm.deleteAnyContent"), allowed: true },
+                  { label: t("admin.permissions.perm.changeRoles"), allowed: true },
                 ]
               }
             ].map((item, i) => (
@@ -579,28 +573,28 @@ const AdminDashboard: React.FC = () => {
           </div>
 
           <Card className="p-4 sm:p-8 border-none shadow-elegant bg-accent/5 mt-8">
-            <h3 className="text-base sm:text-lg font-serif italic mb-4">System Enforcement Logic</h3>
+            <h3 className="text-base sm:text-lg font-serif italic mb-4">{t("admin.permissions.enforcement.heading")}</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-8 text-sm">
               <div className="space-y-4">
                 <h4 className="font-bold flex items-center gap-2">
-                  <Lock className="h-4 w-4" /> Frontend Guardrails
+                  <Lock className="h-4 w-4" /> {t("admin.permissions.enforcement.frontend")}
                 </h4>
                 <ul className="space-y-2 list-disc list-inside text-muted-foreground">
-                  <li>Buttons for Admin actions are hidden from Writers/Readers.</li>
-                  <li>Draft status is automatically enforced for Writer submissions.</li>
-                  <li>Admin Dashboard is restricted to users with Admin or Writer roles.</li>
-                  <li>RLS (Row Level Security) filters favorites and profiles by owner ID.</li>
+                  <li>{t("admin.permissions.enforcement.frontend1")}</li>
+                  <li>{t("admin.permissions.enforcement.frontend2")}</li>
+                  <li>{t("admin.permissions.enforcement.frontend3")}</li>
+                  <li>{t("admin.permissions.enforcement.frontend4")}</li>
                 </ul>
               </div>
               <div className="space-y-4">
                 <h4 className="font-bold flex items-center gap-2">
-                  <ShieldCheck className="h-4 w-4" /> Backend Enforcement
+                  <ShieldCheck className="h-4 w-4" /> {t("admin.permissions.enforcement.backend")}
                 </h4>
                 <ul className="space-y-2 list-disc list-inside text-muted-foreground">
-                  <li>Edge Functions verify roles before performing sensitive operations.</li>
-                  <li>Publishing logic rejects any non-admin attempts at the API level.</li>
-                  <li>User management endpoints require direct Admin role verification.</li>
-                  <li>Critical database tables are protected via Supabase Row Level Security (RLS).</li>
+                  <li>{t("admin.permissions.enforcement.backend1")}</li>
+                  <li>{t("admin.permissions.enforcement.backend2")}</li>
+                  <li>{t("admin.permissions.enforcement.backend3")}</li>
+                  <li>{t("admin.permissions.enforcement.backend4")}</li>
                 </ul>
               </div>
             </div>
@@ -609,7 +603,7 @@ const AdminDashboard: React.FC = () => {
 
         <TabsContent value="articles" className="space-y-6">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-            <h2 className="text-xl sm:text-2xl font-serif italic text-secondary-foreground">Manage Stories</h2>
+            <h2 className="text-xl sm:text-2xl font-serif italic text-secondary-foreground">{t("admin.articles.heading")}</h2>
             <div className="flex gap-2">
               <Dialog open={showTypeSelection} onOpenChange={setShowTypeSelection}>
                 <DialogTrigger asChild>
@@ -620,10 +614,10 @@ const AdminDashboard: React.FC = () => {
                 <DialogContent className="sm:max-w-md">
                   <DialogHeader>
                     <DialogTitle className="text-center text-2xl font-serif italic">
-                      {language === 'en' ? "Choose Story Type" : "Alege Tipul Poveștii"}
+                      {t("admin.articles.typeSelect")}
                     </DialogTitle>
                     <DialogDescription className="text-center">
-                      {language === 'en' ? "Select how you want to tell your next story." : "Selectează cum vrei să spui următoarea poveste."}
+                      {t("admin.articles.typeSelectDesc")}
                     </DialogDescription>
                   </DialogHeader>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 py-6">
@@ -639,11 +633,11 @@ const AdminDashboard: React.FC = () => {
                         <BookText className="h-8 w-8 text-accent" />
                       </div>
                       <span className="font-serif italic text-lg">
-                        {language === 'en' ? "Text Story" : "Poveste Text"}
+                        {t("admin.articles.typeText")}
                       </span>
                     </Button>
-                    <Button 
-                      variant="outline" 
+                    <Button
+                      variant="outline"
                       className="h-32 flex flex-col gap-3 rounded-2xl hover:border-accent hover:bg-accent/5 transition-all group"
                       onClick={() => {
                         setShowTypeSelection(false);
@@ -654,11 +648,11 @@ const AdminDashboard: React.FC = () => {
                         <Video className="h-8 w-8 text-accent" />
                       </div>
                       <span className="font-serif italic text-lg">
-                        {language === 'en' ? "Video Story" : "Poveste Video"}
+                        {t("admin.articles.typeVideo")}
                       </span>
                     </Button>
-                    <Button 
-                      variant="outline" 
+                    <Button
+                      variant="outline"
                       className="h-32 flex flex-col gap-3 rounded-2xl hover:border-accent hover:bg-accent/5 transition-all group"
                       onClick={() => {
                         setShowTypeSelection(false);
@@ -669,7 +663,7 @@ const AdminDashboard: React.FC = () => {
                         <Images className="h-8 w-8 text-accent" />
                       </div>
                       <span className="font-serif italic text-lg">
-                        {language === 'en' ? "Carousel Story" : "Poveste Carusel"}
+                        {t("admin.articles.typeCarousel")}
                       </span>
                     </Button>
                   </div>
@@ -681,37 +675,39 @@ const AdminDashboard: React.FC = () => {
           <Dialog open={!!editingArticle} onOpenChange={(open) => !open && setEditingArticle(null)}>
             <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
-                <DialogTitle className="font-serif italic text-2xl">Edit Story</DialogTitle>
+                <DialogTitle className="font-serif italic text-2xl">{t("admin.articles.editStory")}</DialogTitle>
                 <DialogDescription className="sr-only">
-                  Update the details of the existing story.
+                  {t("admin.articles.editStoryDesc")}
                 </DialogDescription>
               </DialogHeader>
               {editingArticle && (
                 <div className="grid gap-6 py-4">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <label className="text-sm font-medium">Title (English)</label>
-                      <Input 
-                        value={editingArticle.titleEn} 
-                        onChange={(e) => setEditingArticle({...editingArticle, titleEn: e.target.value})} 
+                      <label className="text-sm font-medium">{t("admin.articles.titleEn")}</label>
+                      <Input
+                        value={editingArticle.titleEn}
+                        onChange={(e) => setEditingArticle({...editingArticle, titleEn: e.target.value})}
+                        maxLength={ARTICLE_LIMITS.TITLE_MAX}
                       />
                     </div>
                     <div className="space-y-2">
-                      <label className="text-sm font-medium">Titlu (Română)</label>
-                      <Input 
-                        value={editingArticle.titleRo} 
-                        onChange={(e) => setEditingArticle({...editingArticle, titleRo: e.target.value})} 
+                      <label className="text-sm font-medium">{t("admin.articles.titleRo")}</label>
+                      <Input
+                        value={editingArticle.titleRo}
+                        onChange={(e) => setEditingArticle({...editingArticle, titleRo: e.target.value})}
+                        maxLength={ARTICLE_LIMITS.TITLE_MAX}
                       />
                     </div>
                   </div>
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">Category</label>
-                    <Select 
+                    <label className="text-sm font-medium">{t("admin.articles.category")}</label>
+                    <Select
                       value={editingArticle.categoryId}
                       onValueChange={(val) => setEditingArticle({...editingArticle, categoryId: val})}
                     >
                       <SelectTrigger>
-                        <SelectValue placeholder="Select Category" />
+                        <SelectValue placeholder={t("admin.articles.category")} />
                       </SelectTrigger>
                       <SelectContent>
                         {categories.map(cat => (
@@ -724,26 +720,26 @@ const AdminDashboard: React.FC = () => {
                   </div>
                   <div className="space-y-2">
                     <label className="text-sm font-medium">
-                      {editingArticle.type === 'video' ? 'Video URL' : (editingArticle.type === 'carousel' ? 'Gallery Preview' : 'Media URL (Image)')}
+                      {editingArticle.type === 'video' ? t("admin.articles.mediaVideoUrl") : (editingArticle.type === 'carousel' ? t("admin.articles.galleryImages") : t("admin.articles.mediaImageUrl"))}
                     </label>
                     <div className="flex gap-2">
-                      <Input 
-                        placeholder={editingArticle.type === 'carousel' ? "First image from gallery" : "https://..."} 
-                        value={editingArticle.mediaUrl} 
-                        onChange={(e) => setEditingArticle({...editingArticle, mediaUrl: e.target.value})} 
+                      <Input
+                        placeholder={editingArticle.type === 'carousel' ? t("admin.articles.galleryImages") : "https://..."}
+                        value={editingArticle.mediaUrl}
+                        onChange={(e) => setEditingArticle({...editingArticle, mediaUrl: e.target.value})}
                         disabled={editingArticle.type === 'carousel'}
                       />
-                      <input 
-                        type="file" 
-                        accept={editingArticle.type === 'video' ? "video/*" : "image/*"} 
-                        className="hidden" 
-                        ref={editFileInputRef} 
+                      <input
+                        type="file"
+                        accept={editingArticle.type === 'video' ? "video/*" : "image/*"}
+                        className="hidden"
+                        ref={editFileInputRef}
                         onChange={async (e) => {
                           const file = e.target.files?.[0];
                           if (!file) return;
 
                           if (!user?.id) {
-                            toast.error(language === 'en' ? "Not authenticated" : "Neautentificat");
+                            toast.error(t("admin.common.notAuthenticated"));
                             e.target.value = "";
                             return;
                           }
@@ -789,9 +785,9 @@ const AdminDashboard: React.FC = () => {
                             } else {
                               setEditingArticle({ ...editingArticle, mediaUrl: publicUrl });
                             }
-                            toast.success("File uploaded successfully");
+                            toast.success(t("admin.common.imageUploaded"));
                           } catch (error) {
-                            const message = error instanceof Error ? error.message : "Error uploading file";
+                            const message = error instanceof Error ? error.message : t("admin.common.errUpload");
                             toast.error(message);
                           } finally {
                             setIsUploading(false);
@@ -820,7 +816,7 @@ const AdminDashboard: React.FC = () => {
                         onChange={(e) => setEditingArticle({...editingArticle, isPublished: e.target.checked})}
                         className="rounded border-gray-300"
                       />
-                      <label htmlFor="editIsPublished" className="text-sm font-medium">Published</label>
+                      <label htmlFor="editIsPublished" className="text-sm font-medium">{t("admin.articles.publishedToast")}</label>
                     </div>
                   )}
                   <div className="space-y-2">
@@ -842,23 +838,25 @@ const AdminDashboard: React.FC = () => {
                   {editingArticle.type === 'video' ? (
                     <div className="space-y-4">
                       <div className="space-y-2">
-                        <label className="text-sm font-medium">Description (English)</label>
-                        <Textarea 
-                          rows={5} 
-                          value={editingArticle.contentEn} 
-                          onChange={(e) => setEditingArticle({...editingArticle, contentEn: e.target.value})} 
+                        <label className="text-sm font-medium">{t("admin.articles.descEn")}</label>
+                        <Textarea
+                          rows={5}
+                          value={editingArticle.contentEn}
+                          onChange={(e) => setEditingArticle({...editingArticle, contentEn: e.target.value})}
+                          maxLength={ARTICLE_LIMITS.CONTENT_MAX}
                         />
                       </div>
                       <div className="space-y-2">
-                        <label className="text-sm font-medium">Descriere (Română)</label>
-                        <Textarea 
-                          rows={5} 
-                          value={editingArticle.contentRo} 
-                          onChange={(e) => setEditingArticle({...editingArticle, contentRo: e.target.value})} 
+                        <label className="text-sm font-medium">{t("admin.articles.descRo")}</label>
+                        <Textarea
+                          rows={5}
+                          value={editingArticle.contentRo}
+                          onChange={(e) => setEditingArticle({...editingArticle, contentRo: e.target.value})}
+                          maxLength={ARTICLE_LIMITS.CONTENT_MAX}
                         />
                       </div>
                       <div className="space-y-2">
-                        <label className="text-sm font-medium">Poster URL (Thumbnail)</label>
+                        <label className="text-sm font-medium">{t("admin.articles.posterUrl")}</label>
                         <div className="flex gap-2">
                           <Input
                             placeholder="https://..."
@@ -875,7 +873,7 @@ const AdminDashboard: React.FC = () => {
                               if (!file) return;
 
                               if (!user?.id) {
-                                toast.error(language === 'en' ? "Not authenticated" : "Neautentificat");
+                                toast.error(t("admin.common.notAuthenticated"));
                                 e.target.value = "";
                                 return;
                               }
@@ -889,9 +887,9 @@ const AdminDashboard: React.FC = () => {
                                 });
 
                                 setEditingArticle({ ...editingArticle, posterUrl: publicUrl });
-                                toast.success("Poster uploaded successfully");
+                                toast.success(t("admin.common.imageUploaded"));
                               } catch (error) {
-                                const message = error instanceof Error ? error.message : "Error uploading poster";
+                                const message = error instanceof Error ? error.message : t("admin.common.errUpload");
                                 toast.error(message);
                               } finally {
                                 setIsUploading(false);
@@ -904,22 +902,18 @@ const AdminDashboard: React.FC = () => {
                             size="icon"
                             onClick={() => editPosterInputRef.current?.click()}
                             disabled={isUploading}
-                            title="Upload poster image"
+                            title={t("admin.articles.posterUrl")}
                           >
                             {isUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImageIcon className="h-4 w-4" />}
                           </Button>
                         </div>
-                        <p className="text-xs text-muted-foreground">
-                          Uploading a new video auto-generates a poster, but you can override it here.
-                        </p>
                       </div>
                       {editingArticle.mediaUrl && (
                         <div className="space-y-2">
-                          <label className="text-sm font-medium">Video Preview</label>
-                          <video 
-                            src={editingArticle.mediaUrl} 
+                          <video
+                            src={editingArticle.mediaUrl}
                             poster={editingArticle.posterUrl || undefined}
-                            controls 
+                            controls
                             className="w-full rounded-xl aspect-video bg-black"
                           />
                         </div>
@@ -929,29 +923,31 @@ const AdminDashboard: React.FC = () => {
                     <div className="space-y-6">
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div className="space-y-2">
-                          <label className="text-sm font-medium">Description (English)</label>
-                          <Textarea 
-                            rows={5} 
-                            value={editingArticle.contentEn} 
-                            onChange={(e) => setEditingArticle({...editingArticle, contentEn: e.target.value})} 
+                          <label className="text-sm font-medium">{t("admin.articles.descEn")}</label>
+                          <Textarea
+                            rows={5}
+                            value={editingArticle.contentEn}
+                            onChange={(e) => setEditingArticle({...editingArticle, contentEn: e.target.value})}
+                            maxLength={ARTICLE_LIMITS.CONTENT_MAX}
                           />
                         </div>
                         <div className="space-y-2">
-                          <label className="text-sm font-medium">Descriere (Română)</label>
-                          <Textarea 
-                            rows={5} 
-                            value={editingArticle.contentRo} 
-                            onChange={(e) => setEditingArticle({...editingArticle, contentRo: e.target.value})} 
+                          <label className="text-sm font-medium">{t("admin.articles.descRo")}</label>
+                          <Textarea
+                            rows={5}
+                            value={editingArticle.contentRo}
+                            onChange={(e) => setEditingArticle({...editingArticle, contentRo: e.target.value})}
+                            maxLength={ARTICLE_LIMITS.CONTENT_MAX}
                           />
                         </div>
                       </div>
-                      
+
                       <div className="space-y-4">
                         <label className="text-sm font-medium flex justify-between items-center">
-                          Gallery Images
-                          <Button 
-                            variant="outline" 
-                            size="sm" 
+                          {t("admin.articles.galleryImages")}
+                          <Button
+                            variant="outline"
+                            size="sm"
                             className="h-8 rounded-full"
                             onClick={() => editCarouselImageInputRef.current?.click()}
                             disabled={isUploading}
@@ -960,24 +956,25 @@ const AdminDashboard: React.FC = () => {
                             {t("admin.addImage")}
                           </Button>
                         </label>
-                        
-                        <input 
-                          type="file" 
-                          ref={editCarouselImageInputRef} 
-                          onChange={handleCarouselImageUpload} 
-                          accept="image/*" 
-                          className="hidden" 
+
+                        <input
+                          type="file"
+                          ref={editCarouselImageInputRef}
+                          onChange={handleCarouselImageUpload}
+                          accept="image/*"
+                          className="hidden"
                         />
 
                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                           {editingArticle.mediaUrls?.map((url, index) => (
                             <div key={index} className="relative group aspect-square rounded-lg overflow-hidden border border-border">
-                              <img src={url} className="w-full h-full object-cover" alt={`Gallery image ${index + 1}`} loading="lazy" />
-                              <Button 
-                                variant="destructive" 
-                                size="icon" 
+                              <img src={url} className="w-full h-full object-cover" alt={`${t("admin.articles.galleryImages")} ${index + 1}`} loading="lazy" />
+                              <Button
+                                variant="destructive"
+                                size="icon"
                                 className="absolute top-1 right-1 h-6 w-6 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
                                 onClick={() => removeCarouselImage(index)}
+                                aria-label={t("admin.articles.removeImage")}
                               >
                                 <X className="h-3 w-3" />
                               </Button>
@@ -994,7 +991,7 @@ const AdminDashboard: React.FC = () => {
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         {editingArticle.chaptersEn?.map((chapter, index) => (
                           <div key={index} className="space-y-2">
-                            <label className="text-sm font-medium">Chapter {index + 1} (English)</label>
+                            <label className="text-sm font-medium">{`${language === 'en' ? 'Chapter' : 'Capitolul'} ${index + 1} (${language === 'en' ? 'English' : 'Engleză'})`}</label>
                             <Textarea
                               rows={5}
                               value={chapter}
@@ -1010,7 +1007,7 @@ const AdminDashboard: React.FC = () => {
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         {editingArticle.chaptersRo?.map((chapter, index) => (
                           <div key={index} className="space-y-2">
-                            <label className="text-sm font-medium">Capitolul {index + 1} (Română)</label>
+                            <label className="text-sm font-medium">{`${language === 'en' ? 'Chapter' : 'Capitolul'} ${index + 1} (${language === 'en' ? 'Romanian' : 'Română'})`}</label>
                             <Textarea
                               rows={5}
                               value={chapter}
@@ -1029,7 +1026,7 @@ const AdminDashboard: React.FC = () => {
               )}
               <DialogFooter>
                 <Button onClick={handleUpdateArticle} className="w-full rounded-full bg-accent hover:bg-accent/90">
-                  {language === 'en' ? 'Save Changes' : 'Salvează Modificările'}
+                  {t("admin.articles.update")}
                 </Button>
               </DialogFooter>
             </DialogContent>
@@ -1046,14 +1043,14 @@ const AdminDashboard: React.FC = () => {
                       <h3 className="font-medium text-sm truncate">{getLocalized(art, "title", language)}</h3>
                     </div>
                     <p className="text-xs text-muted-foreground mt-1">
-                      {categoriesById.get(art.categoryId)?.nameEn || "Uncategorized"}
+                      {categoriesById.get(art.categoryId) ? getLocalized(categoriesById.get(art.categoryId)!, "name", language) : t("admin.articles.uncategorized")}
                     </p>
                     <div className="flex items-center gap-2 mt-2">
                       <span className={cn(
                         "px-2 py-0.5 rounded-full text-xs font-medium",
                         art.isPublished ? "bg-green-100 text-green-700" : "bg-yellow-100 text-yellow-700"
                       )}>
-                        {art.isPublished ? (language === 'en' ? "Published" : "Publicat") : (language === 'en' ? "Draft" : "Ciornă")}
+                        {art.isPublished ? t("admin.articles.published") : t("admin.articles.draft")}
                       </span>
                       <span className="text-xs text-muted-foreground">
                         {new Date(art.createdAt).toLocaleDateString()}
@@ -1081,7 +1078,7 @@ const AdminDashboard: React.FC = () => {
               </Card>
             ))}
             {articles.length === 0 && (
-              <div className="text-center py-10 text-muted-foreground italic">{language === 'en' ? 'No stories found. Create your first one!' : 'Nu s-au găsit povești. Creează prima ta poveste!'}</div>
+              <div className="text-center py-10 text-muted-foreground italic">{t("admin.articles.empty")}</div>
             )}
           </div>
 
@@ -1090,11 +1087,11 @@ const AdminDashboard: React.FC = () => {
             <Table>
               <TableHeader className="bg-secondary/30">
                 <TableRow>
-                  <TableHead>Title</TableHead>
-                  <TableHead>Category</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Date</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
+                  <TableHead>{t("admin.articles.title")}</TableHead>
+                  <TableHead>{t("admin.articles.category")}</TableHead>
+                  <TableHead>{t("admin.articles.status")}</TableHead>
+                  <TableHead>{t("admin.articles.date")}</TableHead>
+                  <TableHead className="text-right">{t("admin.articles.actions")}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -1107,14 +1104,14 @@ const AdminDashboard: React.FC = () => {
                       </div>
                     </TableCell>
                     <TableCell>
-                      {categoriesById.get(art.categoryId)?.nameEn || "Uncategorized"}
+                      {categoriesById.get(art.categoryId) ? getLocalized(categoriesById.get(art.categoryId)!, "name", language) : t("admin.articles.uncategorized")}
                     </TableCell>
                     <TableCell>
                       <span className={cn(
                         "px-2 py-1 rounded-full text-xs font-medium",
                         art.isPublished ? "bg-green-100 text-green-700" : "bg-yellow-100 text-yellow-700"
                       )}>
-                        {art.isPublished ? (language === 'en' ? "Published" : "Publicat") : (language === 'en' ? "Draft" : "Ciornă")}
+                        {art.isPublished ? t("admin.articles.published") : t("admin.articles.draft")}
                       </span>
                     </TableCell>
                     <TableCell className="text-muted-foreground text-sm">
@@ -1159,7 +1156,7 @@ const AdminDashboard: React.FC = () => {
                 {articles.length === 0 && (
                   <TableRow>
                     <TableCell colSpan={5} className="text-center py-10 text-muted-foreground italic">
-                      {language === 'en' ? 'No stories found. Create your first one!' : 'Nu s-au găsit povești. Creează prima ta poveste!'}
+                      {t("admin.articles.empty")}
                     </TableCell>
                   </TableRow>
                 )}
@@ -1172,32 +1169,32 @@ const AdminDashboard: React.FC = () => {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-8">
             {/* Category Form */}
             <Card className="p-6 h-fit bg-secondary/10 border-none">
-              <h3 className="text-xl font-serif italic mb-6">{language === 'en' ? 'Add New Category' : 'Adaugă Categorie Nouă'}</h3>
+              <h3 className="text-xl font-serif italic mb-6">{t("admin.categories.add")}</h3>
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <label className="text-xs font-bold uppercase text-muted-foreground">Name (EN)</label>
-                  <Input 
-                    value={newCategory.nameEn} 
-                    onChange={(e) => setNewCategory({...newCategory, nameEn: e.target.value})} 
+                  <label className="text-xs font-bold uppercase text-muted-foreground">{t("admin.categories.nameEn")}</label>
+                  <Input
+                    value={newCategory.nameEn}
+                    onChange={(e) => setNewCategory({...newCategory, nameEn: e.target.value})}
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-xs font-bold uppercase text-muted-foreground">Name (RO)</label>
-                  <Input 
-                    value={newCategory.nameRo} 
-                    onChange={(e) => setNewCategory({...newCategory, nameRo: e.target.value})} 
+                  <label className="text-xs font-bold uppercase text-muted-foreground">{t("admin.categories.nameRo")}</label>
+                  <Input
+                    value={newCategory.nameRo}
+                    onChange={(e) => setNewCategory({...newCategory, nameRo: e.target.value})}
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-xs font-bold uppercase text-muted-foreground">Slug</label>
-                  <Input 
-                    placeholder="e.g. historical-places" 
-                    value={newCategory.slug} 
-                    onChange={(e) => setNewCategory({...newCategory, slug: e.target.value})} 
+                  <label className="text-xs font-bold uppercase text-muted-foreground">{t("admin.categories.slug")}</label>
+                  <Input
+                    placeholder={t("admin.categories.slugPlaceholder")}
+                    value={newCategory.slug}
+                    onChange={(e) => setNewCategory({...newCategory, slug: e.target.value})}
                   />
                 </div>
                 <Button onClick={handleAddCategory} className="w-full rounded-full mt-4">
-                  {language === 'en' ? 'Add Category' : 'Adaugă Categorie'}
+                  {t("admin.categories.addBtn")}
                 </Button>
               </div>
             </Card>
@@ -1230,10 +1227,10 @@ const AdminDashboard: React.FC = () => {
                 <Table>
                   <TableHeader className="bg-secondary/30">
                     <TableRow>
-                      <TableHead>Name (EN)</TableHead>
-                      <TableHead>Name (RO)</TableHead>
-                      <TableHead>Slug</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
+                      <TableHead>{t("admin.categories.nameEn")}</TableHead>
+                      <TableHead>{t("admin.categories.nameRo")}</TableHead>
+                      <TableHead>{t("admin.categories.slug")}</TableHead>
+                      <TableHead className="text-right">{t("admin.articles.actions")}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -1264,12 +1261,15 @@ const AdminDashboard: React.FC = () => {
         {isAdmin && (
           <TabsContent value="users" className="space-y-6">
             <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
-              <h2 className="text-xl sm:text-2xl font-serif italic text-secondary-foreground">Manage Users</h2>
+              <h2 className="text-xl sm:text-2xl font-serif italic text-secondary-foreground">{t("admin.users.heading")}</h2>
               <div className="flex flex-wrap items-center gap-2 text-xs sm:text-sm">
                 <span className="text-muted-foreground">
                   {usersTotal !== null
-                    ? `Showing ${usersRangeStart}-${usersRangeEnd} of ${usersTotal}`
-                    : `Page ${usersPage}`}
+                    ? t("admin.users.range")
+                        .replace("{start}", String(usersRangeStart))
+                        .replace("{end}", String(usersRangeEnd))
+                        .replace("{total}", String(usersTotal))
+                    : t("admin.users.pageOnly").replace("{page}", String(usersPage))}
                 </span>
                 <Button
                   variant="outline"
@@ -1278,7 +1278,7 @@ const AdminDashboard: React.FC = () => {
                   disabled={usersPage <= 1}
                   onClick={() => setUsersPage(prev => Math.max(1, prev - 1))}
                 >
-                  Previous
+                  {t("admin.users.previous")}
                 </Button>
                 <Button
                   variant="outline"
@@ -1287,7 +1287,7 @@ const AdminDashboard: React.FC = () => {
                   disabled={!usersHasMore}
                   onClick={() => setUsersPage(prev => prev + 1)}
                 >
-                  Next
+                  {t("admin.users.next")}
                 </Button>
               </div>
             </div>
@@ -1305,7 +1305,7 @@ const AdminDashboard: React.FC = () => {
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="font-medium text-sm truncate">{u.displayName || "Anonymous"}</p>
+                      <p className="font-medium text-sm truncate">{u.displayName || t("admin.users.anonymous")}</p>
                       <p className="text-xs text-muted-foreground truncate">{u.email}</p>
                       <div className="flex items-center gap-2 mt-2">
                         <Select value={u.role} onValueChange={(val) => handleUpdateRole(u.id, val)} disabled={u.id === user?.id}>
@@ -1313,9 +1313,9 @@ const AdminDashboard: React.FC = () => {
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="admin">Admin</SelectItem>
-                            <SelectItem value="writer">Writer</SelectItem>
-                            <SelectItem value="reader">Reader</SelectItem>
+                            <SelectItem value="admin">{t("admin.permissions.role.admin")}</SelectItem>
+                            <SelectItem value="writer">{t("admin.permissions.role.writer")}</SelectItem>
+                            <SelectItem value="reader">{t("admin.permissions.role.reader")}</SelectItem>
                           </SelectContent>
                         </Select>
                         <span className="text-xs text-muted-foreground">
@@ -1331,7 +1331,7 @@ const AdminDashboard: React.FC = () => {
               ))}
               {allUsers.length === 0 && (
                 <div className={cn("text-center py-12", usersLoadError ? "text-destructive" : "text-muted-foreground")}>
-                  {usersLoadError || "No users found"}
+                  {usersLoadError || t("admin.users.empty")}
                 </div>
               )}
             </div>
@@ -1341,11 +1341,11 @@ const AdminDashboard: React.FC = () => {
               <Table>
                 <TableHeader className="bg-secondary/30">
                   <TableRow>
-                    <TableHead>User</TableHead>
-                    <TableHead>Email</TableHead>
-                    <TableHead>Role</TableHead>
-                    <TableHead>Joined</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
+                    <TableHead>{t("admin.users.user")}</TableHead>
+                    <TableHead>{t("admin.users.email")}</TableHead>
+                    <TableHead>{t("admin.users.role")}</TableHead>
+                    <TableHead>{t("admin.users.joined")}</TableHead>
+                    <TableHead className="text-right">{t("admin.articles.actions")}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -1359,7 +1359,7 @@ const AdminDashboard: React.FC = () => {
                             <span className="text-xs">{u.displayName?.charAt(0) || u.email.charAt(0)}</span>
                           )}
                         </div>
-                        {u.displayName || "Anonymous"}
+                        {u.displayName || t("admin.users.anonymous")}
                       </TableCell>
                       <TableCell>{u.email}</TableCell>
                       <TableCell>
@@ -1372,9 +1372,9 @@ const AdminDashboard: React.FC = () => {
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="admin">Admin</SelectItem>
-                            <SelectItem value="writer">Writer</SelectItem>
-                            <SelectItem value="reader">Reader</SelectItem>
+                            <SelectItem value="admin">{t("admin.permissions.role.admin")}</SelectItem>
+                            <SelectItem value="writer">{t("admin.permissions.role.writer")}</SelectItem>
+                            <SelectItem value="reader">{t("admin.permissions.role.reader")}</SelectItem>
                           </SelectContent>
                         </Select>
                       </TableCell>
@@ -1413,9 +1413,9 @@ const AdminDashboard: React.FC = () => {
                 disabled={usersPage <= 1}
                 onClick={() => setUsersPage(prev => Math.max(1, prev - 1))}
               >
-                Previous Page
+                {t("admin.users.previous")}
               </Button>
-              <span className="text-xs text-muted-foreground px-2">Page {usersPage}</span>
+              <span className="text-xs text-muted-foreground px-2">{t("admin.users.pageOnly").replace("{page}", String(usersPage))}</span>
               <Button
                 variant="outline"
                 size="sm"
@@ -1423,7 +1423,7 @@ const AdminDashboard: React.FC = () => {
                 disabled={!usersHasMore}
                 onClick={() => setUsersPage(prev => prev + 1)}
               >
-                Next Page
+                {t("admin.users.next")}
               </Button>
             </div>
           </TabsContent>
