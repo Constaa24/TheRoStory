@@ -89,15 +89,31 @@ const Auth: React.FC = () => {
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (password.length < 8) {
+      toast.error(t("auth.passwordTooShort"));
+      return;
+    }
     setIsLoading(true);
     try {
       const result = await signUp({ email: email.trim(), password, displayName });
-      if (result?.error) throw result.error;
-      
-      // Check if email confirmation is needed
-      // When autoconfirm is off, user object exists but session is null
+
+      // Treat the "User already registered" error path the same as a fresh
+      // signup that needs email verification — Supabase otherwise returns a
+      // distinguishing message that lets a stranger probe whether an email
+      // is registered. Always show the verification screen and let the
+      // confirmation email do the real disambiguation.
+      if (result?.error) {
+        const message = (result.error.message || '').toLowerCase();
+        if (message.includes('registered') || message.includes('exists') || message.includes('already')) {
+          setIsVerificationSent(true);
+          toast.success(t("auth.signupGeneric"));
+          return;
+        }
+        throw result.error;
+      }
+
+      // Email confirmation needed: user exists but no session yet.
       if (result?.data?.user && !result?.data?.session) {
-        // Email confirmation required — show verification screen
         setIsVerificationSent(true);
         toast.success(t("auth.accountCreatedVerify"));
       } else {
@@ -105,8 +121,10 @@ const Auth: React.FC = () => {
         toast.success(t("auth.accountCreatedWelcome"));
         navigate("/");
       }
-    } catch (error: any) {
-      toast.error(error.message || t("auth.signupFailed"));
+    } catch {
+      // Don't surface the underlying error message — generic toast only,
+      // to avoid leaking whether the email exists.
+      toast.error(t("auth.signupFailed"));
     } finally {
       setIsLoading(false);
     }
@@ -142,6 +160,10 @@ const Auth: React.FC = () => {
 
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (newPassword.length < 8) {
+      toast.error(t("auth.passwordTooShort"));
+      return;
+    }
     setIsLoading(true);
     try {
       // When coming from the callback, user already has a valid session
@@ -223,14 +245,15 @@ const Auth: React.FC = () => {
                   <Label htmlFor="reset-email">Email</Label>
                   <div className="relative">
                     <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                    <Input 
-                      id="reset-email" 
-                      type="email" 
-                      placeholder="email@example.com" 
-                      className="pl-10 bg-background/50" 
+                    <Input
+                      id="reset-email"
+                      type="email"
+                      placeholder="email@example.com"
+                      className="pl-10 bg-background/50"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       required
+                      maxLength={254}
                     />
                   </div>
                 </div>
@@ -325,13 +348,15 @@ const Auth: React.FC = () => {
                   <Label htmlFor="new-password">{t("auth.newPassword")}</Label>
                   <div className="relative">
                     <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                    <Input 
-                      id="new-password" 
-                      type="password" 
-                      className="pl-10 bg-background/50" 
+                    <Input
+                      id="new-password"
+                      type="password"
+                      className="pl-10 bg-background/50"
                       value={newPassword}
                       onChange={(e) => setNewPassword(e.target.value)}
                       required
+                      minLength={8}
+                      maxLength={72}
                     />
                   </div>
                 </div>
@@ -384,14 +409,15 @@ const Auth: React.FC = () => {
                     <Label htmlFor="email">Email</Label>
                     <div className="relative">
                       <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                      <Input 
-                        id="email" 
-                        type="email" 
-                        placeholder="email@example.com" 
-                        className="pl-10 bg-background/50" 
+                      <Input
+                        id="email"
+                        type="email"
+                        placeholder="email@example.com"
+                        className="pl-10 bg-background/50"
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
                         required
+                        maxLength={254}
                       />
                     </div>
                   </div>
@@ -399,13 +425,14 @@ const Auth: React.FC = () => {
                     <Label htmlFor="password">{t("auth.password")}</Label>
                     <div className="relative">
                       <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                      <Input 
-                        id="password" 
-                        type="password" 
-                        className="pl-10 bg-background/50" 
+                      <Input
+                        id="password"
+                        type="password"
+                        className="pl-10 bg-background/50"
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
                         required
+                        maxLength={72}
                       />
                     </div>
                   </div>
@@ -470,14 +497,15 @@ const Auth: React.FC = () => {
                     <Label htmlFor="signup-email">Email</Label>
                     <div className="relative">
                       <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                      <Input 
-                        id="signup-email" 
-                        type="email" 
-                        placeholder="email@example.com" 
-                        className="pl-10 bg-background/50" 
+                      <Input
+                        id="signup-email"
+                        type="email"
+                        placeholder="email@example.com"
+                        className="pl-10 bg-background/50"
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
                         required
+                        maxLength={254}
                       />
                     </div>
                   </div>
@@ -485,13 +513,15 @@ const Auth: React.FC = () => {
                     <Label htmlFor="signup-password">{t("auth.password")}</Label>
                     <div className="relative">
                       <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                      <Input 
-                        id="signup-password" 
-                        type="password" 
-                        className="pl-10 bg-background/50" 
+                      <Input
+                        id="signup-password"
+                        type="password"
+                        className="pl-10 bg-background/50"
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
                         required
+                        minLength={8}
+                        maxLength={72}
                       />
                     </div>
                   </div>

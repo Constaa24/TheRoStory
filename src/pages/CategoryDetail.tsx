@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Category, Article, getLocalized } from "@/lib/supabase";
-import { fetchPublicContent } from "@/lib/supabase";
+import { Category, Article, getLocalized, supabase, toCamelCase, toCamelCaseArray } from "@/lib/supabase";
 import { useLanguage } from "@/hooks/use-language";
 import { useFavorites } from "@/hooks/use-favorites";
 import { ArrowLeft, ArrowRight, BookOpen, Heart, Video, ChevronRight } from "lucide-react";
@@ -25,25 +24,49 @@ const CategoryDetail: React.FC = () => {
   const [activeArticle, setActiveArticle] = useState<Article | null>(null);
 
   useEffect(() => {
+    if (!id) {
+      navigate("/categories");
+      return;
+    }
+    let cancelled = false;
     const loadData = async () => {
       try {
-        const data = await fetchPublicContent();
-        const foundCategory = data.categories.find((c) => c.id === id);
-        if (foundCategory) {
-          setCategory(foundCategory);
-          setArticles(data.articles.filter((a) => a.categoryId === id));
-        } else {
+        // Targeted queries — pull only the category row we need and only
+        // the articles that belong to it, instead of fetching every public
+        // article and filtering client-side.
+        const [categoryRes, articlesRes] = await Promise.all([
+          supabase.from('categories').select('*').eq('id', id).maybeSingle(),
+          supabase
+            .from('articles')
+            .select('*')
+            .eq('is_published', true)
+            .eq('category_id', id)
+            .order('created_at', { ascending: false })
+            .limit(500),
+        ]);
+
+        if (cancelled) return;
+
+        if (categoryRes.error) throw categoryRes.error;
+        if (articlesRes.error) throw articlesRes.error;
+
+        if (!categoryRes.data) {
           navigate("/categories");
+          return;
         }
+
+        setCategory(toCamelCase<Category>(categoryRes.data));
+        setArticles(toCamelCaseArray<Article>(articlesRes.data || []));
       } catch (error) {
         if (!isAbortError(error)) {
           console.error("Error loading category content:", error);
         }
       } finally {
-        setIsLoading(false);
+        if (!cancelled) setIsLoading(false);
       }
     };
     loadData();
+    return () => { cancelled = true; };
   }, [id, navigate]);
 
   if (isLoading) {

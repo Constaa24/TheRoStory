@@ -229,7 +229,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       timeoutId = setTimeout(() => controller.abort(), 10000);
 
       const [profileRes, roleRes] = await Promise.all([
-        supabase.from('profiles').select('*').eq('id', supabaseUser.id).abortSignal(controller.signal).maybeSingle(),
+        supabase.from('profiles').select('id, display_name, avatar_url').eq('id', supabaseUser.id).abortSignal(controller.signal).maybeSingle(),
         supabase.from('user_roles').select('role').eq('user_id', supabaseUser.id).abortSignal(controller.signal).maybeSingle()
       ]);
 

@@ -5,7 +5,7 @@ import * as topojson from "topojson-client";
 import * as d3 from "d3-geo";
 import countiesTopoData from "@/lib/counties_topo";
 import {
-  fetchPublicContent,
+  fetchMapArticles,
   Article,
   getLocalized
 } from "@/lib/supabase";
@@ -104,9 +104,9 @@ const MapPage: React.FC = () => {
   useEffect(() => {
     let cancelled = false;
     setIsLoading(true);
-    fetchPublicContent()
+    fetchMapArticles()
       .then((data) => {
-        if (!cancelled) setArticles(data.articles || []);
+        if (!cancelled) setArticles(data || []);
       })
       .catch((error) => {
         if (!isAbortError(error)) console.error("Error fetching data:", error);
@@ -177,16 +177,15 @@ const MapPage: React.FC = () => {
     return paths.find(p => p.id === selectedLocation);
   }, [selectedLocation, paths]);
 
-  if (isLoading) {
-    return (
-      <div className="flex h-[70vh] items-center justify-center">
-        <div className="animate-pulse flex flex-col items-center gap-4">
-          <div className="h-12 w-12 border-4 border-accent border-t-transparent rounded-full animate-spin"></div>
-          <p className="font-serif italic text-accent">Loading Romania...</p>
-        </div>
-      </div>
-    );
-  }
+  // Safety: framer-motion can fire onAnimationStart without onAnimationComplete
+  // (interrupted by a new animation, route change, etc.), leaving isAnimating
+  // permanently true and disabling map clicks. Auto-clear after the spring's
+  // natural duration plus a buffer.
+  useEffect(() => {
+    if (!isAnimating) return;
+    const id = window.setTimeout(() => setIsAnimating(false), 900);
+    return () => window.clearTimeout(id);
+  }, [isAnimating]);
 
   const mapTitle = language === 'en' ? "Story Map" : "Harta Poveștilor";
   const mapDescription = language === 'en'
@@ -208,6 +207,16 @@ const MapPage: React.FC = () => {
 
       <div className="container mx-auto px-4 py-20 max-w-7xl space-y-16 animate-fade-in">
 
+      {isLoading && (
+        <div className="flex h-[40vh] items-center justify-center">
+          <div className="animate-pulse flex flex-col items-center gap-4">
+            <div className="h-12 w-12 border-4 border-accent border-t-transparent rounded-full animate-spin"></div>
+            <p className="font-serif italic text-accent">{t("common.loading")}</p>
+          </div>
+        </div>
+      )}
+
+      {!isLoading && (
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
         {/* Map Section */}
         <div className="lg:col-span-2 space-y-4">
@@ -269,12 +278,8 @@ const MapPage: React.FC = () => {
                 const tier = tierForCount(count);
 
                 const ariaLabel = count > 0
-                  ? (language === 'en'
-                    ? `${county.name} — ${count} ${count === 1 ? t("map.storyOne") : t("map.storyMany")}`
-                    : `${county.name} — ${count} ${count === 1 ? t("map.storyOne") : t("map.storyMany")}`)
-                  : (language === 'en'
-                    ? `${county.name} — ${t("map.legendNone")}`
-                    : `${county.name} — ${t("map.legendNone")}`);
+                  ? `${county.name} — ${count} ${count === 1 ? t("map.storyOne") : t("map.storyMany")}`
+                  : `${county.name} — ${t("map.legendNone")}`;
 
                 return (
                   <g
@@ -499,8 +504,10 @@ const MapPage: React.FC = () => {
           </div>
         )}
       </div>
+      )}
 
       {/* Statistics Section */}
+      {!isLoading && (
       <section className="mt-20 grid grid-cols-1 md:grid-cols-3 gap-8">
         <Card className="p-8 border-none shadow-elegant bg-accent/5 rounded-[2rem] text-center space-y-2">
           <p className="text-4xl font-black text-accent">{Object.keys(storiesPerLocation).length}</p>
@@ -523,6 +530,7 @@ const MapPage: React.FC = () => {
           </p>
         </Card>
       </section>
+      )}
       </div>
     </div>
   );

@@ -230,9 +230,24 @@ Deno.serve(async (req) => {
 
     if (action === 'updateUserRole') {
       const { userId, role } = body
-      if (!userId || !role) throw new Error('Missing userId or role')
+      if (!userId || !role) {
+        return new Response(JSON.stringify({ error: 'Missing userId or role' }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 400,
+        })
+      }
       if (!['admin', 'writer', 'reader'].includes(role)) {
         return new Response(JSON.stringify({ error: 'Invalid role' }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 400,
+        })
+      }
+
+      // Prevent admins from demoting themselves — protects against the
+      // sole-admin lockout scenario where the only admin accidentally
+      // leaves the system with no admin.
+      if (userId === user.id && role !== 'admin') {
+        return new Response(JSON.stringify({ error: 'Admins cannot demote themselves' }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           status: 400,
         })
@@ -241,7 +256,7 @@ Deno.serve(async (req) => {
       const { error } = await adminClient
         .from('user_roles')
         .upsert({ user_id: userId, role }, { onConflict: 'user_id' })
-      
+
       if (error) throw error
 
       return new Response(JSON.stringify({ success: true }), {
@@ -252,7 +267,12 @@ Deno.serve(async (req) => {
 
     if (action === 'deleteUser') {
       const { id } = body
-      if (!id) throw new Error('Missing user id')
+      if (!id) {
+        return new Response(JSON.stringify({ error: 'Missing user id' }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 400,
+        })
+      }
 
       if (id === user.id) {
         return new Response(JSON.stringify({ error: 'Cannot delete your own account' }), {

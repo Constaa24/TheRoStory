@@ -1,7 +1,9 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Category, MediaCaption } from "@/lib/supabase";
-import { fetchCategories, supabase, uploadUserFile, createArticle } from "@/lib/supabase";
+import { fetchCategories, uploadUserFile, createArticle, deleteStorageFile, ARTICLE_LIMITS } from "@/lib/supabase";
+
+type GalleryItem = { id: string; url: string; storagePath: string | null };
 import { useLanguage } from "@/hooks/use-language";
 import { useAuth } from "@/hooks/use-auth";
 import { useUnsavedChangesWarning } from "@/hooks/use-unsaved-changes";
@@ -22,8 +24,9 @@ import { cn, isAbortError } from "@/lib/utils";
 import { COUNTIES } from "@/lib/constants";
 
 interface GalleryGridProps {
-  mediaUrls: string[];
+  items: GalleryItem[];
   isUploading: boolean;
+  isFull: boolean;
   addImageLabel: string;
   galleryLabel: string;
   coverLabel: string;
@@ -37,8 +40,9 @@ interface GalleryGridProps {
 }
 
 const GalleryGrid = React.memo<GalleryGridProps>(({
-  mediaUrls,
+  items,
   isUploading,
+  isFull,
   addImageLabel,
   galleryLabel,
   coverLabel,
@@ -51,15 +55,15 @@ const GalleryGrid = React.memo<GalleryGridProps>(({
   onAdd,
 }) => (
   <div className="grid grid-cols-2 gap-2">
-    {mediaUrls.map((url, index) => {
+    {items.map((item, index) => {
       const isFirst = index === 0;
-      const isLast = index === mediaUrls.length - 1;
+      const isLast = index === items.length - 1;
       return (
-        <div key={url} className="relative group aspect-square rounded-xl overflow-hidden shadow-sm border border-border">
+        <div key={item.id} className="relative group aspect-square rounded-xl overflow-hidden shadow-sm border border-border">
           <img
-            src={url}
+            src={item.url}
             className="w-full h-full object-cover"
-            alt={`${galleryLabel} ${index + 1}/${mediaUrls.length}`}
+            alt={`${galleryLabel} ${index + 1}/${items.length}`}
             loading="lazy"
           />
 
@@ -125,24 +129,26 @@ const GalleryGrid = React.memo<GalleryGridProps>(({
       );
     })}
 
-    <button
-      className={cn(
-        "aspect-square rounded-xl border-2 border-dashed flex flex-col items-center justify-center transition-colors gap-2",
-        isUploading ? "border-accent/50 bg-accent/5" : "border-muted-foreground/20 hover:border-accent/50 hover:bg-accent/5"
-      )}
-      onClick={onAdd}
-      disabled={isUploading}
-      type="button"
-    >
-      {isUploading ? (
-        <Loader2 className="h-6 w-6 animate-spin text-accent" />
-      ) : (
-        <>
-          <Plus className="h-6 w-6 text-accent" />
-          <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">{addImageLabel}</span>
-        </>
-      )}
-    </button>
+    {!isFull && (
+      <button
+        className={cn(
+          "aspect-square rounded-xl border-2 border-dashed flex flex-col items-center justify-center transition-colors gap-2",
+          isUploading ? "border-accent/50 bg-accent/5" : "border-muted-foreground/20 hover:border-accent/50 hover:bg-accent/5"
+        )}
+        onClick={onAdd}
+        disabled={isUploading}
+        type="button"
+      >
+        {isUploading ? (
+          <Loader2 className="h-6 w-6 animate-spin text-accent" />
+        ) : (
+          <>
+            <Plus className="h-6 w-6 text-accent" />
+            <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">{addImageLabel}</span>
+          </>
+        )}
+      </button>
+    )}
   </div>
 ));
 GalleryGrid.displayName = "GalleryGrid";
@@ -165,8 +171,12 @@ const CarouselStoryCreate: React.FC = () => {
   const [descriptionRo, setDescriptionRo] = useState("");
   const [categoryId, setCategoryId] = useState("");
   const [location, setLocation] = useState("");
-  const [mediaUrls, setMediaUrls] = useState<string[]>([]);
+  // Track each gallery entry as an object with a stable id so React keys
+  // never collide (a duplicate or repeated URL would otherwise cause
+  // reconciliation chaos). The captions array is kept index-aligned.
+  const [items, setItems] = useState<GalleryItem[]>([]);
   const [mediaCaptions, setMediaCaptions] = useState<MediaCaption[]>([]);
+  const isFull = items.length >= ARTICLE_LIMITS.MEDIA_URLS_MAX;
 
   const isDirty =
     titleEn.trim() !== "" ||
@@ -175,7 +185,7 @@ const CarouselStoryCreate: React.FC = () => {
     descriptionRo.trim() !== "" ||
     categoryId !== "" ||
     location !== "" ||
-    mediaUrls.length > 0;
+    items.length > 0;
 
   useUnsavedChangesWarning(isDirty && !isSaving);
 
@@ -204,16 +214,24 @@ const CarouselStoryCreate: React.FC = () => {
       return;
     }
 
+    if (isFull) {
+      toast.error(language === 'en'
+        ? `Gallery limit reached (max ${ARTICLE_LIMITS.MEDIA_URLS_MAX} images).`
+        : `Limita galeriei atinsă (maxim ${ARTICLE_LIMITS.MEDIA_URLS_MAX} imagini).`);
+      event.target.value = "";
+      return;
+    }
+
     setIsUploading(true);
     try {
-      const { publicUrl } = await uploadUserFile(file, {
+      const { publicUrl, storagePath } = await uploadUserFile(file, {
         bucket: 'articles',
         kind: 'image',
         userId: user.id,
         subfolder: 'carousels',
       });
 
-      setMediaUrls(prev => [...prev, publicUrl]);
+      setItems(prev => [...prev, { id: crypto.randomUUID(), url: publicUrl, storagePath }]);
       setMediaCaptions(prev => [...prev, { en: "", ro: "" }]);
       toast.success(language === 'en' ? "Image uploaded successfully" : "Imagine încărcată cu succes");
     } catch (error) {
@@ -227,19 +245,17 @@ const CarouselStoryCreate: React.FC = () => {
   };
 
   const removeImage = (index: number) => {
-    const url = mediaUrls[index];
-    setMediaUrls(prev => prev.filter((_, i) => i !== index));
+    const removed = items[index];
+    setItems(prev => prev.filter((_, i) => i !== index));
     setMediaCaptions(prev => prev.filter((_, i) => i !== index));
-    // Best-effort cleanup of the uploaded file from storage
-    const match = url?.match(/\/object\/public\/articles\/(.+)$/);
-    if (match) {
-      supabase.storage.from('articles').remove([match[1]]).catch(() => {});
+    if (removed?.storagePath) {
+      void deleteStorageFile('articles', removed.storagePath);
     }
   };
 
   const moveImage = (from: number, to: number) => {
-    if (from === to || from < 0 || to < 0 || from >= mediaUrls.length || to >= mediaUrls.length) return;
-    setMediaUrls(prev => {
+    if (from === to || from < 0 || to < 0 || from >= items.length || to >= items.length) return;
+    setItems(prev => {
       const next = [...prev];
       const [moved] = next.splice(from, 1);
       next.splice(to, 0, moved);
@@ -254,23 +270,27 @@ const CarouselStoryCreate: React.FC = () => {
   };
 
   const updateCaption = (index: number, lang: "en" | "ro", value: string) => {
+    if (index < 0 || index >= items.length) return;
     setMediaCaptions(prev => {
+      // Maintain the index/items invariant: captions array is exactly as
+      // long as items. Backfill with blanks if it has drifted shorter.
       const next = [...prev];
-      // Pad with empty objects if needed (for backward compat)
-      while (next.length <= index) next.push({ en: "", ro: "" });
+      while (next.length < items.length) next.push({ en: "", ro: "" });
+      if (next.length > items.length) next.length = items.length;
       next[index] = { ...next[index], [lang]: value };
       return next;
     });
   };
 
   const handleSave = async () => {
-    if (!titleEn || !titleRo || !categoryId || mediaUrls.length === 0 || !user) {
+    if (!titleEn || !titleRo || !categoryId || items.length === 0 || !user) {
       toast.error(language === 'en' ? "Please fill all required fields and upload at least one image" : "Vă rugăm să completați toate câmpurile obligatorii și să încărcați cel puțin o imagine");
       return;
     }
 
     setIsSaving(true);
     try {
+      const mediaUrls = items.map(i => i.url);
       // Only persist captions if at least one has content
       const hasAnyCaption = mediaCaptions.some(c => c?.en?.trim() || c?.ro?.trim());
 
@@ -339,19 +359,21 @@ const CarouselStoryCreate: React.FC = () => {
             
             <div className="space-y-2">
               <label className="text-sm font-medium">{language === 'en' ? "Title (English)" : "Titlu (Engleză)"}</label>
-              <Input 
-                value={titleEn} 
-                onChange={(e) => setTitleEn(e.target.value)} 
+              <Input
+                value={titleEn}
+                onChange={(e) => setTitleEn(e.target.value)}
                 placeholder="Enter title in English"
+                maxLength={ARTICLE_LIMITS.TITLE_MAX}
               />
             </div>
-            
+
             <div className="space-y-2">
               <label className="text-sm font-medium">{language === 'en' ? "Title (Romanian)" : "Titlu (Română)"}</label>
-              <Input 
-                value={titleRo} 
-                onChange={(e) => setTitleRo(e.target.value)} 
+              <Input
+                value={titleRo}
+                onChange={(e) => setTitleRo(e.target.value)}
                 placeholder="Introdu titlul în română"
+                maxLength={ARTICLE_LIMITS.TITLE_MAX}
               />
             </div>
 
@@ -377,21 +399,23 @@ const CarouselStoryCreate: React.FC = () => {
             
             <div className="space-y-2">
               <label className="text-sm font-medium">{language === 'en' ? "Description (English)" : "Descriere (Engleză)"}</label>
-              <Textarea 
-                value={descriptionEn} 
-                onChange={(e) => setDescriptionEn(e.target.value)} 
+              <Textarea
+                value={descriptionEn}
+                onChange={(e) => setDescriptionEn(e.target.value)}
                 placeholder="What is this gallery about?"
                 className="min-h-[120px] rounded-xl"
+                maxLength={ARTICLE_LIMITS.CONTENT_MAX}
               />
             </div>
-            
+
             <div className="space-y-2">
               <label className="text-sm font-medium">{language === 'en' ? "Description (Romanian)" : "Descriere (Română)"}</label>
-              <Textarea 
-                value={descriptionRo} 
-                onChange={(e) => setDescriptionRo(e.target.value)} 
+              <Textarea
+                value={descriptionRo}
+                onChange={(e) => setDescriptionRo(e.target.value)}
                 placeholder="Despre ce este această galerie?"
                 className="min-h-[120px] rounded-xl"
+                maxLength={ARTICLE_LIMITS.CONTENT_MAX}
               />
             </div>
             
@@ -417,8 +441,9 @@ const CarouselStoryCreate: React.FC = () => {
             
             <div className="flex-1 space-y-4">
               <GalleryGrid
-                mediaUrls={mediaUrls}
+                items={items}
                 isUploading={isUploading}
+                isFull={isFull}
                 addImageLabel={t("admin.addImage")}
                 galleryLabel={language === 'en' ? "Carousel image" : "Imagine carusel"}
                 coverLabel={language === 'en' ? "Cover" : "Copertă"}
@@ -430,6 +455,14 @@ const CarouselStoryCreate: React.FC = () => {
                 onMove={moveImage}
                 onAdd={() => imageInputRef.current?.click()}
               />
+
+              {isFull && (
+                <p className="text-xs text-amber-600 italic">
+                  {language === 'en'
+                    ? `Gallery limit reached (max ${ARTICLE_LIMITS.MEDIA_URLS_MAX}). Remove an image to add another.`
+                    : `Limita galeriei atinsă (maxim ${ARTICLE_LIMITS.MEDIA_URLS_MAX}). Elimină o imagine pentru a mai adăuga.`}
+                </p>
+              )}
 
               <input
                 type="file" 
@@ -449,7 +482,7 @@ const CarouselStoryCreate: React.FC = () => {
               </div>
 
               {/* Per-image captions — optional, shown beneath the gallery */}
-              {mediaUrls.length > 0 && (
+              {items.length > 0 && (
                 <div className="space-y-3 pt-2">
                   <div className="flex items-center justify-between">
                     <h3 className="text-sm font-bold uppercase tracking-wider text-accent">
@@ -465,12 +498,12 @@ const CarouselStoryCreate: React.FC = () => {
                       : "O linie scurtă afișată sub fiecare imagine când cititorii văd povestea."}
                   </p>
                   <div className="space-y-3">
-                    {mediaUrls.map((url, index) => {
+                    {items.map((item, index) => {
                       const caption = mediaCaptions[index] ?? { en: "", ro: "" };
                       return (
-                        <div key={url} className="flex items-start gap-3 p-3 rounded-xl bg-background/40 border border-border/40">
+                        <div key={item.id} className="flex items-start gap-3 p-3 rounded-xl bg-background/40 border border-border/40">
                           <div className="relative h-14 w-14 rounded-lg overflow-hidden shrink-0 border border-border">
-                            <img src={url} alt="" className="w-full h-full object-cover" />
+                            <img src={item.url} alt="" className="w-full h-full object-cover" />
                             <span className="absolute bottom-0.5 left-0.5 bg-black/60 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full">
                               {index + 1}
                             </span>
@@ -499,9 +532,9 @@ const CarouselStoryCreate: React.FC = () => {
               )}
             </div>
 
-            <Button 
+            <Button
               className="w-full mt-6 rounded-full h-12 text-lg font-serif italic"
-              disabled={isSaving || isUploading || mediaUrls.length === 0}
+              disabled={isSaving || isUploading || items.length === 0}
               onClick={handleSave}
             >
               {isSaving ? (

@@ -5,6 +5,7 @@ import { getLocalized, Article, Category, CHAPTER_DELIMITER, Comment } from "@/l
 import { toggleFavorite, isArticleFavorited, fetchComments, postComment, deleteComment, updateComment, fetchPublicContent, fetchArticleViews, incrementView } from "@/lib/supabase";
 import { isAbortError } from "@/lib/utils";
 import { useReadingProgress, getReadingTimeMinutes } from "@/hooks/use-reading-progress";
+import { useFocusTrap } from "@/hooks/use-focus-trap";
 
 /** Convert 1..N integer to a Roman numeral, used for chapter labels. */
 const toRoman = (n: number): string => {
@@ -110,7 +111,11 @@ export const ParchmentArticle: React.FC<ParchmentArticleProps> = ({
   const scrollRef = useRef<HTMLDivElement>(null);
   const chapterRefs = useRef<Array<HTMLDivElement | null>>([]);
   const commentsAnchorRef = useRef<HTMLDivElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
   const readingProgress = useReadingProgress(scrollRef);
+  // Trap focus inside the article modal so keyboard users can't tab out
+  // into the page underneath while it's open.
+  useFocusTrap(dialogRef, true);
 
   const articleCategory = useMemo(
     () => allCategories.find(c => c.id === article.categoryId) || null,
@@ -273,8 +278,23 @@ export const ParchmentArticle: React.FC<ParchmentArticleProps> = ({
         if (filtered.length < 3) {
           const pool = data.articles
             .filter(a => a.id !== article.id && a.categoryId !== article.categoryId);
+          // Deterministic shuffle keyed off article.id so the related list
+          // is stable across renders (no SSR hydration mismatch, no flicker
+          // when comments refetch). Mulberry32 PRNG seeded from a hash of
+          // article.id.
+          let seed = 0;
+          for (let i = 0; i < article.id.length; i++) {
+            seed = ((seed << 5) - seed + article.id.charCodeAt(i)) | 0;
+          }
+          const rand = () => {
+            seed = (seed + 0x6D2B79F5) | 0;
+            let t = seed;
+            t = Math.imul(t ^ (t >>> 15), t | 1);
+            t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+            return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+          };
           for (let i = pool.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
+            const j = Math.floor(rand() * (i + 1));
             [pool[i], pool[j]] = [pool[j], pool[i]];
           }
           const others = pool.slice(0, 3 - filtered.length);
@@ -313,8 +333,10 @@ export const ParchmentArticle: React.FC<ParchmentArticleProps> = ({
     if (shareUrl) {
       const popup = window.open(shareUrl, '_blank', 'width=600,height=400,noopener,noreferrer');
       if (!popup) {
-        // Popup was blocked — fall back to navigating in a new tab
-        window.open(shareUrl, '_blank');
+        // Popup was blocked — fall back to navigating in a new tab.
+        // Keep noopener,noreferrer here too so the new tab can't access
+        // window.opener and tamper with this page.
+        window.open(shareUrl, '_blank', 'noopener,noreferrer');
       }
     }
   };
@@ -733,7 +755,16 @@ export const ParchmentArticle: React.FC<ParchmentArticleProps> = ({
                   setVideoStarted(true);
                   videoElRef.current?.play().catch(() => {});
                 }}
+                onKeyDown={(e) => {
+                  // Match button semantics: Enter and Space activate.
+                  if (e.key === 'Enter' || e.key === ' ' || e.key === 'Spacebar') {
+                    e.preventDefault();
+                    setVideoStarted(true);
+                    videoElRef.current?.play().catch(() => {});
+                  }
+                }}
                 role="button"
+                tabIndex={0}
                 aria-label={language === 'en' ? "Play video" : "Redă video"}
               >
                 <div className="video-poster-play-button">
@@ -1076,6 +1107,10 @@ export const ParchmentArticle: React.FC<ParchmentArticleProps> = ({
 
   return (
     <motion.div
+      ref={dialogRef}
+      role="dialog"
+      aria-modal="true"
+      tabIndex={-1}
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}

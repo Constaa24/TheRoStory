@@ -163,7 +163,7 @@ export const SearchBar: React.FC = () => {
       </AnimatePresence>
 
       <AnimatePresence>
-        {showDropdown && !isSearching && (
+        {showDropdown && (
           <motion.div
             initial={{ opacity: 0, y: -6 }}
             animate={{ opacity: 1, y: 0 }}
@@ -171,9 +171,14 @@ export const SearchBar: React.FC = () => {
             transition={{ duration: 0.18, ease: "easeOut" }}
             className="absolute top-full mt-2 right-0 w-72 sm:w-80 bg-background border border-border rounded-2xl shadow-xl overflow-hidden z-[60]"
           >
-            {fetchError ? (
+            {isSearching ? (
+              <div className="p-5 flex items-center justify-center gap-2 text-sm text-muted-foreground font-serif italic">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                {t("search.searching")}
+              </div>
+            ) : fetchError ? (
               <div className="p-5 text-center text-sm text-muted-foreground font-serif italic">
-                Search unavailable — please try again later.
+                {t("search.unavailable")}
               </div>
             ) : results.length > 0 ? (
               results.map((article) => {

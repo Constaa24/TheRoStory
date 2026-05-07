@@ -216,6 +216,24 @@ export const fetchArticleCategoryCounts = async (): Promise<Record<string, numbe
   return counts;
 };
 
+/**
+ * Targeted fetcher for the map view. Pulls only the columns the map actually
+ * renders (location, type, thumbnails, title) and only rows that have a
+ * `location`. Replaces a full `fetchPublicContent()` round-trip that was
+ * pulling up to 500 articles just to compute county counts.
+ */
+export const fetchMapArticles = async (): Promise<Article[]> => {
+  const { data, error } = await supabase
+    .from('articles')
+    .select('id, title_en, title_ro, type, media_url, poster_url, location, category_id, user_id, is_published, created_at, content_en, content_ro')
+    .eq('is_published', true)
+    .not('location', 'is', null)
+    .order('created_at', { ascending: false })
+    .limit(2000);
+  if (error) throw error;
+  return toCamelCaseArray<Article>(data || []);
+};
+
 export const fetchPublicContent = async (onlyPublished: boolean = true): Promise<{ categories: Category[]; articles: Article[] }> => {
   const cacheKey = onlyPublished ? 'published' : 'all';
   const cached = publicContentCache[cacheKey];
@@ -863,6 +881,39 @@ export const uploadFile = async (
     .getPublicUrl(path);
 
   return data.publicUrl;
+};
+
+/**
+ * Best-effort cleanup of a storage object. Used after a user removes media
+ * from a draft / replaces an avatar / cancels an upload — without this, the
+ * file lingers in the bucket forever.
+ *
+ * Errors are intentionally swallowed: if the file is already gone or the
+ * caller lacks permission, we still want the UI to proceed cleanly.
+ */
+export const deleteStorageFile = async (bucket: string, path: string): Promise<void> => {
+  if (!path) return;
+  try {
+    await supabase.storage.from(bucket).remove([path]);
+  } catch (error) {
+    console.warn(`Failed to delete storage file ${bucket}/${path}:`, error);
+  }
+};
+
+/**
+ * Extracts the in-bucket path from a Supabase public URL of the form
+ * `https://<project>.supabase.co/storage/v1/object/public/<bucket>/<path>`.
+ * Returns null for unrecognized URL shapes.
+ */
+export const extractStoragePath = (publicUrl: string, bucket: string): string | null => {
+  if (!publicUrl) return null;
+  const marker = `/storage/v1/object/public/${bucket}/`;
+  const idx = publicUrl.indexOf(marker);
+  if (idx === -1) return null;
+  const tail = publicUrl.slice(idx + marker.length);
+  // Strip query / fragment that Supabase sometimes appends for cache-busting.
+  const clean = tail.split('?')[0].split('#')[0];
+  return clean || null;
 };
 
 const IMAGE_EXTENSIONS = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'avif'] as const;

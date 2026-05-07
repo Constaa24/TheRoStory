@@ -22,12 +22,12 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { Article, getLocalized } from "@/lib/supabase";
-import { fetchUserFavorites, toggleFavorite, deleteOwnAccount, exportOwnData, supabase } from "@/lib/supabase";
+import { fetchUserFavorites, toggleFavorite, deleteOwnAccount, exportOwnData, supabase, deleteStorageFile, extractStoragePath } from "@/lib/supabase";
 import { isAbortError } from "@/lib/utils";
 import { Camera, Loader2, Shield, Heart, ChevronRight, CheckCircle2, AlertCircle, Trash2, Download } from "lucide-react";
 import { ParchmentArticle } from "@/components/organisms/ParchmentArticle";
 import { AnimatePresence, motion } from "framer-motion";
-import { Helmet } from "react-helmet-async";
+import { PageHead } from "@/components/layout/PageHead";
 
 const Profile: React.FC = () => {
   const { user, role, refreshUser, logout } = useAuth();
@@ -94,13 +94,22 @@ const Profile: React.FC = () => {
     e.stopPropagation();
     if (!user) return;
 
+    // Snapshot before mutating so we can roll back on failure.
+    const previousFavorites = favorites;
+    setFavorites(prev => prev.filter(a => a.id !== articleId));
+
     try {
       const added = await toggleFavorite(user.id, articleId);
-      if (!added) {
-        setFavorites(prev => prev.filter(a => a.id !== articleId));
+      if (added) {
+        // We optimistically removed it but the toggle actually re-added it
+        // (a stale state on the server, e.g.). Refresh from source.
+        await loadFavorites();
+      } else {
         toast.success(language === 'en' ? "Removed from favorites" : "Eliminat de la favorite");
       }
     } catch {
+      // Restore the optimistic removal so the UI reflects reality.
+      setFavorites(previousFavorites);
       toast.error(language === 'en' ? "Failed to update favorites" : "Eroare la actualizarea favoritelor");
     }
   };
@@ -199,14 +208,18 @@ const Profile: React.FC = () => {
     }
 
     setIsUploading(true);
+    // Capture the previous avatar's storage path so we can clean it up
+    // after the new upload commits. Without this, every avatar change
+    // leaves the old file behind in storage forever.
+    const previousAvatarPath = extractStoragePath(avatarUrl, 'avatars');
     try {
       const path = `${user.id}/${crypto.randomUUID()}.${extension}`;
-      
+
       // Upload to Supabase Storage
       const { error: uploadError } = await supabase.storage
         .from('avatars')
         .upload(path, file, { upsert: true });
-      
+
       if (uploadError) throw uploadError;
 
       // Get public URL
@@ -228,7 +241,13 @@ const Profile: React.FC = () => {
         supabase.storage.from('avatars').remove([path]).catch(() => {});
         throw profileError;
       }
-      
+
+      // The profile update succeeded — only now is it safe to remove the
+      // previous avatar file. Best-effort; failures are non-fatal.
+      if (previousAvatarPath && previousAvatarPath !== path) {
+        void deleteStorageFile('avatars', previousAvatarPath);
+      }
+
       // Refresh user data and update local state
       await refreshUser();
       if (!isMountedRef.current) return;
@@ -239,16 +258,23 @@ const Profile: React.FC = () => {
       toast.error(t("profile.error"));
     } finally {
       if (isMountedRef.current) setIsUploading(false);
+      // Reset the file input so the same file can be re-selected if the
+      // user wants to retry after a failure.
+      if (e.target) e.target.value = "";
     }
   };
 
   return (
     <div className="container mx-auto px-4 pt-32 pb-20 max-w-4xl">
-      <Helmet>
-        <html lang={language} />
-        <title>{language === "en" ? "Profile" : "Profil"} — The RoStory</title>
+      <PageHead
+        title={language === "en" ? "Profile" : "Profil"}
+        description={language === "en"
+          ? "Manage your RoStory profile, favorites, and account settings."
+          : "Gestionează-ți profilul RoStory, favoritele și setările contului."}
+        language={language}
+      >
         <meta name="robots" content="noindex, nofollow" />
-      </Helmet>
+      </PageHead>
       <Tabs value={activeTab} onValueChange={(val) => setSearchParams({ tab: val })} className="space-y-8">
         <div className="flex justify-center">
           <TabsList className="grid w-full max-w-md grid-cols-2 rounded-full p-1 h-12 bg-secondary/30 backdrop-blur-sm border border-border/40">

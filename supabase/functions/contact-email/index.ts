@@ -48,16 +48,21 @@ function getRateLimitStore(): RateLimitStore {
 }
 
 function getClientIp(req: Request): string {
-  // Prefer cf-connecting-ip — Cloudflare sets this and clients can't forge it.
-  // Only fall back to x-forwarded-for if CF isn't fronting the request.
-  const cfIp = req.headers.get("cf-connecting-ip");
-  if (cfIp) return cfIp;
+  // Supabase Edge sits behind its own proxy, which sets x-real-ip /
+  // x-forwarded-for from the actual client. Headers like cf-connecting-ip
+  // are NOT trustworthy here — a client can send any value and we'd bucket
+  // them into a fresh rate-limit slot. Only trust headers the platform
+  // populates.
+  const realIp = req.headers.get("x-real-ip");
+  if (realIp) return realIp;
   const forwarded = req.headers.get("x-forwarded-for");
   if (forwarded) {
-    // Take the LAST entry — closest to our server, less likely to be spoofed
-    // by a malicious client prepending values.
+    // The leftmost entry is the original client (RFC 7239). Subsequent
+    // entries are intermediate proxies. We trust the platform's XFF
+    // population; client-supplied prefixes would have been overwritten
+    // by the Supabase ingress proxy.
     const parts = forwarded.split(",").map((p) => p.trim()).filter(Boolean);
-    return parts[parts.length - 1] || "unknown";
+    return parts[0] || "unknown";
   }
   return "unknown";
 }
@@ -117,6 +122,21 @@ Deno.serve(async (req) => {
 
     if (!safeName || !safeEmail || !safeMessage) {
       return new Response(JSON.stringify({ ok: false, error: "Missing fields" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (safeName.length > 200) {
+      return new Response(JSON.stringify({ ok: false, error: "Name is too long" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // RFC 5321 caps email at 254 chars.
+    if (safeEmail.length > 254) {
+      return new Response(JSON.stringify({ ok: false, error: "Email is too long" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -188,7 +208,9 @@ Deno.serve(async (req) => {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-  } catch {
+  } catch (error) {
+    const messageText = error instanceof Error ? error.message : String(error);
+    console.error("contact-email error:", messageText);
     return new Response(JSON.stringify({ ok: false, error: "Server error" }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },

@@ -2,6 +2,15 @@ import React, { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
 import type { EmailOtpType } from "@supabase/supabase-js";
+
+const ALLOWED_OTP_TYPES = new Set<EmailOtpType>([
+  "signup",
+  "invite",
+  "magiclink",
+  "recovery",
+  "email_change",
+  "email",
+]);
 import { useAuth } from "@/hooks/use-auth";
 import { useLanguage } from "@/hooks/use-language";
 import { CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
@@ -28,6 +37,24 @@ const AuthCallback: React.FC = () => {
   useEffect(() => {
     mountedRef.current = true;
     const pendingTimeouts = new Set<ReturnType<typeof setTimeout>>();
+
+    // Safety net: if every code path inside handleCallback silently early-
+    // returns (e.g. an AbortError swallowed in the catch), the spinner can
+    // sit forever. Force an error state after 15s of "loading" so the user
+    // gets a real choice instead of a hung page.
+    const stuckLoaderTimer = setTimeout(() => {
+      if (!mountedRef.current) return;
+      setStatus(prev => {
+        if (prev !== "loading") return prev;
+        setErrorMessage(
+          languageRef.current === "en"
+            ? "This is taking longer than expected. Please try again."
+            : "Durează mai mult decât de obicei. Te rugăm să încerci din nou."
+        );
+        return "error";
+      });
+    }, 15000);
+    pendingTimeouts.add(stuckLoaderTimer);
 
     const scheduleRedirect = (path: string, delayMs: number) => {
       if (redirectTimerRef.current) clearTimeout(redirectTimerRef.current);
@@ -128,6 +155,20 @@ const AuthCallback: React.FC = () => {
 
         // Some Supabase recovery links use token_hash + type=recovery instead of code.
         if (tokenHash && type) {
+          // Only honor known OTP types — never trust the URL value as an
+          // arbitrary string. Garbage values fail fast with a clear error
+          // instead of being forwarded to the SDK.
+          if (!ALLOWED_OTP_TYPES.has(type as EmailOtpType)) {
+            if (!mountedRef.current) return;
+            setStatus("error");
+            setErrorMessage(
+              languageRef.current === "en"
+                ? "Unsupported verification link."
+                : "Link de verificare neacceptat."
+            );
+            return;
+          }
+
           const { error } = await withTimeout(
             supabase.auth.verifyOtp({
               token_hash: tokenHash,

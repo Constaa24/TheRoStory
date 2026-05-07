@@ -1,7 +1,12 @@
 import React, { useState, useRef, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { Category, CHAPTER_DELIMITER } from "@/lib/supabase";
+import { Category, CHAPTER_DELIMITER, ARTICLE_LIMITS } from "@/lib/supabase";
 import { fetchCategories, uploadUserFile, createArticle } from "@/lib/supabase";
+
+// Per-chapter cap — 10 chapters * 5000 chars = 50,000 = ARTICLE_LIMITS.CONTENT_MAX.
+// Acts as both UX feedback and a defense against single-chapter paste-bombs
+// that would otherwise fail at save time.
+const PER_CHAPTER_MAX = 5000;
 import { useLanguage } from "@/hooks/use-language";
 import { useAuth } from "@/hooks/use-auth";
 import { useUnsavedChangesWarning } from "@/hooks/use-unsaved-changes";
@@ -225,7 +230,7 @@ const TextStoryCreate: React.FC = () => {
 
       {/* Validation summary */}
       {showErrors && validationErrors.length > 0 && (
-        <Card className="p-4 mb-6 border-destructive/40 bg-destructive/5">
+        <Card className="p-4 mb-6 border-destructive/40 bg-destructive/5" role="alert" aria-live="polite">
           <div className="flex items-start gap-3">
             <AlertCircle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
             <div>
@@ -259,6 +264,7 @@ const TextStoryCreate: React.FC = () => {
                 onChange={e => setTitleEn(e.target.value)}
                 placeholder={language === "en" ? "Enter title in English" : "Introdu titlul în engleză"}
                 className={cn(showErrors && errorFor("titleEn") && "border-destructive")}
+                maxLength={ARTICLE_LIMITS.TITLE_MAX}
               />
             </div>
 
@@ -271,6 +277,7 @@ const TextStoryCreate: React.FC = () => {
                 onChange={e => setTitleRo(e.target.value)}
                 placeholder={language === "en" ? "Enter title in Romanian" : "Introdu titlul în română"}
                 className={cn(showErrors && errorFor("titleRo") && "border-destructive")}
+                maxLength={ARTICLE_LIMITS.TITLE_MAX}
               />
             </div>
 
@@ -363,6 +370,7 @@ const TextStoryCreate: React.FC = () => {
                 placeholder="https://..."
                 value={mediaUrl}
                 onChange={e => setMediaUrl(e.target.value)}
+                maxLength={ARTICLE_LIMITS.MEDIA_URL_MAX}
               />
             </div>
           </Card>
@@ -444,6 +452,7 @@ const TextStoryCreate: React.FC = () => {
                         onChange={e => updateChapter("en", index, e.target.value)}
                         placeholder={language === "en" ? "Write this chapter in English..." : "Scrie acest capitol în engleză..."}
                         className="rounded-xl"
+                        maxLength={PER_CHAPTER_MAX}
                       />
                     </div>
                     <div className="space-y-2">
@@ -456,6 +465,7 @@ const TextStoryCreate: React.FC = () => {
                         onChange={e => updateChapter("ro", index, e.target.value)}
                         placeholder={language === "en" ? "Write this chapter in Romanian..." : "Scrie acest capitol în română..."}
                         className="rounded-xl"
+                        maxLength={PER_CHAPTER_MAX}
                       />
                     </div>
                   </div>

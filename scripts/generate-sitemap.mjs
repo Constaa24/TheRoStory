@@ -44,17 +44,36 @@ function urlEntry({ loc, lastmod, changefreq, priority }) {
 
 async function fetchPublishedArticles(supabaseUrl, anonKey) {
   // Use the REST API directly so we don't need the Supabase JS client at build.
-  const endpoint = `${supabaseUrl}/rest/v1/articles?select=id,created_at&is_published=eq.true&order=created_at.desc`;
-  const res = await fetch(endpoint, {
-    headers: {
-      apikey: anonKey,
-      Authorization: `Bearer ${anonKey}`,
-    },
-  });
-  if (!res.ok) {
-    throw new Error(`Supabase responded ${res.status}: ${await res.text()}`);
+  // Pull `created_at` as a fallback `lastmod` source — the schema has no
+  // `updated_at` column today, so we approximate with creation time.
+  // Pagination: PostgREST caps responses at the project's `max-rows` (default
+  // 1000). We page with the Range header so the sitemap stays complete as
+  // article count grows.
+  const PAGE = 1000;
+  const collected = [];
+  let from = 0;
+  while (true) {
+    const to = from + PAGE - 1;
+    const endpoint = `${supabaseUrl}/rest/v1/articles?select=id,created_at&is_published=eq.true&order=created_at.desc`;
+    const res = await fetch(endpoint, {
+      headers: {
+        apikey: anonKey,
+        Authorization: `Bearer ${anonKey}`,
+        Range: `${from}-${to}`,
+        Prefer: 'count=exact',
+      },
+    });
+    if (!res.ok) {
+      throw new Error(`Supabase responded ${res.status}: ${await res.text()}`);
+    }
+    const batch = await res.json();
+    collected.push(...batch);
+    if (batch.length < PAGE) break;
+    from += PAGE;
+    // Safety stop — far beyond any plausible article count.
+    if (from > 100_000) break;
   }
-  return res.json();
+  return collected;
 }
 
 async function main() {

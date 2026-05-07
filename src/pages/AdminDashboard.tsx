@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef, useMemo } from "react";
 import {
   Category,
   Article,
@@ -12,7 +12,6 @@ import {
   deleteUser as deleteUserFunc,
   updateUserRole as updateUserRoleFunc,
   uploadUserFile,
-  createArticle,
   ARTICLE_LIMITS
 } from "@/lib/supabase";
 import { supabase } from "@/lib/supabase";
@@ -38,15 +37,25 @@ import {
   TableRow 
 } from "@/components/ui/table";
 import { Card } from "@/components/ui/card";
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogHeader, 
-  DialogTitle, 
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
   DialogTrigger,
   DialogFooter,
   DialogDescription
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Plus, Trash2, Edit, Image as ImageIcon, Check, X, Loader2, Lock, Users, FileText, Tag, ShieldCheck, CheckCircle2, XCircle, Video, BookText, Images } from "lucide-react";
 import { toast } from "sonner";
 import { cn, isAbortError } from "@/lib/utils";
@@ -55,22 +64,15 @@ import { createVideoPosterImageFile } from "@/lib/video-poster";
 import { useNavigate } from "react-router-dom";
 
 const combineChapters = (chapters: string[]): string => {
-  // Find the last non-empty chapter index
-  let lastIndex = 0;
+  // Find the last index that has any non-whitespace content. If every chapter
+  // is empty we return an empty string — the caller should treat that as
+  // "no content" rather than persisting a single empty chunk.
+  let lastIndex = -1;
   for (let i = 0; i < chapters.length; i++) {
-    if (chapters[i].trim()) lastIndex = i;
+    if (chapters[i]?.trim()) lastIndex = i;
   }
-  // Only include chapters up to the last non-empty one
+  if (lastIndex === -1) return "";
   return chapters.slice(0, lastIndex + 1).join(CHAPTER_DELIMITER);
-};
-
-const canEditChapter = (chapters: string[], index: number): boolean => {
-  if (index === 0) return true;
-  // Can only edit chapter N if chapters 0 to N-1 all have content
-  for (let i = 0; i < index; i++) {
-    if (!chapters[i].trim()) return false;
-  }
-  return true;
 };
 
 const USERS_PER_PAGE = 25;
@@ -86,22 +88,29 @@ const AdminDashboard: React.FC = () => {
   const [usersPage, setUsersPage] = useState(1);
   const [usersTotal, setUsersTotal] = useState<number | null>(null);
   const [usersHasMore, setUsersHasMore] = useState(false);
-  const [isAdding, setIsAdding] = useState(false);
   const [showTypeSelection, setShowTypeSelection] = useState(false);
   const [editingArticle, setEditingArticle] = useState<Article | null>(null);
   const [isUploading, setIsUploading] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const editFileInputRef = useRef<HTMLInputElement>(null);
   const editCarouselImageInputRef = useRef<HTMLInputElement>(null);
   const editPosterInputRef = useRef<HTMLInputElement>(null);
 
+  // Confirmation dialog state — replaces the inconsistent native confirm()
+  // calls so destructive actions feel like the rest of the app.
+  type ConfirmConfig = {
+    title: string;
+    description: string;
+    confirmLabel: string;
+    cancelLabel: string;
+    onConfirm: () => void | Promise<void>;
+  };
+  const [confirmDialog, setConfirmDialog] = useState<ConfirmConfig | null>(null);
+
   // Form states
   const [newCategory, setNewCategory] = useState({ nameEn: "", nameRo: "", slug: "" });
-  const [newArticle, setNewArticle] = useState<Partial<Article>>({
-    titleEn: "", titleRo: "", 
-    chaptersEn: ["", "", "", "", ""], chaptersRo: ["", "", "", "", ""],
-    categoryId: "", mediaUrl: "", isPublished: false, location: ""
-  });
+
+  // Indexed lookup so the article tables don't .find() per row.
+  const categoriesById = useMemo(() => new Map(categories.map(c => [c.id, c])), [categories]);
 
   // Fetch categories and articles when user/role changes
   useEffect(() => {
@@ -173,41 +182,6 @@ const AdminDashboard: React.FC = () => {
     }
   };
 
-  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>, isEdit: boolean = false) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    if (!user?.id) {
-      toast.error(language === 'en' ? "Not authenticated" : "Neautentificat");
-      event.target.value = "";
-      return;
-    }
-
-    setIsUploading(true);
-    try {
-      const { publicUrl } = await uploadUserFile(file, {
-        bucket: 'articles',
-        kind: 'image',
-        userId: user.id,
-      });
-
-      if (isEdit && editingArticle) {
-        setEditingArticle({ ...editingArticle, mediaUrl: publicUrl });
-      } else {
-        setNewArticle({ ...newArticle, mediaUrl: publicUrl });
-      }
-      toast.success("Image uploaded successfully");
-    } catch (error) {
-      console.error("Error uploading image:", error);
-      const message = error instanceof Error ? error.message : "Error uploading image";
-      toast.error(message);
-    } finally {
-      setIsUploading(false);
-      // Reset input value to allow uploading same file again
-      event.target.value = "";
-    }
-  };
-
   const handleAddCategory = async () => {
     if (!newCategory.nameEn || !newCategory.nameRo || !newCategory.slug) {
       toast.error("Please fill all fields");
@@ -234,44 +208,6 @@ const AdminDashboard: React.FC = () => {
     }
   };
 
-  const handleAddArticle = async () => {
-    if (!newArticle.titleEn || !newArticle.titleRo || !newArticle.categoryId || !user) {
-      toast.error("Please fill required fields");
-      return;
-    }
-    try {
-      // Writers can only save as draft. Admin chooses via the checkbox.
-      const isPublished = isAdmin ? (!!newArticle.isPublished) : false;
-
-      await createArticle({
-        type: 'text',
-        titleEn: newArticle.titleEn || "",
-        titleRo: newArticle.titleRo || "",
-        contentEn: combineChapters(newArticle.chaptersEn || [""]),
-        contentRo: combineChapters(newArticle.chaptersRo || [""]),
-        categoryId: newArticle.categoryId,
-        userId: user.id,
-        isPublished,
-        location: newArticle.location,
-        mediaUrl: newArticle.mediaUrl ?? null,
-        posterUrl: newArticle.posterUrl ?? null,
-      });
-
-      setNewArticle({
-        titleEn: "", titleRo: "",
-        chaptersEn: ["", "", "", "", ""], chaptersRo: ["", "", "", "", ""],
-        categoryId: "", mediaUrl: "", isPublished: false, location: ""
-      });
-      setIsAdding(false);
-      setShowTypeSelection(false);
-      fetchData();
-      toast.success("Article added successfully");
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Error adding article";
-      toast.error(message);
-    }
-  };
-
   const handleUpdateArticle = async () => {
     if (!editingArticle || !editingArticle.titleEn || !editingArticle.titleRo || !editingArticle.categoryId) {
       toast.error("Please fill required fields");
@@ -287,13 +223,19 @@ const AdminDashboard: React.FC = () => {
         ? editingArticle.contentRo
         : combineChapters(editingArticle.chaptersRo || [""]);
 
-      // Mirror the createArticle limits — the DB has no length constraints,
-      // so client-side caps are the only gate.
+      // Mirror the createArticle limits — the DB has length CHECKs that
+      // would otherwise raise a confusing constraint-violation error.
       if (titleEn.length > ARTICLE_LIMITS.TITLE_MAX || titleRo.length > ARTICLE_LIMITS.TITLE_MAX) {
         throw new Error(`Title exceeds ${ARTICLE_LIMITS.TITLE_MAX} characters`);
       }
-      if (contentEn.length > ARTICLE_LIMITS.CONTENT_MAX || contentRo.length > ARTICLE_LIMITS.CONTENT_MAX) {
+      if ((contentEn || "").length > ARTICLE_LIMITS.CONTENT_MAX || (contentRo || "").length > ARTICLE_LIMITS.CONTENT_MAX) {
         throw new Error(`Content exceeds ${ARTICLE_LIMITS.CONTENT_MAX} characters`);
+      }
+      // For text stories, refuse to save an article with no chapter content —
+      // combineChapters() returns "" when every chapter is blank, and a
+      // story with no body shouldn't be persistable from the dashboard.
+      if (editingArticle.type === 'text' && !contentEn?.trim() && !contentRo?.trim()) {
+        throw new Error(language === 'en' ? "A text story must have at least one chapter with content" : "O poveste text trebuie să aibă cel puțin un capitol cu conținut");
       }
       if (editingArticle.location && editingArticle.location.length > ARTICLE_LIMITS.LOCATION_MAX) {
         throw new Error(`Location exceeds ${ARTICLE_LIMITS.LOCATION_MAX} characters`);
@@ -354,40 +296,91 @@ const AdminDashboard: React.FC = () => {
     }
   };
 
-  const deleteArticle = async (id: string) => {
-    if (!confirm(language === 'en' ? "Are you sure? This will permanently remove the story." : "Ești sigur? Aceasta va șterge permanent povestea.")) return;
+  const performDeleteArticle = async (id: string) => {
     try {
       const { error } = await supabase.from('articles').delete().eq('id', id);
       if (error) throw error;
       fetchData();
-      toast.success("Article deleted");
+      toast.success(language === 'en' ? "Article deleted" : "Articol șters");
     } catch {
-      toast.error("Error deleting article");
+      toast.error(language === 'en' ? "Error deleting article" : "Eroare la ștergerea articolului");
     }
   };
 
-  const deleteUser = async (id: string) => {
-    if (!isAdmin) return;
-    if (id === user?.id) {
-      toast.error("You cannot delete yourself");
-      return;
-    }
-    if (!confirm(language === 'en' ? "Are you sure you want to delete this user? This cannot be undone." : "Ești sigur că vrei să ștergi acest utilizator? Această acțiune nu poate fi anulată.")) return;
-    
+  const requestDeleteArticle = (id: string) => {
+    setConfirmDialog({
+      title: language === 'en' ? "Delete this story?" : "Ștergi această poveste?",
+      description: language === 'en'
+        ? "This will permanently remove the story. This action cannot be undone."
+        : "Aceasta va șterge permanent povestea. Acțiunea nu poate fi anulată.",
+      confirmLabel: language === 'en' ? "Delete" : "Șterge",
+      cancelLabel: language === 'en' ? "Cancel" : "Anulează",
+      onConfirm: () => performDeleteArticle(id),
+    });
+  };
+
+  const performDeleteUser = async (id: string) => {
     try {
       const success = await deleteUserFunc(id);
       if (!success) throw new Error("Failed to delete user");
+      // Always trigger a refetch — either by stepping the page or by
+      // invalidating the current page. Stale local total/page caches were
+      // the source of off-by-one rows after delete.
       if (allUsers.length === 1 && usersPage > 1) {
         setUsersPage(prev => Math.max(1, prev - 1));
       } else {
         setAllUsers(prev => prev.filter(u => u.id !== id));
         setUsersTotal(prev => prev !== null ? prev - 1 : null);
+        // Refetch the current page so usersHasMore / range counts realign.
+        const refetched = await fetchAllUsers(usersPage, USERS_PER_PAGE).catch(() => null);
+        if (refetched) {
+          setAllUsers(refetched.users || []);
+          setUsersTotal(refetched.total);
+          setUsersHasMore(refetched.hasMore);
+        }
         fetchData();
       }
-      toast.success("User deleted");
+      toast.success(language === 'en' ? "User deleted" : "Utilizator șters");
     } catch {
-      toast.error("Error deleting user");
+      toast.error(language === 'en' ? "Error deleting user" : "Eroare la ștergerea utilizatorului");
     }
+  };
+
+  const requestDeleteUser = (id: string) => {
+    if (!isAdmin) return;
+    if (id === user?.id) {
+      toast.error(language === 'en' ? "You cannot delete yourself" : "Nu te poți șterge pe tine însuți");
+      return;
+    }
+    setConfirmDialog({
+      title: language === 'en' ? "Delete this user?" : "Ștergi acest utilizator?",
+      description: language === 'en'
+        ? "This will permanently remove the user account. This action cannot be undone."
+        : "Aceasta va șterge permanent contul utilizatorului. Acțiunea nu poate fi anulată.",
+      confirmLabel: language === 'en' ? "Delete" : "Șterge",
+      cancelLabel: language === 'en' ? "Cancel" : "Anulează",
+      onConfirm: () => performDeleteUser(id),
+    });
+  };
+
+  const requestDeleteCategory = (catId: string) => {
+    setConfirmDialog({
+      title: language === 'en' ? "Delete this category?" : "Ștergi această categorie?",
+      description: language === 'en'
+        ? "Articles in this category will keep their content but lose the link. You can reassign them afterwards."
+        : "Articolele din această categorie își păstrează conținutul, dar pierd legătura. Le poți reasigna ulterior.",
+      confirmLabel: language === 'en' ? "Delete" : "Șterge",
+      cancelLabel: language === 'en' ? "Cancel" : "Anulează",
+      onConfirm: async () => {
+        const { error } = await supabase.from('categories').delete().eq('id', catId);
+        if (error) {
+          toast.error(language === 'en' ? "Error deleting category" : "Eroare la ștergerea categoriei");
+          return;
+        }
+        fetchData();
+        toast.success(language === 'en' ? "Category deleted" : "Categorie ștearsă");
+      },
+    });
   };
 
   const handleUpdateRole = async (userId: string, newRole: string) => {
@@ -684,142 +677,6 @@ const AdminDashboard: React.FC = () => {
               </Dialog>
             </div>
           </div>
-
-          <Dialog open={isAdding} onOpenChange={setIsAdding}>
-            <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-              <DialogHeader>
-                <DialogTitle className="font-serif italic text-2xl">{t("admin.addArticle")}</DialogTitle>
-                <DialogDescription className="sr-only">
-                  Fill in the details to create a new story.
-                </DialogDescription>
-              </DialogHeader>
-              <div className="grid gap-6 py-4">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium">Title (English)</label>
-                      <Input 
-                        value={newArticle.titleEn} 
-                        onChange={(e) => setNewArticle({...newArticle, titleEn: e.target.value})} 
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium">Titlu (Română)</label>
-                      <Input 
-                        value={newArticle.titleRo} 
-                        onChange={(e) => setNewArticle({...newArticle, titleRo: e.target.value})} 
-                      />
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Category</label>
-                    <Select onValueChange={(val) => setNewArticle({...newArticle, categoryId: val})}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select Category" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {categories.map(cat => (
-                          <SelectItem key={cat.id} value={cat.id}>
-                            {cat.nameEn} / {cat.nameRo}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Media URL (Image)</label>
-                    <div className="flex gap-2">
-                      <Input 
-                        placeholder="https://..." 
-                        value={newArticle.mediaUrl} 
-                        onChange={(e) => setNewArticle({...newArticle, mediaUrl: e.target.value})} 
-                      />
-                      <input 
-                        type="file" 
-                        accept="image/*" 
-                        className="hidden" 
-                        ref={fileInputRef} 
-                        onChange={(e) => handleFileUpload(e, false)}
-                      />
-                      <Button 
-                        variant="outline" 
-                        size="icon"
-                        onClick={() => fileInputRef.current?.click()}
-                        disabled={isUploading}
-                      >
-                        {isUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImageIcon className="h-4 w-4" />}
-                      </Button>
-                    </div>
-                  </div>
-                  {isAdmin && (
-                    <div className="flex items-center gap-2">
-                      <input 
-                        type="checkbox" 
-                        id="isPublished"
-                        checked={!!newArticle.isPublished}
-                        onChange={(e) => setNewArticle({...newArticle, isPublished: e.target.checked})}
-                        className="rounded border-gray-300"
-                      />
-                      <label htmlFor="isPublished" className="text-sm font-medium">Publish immediately</label>
-                    </div>
-                  )}
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">{t("location.label")}</label>
-                    <Select 
-                      value={newArticle.location} 
-                      onValueChange={(val) => setNewArticle({ ...newArticle, location: val })}
-                    >
-                      <SelectTrigger className="rounded-xl">
-                        <SelectValue placeholder={t("location.select")} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {COUNTIES.map((county) => (
-                          <SelectItem key={county} value={county}>{county}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {newArticle.chaptersEn?.map((chapter, index) => (
-                      <div key={index} className="space-y-2">
-                        <label className="text-sm font-medium">Chapter {index + 1} (English) {index > 0 && !canEditChapter(newArticle.chaptersEn || [], index) && <Lock className="inline-block h-3 w-3 text-muted-foreground" />}</label>
-                        <Textarea 
-                          rows={5} 
-                          value={chapter} 
-                          onChange={(e) => {
-                            const updatedChapters = [...(newArticle.chaptersEn || [])];
-                            updatedChapters[index] = e.target.value;
-                            setNewArticle({...newArticle, chaptersEn: updatedChapters});
-                          }} 
-                          disabled={!canEditChapter(newArticle.chaptersEn || [], index)}
-                        />
-                      </div>
-                    ))}
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {newArticle.chaptersRo?.map((chapter, index) => (
-                      <div key={index} className="space-y-2">
-                        <label className="text-sm font-medium">Capitolul {index + 1} (Română) {index > 0 && !canEditChapter(newArticle.chaptersRo || [], index) && <Lock className="inline-block h-3 w-3 text-muted-foreground" />}</label>
-                        <Textarea 
-                          rows={5} 
-                          value={chapter} 
-                          onChange={(e) => {
-                            const updatedChapters = [...(newArticle.chaptersRo || [])];
-                            updatedChapters[index] = e.target.value;
-                            setNewArticle({...newArticle, chaptersRo: updatedChapters});
-                          }} 
-                          disabled={!canEditChapter(newArticle.chaptersRo || [], index)}
-                        />
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                <DialogFooter>
-                  <Button onClick={handleAddArticle} className="w-full rounded-full bg-accent hover:bg-accent/90">
-                    {language === 'en' ? 'Create Story' : 'Creează Povestea'}
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
 
           <Dialog open={!!editingArticle} onOpenChange={(open) => !open && setEditingArticle(null)}>
             <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
@@ -1137,16 +994,15 @@ const AdminDashboard: React.FC = () => {
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         {editingArticle.chaptersEn?.map((chapter, index) => (
                           <div key={index} className="space-y-2">
-                            <label className="text-sm font-medium">Chapter {index + 1} (English) {index > 0 && !canEditChapter(editingArticle.chaptersEn || [], index) && <Lock className="inline-block h-3 w-3 text-muted-foreground" />}</label>
-                            <Textarea 
-                              rows={5} 
-                              value={chapter} 
+                            <label className="text-sm font-medium">Chapter {index + 1} (English)</label>
+                            <Textarea
+                              rows={5}
+                              value={chapter}
                               onChange={(e) => {
                                 const updatedChapters = [...(editingArticle.chaptersEn || [])];
                                 updatedChapters[index] = e.target.value;
                                 setEditingArticle({...editingArticle, chaptersEn: updatedChapters});
-                              }} 
-                              disabled={!canEditChapter(editingArticle.chaptersEn || [], index)}
+                              }}
                             />
                           </div>
                         ))}
@@ -1154,16 +1010,15 @@ const AdminDashboard: React.FC = () => {
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         {editingArticle.chaptersRo?.map((chapter, index) => (
                           <div key={index} className="space-y-2">
-                            <label className="text-sm font-medium">Capitolul {index + 1} (Română) {index > 0 && !canEditChapter(editingArticle.chaptersRo || [], index) && <Lock className="inline-block h-3 w-3 text-muted-foreground" />}</label>
-                            <Textarea 
-                              rows={5} 
-                              value={chapter} 
+                            <label className="text-sm font-medium">Capitolul {index + 1} (Română)</label>
+                            <Textarea
+                              rows={5}
+                              value={chapter}
                               onChange={(e) => {
                                 const updatedChapters = [...(editingArticle.chaptersRo || [])];
                                 updatedChapters[index] = e.target.value;
                                 setEditingArticle({...editingArticle, chaptersRo: updatedChapters});
-                              }} 
-                              disabled={!canEditChapter(editingArticle.chaptersRo || [], index)}
+                              }}
                             />
                           </div>
                         ))}
@@ -1191,7 +1046,7 @@ const AdminDashboard: React.FC = () => {
                       <h3 className="font-medium text-sm truncate">{getLocalized(art, "title", language)}</h3>
                     </div>
                     <p className="text-xs text-muted-foreground mt-1">
-                      {categories.find(c => c.id === art.categoryId)?.nameEn || "Uncategorized"}
+                      {categoriesById.get(art.categoryId)?.nameEn || "Uncategorized"}
                     </p>
                     <div className="flex items-center gap-2 mt-2">
                       <span className={cn(
@@ -1218,7 +1073,7 @@ const AdminDashboard: React.FC = () => {
                     })}>
                       <Edit className="h-3.5 w-3.5" />
                     </Button>
-                    <Button variant="outline" size="icon" className="rounded-full h-7 w-7 text-destructive hover:text-destructive" onClick={() => deleteArticle(art.id)}>
+                    <Button variant="outline" size="icon" className="rounded-full h-7 w-7 text-destructive hover:text-destructive" onClick={() => requestDeleteArticle(art.id)}>
                       <Trash2 className="h-3.5 w-3.5" />
                     </Button>
                   </div>
@@ -1252,7 +1107,7 @@ const AdminDashboard: React.FC = () => {
                       </div>
                     </TableCell>
                     <TableCell>
-                      {categories.find(c => c.id === art.categoryId)?.nameEn || "Uncategorized"}
+                      {categoriesById.get(art.categoryId)?.nameEn || "Uncategorized"}
                     </TableCell>
                     <TableCell>
                       <span className={cn(
@@ -1293,7 +1148,7 @@ const AdminDashboard: React.FC = () => {
                           variant="outline" 
                           size="icon" 
                           className="rounded-full h-8 w-8 text-destructive hover:text-destructive"
-                          onClick={() => deleteArticle(art.id)}
+                          onClick={() => requestDeleteArticle(art.id)}
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
@@ -1359,15 +1214,9 @@ const AdminDashboard: React.FC = () => {
                         <p className="font-serif italic text-xs text-muted-foreground truncate">{cat.nameRo}</p>
                         <p className="text-xs font-mono text-muted-foreground mt-1">{cat.slug}</p>
                       </div>
-                      <Button 
+                      <Button
                         variant="ghost" size="icon" className="h-7 w-7 text-destructive shrink-0"
-                        onClick={async () => {
-                          if (!confirm(language === 'en' ? "Delete category?" : "Ștergi categoria?")) return;
-                          const { error } = await supabase.from('categories').delete().eq('id', cat.id);
-                          if (error) { toast.error("Error deleting category"); return; }
-                          fetchData();
-                          toast.success("Category deleted");
-                        }}
+                        onClick={() => requestDeleteCategory(cat.id)}
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                       </Button>
@@ -1394,20 +1243,11 @@ const AdminDashboard: React.FC = () => {
                         <TableCell className="font-serif italic">{cat.nameRo}</TableCell>
                         <TableCell className="text-xs font-mono">{cat.slug}</TableCell>
                         <TableCell className="text-right">
-                          <Button 
-                            variant="ghost" 
-                            size="icon" 
+                          <Button
+                            variant="ghost"
+                            size="icon"
                             className="h-8 w-8 text-destructive"
-                            onClick={async () => {
-                              if (!confirm(language === 'en' ? "Delete category?" : "Ștergi categoria?")) return;
-                              const { error } = await supabase.from('categories').delete().eq('id', cat.id);
-                              if (error) {
-                                toast.error("Error deleting category");
-                                return;
-                              }
-                              fetchData();
-                              toast.success("Category deleted");
-                            }}
+                            onClick={() => requestDeleteCategory(cat.id)}
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
@@ -1483,7 +1323,7 @@ const AdminDashboard: React.FC = () => {
                         </span>
                       </div>
                     </div>
-                    <Button variant="outline" size="icon" className="rounded-full h-7 w-7 text-destructive hover:text-destructive shrink-0" onClick={() => deleteUser(u.id)} disabled={u.id === user?.id}>
+                    <Button variant="outline" size="icon" className="rounded-full h-7 w-7 text-destructive hover:text-destructive shrink-0" onClick={() => requestDeleteUser(u.id)} disabled={u.id === user?.id}>
                       <Trash2 className="h-3.5 w-3.5" />
                     </Button>
                   </div>
@@ -1546,7 +1386,7 @@ const AdminDashboard: React.FC = () => {
                           variant="outline" 
                           size="icon" 
                           className="rounded-full h-8 w-8 text-destructive hover:text-destructive"
-                          onClick={() => deleteUser(u.id)}
+                          onClick={() => requestDeleteUser(u.id)}
                           disabled={u.id === user?.id}
                         >
                           <Trash2 className="h-4 w-4" />
@@ -1589,6 +1429,31 @@ const AdminDashboard: React.FC = () => {
           </TabsContent>
         )}
       </Tabs>
+
+      <AlertDialog
+        open={confirmDialog !== null}
+        onOpenChange={(open) => { if (!open) setConfirmDialog(null); }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{confirmDialog?.title}</AlertDialogTitle>
+            <AlertDialogDescription>{confirmDialog?.description}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{confirmDialog?.cancelLabel}</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={async () => {
+                const action = confirmDialog?.onConfirm;
+                setConfirmDialog(null);
+                if (action) await action();
+              }}
+            >
+              {confirmDialog?.confirmLabel}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

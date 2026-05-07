@@ -10,7 +10,7 @@ import { ParchmentArticle } from "@/components/organisms/ParchmentArticle";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronRight, ChevronLeft, BookOpen, Heart, Video, MapPin, Images } from "lucide-react";
 import { cn, isAbortError } from "@/lib/utils";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { PageHead } from "@/components/layout/PageHead";
 import { SITE_NAME, SITE_URL } from "@/lib/constants";
 
@@ -88,7 +88,7 @@ const ArticleCard = React.memo<ArticleCardProps>(({
           </div>
           {article.mediaUrls && (
             <div className="absolute bottom-4 left-4 bg-black/50 backdrop-blur-md text-white text-[10px] px-2 py-0.5 rounded-full font-sans uppercase tracking-widest">
-              {article.mediaUrls.length} Photos
+              {article.mediaUrls.length} {t("articles.photoCount")}
             </div>
           )}
         </div>
@@ -113,12 +113,12 @@ const ArticleCard = React.memo<ArticleCardProps>(({
         )}
         {article.type === 'video' && (
           <Badge variant="outline" className="bg-white/10 text-white border-white/20 font-serif italic backdrop-blur-md rounded-full px-3">
-            Video
+            {t("articles.videoBadge")}
           </Badge>
         )}
         {article.type === 'carousel' && (
           <Badge variant="outline" className="bg-white/10 text-white border-white/20 font-serif italic backdrop-blur-md rounded-full px-3">
-            Carousel
+            {t("articles.carouselBadge")}
           </Badge>
         )}
         <Button
@@ -168,7 +168,26 @@ const Home: React.FC = () => {
       return null;
     }
   });
-  const [currentPage, setCurrentPage] = useState(1);
+  const [searchParams, setSearchParams] = useSearchParams();
+  // Page is driven by ?page=. This makes pagination URLs shareable and lets
+  // rel=prev/next link hints actually map to live URLs the app will render.
+  const pageFromUrl = (() => {
+    const raw = parseInt(searchParams.get("page") || "1", 10);
+    return Number.isFinite(raw) && raw > 0 ? raw : 1;
+  })();
+  const currentPage = pageFromUrl;
+  const setCurrentPage = useCallback((updater: number | ((prev: number) => number)) => {
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      const nextPage = typeof updater === 'function' ? updater(currentPage) : updater;
+      if (nextPage <= 1) {
+        next.delete("page");
+      } else {
+        next.set("page", String(nextPage));
+      }
+      return next;
+    }, { replace: false });
+  }, [currentPage, setSearchParams]);
   const [totalCount, setTotalCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [activeArticle, setActiveArticle] = useState<Article | null>(null);
@@ -191,6 +210,13 @@ const Home: React.FC = () => {
   const handleCategoryChange = (catId: string | null) => {
     setSelectedCategory(catId);
     setCurrentPage(1);
+    // Bring the explore section back into view; otherwise the user is left
+    // staring at the hero while the grid silently swaps below.
+    if (typeof window !== "undefined") {
+      window.requestAnimationFrame(() => {
+        document.getElementById('explore')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
+    }
   };
 
   // Fetch categories once. Previously this called fetchPublicContent(),

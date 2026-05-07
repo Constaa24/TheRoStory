@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Category } from "@/lib/supabase";
-import { fetchCategories, uploadUserFile, createArticle } from "@/lib/supabase";
+import { fetchCategories, uploadUserFile, createArticle, deleteStorageFile } from "@/lib/supabase";
+import { ARTICLE_LIMITS } from "@/lib/supabase";
 import { useLanguage } from "@/hooks/use-language";
 import { useAuth } from "@/hooks/use-auth";
 import { useUnsavedChangesWarning } from "@/hooks/use-unsaved-changes";
@@ -30,6 +31,7 @@ const VideoStoryCreate: React.FC = () => {
   const [categories, setCategories] = useState<Category[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
+  const [isGeneratingPoster, setIsGeneratingPoster] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const videoInputRef = useRef<HTMLInputElement>(null);
   const posterInputRef = useRef<HTMLInputElement>(null);
@@ -42,7 +44,9 @@ const VideoStoryCreate: React.FC = () => {
   const [categoryId, setCategoryId] = useState("");
   const [location, setLocation] = useState("");
   const [videoUrl, setVideoUrl] = useState("");
+  const [videoStoragePath, setVideoStoragePath] = useState<string | null>(null);
   const [posterUrl, setPosterUrl] = useState("");
+  const [posterStoragePath, setPosterStoragePath] = useState<string | null>(null);
 
   const isDirty =
     titleEn.trim() !== "" ||
@@ -86,10 +90,16 @@ const VideoStoryCreate: React.FC = () => {
 
     setIsUploading(true);
     try {
+      // Clean up the previous video / poster before replacing them — avoids
+      // orphaning blobs when a user re-uploads.
+      if (videoStoragePath) await deleteStorageFile('articles', videoStoragePath);
+      if (posterStoragePath) await deleteStorageFile('articles', posterStoragePath);
       setVideoUrl("");
       setPosterUrl("");
+      setVideoStoragePath(null);
+      setPosterStoragePath(null);
 
-      const { publicUrl } = await uploadUserFile(file, {
+      const { publicUrl, storagePath } = await uploadUserFile(file, {
         bucket: 'articles',
         kind: 'video',
         userId: user.id,
@@ -97,9 +107,15 @@ const VideoStoryCreate: React.FC = () => {
         maxBytes: 500 * 1024 * 1024,
       });
       setVideoUrl(publicUrl);
+      setVideoStoragePath(storagePath);
       toast.success(language === 'en' ? "Video uploaded successfully" : "Video încărcat cu succes");
 
-      // Generate and upload poster in the background — don't block the UI
+      // Generate and upload poster in the background. We track this with
+      // isGeneratingPoster so the Save button stays disabled until either
+      // the poster lands or we know it failed — without this gate, a fast-
+      // saving user can persist an empty posterUrl while the upload is
+      // still in flight.
+      setIsGeneratingPoster(true);
       createVideoPosterImageFile(file, `${crypto.randomUUID()}-poster.jpg`)
         .then(async (posterFile) => {
           if (!posterFile) return;
@@ -110,11 +126,13 @@ const VideoStoryCreate: React.FC = () => {
             subfolder: 'stories/posters',
           });
           setPosterUrl(posterRes.publicUrl);
+          setPosterStoragePath(posterRes.storagePath);
         })
         .catch((posterError) => {
           console.warn("Poster generation/upload failed:", posterError);
           toast.warning(language === 'en' ? "Poster generation failed — you can upload one manually." : "Generarea posterului a eșuat — îl poți încărca manual.");
-        });
+        })
+        .finally(() => setIsGeneratingPoster(false));
     } catch (error) {
       console.error("Error uploading video:", error);
       const message = error instanceof Error ? error.message : (language === 'en' ? "Error uploading video" : "Eroare la încărcarea videoclipului");
@@ -136,7 +154,14 @@ const VideoStoryCreate: React.FC = () => {
 
     setIsUploading(true);
     try {
-      const { publicUrl } = await uploadUserFile(file, {
+      // If the user is replacing an existing poster, clean up the old file.
+      // We only do this when the previous poster came from our upload path
+      // (we know its storage path); a manually pasted URL is left alone.
+      if (posterStoragePath) {
+        await deleteStorageFile('articles', posterStoragePath);
+      }
+
+      const { publicUrl, storagePath } = await uploadUserFile(file, {
         bucket: 'articles',
         kind: 'image',
         userId: user.id,
@@ -144,6 +169,7 @@ const VideoStoryCreate: React.FC = () => {
       });
 
       setPosterUrl(publicUrl);
+      setPosterStoragePath(storagePath);
       toast.success(language === 'en' ? "Poster uploaded successfully" : "Poster încărcat cu succes");
     } catch (error) {
       console.error("Error uploading poster:", error);
@@ -227,19 +253,21 @@ const VideoStoryCreate: React.FC = () => {
             
             <div className="space-y-2">
               <label className="text-sm font-medium">{language === 'en' ? "Title (English)" : "Titlu (Engleză)"}</label>
-              <Input 
-                value={titleEn} 
-                onChange={(e) => setTitleEn(e.target.value)} 
+              <Input
+                value={titleEn}
+                onChange={(e) => setTitleEn(e.target.value)}
                 placeholder="Enter title in English"
+                maxLength={ARTICLE_LIMITS.TITLE_MAX}
               />
             </div>
-            
+
             <div className="space-y-2">
               <label className="text-sm font-medium">{language === 'en' ? "Title (Romanian)" : "Titlu (Română)"}</label>
-              <Input 
-                value={titleRo} 
-                onChange={(e) => setTitleRo(e.target.value)} 
+              <Input
+                value={titleRo}
+                onChange={(e) => setTitleRo(e.target.value)}
                 placeholder="Introdu titlul în română"
+                maxLength={ARTICLE_LIMITS.TITLE_MAX}
               />
             </div>
 
@@ -265,21 +293,23 @@ const VideoStoryCreate: React.FC = () => {
             
             <div className="space-y-2">
               <label className="text-sm font-medium">{language === 'en' ? "Description (English)" : "Descriere (Engleză)"}</label>
-              <Textarea 
-                value={descriptionEn} 
-                onChange={(e) => setDescriptionEn(e.target.value)} 
+              <Textarea
+                value={descriptionEn}
+                onChange={(e) => setDescriptionEn(e.target.value)}
                 placeholder="What is this video about?"
                 className="min-h-[120px] rounded-xl"
+                maxLength={ARTICLE_LIMITS.CONTENT_MAX}
               />
             </div>
-            
+
             <div className="space-y-2">
               <label className="text-sm font-medium">{language === 'en' ? "Description (Romanian)" : "Descriere (Română)"}</label>
-              <Textarea 
-                value={descriptionRo} 
-                onChange={(e) => setDescriptionRo(e.target.value)} 
+              <Textarea
+                value={descriptionRo}
+                onChange={(e) => setDescriptionRo(e.target.value)}
                 placeholder="Despre ce este acest video?"
                 className="min-h-[120px] rounded-xl"
+                maxLength={ARTICLE_LIMITS.CONTENT_MAX}
               />
             </div>
             
@@ -318,13 +348,19 @@ const VideoStoryCreate: React.FC = () => {
                   />
                   <div className="flex justify-between items-center bg-green-500/10 p-3 rounded-xl">
                     <span className="text-xs text-green-600 font-medium">Video Ready</span>
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
+                    <Button
+                      variant="ghost"
+                      size="sm"
                       className="h-8 w-8 p-0 rounded-full hover:bg-red-500/10 hover:text-red-500"
                       onClick={() => {
+                        // Best-effort cleanup of the uploaded blobs so we don't
+                        // accumulate orphans when a user changes their mind.
+                        if (videoStoragePath) void deleteStorageFile('articles', videoStoragePath);
+                        if (posterStoragePath) void deleteStorageFile('articles', posterStoragePath);
                         setVideoUrl("");
                         setPosterUrl("");
+                        setVideoStoragePath(null);
+                        setPosterStoragePath(null);
                       }}
                     >
                       <X className="h-4 w-4" />
@@ -399,15 +435,20 @@ const VideoStoryCreate: React.FC = () => {
               </p>
             </div>
 
-            <Button 
+            <Button
               className="w-full mt-6 rounded-full h-12 text-lg font-serif italic"
-              disabled={isSaving || isUploading || !videoUrl}
+              disabled={isSaving || isUploading || isGeneratingPoster || !videoUrl}
               onClick={handleSave}
             >
               {isSaving ? (
                 <>
                   <Loader2 className="mr-2 h-5 w-5 animate-spin" />
                   {language === 'en' ? "Saving Story..." : "Se salvează..."}
+                </>
+              ) : isGeneratingPoster ? (
+                <>
+                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                  {language === 'en' ? "Generating poster..." : "Se generează posterul..."}
                 </>
               ) : (
                 <>

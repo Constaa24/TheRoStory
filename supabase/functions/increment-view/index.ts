@@ -48,15 +48,19 @@ function getRateLimitStore(): RateLimitStore {
 }
 
 function getClientIp(req: Request): string {
-  // Prefer cf-connecting-ip — Cloudflare sets this and clients can't forge it.
-  const cfIp = req.headers.get("cf-connecting-ip");
-  if (cfIp) return cfIp;
+  // Trust only headers populated by the Supabase Edge proxy. cf-connecting-ip
+  // is client-controllable here (Supabase Edge isn't behind Cloudflare in a
+  // way that strips it), so honoring it would let an attacker rotate buckets
+  // by sending random values.
+  const realIp = req.headers.get("x-real-ip");
+  if (realIp) return realIp;
   const forwarded = req.headers.get("x-forwarded-for");
   if (forwarded) {
-    // Take the LAST entry — closest to our server, less likely to be spoofed
-    // by a malicious client prepending values.
+    // The leftmost entry is the original client (RFC 7239). Subsequent
+    // entries are intermediate proxies. The Supabase ingress overwrites
+    // any client-supplied prefix before this code runs.
     const parts = forwarded.split(",").map((p) => p.trim()).filter(Boolean);
-    return parts[parts.length - 1] || "unknown";
+    return parts[0] || "unknown";
   }
   return "unknown";
 }

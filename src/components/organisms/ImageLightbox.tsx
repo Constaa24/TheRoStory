@@ -1,7 +1,8 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronLeft, ChevronRight, X, ZoomIn, ZoomOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useFocusTrap } from "@/hooks/use-focus-trap";
 
 export interface LightboxImage {
   url: string;
@@ -33,6 +34,8 @@ export const ImageLightbox: React.FC<ImageLightboxProps> = ({
 }) => {
   const [index, setIndex] = useState(startIndex);
   const [zoomed, setZoomed] = useState(false);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(dialogRef, open);
 
   // Reset state when reopening
   useEffect(() => {
@@ -42,13 +45,20 @@ export const ImageLightbox: React.FC<ImageLightboxProps> = ({
     }
   }, [open, startIndex]);
 
-  // Keyboard navigation
+  // Keyboard navigation. Reset zoom when arrow-keying to a different image so
+  // we don't carry a 2× scale onto the new picture.
   useEffect(() => {
     if (!open) return;
     const handler = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
-      else if (e.key === "ArrowRight") setIndex(i => Math.min(images.length - 1, i + 1));
-      else if (e.key === "ArrowLeft") setIndex(i => Math.max(0, i - 1));
+      else if (e.key === "ArrowRight") {
+        setIndex(i => Math.min(images.length - 1, i + 1));
+        setZoomed(false);
+      }
+      else if (e.key === "ArrowLeft") {
+        setIndex(i => Math.max(0, i - 1));
+        setZoomed(false);
+      }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
@@ -81,6 +91,8 @@ export const ImageLightbox: React.FC<ImageLightboxProps> = ({
     <AnimatePresence>
       {open && (
         <motion.div
+          ref={dialogRef}
+          tabIndex={-1}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}

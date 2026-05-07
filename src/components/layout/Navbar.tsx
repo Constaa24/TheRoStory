@@ -2,6 +2,7 @@ import React from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/use-auth";
 import { useLanguage } from "@/hooks/use-language";
+import { useFocusTrap } from "@/hooks/use-focus-trap";
 import { Button } from "@/components/ui/button";
 import { 
   DropdownMenu, 
@@ -21,6 +22,10 @@ export const Navbar: React.FC = () => {
   const { language, setLanguage, t } = useLanguage();
   const location = useLocation();
   const [isMenuOpen, setIsMenuOpen] = React.useState(false);
+  const mobileMenuRef = React.useRef<HTMLDivElement>(null);
+  // Trap focus inside the open mobile menu so keyboard users don't tab past
+  // it into the underlying page.
+  useFocusTrap(mobileMenuRef, isMenuOpen);
 
   React.useEffect(() => {
     if (!isMenuOpen) return;
@@ -67,6 +72,7 @@ export const Navbar: React.FC = () => {
                 <Link
                   key={link.path}
                   to={link.path}
+                  aria-current={location.pathname === link.path ? "page" : undefined}
                   className={cn(
                     "text-sm font-bold font-serif italic px-3 py-1.5 rounded-full transition-all duration-300 hover:bg-accent/10 whitespace-nowrap",
                     location.pathname === link.path ? "text-accent bg-accent/5" : "text-foreground/70 hover:text-accent"
@@ -217,12 +223,19 @@ export const Navbar: React.FC = () => {
 
         {/* Mobile Menu */}
         {isMenuOpen && (
-          <div className="md:hidden absolute top-[calc(100%+1rem)] left-0 w-full bg-background/95 backdrop-blur-xl border border-border/40 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.2)] rounded-[2rem] py-6 px-6 flex flex-col gap-4 animate-fade-in overflow-hidden">
+          <div
+            ref={mobileMenuRef}
+            role="dialog"
+            aria-modal="true"
+            aria-label={t("nav.openMenu")}
+            className="md:hidden absolute top-[calc(100%+1rem)] left-0 w-full bg-background/95 backdrop-blur-xl border border-border/40 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.2)] rounded-[2rem] py-6 px-6 flex flex-col gap-4 animate-fade-in overflow-hidden"
+          >
             {navLinks.map((link) => (
               <Link
                 key={link.path}
                 to={link.path}
                 onClick={() => setIsMenuOpen(false)}
+                aria-current={location.pathname === link.path ? "page" : undefined}
                 className={cn(
                   "text-xl font-bold font-serif italic p-3 rounded-2xl transition-colors text-center",
                   location.pathname === link.path ? "text-accent bg-accent/5" : "text-foreground/70 hover:text-accent hover:bg-accent/5"
