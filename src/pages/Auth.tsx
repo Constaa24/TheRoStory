@@ -80,8 +80,9 @@ const Auth: React.FC = () => {
       if (result?.error) throw result.error;
       toast.success(t("auth.welcomeBack"));
       navigate("/");
-    } catch (error: any) {
-      toast.error(error.message || t("auth.loginFailed"));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : t("auth.loginFailed");
+      toast.error(message);
     } finally {
       setIsLoading(false);
     }
@@ -136,8 +137,9 @@ const Auth: React.FC = () => {
       const result = await signInWithGoogle();
       if (result?.error) throw result.error;
       // OAuth redirects immediately on success. No success toast needed here.
-    } catch (error: any) {
-      toast.error(error.message || t("auth.googleFailed"));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : t("auth.googleFailed");
+      toast.error(message);
     } finally {
       setIsLoading(false);
     }
@@ -151,8 +153,9 @@ const Auth: React.FC = () => {
       if (result?.error) throw result.error;
       toast.success(t("auth.resetLinkSent"));
       setView("auth");
-    } catch (error: any) {
-      toast.error(error.message || t("auth.resetLinkFailed"));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : t("auth.resetLinkFailed");
+      toast.error(message);
     } finally {
       setIsLoading(false);
     }
@@ -175,8 +178,9 @@ const Auth: React.FC = () => {
       setView("auth");
       setActiveTab("login");
       navigate("/auth", { replace: true, state: { bypassRecoveryRedirect: true } });
-    } catch (error: any) {
-      toast.error(error.message || t("auth.passwordResetFailed"));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : t("auth.passwordResetFailed");
+      toast.error(message);
     } finally {
       setIsLoading(false);
     }

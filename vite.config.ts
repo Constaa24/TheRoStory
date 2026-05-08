@@ -27,14 +27,30 @@ export default defineConfig({
         navigateFallback: '/index.html',
         runtimeCaching: [
           {
-            // Public Supabase storage assets (article media, posters, avatars).
+            // Videos in Supabase storage MUST bypass the SW cache entirely.
+            // Workbox's StaleWhileRevalidate fetches the full body and serves
+            // 200 OK from cache, but <video> elements issue Range requests
+            // and expect 206 Partial Content. Caching breaks playback.
+            // NetworkOnly lets the request flow straight through to the
+            // network so the browser can negotiate ranges normally.
+            urlPattern: ({ url }) =>
+              /supabase\.co\/storage\/v1\/object\/public\//.test(url.href) &&
+              /\.(mp4|webm|mov|m4v|ogv)(\?|$)/i.test(url.pathname),
+            handler: 'NetworkOnly',
+          },
+          {
+            // Public Supabase storage assets (article images, posters, avatars).
             // Stale-while-revalidate gives instant repeat loads without
-            // serving forever-stale media.
+            // serving forever-stale media. Videos are excluded above.
+            // Shorter TTL than before so admin previews of draft media
+            // don't linger client-side for a week on shared devices.
             urlPattern: /^https:\/\/.*\.supabase\.co\/storage\/v1\/object\/public\/.*/,
             handler: 'StaleWhileRevalidate',
             options: {
               cacheName: 'supabase-storage',
-              expiration: { maxEntries: 200, maxAgeSeconds: 60 * 60 * 24 * 7 },
+              // 1 hour: balance between repeat-visit speed and not pinning
+              // unpublished draft media in the cache for days.
+              expiration: { maxEntries: 200, maxAgeSeconds: 60 * 60 },
               cacheableResponse: { statuses: [0, 200] },
             },
           },
@@ -42,7 +58,11 @@ export default defineConfig({
             // Google fonts CSS — small and rarely changing.
             urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/,
             handler: 'StaleWhileRevalidate',
-            options: { cacheName: 'google-fonts-css' },
+            options: {
+              cacheName: 'google-fonts-css',
+              // Don't cache 5xx responses — match the gstatic rule for consistency.
+              cacheableResponse: { statuses: [0, 200] },
+            },
           },
           {
             // Google fonts files — long-lived, immutable.

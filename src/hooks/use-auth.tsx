@@ -166,7 +166,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setRole('guest');
           resolveLoading();
         }
-      } catch (error: any) {
+      } catch (error) {
         if (!mountedRef.current || loadingResolvedRef.current) return;
         if (!isAbortError(error)) {
           console.warn("Auth session fallback failed:", error);
@@ -271,7 +271,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // No role entry and no error — user simply has no role row → 'reader'
         setRole('reader');
       }
-    } catch (error: any) {
+    } catch (error) {
       if (isAbortError(error)) {
         // If this was a self-timeout abort (not replaced by a newer call),
         // default role on initial load and let finally resolve loading.

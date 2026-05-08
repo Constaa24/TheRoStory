@@ -20,14 +20,20 @@ const heroSubtitleTransition = { delay: 0.2 } as const;
  * Build .avif / .webp counterparts from a base image path. Pages keep passing
  * the .jpg URL (so the fallback still works on every browser) and we serve
  * the smaller variant when the browser supports it.
+ *
+ * Strips query strings and fragments before splitting the extension —
+ * otherwise a Supabase signed URL like `/foo.jpg?token=abc.def` would
+ * find the dot in the token and produce a malformed `.avif` path.
  */
 const deriveImageVariants = (url: string) => {
-  const dot = url.lastIndexOf(".");
+  const queryStart = url.search(/[?#]/);
+  const base = queryStart === -1 ? url : url.slice(0, queryStart);
+  const dot = base.lastIndexOf(".");
   if (dot < 0) return { avif: url, webp: url, fallback: url };
-  const base = url.slice(0, dot);
+  const stem = base.slice(0, dot);
   return {
-    avif: `${base}.avif`,
-    webp: `${base}.webp`,
+    avif: `${stem}.avif`,
+    webp: `${stem}.webp`,
     fallback: url,
   };
 };
@@ -52,6 +58,8 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
             src={variants.fallback}
             alt=""
             aria-hidden="true"
+            width={1920}
+            height={1080}
             className="w-full h-full object-cover object-center"
             loading="eager"
             fetchPriority="high"

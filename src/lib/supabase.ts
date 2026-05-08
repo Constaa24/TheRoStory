@@ -701,8 +701,17 @@ const getAuthHeaders = async (opts?: { refresh?: boolean }): Promise<Record<stri
   return { Authorization: `Bearer ${session.access_token}` };
 };
 
-const getFunctionErrorDebug = async (error: any): Promise<{ status?: number; body?: string }> => {
-  const response = error?.context ?? error?.response;
+// Supabase function-error shape is internal (not exported by the SDK).
+// We probe the small subset we care about — `context` or `response` carrying
+// a fetch Response — without binding to a specific type.
+type SupabaseFunctionErrorLike = {
+  context?: { status?: number; clone?: () => { text: () => Promise<string> } };
+  response?: { status?: number; clone?: () => { text: () => Promise<string> } };
+};
+
+const getFunctionErrorDebug = async (error: unknown): Promise<{ status?: number; body?: string }> => {
+  const e = error as SupabaseFunctionErrorLike | null;
+  const response = e?.context ?? e?.response;
   if (!response || typeof response.status !== 'number') {
     return {};
   }
@@ -719,8 +728,9 @@ const getFunctionErrorDebug = async (error: any): Promise<{ status?: number; bod
   return { status: response.status, body };
 };
 
-const isFunction401 = (error: any): boolean => {
-  const response = error?.context ?? error?.response;
+const isFunction401 = (error: unknown): boolean => {
+  const e = error as SupabaseFunctionErrorLike | null;
+  const response = e?.context ?? e?.response;
   return response?.status === 401;
 };
 

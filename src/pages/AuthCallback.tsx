@@ -40,11 +40,19 @@ const AuthCallback: React.FC = () => {
 
     // Safety net: if every code path inside handleCallback silently early-
     // returns (e.g. an AbortError swallowed in the catch), the spinner can
-    // sit forever. Force an error state after 15s of "loading" so the user
-    // gets a real choice instead of a hung page.
+    // sit forever. Force an error state after the worst-case legitimate
+    // path duration plus a buffer.
+    //
+    // handleCallback's slowest legitimate path is exchangeCodeForSession
+    // (10s timeout) potentially followed by getSession (10s timeout) =
+    // 20s. We give it 25s before declaring it stuck.
     const stuckLoaderTimer = setTimeout(() => {
       if (!mountedRef.current) return;
       setStatus(prev => {
+        // Only flip to error if we're still loading. If success/error
+        // already landed, leave them alone — and crucially don't set
+        // errorMessage in that case, since it would persist as stale
+        // text the next time error is rendered.
         if (prev !== "loading") return prev;
         setErrorMessage(
           languageRef.current === "en"
@@ -53,7 +61,7 @@ const AuthCallback: React.FC = () => {
         );
         return "error";
       });
-    }, 15000);
+    }, 25000);
     pendingTimeouts.add(stuckLoaderTimer);
 
     const scheduleRedirect = (path: string, delayMs: number) => {
@@ -71,8 +79,9 @@ const AuthCallback: React.FC = () => {
         return await Promise.race([
           promise,
           new Promise<T>((_, reject) => {
-            timeoutId = setTimeout(() => reject(new Error(`${label} timed out. Please try again.`)), ms);
-            pendingTimeouts.add(timeoutId!);
+            const id = setTimeout(() => reject(new Error(`${label} timed out. Please try again.`)), ms);
+            timeoutId = id;
+            pendingTimeouts.add(id);
           })
         ]);
       } finally {
@@ -243,15 +252,15 @@ const AuthCallback: React.FC = () => {
             ? "The verification link is invalid or has expired."
             : "Link-ul de verificare este invalid sau a expirat."
         );
-      } catch (err: any) {
+      } catch (err) {
         if (!mountedRef.current) return;
 
-        if (err?.name === 'AbortError' || err?.message?.includes('aborted')) {
+        if (err instanceof Error && (err.name === 'AbortError' || err.message.includes('aborted'))) {
           return;
         }
 
         setStatus("error");
-        setErrorMessage(err.message || "An unexpected error occurred.");
+        setErrorMessage(err instanceof Error ? err.message : "An unexpected error occurred.");
       }
     };
 

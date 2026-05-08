@@ -179,7 +179,13 @@ const Home: React.FC = () => {
   const setCurrentPage = useCallback((updater: number | ((prev: number) => number)) => {
     setSearchParams((prev) => {
       const next = new URLSearchParams(prev);
-      const nextPage = typeof updater === 'function' ? updater(currentPage) : updater;
+      // Read the previous page from the URL params themselves, not the
+      // closed-over `currentPage` value. Rapid double-clicks before a
+      // re-render would otherwise both compute against the stale value
+      // and write the same target page twice.
+      const rawPrevPage = parseInt(prev.get("page") || "1", 10);
+      const prevPage = Number.isFinite(rawPrevPage) && rawPrevPage > 0 ? rawPrevPage : 1;
+      const nextPage = typeof updater === 'function' ? updater(prevPage) : updater;
       if (nextPage <= 1) {
         next.delete("page");
       } else {
@@ -187,7 +193,7 @@ const Home: React.FC = () => {
       }
       return next;
     }, { replace: false });
-  }, [currentPage, setSearchParams]);
+  }, [setSearchParams]);
   const [totalCount, setTotalCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [activeArticle, setActiveArticle] = useState<Article | null>(null);
@@ -305,6 +311,8 @@ const Home: React.FC = () => {
               src="/hero/castle.jpg"
               alt=""
               aria-hidden="true"
+              width={1920}
+              height={1080}
               className="w-full h-full object-cover object-center"
               loading="eager"
               fetchPriority="high"

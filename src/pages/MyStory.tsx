@@ -108,6 +108,8 @@ const MyStory: React.FC = () => {
               src="/hero/salina.jpg"
               alt=""
               aria-hidden="true"
+              width={1920}
+              height={1080}
               className="w-full h-full object-cover object-center"
               loading="eager"
               fetchPriority="high"

@@ -48,7 +48,6 @@ import {
 } from "@/components/ui/dialog";
 import {
   AlertDialog,
-  AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
@@ -105,6 +104,9 @@ const AdminDashboard: React.FC = () => {
     onConfirm: () => void | Promise<void>;
   };
   const [confirmDialog, setConfirmDialog] = useState<ConfirmConfig | null>(null);
+  // While the destructive action is in flight, both buttons disable so a
+  // user can't spam-click and dispatch N parallel deletes.
+  const [isConfirming, setIsConfirming] = useState(false);
 
   // Form states
   const [newCategory, setNewCategory] = useState({ nameEn: "", nameRo: "", slug: "" });
@@ -153,12 +155,12 @@ const AdminDashboard: React.FC = () => {
         setUsersHasMore(usersPageData.hasMore);
         setUsersLoadError(null);
       })
-      .catch((error: any) => {
+      .catch((error: unknown) => {
         if (cancelled) return;
         setAllUsers([]);
         setUsersTotal(null);
         setUsersHasMore(false);
-        const message = error?.message || "Failed to load users";
+        const message = error instanceof Error ? error.message : "Failed to load users";
         setUsersLoadError(message);
         toast.error(t("admin.users.errLoad"));
       });
@@ -226,10 +228,10 @@ const AdminDashboard: React.FC = () => {
       // Mirror the createArticle limits — the DB has length CHECKs that
       // would otherwise raise a confusing constraint-violation error.
       if (titleEn.length > ARTICLE_LIMITS.TITLE_MAX || titleRo.length > ARTICLE_LIMITS.TITLE_MAX) {
-        throw new Error(`Title exceeds ${ARTICLE_LIMITS.TITLE_MAX} characters`);
+        throw new Error(t("admin.articles.errTitleTooLong").replace("{max}", String(ARTICLE_LIMITS.TITLE_MAX)));
       }
       if ((contentEn || "").length > ARTICLE_LIMITS.CONTENT_MAX || (contentRo || "").length > ARTICLE_LIMITS.CONTENT_MAX) {
-        throw new Error(`Content exceeds ${ARTICLE_LIMITS.CONTENT_MAX} characters`);
+        throw new Error(t("admin.articles.errContentTooLong").replace("{max}", String(ARTICLE_LIMITS.CONTENT_MAX)));
       }
       // For text stories, refuse to save an article with no chapter content —
       // combineChapters() returns "" when every chapter is blank, and a
@@ -238,10 +240,15 @@ const AdminDashboard: React.FC = () => {
         throw new Error(t("admin.common.contentRequired"));
       }
       if (editingArticle.location && editingArticle.location.length > ARTICLE_LIMITS.LOCATION_MAX) {
-        throw new Error(`Location exceeds ${ARTICLE_LIMITS.LOCATION_MAX} characters`);
+        throw new Error(t("admin.articles.errLocationTooLong").replace("{max}", String(ARTICLE_LIMITS.LOCATION_MAX)));
       }
       if (editingArticle.mediaUrls && editingArticle.mediaUrls.length > ARTICLE_LIMITS.MEDIA_URLS_MAX) {
-        throw new Error(`Too many gallery images (max ${ARTICLE_LIMITS.MEDIA_URLS_MAX})`);
+        throw new Error(t("admin.articles.errTooManyGalleryImages").replace("{max}", String(ARTICLE_LIMITS.MEDIA_URLS_MAX)));
+      }
+      // A carousel without images would render the Unsplash placeholder
+      // on Home and CategoryDetail. Refuse to persist that state.
+      if (editingArticle.type === 'carousel' && (!editingArticle.mediaUrls || editingArticle.mediaUrls.length === 0)) {
+        throw new Error(t("admin.articles.carouselRequiresImages"));
       }
 
       const updates: Record<string, unknown> = {
@@ -1432,7 +1439,13 @@ const AdminDashboard: React.FC = () => {
 
       <AlertDialog
         open={confirmDialog !== null}
-        onOpenChange={(open) => { if (!open) setConfirmDialog(null); }}
+        onOpenChange={(open) => {
+          // Don't allow the dialog to close while the destructive action
+          // is still running — Radix's outside-click / Esc handler would
+          // otherwise dismiss it mid-await and leave the user with no
+          // feedback on completion.
+          if (!open && !isConfirming) setConfirmDialog(null);
+        }}
       >
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -1440,17 +1453,36 @@ const AdminDashboard: React.FC = () => {
             <AlertDialogDescription>{confirmDialog?.description}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>{confirmDialog?.cancelLabel}</AlertDialogCancel>
-            <AlertDialogAction
+            <AlertDialogCancel disabled={isConfirming}>
+              {confirmDialog?.cancelLabel}
+            </AlertDialogCancel>
+            {/* Using a plain Button (not AlertDialogAction) so Radix doesn't
+                auto-close the dialog on click — we manage close + in-flight
+                state explicitly here. */}
+            <Button
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={isConfirming}
               onClick={async () => {
                 const action = confirmDialog?.onConfirm;
-                setConfirmDialog(null);
-                if (action) await action();
+                if (!action) return;
+                setIsConfirming(true);
+                try {
+                  await action();
+                } finally {
+                  setIsConfirming(false);
+                  setConfirmDialog(null);
+                }
               }}
             >
-              {confirmDialog?.confirmLabel}
-            </AlertDialogAction>
+              {isConfirming ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  {confirmDialog?.confirmLabel}
+                </>
+              ) : (
+                confirmDialog?.confirmLabel
+              )}
+            </Button>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

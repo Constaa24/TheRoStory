@@ -102,8 +102,17 @@ const Profile: React.FC = () => {
       const added = await toggleFavorite(user.id, articleId);
       if (added) {
         // We optimistically removed it but the toggle actually re-added it
-        // (a stale state on the server, e.g.). Refresh from source.
-        await loadFavorites();
+        // (stale server state, etc). Refresh from source. Use the raw
+        // fetcher rather than `loadFavorites()` so we can react to a
+        // refetch failure instead of letting it silently set
+        // favoritesLoadError and leave the optimistic removal as final.
+        try {
+          const fresh = await fetchUserFavorites(user.id);
+          setFavorites(fresh);
+        } catch {
+          setFavorites(previousFavorites);
+          toast.error(language === 'en' ? "Failed to update favorites" : "Eroare la actualizarea favoritelor");
+        }
       } else {
         toast.success(language === 'en' ? "Removed from favorites" : "Eliminat de la favorite");
       }

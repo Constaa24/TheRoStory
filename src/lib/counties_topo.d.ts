@@ -1,6 +1,16 @@
 // Hand-written declaration for the bundled Romania counties topology.
-// The .js file is a single default-exported TopoJSON object; we keep it as
-// `any` because TopoJSON's nested arc/objects shape is not what we type
-// against (topojson-client narrows it for us at the call site).
-declare const countiesTopo: any;
+// The .js file is a single default-exported TopoJSON object.
+import type { Topology, GeometryCollection } from "topojson-specification";
+
+interface CountyProperties {
+  name: string;
+}
+
+interface CountiesTopology extends Topology {
+  objects: {
+    "romania.counties": GeometryCollection<CountyProperties>;
+  };
+}
+
+declare const countiesTopo: CountiesTopology;
 export default countiesTopo;

@@ -27,7 +27,7 @@ export function useFavorites() {
       if (mountedRef.current && fetchIdRef.current === currentFetchId) {
         setUserFavorites(data.map((f: { article_id: string }) => f.article_id));
       }
-    } catch (error: any) {
+    } catch (error) {
       if (!isAbortError(error)) {
         console.error("Error fetching favorites:", error);
       }

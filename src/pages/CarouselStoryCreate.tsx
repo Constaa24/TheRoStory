@@ -272,11 +272,19 @@ const CarouselStoryCreate: React.FC = () => {
   const updateCaption = (index: number, lang: "en" | "ro", value: string) => {
     if (index < 0 || index >= items.length) return;
     setMediaCaptions(prev => {
-      // Maintain the index/items invariant: captions array is exactly as
-      // long as items. Backfill with blanks if it has drifted shorter.
-      const next = [...prev];
-      while (next.length < items.length) next.push({ en: "", ro: "" });
-      if (next.length > items.length) next.length = items.length;
+      // Update only the targeted index. Don't try to realign the array
+      // length against `items` here — that's a closure read that races
+      // with `removeImage`/`moveImage`. Those handlers already keep the
+      // captions array in lockstep with items.
+      if (index >= prev.length) {
+        // Pad up to (and including) `index`. Caller guaranteed
+        // index < items.length above, so this can't grow past items.
+        const next = prev.slice();
+        while (next.length <= index) next.push({ en: "", ro: "" });
+        next[index] = { ...next[index], [lang]: value };
+        return next;
+      }
+      const next = prev.slice();
       next[index] = { ...next[index], [lang]: value };
       return next;
     });

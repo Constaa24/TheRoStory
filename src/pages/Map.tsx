@@ -74,16 +74,20 @@ const MapPage: React.FC = () => {
   // Process map data
   type CountyPath = { id: string; name: string; d: string; lx: number; ly: number };
   const { paths } = useMemo<{ paths: CountyPath[] }>(() => {
-    // The GeoJSON Feature type from @types/geojson expects strict property
-    // shapes that TopoJSON-derived data doesn't match. We work with `any`
-    // here and project the trusted subset back into a typed CountyPath.
-    const geojson = topojson.feature(countiesTopoData, countiesTopoData.objects["romania.counties"]) as any;
+    // topojson.feature returns FeatureCollection when given a GeometryCollection.
+    // The shim in counties_topo.d.ts pins the properties shape to {name: string}
+    // so we don't need any casts.
+    const geojson = topojson.feature(countiesTopoData, countiesTopoData.objects["romania.counties"]);
+    // Type narrowing — feature() also overloads to a single Feature when the
+    // input is one geometry. Our input is a GeometryCollection, so this is
+    // always a FeatureCollection.
+    const features = "features" in geojson ? geojson.features : [geojson];
 
     const projection = d3.geoMercator().fitSize([MAP_VIEW_W, MAP_VIEW_H], geojson);
     const pathGenerator = d3.geoPath().projection(projection);
 
-    const countyPaths: CountyPath[] = (geojson.features as any[]).map((feature: any) => {
-      let name: string = feature.properties.name;
+    const countyPaths: CountyPath[] = features.map((feature) => {
+      let name: string = feature.properties?.name ?? "";
       if (name === "SatuMare") name = "Satu Mare";
 
       const centroid = pathGenerator.centroid(feature);
@@ -177,11 +181,16 @@ const MapPage: React.FC = () => {
 
   // Safety: framer-motion can fire onAnimationStart without onAnimationComplete
   // (interrupted by a new animation, route change, etc.), leaving isAnimating
-  // permanently true and disabling map clicks. Auto-clear after the spring's
-  // natural duration plus a buffer.
+  // permanently true and disabling map clicks. Auto-clear is a backstop for
+  // that case — onAnimationComplete is the canonical "done" signal.
+  //
+  // The transition is a spring at stiffness=80/damping=15 (ratio ~0.83,
+  // underdamped). It empirically settles in ~1.1–1.4s and can briefly
+  // overshoot. 1800ms gives the spring room to fully settle without
+  // legitimate clicks racing the still-running zoom.
   useEffect(() => {
     if (!isAnimating) return;
-    const id = window.setTimeout(() => setIsAnimating(false), 900);
+    const id = window.setTimeout(() => setIsAnimating(false), 1800);
     return () => window.clearTimeout(id);
   }, [isAnimating]);
 

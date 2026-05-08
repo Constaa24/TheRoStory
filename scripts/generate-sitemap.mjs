@@ -55,12 +55,14 @@ async function fetchPublishedArticles(supabaseUrl, anonKey) {
   while (true) {
     const to = from + PAGE - 1;
     const endpoint = `${supabaseUrl}/rest/v1/articles?select=id,created_at&is_published=eq.true&order=created_at.desc`;
+    // We don't read the count anywhere; using count=exact would force a
+    // full COUNT(*) on the articles table for every paginated request.
+    // Loop termination relies on `batch.length < PAGE`.
     const res = await fetch(endpoint, {
       headers: {
         apikey: anonKey,
         Authorization: `Bearer ${anonKey}`,
         Range: `${from}-${to}`,
-        Prefer: 'count=exact',
       },
     });
     if (!res.ok) {
