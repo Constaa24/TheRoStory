@@ -1,167 +1,36 @@
 import React, { useState, useRef, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { Category, MediaCaption } from "@/lib/supabase";
-import { fetchCategories, uploadUserFile, createArticle, deleteStorageFile, ARTICLE_LIMITS } from "@/lib/supabase";
+import { fetchCategories, uploadUserFile, createArticle, updateArticle, deleteStorageFile, fetchPublicArticle, ARTICLE_LIMITS } from "@/lib/supabase";
 
 type GalleryItem = { id: string; url: string; storagePath: string | null };
 import { useLanguage } from "@/hooks/use-language";
 import { useAuth } from "@/hooks/use-auth";
 import { useUnsavedChangesWarning } from "@/hooks/use-unsaved-changes";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
-  SelectValue
+  SelectValue,
 } from "@/components/ui/select";
-import { Card } from "@/components/ui/card";
-import { ArrowLeft, Images, Loader2, Save, X, Plus, ArrowUp, ArrowDown, Star } from "lucide-react";
+import { ArrowLeft, Loader2, Save, X, Plus, ArrowUp, ArrowDown, Star } from "lucide-react";
 import { toast } from "sonner";
-import { cn, isAbortError } from "@/lib/utils";
+import { isAbortError } from "@/lib/utils";
 import { COUNTIES } from "@/lib/constants";
-
-interface GalleryGridProps {
-  items: GalleryItem[];
-  isUploading: boolean;
-  isFull: boolean;
-  addImageLabel: string;
-  galleryLabel: string;
-  coverLabel: string;
-  moveUpLabel: string;
-  moveDownLabel: string;
-  setCoverLabel: string;
-  removeLabel: string;
-  onRemove: (index: number) => void;
-  onMove: (from: number, to: number) => void;
-  onAdd: () => void;
-}
-
-const GalleryGrid = React.memo<GalleryGridProps>(({
-  items,
-  isUploading,
-  isFull,
-  addImageLabel,
-  galleryLabel,
-  coverLabel,
-  moveUpLabel,
-  moveDownLabel,
-  setCoverLabel,
-  removeLabel,
-  onRemove,
-  onMove,
-  onAdd,
-}) => (
-  <div className="grid grid-cols-2 gap-2">
-    {items.map((item, index) => {
-      const isFirst = index === 0;
-      const isLast = index === items.length - 1;
-      return (
-        <div key={item.id} className="relative group aspect-square rounded-xl overflow-hidden shadow-sm border border-border">
-          <img
-            src={item.url}
-            className="w-full h-full object-cover"
-            alt={`${galleryLabel} ${index + 1}/${items.length}`}
-            loading="lazy"
-          />
-
-          {/* Index + cover badge (always visible) */}
-          <div className="absolute bottom-2 left-2 flex items-center gap-1.5">
-            <div className="bg-black/60 text-white text-[10px] font-bold px-2 py-0.5 rounded-full backdrop-blur-sm">
-              {index + 1}
-            </div>
-            {isFirst && (
-              <div className="bg-accent text-accent-foreground text-[10px] font-bold px-2 py-0.5 rounded-full backdrop-blur-sm flex items-center gap-1">
-                <Star className="h-2.5 w-2.5 fill-current" />
-                {coverLabel}
-              </div>
-            )}
-          </div>
-
-          {/* Hover controls */}
-          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
-            <div className="flex items-center gap-1 bg-background/95 rounded-full p-1 shadow-lg">
-              <button
-                type="button"
-                onClick={() => onMove(index, index - 1)}
-                disabled={isFirst}
-                className="h-7 w-7 rounded-full flex items-center justify-center hover:bg-accent/10 disabled:opacity-30 disabled:cursor-not-allowed"
-                aria-label={moveUpLabel}
-                title={moveUpLabel}
-              >
-                <ArrowUp className="h-3.5 w-3.5" />
-              </button>
-              <button
-                type="button"
-                onClick={() => onMove(index, index + 1)}
-                disabled={isLast}
-                className="h-7 w-7 rounded-full flex items-center justify-center hover:bg-accent/10 disabled:opacity-30 disabled:cursor-not-allowed"
-                aria-label={moveDownLabel}
-                title={moveDownLabel}
-              >
-                <ArrowDown className="h-3.5 w-3.5" />
-              </button>
-              {!isFirst && (
-                <button
-                  type="button"
-                  onClick={() => onMove(index, 0)}
-                  className="h-7 w-7 rounded-full flex items-center justify-center hover:bg-accent/10"
-                  aria-label={setCoverLabel}
-                  title={setCoverLabel}
-                >
-                  <Star className="h-3.5 w-3.5" />
-                </button>
-              )}
-              <button
-                type="button"
-                onClick={() => onRemove(index)}
-                className="h-7 w-7 rounded-full flex items-center justify-center text-destructive hover:bg-destructive/10"
-                aria-label={removeLabel}
-                title={removeLabel}
-              >
-                <X className="h-3.5 w-3.5" />
-              </button>
-            </div>
-          </div>
-        </div>
-      );
-    })}
-
-    {!isFull && (
-      <button
-        className={cn(
-          "aspect-square rounded-xl border-2 border-dashed flex flex-col items-center justify-center transition-colors gap-2",
-          isUploading ? "border-accent/50 bg-accent/5" : "border-muted-foreground/20 hover:border-accent/50 hover:bg-accent/5"
-        )}
-        onClick={onAdd}
-        disabled={isUploading}
-        type="button"
-      >
-        {isUploading ? (
-          <Loader2 className="h-6 w-6 animate-spin text-accent" />
-        ) : (
-          <>
-            <Plus className="h-6 w-6 text-accent" />
-            <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">{addImageLabel}</span>
-          </>
-        )}
-      </button>
-    )}
-  </div>
-));
-GalleryGrid.displayName = "GalleryGrid";
 
 const CarouselStoryCreate: React.FC = () => {
   const { user, isAdmin } = useAuth();
   const { language, t } = useLanguage();
   const navigate = useNavigate();
-  
+  const { id: editingId } = useParams<{ id?: string }>();
+  const isEditing = !!editingId;
+
   const [categories, setCategories] = useState<Category[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isPublished, setIsPublished] = useState(false);
   const imageInputRef = useRef<HTMLInputElement>(null);
 
   // Form states
@@ -171,9 +40,6 @@ const CarouselStoryCreate: React.FC = () => {
   const [descriptionRo, setDescriptionRo] = useState("");
   const [categoryId, setCategoryId] = useState("");
   const [location, setLocation] = useState("");
-  // Track each gallery entry as an object with a stable id so React keys
-  // never collide (a duplicate or repeated URL would otherwise cause
-  // reconciliation chaos). The captions array is kept index-aligned.
   const [items, setItems] = useState<GalleryItem[]>([]);
   const [mediaCaptions, setMediaCaptions] = useState<MediaCaption[]>([]);
   const isFull = items.length >= ARTICLE_LIMITS.MEDIA_URLS_MAX;
@@ -191,29 +57,51 @@ const CarouselStoryCreate: React.FC = () => {
 
   useEffect(() => {
     let cancelled = false;
-    fetchCategories()
-      .then(cats => {
-        if (!cancelled) setCategories(cats);
-      })
-      .catch(err => {
-        if (!isAbortError(err)) console.error("Error loading categories:", err);
-      })
-      .finally(() => {
+    const loadAll = async () => {
+      try {
+        const [cats] = await Promise.all([fetchCategories()]);
+        if (cancelled) return;
+        setCategories(cats);
+        if (editingId) {
+          const { article } = await fetchPublicArticle(editingId);
+          if (cancelled) return;
+          if (!article || article.type !== 'carousel') {
+            toast.error(language === 'en' ? 'Article not found' : 'Articol negăsit');
+            navigate('/admin', { replace: true });
+            return;
+          }
+          setTitleEn(article.titleEn || '');
+          setTitleRo(article.titleRo || '');
+          setDescriptionEn(article.contentEn || '');
+          setDescriptionRo(article.contentRo || '');
+          setCategoryId(article.categoryId || '');
+          setLocation(article.location || '');
+          setIsPublished(!!article.isPublished);
+          const urls = article.mediaUrls || (article.mediaUrl ? [article.mediaUrl] : []);
+          setItems(urls.map(url => ({ id: crypto.randomUUID(), url, storagePath: null })));
+          setMediaCaptions(article.mediaCaptions && article.mediaCaptions.length === urls.length
+            ? article.mediaCaptions
+            : urls.map(() => ({ en: '', ro: '' })));
+        }
+      } catch (err) {
+        if (!isAbortError(err)) console.error('Error loading carousel data:', err);
+      } finally {
         if (!cancelled) setIsLoading(false);
-      });
+      }
+    };
+    loadAll();
     return () => { cancelled = true; };
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editingId]);
 
   const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
-
     if (!user?.id) {
       toast.error(language === 'en' ? "Not authenticated" : "Neautentificat");
       event.target.value = "";
       return;
     }
-
     if (isFull) {
       toast.error(language === 'en'
         ? `Gallery limit reached (max ${ARTICLE_LIMITS.MEDIA_URLS_MAX} images).`
@@ -221,7 +109,6 @@ const CarouselStoryCreate: React.FC = () => {
       event.target.value = "";
       return;
     }
-
     setIsUploading(true);
     try {
       const { publicUrl, storagePath } = await uploadUserFile(file, {
@@ -230,10 +117,9 @@ const CarouselStoryCreate: React.FC = () => {
         userId: user.id,
         subfolder: 'carousels',
       });
-
       setItems(prev => [...prev, { id: crypto.randomUUID(), url: publicUrl, storagePath }]);
       setMediaCaptions(prev => [...prev, { en: "", ro: "" }]);
-      toast.success(language === 'en' ? "Image uploaded successfully" : "Imagine încărcată cu succes");
+      toast.success(language === 'en' ? "Image uploaded" : "Imagine încărcată");
     } catch (error) {
       console.error("Error uploading image:", error);
       const message = error instanceof Error ? error.message : (language === 'en' ? "Error uploading image" : "Eroare la încărcarea imaginii");
@@ -248,9 +134,7 @@ const CarouselStoryCreate: React.FC = () => {
     const removed = items[index];
     setItems(prev => prev.filter((_, i) => i !== index));
     setMediaCaptions(prev => prev.filter((_, i) => i !== index));
-    if (removed?.storagePath) {
-      void deleteStorageFile('articles', removed.storagePath);
-    }
+    if (removed?.storagePath) void deleteStorageFile('articles', removed.storagePath);
   };
 
   const moveImage = (from: number, to: number) => {
@@ -272,13 +156,7 @@ const CarouselStoryCreate: React.FC = () => {
   const updateCaption = (index: number, lang: "en" | "ro", value: string) => {
     if (index < 0 || index >= items.length) return;
     setMediaCaptions(prev => {
-      // Update only the targeted index. Don't try to realign the array
-      // length against `items` here — that's a closure read that races
-      // with `removeImage`/`moveImage`. Those handlers already keep the
-      // captions array in lockstep with items.
       if (index >= prev.length) {
-        // Pad up to (and including) `index`. Caller guaranteed
-        // index < items.length above, so this can't grow past items.
         const next = prev.slice();
         while (next.length <= index) next.push({ en: "", ro: "" });
         next[index] = { ...next[index], [lang]: value };
@@ -295,33 +173,36 @@ const CarouselStoryCreate: React.FC = () => {
       toast.error(language === 'en' ? "Please fill all required fields and upload at least one image" : "Vă rugăm să completați toate câmpurile obligatorii și să încărcați cel puțin o imagine");
       return;
     }
-
     setIsSaving(true);
     try {
       const mediaUrls = items.map(i => i.url);
-      // Only persist captions if at least one has content
       const hasAnyCaption = mediaCaptions.some(c => c?.en?.trim() || c?.ro?.trim());
 
-      await createArticle({
-        type: 'carousel',
+      const payload = {
+        type: 'carousel' as const,
         titleEn,
         titleRo,
         contentEn: descriptionEn,
         contentRo: descriptionRo,
         categoryId,
-        userId: user.id,
-        isPublished: isAdmin,
         location: location || undefined,
         mediaUrl: mediaUrls[0],
         mediaUrls,
         mediaCaptions: hasAnyCaption ? mediaCaptions : undefined,
-      });
+      };
 
-      toast.success(language === 'en' ? "Carousel story created successfully!" : "Povestea de tip carusel a fost creată cu succes!");
+      if (isEditing && editingId) {
+        await updateArticle({ ...payload, id: editingId, isPublished });
+        toast.success(language === 'en' ? "Photo essay updated!" : "Eseul a fost actualizat!");
+      } else {
+        await createArticle({ ...payload, userId: user.id, isPublished: isAdmin });
+        toast.success(language === 'en' ? "Photo essay created!" : "Eseul a fost creat!");
+      }
       navigate("/admin");
     } catch (error) {
       console.error("Error saving carousel story:", error);
-      toast.error(language === 'en' ? "Error saving carousel story" : "Eroare la salvarea poveștii");
+      const message = error instanceof Error ? error.message : (language === 'en' ? "Error saving story" : "Eroare la salvarea poveștii");
+      toast.error(message);
     } finally {
       setIsSaving(false);
     }
@@ -330,238 +211,399 @@ const CarouselStoryCreate: React.FC = () => {
   if (isLoading) {
     return (
       <div className="flex h-screen items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-accent" />
+        <Loader2 className="h-8 w-8 animate-spin" style={{ color: 'var(--gold)' }} />
       </div>
     );
   }
 
-  return (
-    <div className="container mx-auto px-4 py-8 max-w-4xl animate-fade-in">
-      <Button 
-        variant="ghost" 
-        className="mb-6 rounded-full group"
-        onClick={() => navigate("/admin")}
-      >
-        <ArrowLeft className="mr-2 h-4 w-4 transition-transform group-hover:-translate-x-1" />
-        {language === 'en' ? "Back to Dashboard" : "Înapoi la Panou"}
-      </Button>
+  const captionsFilled = mediaCaptions.filter(c => c?.en?.trim() || c?.ro?.trim()).length;
 
-      <div className="flex items-center gap-4 mb-8">
-        <div className="p-3 bg-accent/10 rounded-2xl">
-          <Images className="h-8 w-8 text-accent" />
-        </div>
-        <div>
-          <h1 className="text-3xl font-serif font-black italic text-primary">
-            {language === 'en' ? "Create Carousel Story" : "Crează Poveste Carusel"}
+  return (
+    <div className="screen-anim pb-32">
+      {/* Page hero */}
+      <section style={{ padding: '60px 0 32px', borderBottom: '1px solid var(--line-soft)' }}>
+        <div className="ed-container">
+          <button
+            onClick={() => navigate('/admin')}
+            className="flex items-center gap-2 mb-6 transition-colors hover:text-gold cursor-pointer"
+            style={{ color: 'var(--text-dim)', background: 'transparent', border: 0, fontFamily: 'var(--ui)', fontSize: 11, letterSpacing: '0.18em', textTransform: 'uppercase' }}
+          >
+            <ArrowLeft className="w-3.5 h-3.5" />
+            {language === 'en' ? 'Back to dashboard' : 'Înapoi la panou'}
+          </button>
+          <div className="eyebrow mb-3">
+            {isEditing
+              ? (language === 'en' ? 'Editing · Photo essay' : 'Editare · Eseu foto')
+              : (language === 'en' ? 'New entry · Photo essay' : 'Intrare nouă · Eseu foto')}
+          </div>
+          <h1 className="font-display italic font-medium m-0" style={{ fontSize: 'clamp(48px, 7vw, 96px)', lineHeight: 0.95, letterSpacing: '-0.01em', color: 'var(--parchment)' }}>
+            {isEditing
+              ? (language === 'en' ? 'Edit photo essay.' : 'Editează eseul foto.')
+              : (language === 'en' ? 'Build a photo essay.' : 'Construiește un eseu foto.')}
           </h1>
-          <p className="text-muted-foreground">
-            {language === 'en' ? "Share a sequence of images about Romanian culture" : "Împărtășește o secvență de imagini despre cultura română"}
+          <p className="mt-5 max-w-[640px]" style={{ fontSize: 17, color: 'var(--text-dim)', lineHeight: 1.55 }}>
+            {language === 'en'
+              ? 'Order your frames as a sequence. Each image gets a caption shown beneath it on the page.'
+              : 'Ordonează cadrele ca o secvență. Fiecare imagine primește o legendă afișată sub ea în pagină.'}
           </p>
         </div>
-      </div>
+      </section>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <div className="space-y-6">
-          <Card className="p-6 border-none shadow-elegant bg-background/50 backdrop-blur-sm space-y-4">
-            <h2 className="text-xl font-serif italic mb-2">{language === 'en' ? "Story Details" : "Detalii Poveste"}</h2>
-            
-            <div className="space-y-2">
-              <label className="text-sm font-medium">{language === 'en' ? "Title (English)" : "Titlu (Engleză)"}</label>
-              <Input
-                value={titleEn}
-                onChange={(e) => setTitleEn(e.target.value)}
-                placeholder="Enter title in English"
-                maxLength={ARTICLE_LIMITS.TITLE_MAX}
-              />
-            </div>
+      <section style={{ padding: '40px 0 60px' }} className="ed-form">
+        <div className="ed-container">
+          <div className="grid grid-cols-1 lg:grid-cols-[1fr_1.4fr] gap-10 items-start">
+            {/* LEFT — meta */}
+            <div className="flex flex-col gap-7 lg:sticky lg:top-24">
+              <FormBlock title={language === 'en' ? 'Story details' : 'Detalii poveste'}>
+                <Field label={language === 'en' ? 'Title (English)' : 'Titlu (Engleză)'} required>
+                  <input
+                    type="text"
+                    value={titleEn}
+                    onChange={(e) => setTitleEn(e.target.value)}
+                    placeholder={language === 'en' ? 'Enter title in English' : 'Introdu titlul în engleză'}
+                    maxLength={ARTICLE_LIMITS.TITLE_MAX}
+                  />
+                </Field>
+                <Field label={language === 'en' ? 'Title (Romanian)' : 'Titlu (Română)'} required>
+                  <input
+                    type="text"
+                    value={titleRo}
+                    onChange={(e) => setTitleRo(e.target.value)}
+                    placeholder={language === 'en' ? 'Enter title in Romanian' : 'Introdu titlul în română'}
+                    maxLength={ARTICLE_LIMITS.TITLE_MAX}
+                  />
+                </Field>
+                <Field label={language === 'en' ? 'Category' : 'Categorie'} required>
+                  <Select value={categoryId} onValueChange={setCategoryId}>
+                    <SelectTrigger className="rounded-sm border-line bg-[color:var(--ink-2)]">
+                      <SelectValue placeholder={language === 'en' ? 'Select a category' : 'Selectează o categorie'} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {categories.map(cat => (
+                        <SelectItem key={cat.id} value={cat.id}>
+                          {language === 'en' ? cat.nameEn : cat.nameRo}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </Field>
+                <Field label={t('location.label')}>
+                  <Select value={location} onValueChange={setLocation}>
+                    <SelectTrigger className="rounded-sm border-line bg-[color:var(--ink-2)]">
+                      <SelectValue placeholder={t('location.select')} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {COUNTIES.map(county => (
+                        <SelectItem key={county} value={county}>{county}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </Field>
+              </FormBlock>
 
-            <div className="space-y-2">
-              <label className="text-sm font-medium">{language === 'en' ? "Title (Romanian)" : "Titlu (Română)"}</label>
-              <Input
-                value={titleRo}
-                onChange={(e) => setTitleRo(e.target.value)}
-                placeholder="Introdu titlul în română"
-                maxLength={ARTICLE_LIMITS.TITLE_MAX}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium">{language === 'en' ? "Category" : "Categorie"}</label>
-              <Select value={categoryId} onValueChange={setCategoryId}>
-                <SelectTrigger className="rounded-xl">
-                  <SelectValue placeholder={language === 'en' ? "Select a category" : "Selectează o categorie"} />
-                </SelectTrigger>
-                <SelectContent>
-                  {categories.map((cat) => (
-                    <SelectItem key={cat.id} value={cat.id}>
-                      {language === 'en' ? cat.nameEn : cat.nameRo}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </Card>
-
-          <Card className="p-6 border-none shadow-elegant bg-background/50 backdrop-blur-sm space-y-4">
-            <h2 className="text-xl font-serif italic mb-2">{language === 'en' ? "Description" : "Descriere"}</h2>
-            
-            <div className="space-y-2">
-              <label className="text-sm font-medium">{language === 'en' ? "Description (English)" : "Descriere (Engleză)"}</label>
-              <Textarea
-                value={descriptionEn}
-                onChange={(e) => setDescriptionEn(e.target.value)}
-                placeholder="What is this gallery about?"
-                className="min-h-[120px] rounded-xl"
-                maxLength={ARTICLE_LIMITS.CONTENT_MAX}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium">{language === 'en' ? "Description (Romanian)" : "Descriere (Română)"}</label>
-              <Textarea
-                value={descriptionRo}
-                onChange={(e) => setDescriptionRo(e.target.value)}
-                placeholder="Despre ce este această galerie?"
-                className="min-h-[120px] rounded-xl"
-                maxLength={ARTICLE_LIMITS.CONTENT_MAX}
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <label className="text-sm font-medium">{t("location.label")}</label>
-              <Select value={location} onValueChange={setLocation}>
-                <SelectTrigger className="rounded-xl">
-                  <SelectValue placeholder={t("location.select")} />
-                </SelectTrigger>
-                <SelectContent>
-                  {COUNTIES.map((county) => (
-                    <SelectItem key={county} value={county}>{county}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </Card>
-        </div>
-
-        <div className="space-y-6">
-          <Card className="p-6 border-none shadow-elegant bg-background/50 backdrop-blur-sm h-full flex flex-col">
-            <h2 className="text-xl font-serif italic mb-4">{language === 'en' ? "Images Gallery" : "Galerie Imagini"}</h2>
-            
-            <div className="flex-1 space-y-4">
-              <GalleryGrid
-                items={items}
-                isUploading={isUploading}
-                isFull={isFull}
-                addImageLabel={t("admin.addImage")}
-                galleryLabel={language === 'en' ? "Carousel image" : "Imagine carusel"}
-                coverLabel={language === 'en' ? "Cover" : "Copertă"}
-                moveUpLabel={language === 'en' ? "Move earlier" : "Mută mai devreme"}
-                moveDownLabel={language === 'en' ? "Move later" : "Mută mai târziu"}
-                setCoverLabel={language === 'en' ? "Make cover" : "Setează copertă"}
-                removeLabel={language === 'en' ? "Remove" : "Elimină"}
-                onRemove={removeImage}
-                onMove={moveImage}
-                onAdd={() => imageInputRef.current?.click()}
-              />
-
-              {isFull && (
-                <p className="text-xs text-amber-600 italic">
-                  {language === 'en'
-                    ? `Gallery limit reached (max ${ARTICLE_LIMITS.MEDIA_URLS_MAX}). Remove an image to add another.`
-                    : `Limita galeriei atinsă (maxim ${ARTICLE_LIMITS.MEDIA_URLS_MAX}). Elimină o imagine pentru a mai adăuga.`}
-                </p>
+              {isEditing && isAdmin && (
+                <FormBlock title={language === 'en' ? 'Visibility' : 'Vizibilitate'}>
+                  <label className="flex items-start gap-3 cursor-pointer select-none" style={{ marginBottom: 0 }}>
+                    <input
+                      type="checkbox"
+                      checked={isPublished}
+                      onChange={(e) => setIsPublished(e.target.checked)}
+                      className="mt-1 w-4 h-4 accent-[color:var(--gold)]"
+                    />
+                    <span style={{ flex: 1, marginBottom: 0, textTransform: 'none', letterSpacing: 'normal' }}>
+                      <span className="font-display italic block" style={{ color: 'var(--parchment)', fontSize: 17 }}>
+                        {language === 'en' ? 'Published' : 'Publicat'}
+                      </span>
+                      <span className="font-ui text-[11px] uppercase mt-1 block" style={{ letterSpacing: '0.15em', color: 'var(--text-mute)' }}>
+                        {language === 'en' ? 'Toggle off to revert to draft.' : 'Dezactivează pentru a reveni la ciornă.'}
+                      </span>
+                    </span>
+                  </label>
+                </FormBlock>
               )}
 
-              <input
-                type="file" 
-                ref={imageInputRef} 
-                onChange={handleImageUpload} 
-                accept="image/*" 
-                className="hidden" 
-              />
-
-              <div className="p-4 bg-accent/5 rounded-2xl border border-accent/10">
-                <p className="text-xs text-muted-foreground leading-relaxed">
-                  <Images className="h-3 w-3 inline mr-1 text-accent" />
-                  {language === 'en'
-                    ? "Hover any image to reorder, set as cover, or remove. The first image is used as the cover."
-                    : "Plasează cursorul peste o imagine pentru a o reordona, seta ca și copertă sau elimina. Prima imagine este folosită ca și copertă."}
+              <FormBlock title={language === 'en' ? 'Description (dek)' : 'Descriere (subtitlu)'}>
+                <p className="font-ui text-[11px] uppercase mb-2" style={{ letterSpacing: '0.15em', color: 'var(--text-mute)' }}>
+                  {language === 'en' ? 'Used as the lead paragraph above the photos.' : 'Folosit ca paragraf principal deasupra fotografiilor.'}
                 </p>
+                <Field label={language === 'en' ? 'English' : 'Engleză'}>
+                  <textarea
+                    value={descriptionEn}
+                    onChange={(e) => setDescriptionEn(e.target.value)}
+                    placeholder={language === 'en' ? 'What is this gallery about?' : 'Despre ce este această galerie?'}
+                    rows={4}
+                    maxLength={ARTICLE_LIMITS.CONTENT_MAX}
+                    style={{ resize: 'vertical' }}
+                  />
+                </Field>
+                <Field label={language === 'en' ? 'Romanian' : 'Română'}>
+                  <textarea
+                    value={descriptionRo}
+                    onChange={(e) => setDescriptionRo(e.target.value)}
+                    placeholder={language === 'en' ? 'What is this gallery about?' : 'Despre ce este această galerie?'}
+                    rows={4}
+                    maxLength={ARTICLE_LIMITS.CONTENT_MAX}
+                    style={{ resize: 'vertical' }}
+                  />
+                </Field>
+              </FormBlock>
+            </div>
+
+            {/* RIGHT — frames */}
+            <div className="flex flex-col gap-6">
+              <div className="flex items-end justify-between mb-1">
+                <div>
+                  <div className="eyebrow mb-2">{language === 'en' ? 'Frames' : 'Cadre'}</div>
+                  <h2 className="font-display italic m-0" style={{ fontSize: 32, lineHeight: 1.1, color: 'var(--parchment)' }}>
+                    {items.length === 0
+                      ? (language === 'en' ? 'Add your first image.' : 'Adaugă prima imagine.')
+                      : (language === 'en' ? `${items.length} frame${items.length === 1 ? '' : 's'}.` : `${items.length} ${items.length === 1 ? 'cadru' : 'cadre'}.`)}
+                  </h2>
+                </div>
+                {items.length > 0 && (
+                  <div className="font-ui text-[11px] uppercase text-right" style={{ letterSpacing: '0.18em', color: 'var(--text-mute)' }}>
+                    <div><span style={{ color: 'var(--gold)' }}>{captionsFilled}</span> / {items.length}</div>
+                    <div style={{ marginTop: 2 }}>{language === 'en' ? 'with caption' : 'cu legendă'}</div>
+                  </div>
+                )}
               </div>
 
-              {/* Per-image captions — optional, shown beneath the gallery */}
-              {items.length > 0 && (
-                <div className="space-y-3 pt-2">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-sm font-bold uppercase tracking-wider text-accent">
-                      {language === 'en' ? "Image Captions" : "Legende imagini"}
-                    </h3>
-                    <span className="text-[10px] uppercase tracking-widest text-muted-foreground font-bold">
-                      {language === 'en' ? "Optional" : "Opțional"}
-                    </span>
-                  </div>
-                  <p className="text-xs text-muted-foreground italic">
-                    {language === 'en'
-                      ? "A short line shown beneath each image when readers view the story."
-                      : "O linie scurtă afișată sub fiecare imagine când cititorii văd povestea."}
-                  </p>
-                  <div className="space-y-3">
-                    {items.map((item, index) => {
-                      const caption = mediaCaptions[index] ?? { en: "", ro: "" };
-                      return (
-                        <div key={item.id} className="flex items-start gap-3 p-3 rounded-xl bg-background/40 border border-border/40">
-                          <div className="relative h-14 w-14 rounded-lg overflow-hidden shrink-0 border border-border">
-                            <img src={item.url} alt="" className="w-full h-full object-cover" />
-                            <span className="absolute bottom-0.5 left-0.5 bg-black/60 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full">
-                              {index + 1}
+              <input
+                type="file"
+                ref={imageInputRef}
+                onChange={handleImageUpload}
+                accept="image/*"
+                className="hidden"
+              />
+
+              {/* Frame list — image LEFT, captions RIGHT */}
+              <div className="flex flex-col gap-4">
+                {items.map((item, index) => {
+                  const isFirst = index === 0;
+                  const isLast = index === items.length - 1;
+                  const caption = mediaCaptions[index] ?? { en: '', ro: '' };
+                  return (
+                    <div
+                      key={item.id}
+                      className="grid grid-cols-1 md:grid-cols-[180px_1fr] gap-5 p-4"
+                      style={{ border: '1px solid var(--line)', background: 'var(--overlay-panel-soft)' }}
+                    >
+                      {/* Image + index + reorder controls */}
+                      <div className="relative">
+                        <div className="ph relative overflow-hidden" data-tone="warm" style={{ aspectRatio: '1/1' }}>
+                          <img
+                            src={item.url}
+                            alt=""
+                            className="absolute inset-0 w-full h-full object-cover"
+                            loading="lazy"
+                          />
+                          <div className="absolute bottom-2 left-2 flex items-center gap-1.5">
+                            <span
+                              className="font-ui text-[10px]"
+                              style={{
+                                background: 'var(--overlay-dark)',
+                                color: 'var(--gold)',
+                                padding: '3px 8px',
+                                letterSpacing: '0.15em',
+                                border: '1px solid var(--gold)',
+                              }}
+                            >
+                              {String(index + 1).padStart(2, '0')}
                             </span>
-                          </div>
-                          <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-2 min-w-0">
-                            <Input
-                              placeholder={language === 'en' ? "Caption (English)" : "Legendă (Engleză)"}
-                              value={caption.en}
-                              onChange={e => updateCaption(index, "en", e.target.value)}
-                              className="text-sm"
-                              maxLength={200}
-                            />
-                            <Input
-                              placeholder={language === 'en' ? "Caption (Romanian)" : "Legendă (Română)"}
-                              value={caption.ro}
-                              onChange={e => updateCaption(index, "ro", e.target.value)}
-                              className="text-sm"
-                              maxLength={200}
-                            />
+                            {isFirst && (
+                              <span
+                                className="font-ui text-[9px] flex items-center gap-1"
+                                style={{
+                                  background: 'var(--gold)',
+                                  color: 'var(--ink)',
+                                  padding: '3px 8px',
+                                  letterSpacing: '0.15em',
+                                  textTransform: 'uppercase',
+                                }}
+                              >
+                                <Star className="w-2.5 h-2.5 fill-current" />
+                                {language === 'en' ? 'Cover' : 'Copertă'}
+                              </span>
+                            )}
                           </div>
                         </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-            </div>
+                        {/* Reorder rail */}
+                        <div className="flex items-center justify-between mt-2 gap-1">
+                          <button
+                            type="button"
+                            onClick={() => moveImage(index, index - 1)}
+                            disabled={isFirst}
+                            aria-label={language === 'en' ? 'Move earlier' : 'Mută mai devreme'}
+                            className="grid w-7 h-7 place-items-center rounded-full transition-colors disabled:opacity-30 disabled:cursor-not-allowed hover:text-gold"
+                            style={{ border: '1px solid var(--line)', background: 'transparent', color: 'var(--text)' }}
+                          >
+                            <ArrowUp className="w-3 h-3" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => moveImage(index, index + 1)}
+                            disabled={isLast}
+                            aria-label={language === 'en' ? 'Move later' : 'Mută mai târziu'}
+                            className="grid w-7 h-7 place-items-center rounded-full transition-colors disabled:opacity-30 disabled:cursor-not-allowed hover:text-gold"
+                            style={{ border: '1px solid var(--line)', background: 'transparent', color: 'var(--text)' }}
+                          >
+                            <ArrowDown className="w-3 h-3" />
+                          </button>
+                          {!isFirst && (
+                            <button
+                              type="button"
+                              onClick={() => moveImage(index, 0)}
+                              aria-label={language === 'en' ? 'Set as cover' : 'Setează copertă'}
+                              className="grid w-7 h-7 place-items-center rounded-full transition-colors hover:text-gold"
+                              style={{ border: '1px solid var(--line)', background: 'transparent', color: 'var(--text)' }}
+                            >
+                              <Star className="w-3 h-3" />
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => removeImage(index)}
+                            aria-label={language === 'en' ? 'Remove' : 'Elimină'}
+                            className="grid w-7 h-7 place-items-center rounded-full transition-colors"
+                            style={{ border: '1px solid var(--line)', background: 'transparent', color: 'var(--oxblood-2)' }}
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </div>
+                      </div>
 
-            <Button
-              className="w-full mt-6 rounded-full h-12 text-lg font-serif italic"
-              disabled={isSaving || isUploading || items.length === 0}
-              onClick={handleSave}
-            >
-              {isSaving ? (
-                <>
-                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                  {language === 'en' ? "Saving Story..." : "Se salvează..."}
-                </>
-              ) : (
-                <>
-                  <Save className="mr-2 h-5 w-5" />
-                  {language === 'en' ? "Publish Carousel Story" : "Publică Povestea Carusel"}
-                </>
-              )}
-            </Button>
-          </Card>
+                      {/* Caption inputs — placed beside the image so the user
+                          fills them while the frame is still in view. */}
+                      <div className="flex flex-col gap-3 min-w-0">
+                        <div className="flex items-center justify-between">
+                          <span className="eyebrow">
+                            {language === 'en' ? `Caption · Frame ${index + 1}` : `Legendă · Cadru ${index + 1}`}
+                          </span>
+                          <span className="font-ui text-[10px] uppercase" style={{ letterSpacing: '0.15em', color: 'var(--text-mute)' }}>
+                            {language === 'en' ? 'Optional' : 'Opțional'}
+                          </span>
+                        </div>
+                        <Field label={language === 'en' ? 'English caption' : 'Legendă engleză'} compact>
+                          <input
+                            type="text"
+                            placeholder={language === 'en' ? 'A short line shown beneath this image…' : 'O linie scurtă afișată sub această imagine…'}
+                            value={caption.en}
+                            onChange={(e) => updateCaption(index, 'en', e.target.value)}
+                            maxLength={200}
+                          />
+                        </Field>
+                        <Field label={language === 'en' ? 'Romanian caption' : 'Legendă română'} compact>
+                          <input
+                            type="text"
+                            placeholder={language === 'en' ? 'Aceeași linie scurtă, în română…' : 'Aceeași linie scurtă, în română…'}
+                            value={caption.ro}
+                            onChange={(e) => updateCaption(index, 'ro', e.target.value)}
+                            maxLength={200}
+                          />
+                        </Field>
+                      </div>
+                    </div>
+                  );
+                })}
+
+                {!isFull && (
+                  <button
+                    type="button"
+                    onClick={() => imageInputRef.current?.click()}
+                    disabled={isUploading}
+                    className="w-full flex flex-col items-center justify-center gap-3 py-12 cursor-pointer transition-colors"
+                    style={{
+                      border: '2px dashed var(--line)',
+                      background: isUploading ? 'rgba(201,169,110,0.05)' : 'transparent',
+                      color: 'var(--text-dim)',
+                    }}
+                  >
+                    {isUploading ? (
+                      <Loader2 className="w-6 h-6 animate-spin" style={{ color: 'var(--gold)' }} />
+                    ) : (
+                      <>
+                        <Plus className="w-6 h-6" style={{ color: 'var(--gold)' }} />
+                        <span className="font-ui text-[11px] uppercase" style={{ letterSpacing: '0.18em' }}>
+                          {language === 'en' ? `Add image (${items.length}/${ARTICLE_LIMITS.MEDIA_URLS_MAX})` : `Adaugă imagine (${items.length}/${ARTICLE_LIMITS.MEDIA_URLS_MAX})`}
+                        </span>
+                      </>
+                    )}
+                  </button>
+                )}
+
+                {isFull && (
+                  <p className="font-ui text-[11px] uppercase" style={{ letterSpacing: '0.15em', color: 'var(--oxblood-2)' }}>
+                    {language === 'en'
+                      ? `Gallery limit reached (max ${ARTICLE_LIMITS.MEDIA_URLS_MAX}). Remove an image to add another.`
+                      : `Limita galeriei atinsă (maxim ${ARTICLE_LIMITS.MEDIA_URLS_MAX}). Elimină o imagine pentru a mai adăuga.`}
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Sticky save bar */}
+      <div
+        className="fixed bottom-0 left-0 right-0 z-30"
+        style={{
+          borderTop: '1px solid var(--line)',
+          background: 'var(--overlay-nav)',
+          backdropFilter: 'blur(14px)',
+          WebkitBackdropFilter: 'blur(14px)',
+        }}
+      >
+        <div className="ed-container py-4 flex items-center justify-end gap-3">
+          <button
+            onClick={() => navigate('/admin')}
+            disabled={isSaving}
+            className="font-ui text-[11px] uppercase cursor-pointer transition-colors hover:text-gold"
+            style={{ background: 'transparent', border: 0, color: 'var(--text-dim)', letterSpacing: '0.18em', padding: '10px 18px' }}
+          >
+            {language === 'en' ? 'Cancel' : 'Anulează'}
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={isSaving || isUploading || items.length === 0}
+            className="btn-ed"
+            style={{ opacity: isSaving || isUploading || items.length === 0 ? 0.5 : 1 }}
+          >
+            {isSaving ? (
+              <>
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                {language === 'en' ? 'Saving…' : 'Se salvează…'}
+              </>
+            ) : (
+              <>
+                <Save className="w-3.5 h-3.5" />
+                {isEditing
+                  ? (language === 'en' ? 'Save changes' : 'Salvează modificările')
+                  : (language === 'en' ? 'Publish photo essay' : 'Publică eseul')}
+              </>
+            )}
+          </button>
         </div>
       </div>
     </div>
   );
 };
+
+const FormBlock: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => (
+  <div className="flex flex-col gap-4 p-6" style={{ border: '1px solid var(--line)', background: 'var(--overlay-panel-soft)' }}>
+    <div className="eyebrow">{title}</div>
+    {children}
+  </div>
+);
+
+const Field: React.FC<{ label: string; required?: boolean; compact?: boolean; children: React.ReactNode }> = ({ label, required, compact, children }) => (
+  <div className={compact ? '' : 'flex flex-col'}>
+    <label style={{ marginBottom: compact ? 4 : 8 }}>
+      {label}
+      {required && <span style={{ color: 'var(--oxblood-2)', marginLeft: 4 }}>*</span>}
+    </label>
+    {children}
+  </div>
+);
 
 export default CarouselStoryCreate;

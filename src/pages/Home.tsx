@@ -2,158 +2,153 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Category, Article, getLocalized, fetchCategories, fetchArticlesPage, fetchRandomArticle } from "@/lib/supabase";
 import { useLanguage } from "@/hooks/use-language";
 import { useFavorites } from "@/hooks/use-favorites";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
-import { StoryThumbnail } from "@/components/ui/story-thumbnail";
-import { ParchmentArticle } from "@/components/organisms/ParchmentArticle";
-import { motion, AnimatePresence } from "framer-motion";
-import { ChevronRight, ChevronLeft, BookOpen, Heart, Video, MapPin, Images } from "lucide-react";
+import { ChevronRight, ChevronLeft, ArrowRight, Heart, Play, Images } from "lucide-react";
 import { cn, isAbortError } from "@/lib/utils";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { PageHead } from "@/components/layout/PageHead";
 import { SITE_NAME, SITE_URL } from "@/lib/constants";
 
 const PAGE_SIZE = 9;
-const FALLBACK_IMAGE_URL = "https://images.unsplash.com/photo-1701118737005-005fc66703be?q=80&w=800";
 
-// Extracted animation variants to avoid re-creating objects on every render
-const fadeScaleIn = { initial: { opacity: 0, scale: 0.9 }, animate: { opacity: 1, scale: 1 } } as const;
-const fadeSlideUp30 = { initial: { opacity: 0, y: 30 }, animate: { opacity: 1, y: 0 } } as const;
-const fadeSlideUp20 = { initial: { opacity: 0, y: 20 }, animate: { opacity: 1, y: 0 } } as const;
-const heroSubtitleTransition = { delay: 0.5 } as const;
-const heroCtaTransition = { delay: 0.7 } as const;
-const cardVariants = {
-  initial: { opacity: 0, scale: 0.9, y: 20 },
-  animate: { opacity: 1, scale: 1, y: 0 },
-  exit: { opacity: 0, scale: 0.9, y: 20 },
-  transition: { duration: 0.4, ease: "easeOut" as const },
-} as const;
+// Match design tones to a stable per-article hash for visual variety in placeholders.
+const TONES = ["warm", "forest", "sky", "oxblood", "bone"] as const;
+const toneFor = (id: string) => TONES[Math.abs(hashCode(id)) % TONES.length];
+function hashCode(s: string) {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = ((h << 5) - h) + s.charCodeAt(i);
+  return h | 0;
+}
 
-interface ArticleCardProps {
+const typeLabel = (article: Article, language: 'en' | 'ro') => {
+  if (article.type === 'video') return language === 'en' ? 'Film' : 'Film';
+  if (article.type === 'carousel') return language === 'en' ? 'Photo essay' : 'Eseu foto';
+  return language === 'en' ? 'Long read' : 'Lectură';
+};
+
+const placeLabel = (article: Article) => (article.location || '').toUpperCase();
+
+// Approximate read minutes from content length
+const readMinutes = (article: Article, language: 'en' | 'ro') => {
+  const text = getLocalized(article, 'content', language);
+  const words = text.split(/\s+/).filter(Boolean).length;
+  return Math.max(3, Math.round(words / 220));
+};
+
+interface StoryCardProps {
   article: Article;
-  categoryName: string;
+  category?: Category;
   language: 'en' | 'ro';
-  t: (key: string) => string;
+  size?: 'lg' | 'wide' | 'md';
   isArticleFavorited: boolean;
   onOpen: (article: Article) => void;
   onFavoriteToggle: (e: React.MouseEvent, articleId: string) => void;
 }
 
-const ArticleCard = React.memo<ArticleCardProps>(({
-  article,
-  categoryName,
-  language,
-  t,
-  isArticleFavorited,
-  onOpen,
-  onFavoriteToggle,
-}) => {
-  return (
-  <Card
-    className="group overflow-hidden border-none shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_20px_60px_rgb(0,0,0,0.08)] transition-all duration-700 bg-secondary/5 cursor-pointer h-full flex flex-col hover:-translate-y-3 relative rounded-[2rem] md:rounded-[2.5rem]"
-    onClick={() => onOpen(article)}
-  >
-    <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none z-10">
-      <div className="absolute inset-0 bg-accent/5 mix-blend-overlay" />
-      <div className="absolute inset-0 border-2 border-accent/20 rounded-[2rem] md:rounded-[2.5rem] m-2" />
-    </div>
+const StoryCard = React.memo<StoryCardProps>(({ article, category, language, size = 'md', isArticleFavorited, onOpen, onFavoriteToggle }) => {
+  const dims = size === 'lg'
+    ? { aspect: '4/5', titleSize: 38 }
+    : size === 'wide'
+      ? { aspect: '16/10', titleSize: 28 }
+      : { aspect: '3/4', titleSize: 22 };
+  const tone = toneFor(article.id);
+  const hasMedia = !!article.mediaUrl || !!(article.mediaUrls && article.mediaUrls.length);
+  const cover = article.mediaUrl || article.posterUrl || article.mediaUrls?.[0];
 
-    <div className="aspect-[4/5] overflow-hidden relative">
-      {article.type === 'video' ? (
-        <div className="w-full h-full relative">
-          <StoryThumbnail
-            posterUrl={article.posterUrl}
-            alt={getLocalized(article, "title", language)}
-            className="w-full h-full object-cover grayscale-[0.2] group-hover:grayscale-0 group-hover:scale-110 transition-all duration-700"
-          />
-          <div className="absolute inset-0 flex items-center justify-center bg-black/20 group-hover:bg-transparent transition-colors">
-            <div className="p-4 bg-white/20 backdrop-blur-md rounded-full">
-              <Video className="h-8 w-8 text-white" />
-            </div>
-          </div>
-        </div>
-      ) : article.type === 'carousel' ? (
-        <div className="w-full h-full relative">
+  return (
+    <a
+      href="#"
+      onClick={(e) => { e.preventDefault(); onOpen(article); }}
+      className="block cursor-pointer group"
+      style={{ color: 'inherit', textDecoration: 'none' }}
+    >
+      <div
+        className="ph relative overflow-hidden"
+        data-tone={tone}
+        data-label={placeLabel(article) || (category ? getLocalized(category, 'name', language).toUpperCase() : '')}
+        style={{ aspectRatio: dims.aspect }}
+      >
+        {hasMedia && cover && (
           <img
-            src={article.mediaUrls?.[0] || article.mediaUrl || FALLBACK_IMAGE_URL}
-            alt={getLocalized(article, "title", language)}
-            className="w-full h-full object-cover grayscale-[0.2] group-hover:grayscale-0 group-hover:scale-110 transition-all duration-700"
+            src={cover}
+            alt={getLocalized(article, 'title', language)}
+            className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-[1.04]"
             loading="lazy"
+            style={{ filter: 'grayscale(0.15) contrast(1.05)' }}
           />
-          <div className="absolute inset-0 flex items-center justify-center bg-black/10 group-hover:bg-transparent transition-colors">
-            <div className="p-4 bg-white/20 backdrop-blur-md rounded-full">
-              <Images className="h-8 w-8 text-white" />
-            </div>
-          </div>
-          {article.mediaUrls && (
-            <div className="absolute bottom-4 left-4 bg-black/50 backdrop-blur-md text-white text-[10px] px-2 py-0.5 rounded-full font-sans uppercase tracking-widest">
-              {article.mediaUrls.length} {t("articles.photoCount")}
-            </div>
-          )}
-        </div>
-      ) : (
-        <img
-          src={article.mediaUrl || FALLBACK_IMAGE_URL}
-          alt={getLocalized(article, "title", language)}
-          className="w-full h-full object-cover grayscale-[0.2] group-hover:grayscale-0 group-hover:scale-110 transition-all duration-700"
-          loading="lazy"
-        />
-      )}
-      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-      <div className="absolute top-4 right-4 flex flex-col items-end gap-2">
-        <Badge className="bg-accent text-white border-none font-serif italic rounded-full px-3">
-          {categoryName}
-        </Badge>
-        {article.location && (
-          <Badge variant="outline" className="bg-white/20 text-white border-white/30 font-serif italic backdrop-blur-md flex items-center gap-1 rounded-full px-3">
-            <MapPin className="h-3 w-3" />
-            {article.location}
-          </Badge>
+        )}
+        {hasMedia && cover && (
+          <div className="absolute inset-0 pointer-events-none" style={{ background: 'var(--scrim-card)' }} />
         )}
         {article.type === 'video' && (
-          <Badge variant="outline" className="bg-white/10 text-white border-white/20 font-serif italic backdrop-blur-md rounded-full px-3">
-            {t("articles.videoBadge")}
-          </Badge>
+          <div
+            className="absolute top-4 left-4 flex items-center gap-1.5 px-2.5 py-1"
+            style={{
+              background: 'var(--overlay-dark)',
+              border: '1px solid var(--gold)',
+              color: 'var(--gold)',
+              fontFamily: 'var(--ui)',
+              fontSize: 10,
+              letterSpacing: '0.18em',
+            }}
+          >
+            <Play className="w-2.5 h-2.5" fill="currentColor" />
+            {language === 'en' ? 'FILM' : 'FILM'}
+          </div>
         )}
-        {article.type === 'carousel' && (
-          <Badge variant="outline" className="bg-white/10 text-white border-white/20 font-serif italic backdrop-blur-md rounded-full px-3">
-            {t("articles.carouselBadge")}
-          </Badge>
+        {article.type === 'carousel' && article.mediaUrls && (
+          <div
+            className="absolute top-4 left-4 flex items-center gap-1.5 px-2.5 py-1"
+            style={{
+              background: 'var(--overlay-dark)',
+              border: '1px solid var(--gold)',
+              color: 'var(--gold)',
+              fontFamily: 'var(--ui)',
+              fontSize: 10,
+              letterSpacing: '0.18em',
+            }}
+          >
+            <Images className="w-2.5 h-2.5" />
+            {article.mediaUrls.length}
+          </div>
         )}
-        <Button
-          variant="ghost"
-          size="icon"
-          className={cn(
-            "rounded-full bg-black/20 backdrop-blur-md hover:bg-black/40 transition-colors",
-            isArticleFavorited ? "text-red-500" : "text-white"
-          )}
-          onClick={(e) => onFavoriteToggle(e, article.id)}
+        <button
+          onClick={(e) => { e.stopPropagation(); onFavoriteToggle(e, article.id); }}
+          aria-label="Favorite"
+          className="absolute top-4 right-4 w-9 h-9 grid place-items-center rounded-full transition-colors"
+          style={{
+            background: 'var(--overlay-medium)',
+            border: '1px solid var(--line)',
+            color: isArticleFavorited ? 'var(--oxblood-2)' : 'var(--text)',
+            backdropFilter: 'blur(6px)',
+          }}
         >
-          <Heart className={cn("h-5 w-5", isArticleFavorited && "fill-current")} />
-        </Button>
+          <Heart className={cn('w-4 h-4', isArticleFavorited && 'fill-current')} />
+        </button>
       </div>
-    </div>
-    <CardHeader className="space-y-2 p-6 pb-2">
-      <h3 className="text-2xl font-serif font-bold text-secondary-foreground leading-tight group-hover:text-accent transition-colors">
-        {getLocalized(article, "title", language)}
-      </h3>
-    </CardHeader>
-    <CardContent className="p-6 pt-2 flex-1">
-      <p className="text-muted-foreground line-clamp-3 font-serif italic text-sm">
-        {getLocalized(article, "content", language).substring(0, 150)}...
-      </p>
-    </CardContent>
-    <CardFooter className="p-6 pt-0 border-t border-secondary-foreground/5 mt-auto">
-      <Button variant="link" className="p-0 text-accent gap-2 group/btn">
-        {t("articles.readMore")}
-        <BookOpen className="h-4 w-4 group-hover/btn:rotate-12 transition-transform" />
-      </Button>
-    </CardFooter>
-  </Card>
+
+      <div className="pt-5">
+        <div className="flex items-center gap-3.5 font-ui text-[11px] uppercase" style={{ letterSpacing: '0.18em', color: 'var(--text-mute)' }}>
+          {category && <span style={{ color: 'var(--gold)' }}>{getLocalized(category, 'name', language)}</span>}
+          {category && <span>·</span>}
+          <span>{typeLabel(article, language)}</span>
+          <span>·</span>
+          <span>{readMinutes(article, language)} {language === 'en' ? 'min read' : 'min citire'}</span>
+        </div>
+        <h3
+          className="font-display italic font-medium m-0 mt-3 mb-2"
+          style={{ fontSize: dims.titleSize, lineHeight: 1.1, color: 'var(--text)', textWrap: 'balance' as React.CSSProperties['textWrap'] }}
+        >
+          {getLocalized(article, 'title', language)}
+        </h3>
+        <p className="text-ink-dim m-0" style={{ fontSize: 16 }}>
+          {getLocalized(article, 'content', language).replace(/[#*_>`|-]/g, ' ').split('\n').filter(Boolean)[0]?.slice(0, 140)}
+          {getLocalized(article, 'content', language).length > 140 ? '…' : ''}
+        </p>
+      </div>
+    </a>
   );
 });
-ArticleCard.displayName = "ArticleCard";
+StoryCard.displayName = 'StoryCard';
 
 const Home: React.FC = () => {
   const { language, t } = useLanguage();
@@ -162,91 +157,59 @@ const Home: React.FC = () => {
   const [categories, setCategories] = useState<Category[]>([]);
   const [articles, setArticles] = useState<Article[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(() => {
-    try {
-      return localStorage.getItem("rostory_selected_category");
-    } catch {
-      return null;
-    }
+    try { return localStorage.getItem('rostory_selected_category'); } catch { return null; }
   });
   const [searchParams, setSearchParams] = useSearchParams();
-  // Page is driven by ?page=. This makes pagination URLs shareable and lets
-  // rel=prev/next link hints actually map to live URLs the app will render.
   const pageFromUrl = (() => {
-    const raw = parseInt(searchParams.get("page") || "1", 10);
+    const raw = parseInt(searchParams.get('page') || '1', 10);
     return Number.isFinite(raw) && raw > 0 ? raw : 1;
   })();
   const currentPage = pageFromUrl;
   const setCurrentPage = useCallback((updater: number | ((prev: number) => number)) => {
     setSearchParams((prev) => {
       const next = new URLSearchParams(prev);
-      // Read the previous page from the URL params themselves, not the
-      // closed-over `currentPage` value. Rapid double-clicks before a
-      // re-render would otherwise both compute against the stale value
-      // and write the same target page twice.
-      const rawPrevPage = parseInt(prev.get("page") || "1", 10);
-      const prevPage = Number.isFinite(rawPrevPage) && rawPrevPage > 0 ? rawPrevPage : 1;
+      const rawPrev = parseInt(prev.get('page') || '1', 10);
+      const prevPage = Number.isFinite(rawPrev) && rawPrev > 0 ? rawPrev : 1;
       const nextPage = typeof updater === 'function' ? updater(prevPage) : updater;
-      if (nextPage <= 1) {
-        next.delete("page");
-      } else {
-        next.set("page", String(nextPage));
-      }
+      if (nextPage <= 1) next.delete('page');
+      else next.set('page', String(nextPage));
       return next;
     }, { replace: false });
   }, [setSearchParams]);
   const [totalCount, setTotalCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
-  const [activeArticle, setActiveArticle] = useState<Article | null>(null);
 
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
+  const categoryMap = useMemo(() => new Map(categories.map((c) => [c.id, c])), [categories]);
 
-  const categoryMap = useMemo(
-    () => new Map(categories.map((c) => [c.id, c])),
-    [categories]
-  );
-
-  const handleCloseArticle = useCallback(() => setActiveArticle(null), []);
-  const handleOpenArticle = useCallback((article: Article) => setActiveArticle(article), []);
+  const handleOpenArticle = useCallback((a: Article) => navigate(`/article/${a.id}`, { state: { from: '/' } }), [navigate]);
 
   const handleRandomStory = async () => {
-    const article = await fetchRandomArticle();
-    if (article) setActiveArticle(article);
+    const a = await fetchRandomArticle();
+    if (a) navigate(`/article/${a.id}`, { state: { from: '/' } });
   };
 
   const handleCategoryChange = (catId: string | null) => {
     setSelectedCategory(catId);
     setCurrentPage(1);
-    // Bring the explore section back into view; otherwise the user is left
-    // staring at the hero while the grid silently swaps below.
-    if (typeof window !== "undefined") {
+    if (typeof window !== 'undefined') {
       window.requestAnimationFrame(() => {
         document.getElementById('explore')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
       });
     }
   };
 
-  // Fetch categories once. Previously this called fetchPublicContent(),
-  // which also fetched up to 500 articles we immediately discarded.
   useEffect(() => {
-    fetchCategories()
-      .then(setCategories)
-      .catch(() => {});
+    fetchCategories().then(setCategories).catch(() => {});
   }, []);
 
-  // Persist selected category
   useEffect(() => {
     try {
-      if (selectedCategory) {
-        localStorage.setItem("rostory_selected_category", selectedCategory);
-      } else {
-        localStorage.removeItem("rostory_selected_category");
-      }
-    } catch {
-      // Ignore browser storage restrictions
-    }
+      if (selectedCategory) localStorage.setItem('rostory_selected_category', selectedCategory);
+      else localStorage.removeItem('rostory_selected_category');
+    } catch { /* ignore */ }
   }, [selectedCategory]);
 
-  // Fetch articles page whenever page or category changes
   useEffect(() => {
     let cancelled = false;
     setIsLoading(true);
@@ -256,42 +219,41 @@ const Home: React.FC = () => {
         setArticles(articles);
         setTotalCount(total);
       })
-      .catch((error) => {
-        if (!isAbortError(error)) console.error("Error fetching articles:", error);
-      })
-      .finally(() => {
-        if (!cancelled) setIsLoading(false);
-      });
+      .catch((error) => { if (!isAbortError(error)) console.error('Error fetching articles:', error); })
+      .finally(() => { if (!cancelled) setIsLoading(false); });
     return () => { cancelled = true; };
   }, [currentPage, selectedCategory]);
 
-  const pageTitle = language === "en"
-    ? "The RoStory — Stories of Romania"
-    : "The RoStory — Povești din România";
-  const pageDescription = language === "en"
-    ? "Discover the culture, history, and traditions of Romania through visual stories — articles, videos, and photo galleries from every region."
-    : "Descoperă cultura, istoria și tradițiile României prin povești vizuale — articole, videoclipuri și galerii foto din fiecare regiune.";
+  const pageTitle = language === 'en' ? 'The RoStory — Stories of Romania' : 'The RoStory — Povești din România';
+  const pageDescription = language === 'en'
+    ? 'Discover the culture, history, and traditions of Romania through visual stories — articles, videos, and photo galleries from every region.'
+    : 'Descoperă cultura, istoria și tradițiile României prin povești vizuale — articole, videoclipuri și galerii foto din fiecare regiune.';
 
   const organizationLd = {
-    "@context": "https://schema.org",
-    "@type": "Organization",
+    '@context': 'https://schema.org',
+    '@type': 'Organization',
     name: SITE_NAME,
     url: SITE_URL,
     logo: `${SITE_URL}/logo.png`,
     sameAs: [
-      "https://www.instagram.com/therostory",
-      "https://www.tiktok.com/@therostory",
-      "https://www.youtube.com/@therostory",
+      'https://www.instagram.com/therostory',
+      'https://www.tiktok.com/@therostory',
+      'https://www.youtube.com/@therostory',
     ],
   };
 
-  // rel=prev/next for paginated home content
-  const prevPageUrl = currentPage > 1
-    ? `${SITE_URL}/?page=${currentPage - 1}`
-    : null;
-  const nextPageUrl = currentPage < totalPages
-    ? `${SITE_URL}/?page=${currentPage + 1}`
-    : null;
+  const prevPageUrl = currentPage > 1 ? `${SITE_URL}/?page=${currentPage - 1}` : null;
+  const nextPageUrl = currentPage < totalPages ? `${SITE_URL}/?page=${currentPage + 1}` : null;
+
+  // Pick lead/featured stories from the page
+  const featured = articles[0];
+  const second = articles[1];
+  const third = articles[2];
+  const latest = articles.slice(3, 9);
+
+  const tickerItems = language === 'en'
+    ? ['Dacia · Wallachia · Moldavia', '1859 — The Small Union', 'Transilvania · Bucovina · Dobrogea', 'Folktales of the Carpathians', 'Wooden churches of Maramureș', 'Salt mines beneath the Apuseni']
+    : ['Dacia · Țara Românească · Moldova', '1859 — Mica Unire', 'Transilvania · Bucovina · Dobrogea', 'Povești din Carpați', 'Bisericile de lemn din Maramureș', 'Salinele de sub Apuseni'];
 
   return (
     <>
@@ -300,238 +262,354 @@ const Home: React.FC = () => {
         {prevPageUrl && <link rel="prev" href={prevPageUrl} />}
         {nextPageUrl && <link rel="next" href={nextPageUrl} />}
       </PageHead>
-      <div className="space-y-16 animate-fade-in pb-20">
-        {/* Hero Section */}
-      <section className="relative min-h-[80vh] pt-20 flex items-center justify-center overflow-hidden">
-        <div className="absolute inset-0 transition-transform duration-1000 scale-105">
-          <picture>
-            <source type="image/avif" srcSet="/hero/castle.avif" />
-            <source type="image/webp" srcSet="/hero/castle.webp" />
-            <img
-              src="/hero/castle.jpg"
-              alt=""
-              aria-hidden="true"
-              width={1920}
-              height={1080}
-              className="w-full h-full object-cover object-center"
-              loading="eager"
-              fetchPriority="high"
-              decoding="async"
+
+      <div className="screen-anim">
+        {/* CINEMATIC HERO */}
+        <section
+          className="relative overflow-hidden"
+          style={{ height: 'calc(100vh - 76px)', minHeight: 680, borderBottom: '1px solid var(--line-soft)' }}
+        >
+          <div className="absolute inset-0">
+            <picture>
+              <source type="image/avif" srcSet="/hero/castle.avif" />
+              <source type="image/webp" srcSet="/hero/castle.webp" />
+              <img
+                src="/hero/castle.jpg"
+                alt=""
+                aria-hidden="true"
+                className="w-full h-full object-cover"
+                loading="eager"
+                fetchPriority="high"
+                decoding="async"
+                style={{ filter: 'grayscale(0.1) contrast(1.05)' }}
+              />
+            </picture>
+            <div
+              className="absolute inset-0"
+              style={{
+                background:
+                  'var(--scrim-hero)',
+              }}
             />
-          </picture>
-          <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" />
-        </div>
-        
-        <div className="relative z-10 text-center space-y-8 px-4 w-full max-w-7xl mx-auto">
-          <motion.div
-            {...fadeScaleIn}
-            className="inline-block px-4 py-1 rounded-full bg-accent/20 backdrop-blur-md border border-accent/30 text-white font-serif italic text-sm mb-4"
-          >
-            {t("hero.badge")}
-          </motion.div>
-          <motion.h1
-            {...fadeSlideUp30}
-            className="text-4xl sm:text-5xl md:text-7xl lg:text-8xl font-serif font-black text-white tracking-tight animate-parchment-reveal px-4 pb-4"
-          >
-            {t("hero.title")}
-          </motion.h1>
-          <motion.p
-            {...fadeSlideUp20}
-            transition={heroSubtitleTransition}
-            className="text-xl md:text-3xl text-white/90 font-serif italic max-w-3xl mx-auto leading-relaxed"
-          >
-            {t("hero.subtitle")}
-          </motion.p>
-          <motion.div
-            {...fadeSlideUp20}
-            transition={heroCtaTransition}
-            className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4"
-          >
-            <Button 
-              size="lg" 
-              className="rounded-full bg-accent text-white hover:bg-accent/90 px-10 h-16 text-xl shadow-lg shadow-accent/20 transition-all hover:scale-105 active:scale-95"
-              onClick={() => document.getElementById('explore')?.scrollIntoView({ behavior: 'smooth' })}
-            >
-              {t("nav.explore")} <ChevronRight className="ml-2 h-6 w-6" />
-            </Button>
-            <Button 
-              variant="outline"
-              size="lg" 
-              className="rounded-full bg-white/10 text-white border-white/30 hover:bg-white/20 backdrop-blur-md px-10 h-16 text-xl transition-all hover:scale-105 active:scale-95"
-              onClick={handleRandomStory}
-            >
-              <BookOpen className="mr-2 h-6 w-6" />
-              {t("home.randomButton")}
-            </Button>
-          </motion.div>
-        </div>
-
-        {/* Hero Bottom Fade */}
-        <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-background to-transparent z-10 pointer-events-none" />
-      </section>
-
-      {/* Explore Section */}
-      <section id="explore" className="container mx-auto px-4 space-y-16 py-12">
-        <div className="flex flex-col items-center justify-center gap-8 mb-16">
-          <div className="space-y-4 text-center">
-            <h2 className="text-4xl md:text-5xl font-serif font-black text-primary italic">
-              {t("categories.title")}
-            </h2>
-            <div className="h-1 w-24 bg-accent mx-auto rounded-full" />
           </div>
 
-          {/* Floating Category Filter */}
-          <div className="flex w-full md:w-auto overflow-x-auto pb-4 md:pb-0 hide-scrollbar -mx-4 px-4 md:mx-0 md:px-0">
-            <div className="flex flex-nowrap md:flex-wrap items-center justify-start md:justify-center p-2 bg-secondary/20 backdrop-blur-md rounded-full border border-border/40 shadow-sm mx-auto min-w-max">
-              <Button
-                variant={selectedCategory === null ? "default" : "ghost"}
-                size="sm"
-                onClick={() => handleCategoryChange(null)}
-                className={cn(
-                  "rounded-full px-6 transition-all duration-300",
-                  selectedCategory === null ? "shadow-md scale-105" : "hover:bg-accent/10"
-                )}
-              >
-                {t("home.all")}
-              </Button>
-              {categories.map((cat) => (
-                <Button
-                  key={cat.id}
-                  variant={selectedCategory === cat.id ? "default" : "ghost"}
-                  size="sm"
-                  onClick={() => handleCategoryChange(cat.id)}
-                  className={cn(
-                    "rounded-full px-6 transition-all duration-300",
-                    selectedCategory === cat.id ? "shadow-md scale-105" : "hover:bg-accent/10"
-                  )}
-                >
-                  {getLocalized(cat, "name", language)}
-                </Button>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* Article Grid */}
-        <div className="space-y-10">
-          {isLoading ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-              {[1, 2, 3, 4, 5, 6].map((i) => (
-                <div key={i} className="h-[450px] rounded-2xl bg-secondary/20 animate-pulse border border-border/10" />
-              ))}
-            </div>
-          ) : articles.length > 0 ? (
-            <>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                <AnimatePresence mode="popLayout">
-                  {articles.map((article) => (
-                    <motion.div
-                      key={article.id}
-                      initial={cardVariants.initial}
-                      animate={cardVariants.animate}
-                      exit={cardVariants.exit}
-                      transition={cardVariants.transition}
-                    >
-                      <ArticleCard
-                        article={article}
-                        categoryName={getLocalized(categoryMap.get(article.categoryId) || {}, "name", language)}
-                        language={language}
-                        t={t}
-                        isArticleFavorited={isFavorited(article.id)}
-                        onOpen={handleOpenArticle}
-                        onFavoriteToggle={handleFavoriteToggle}
-                      />
-                    </motion.div>
-                  ))}
-                </AnimatePresence>
+          <div className="ed-container relative h-full flex flex-col justify-between" style={{ paddingTop: 64, paddingBottom: 56 }}>
+            <div className="flex items-start justify-between">
+              <div className="pill">
+                <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--gold)', boxShadow: '0 0 8px var(--gold)' }} />
+                {language === 'en' ? 'An archive of the Romanian imagination' : 'O arhivă a imaginației românești'}
               </div>
-
-              {/* Pagination controls */}
-              {totalPages > 1 && (
-                <div className="flex items-center justify-center gap-4 pt-4">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="rounded-full px-6 gap-1"
-                    onClick={() => setCurrentPage((p) => p - 1)}
-                    disabled={currentPage === 1}
-                  >
-                    <ChevronLeft className="h-4 w-4" />
-                    {language === "en" ? "Previous" : "Anterior"}
-                  </Button>
-                  <span className="font-serif italic text-muted-foreground text-sm">
-                    {language === "en"
-                      ? `Page ${currentPage} of ${totalPages}`
-                      : `Pagina ${currentPage} din ${totalPages}`}
-                  </span>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="rounded-full px-6 gap-1"
-                    onClick={() => setCurrentPage((p) => p + 1)}
-                    disabled={currentPage === totalPages}
-                  >
-                    {language === "en" ? "Next" : "Următor"}
-                    <ChevronRight className="h-4 w-4" />
-                  </Button>
+              <div className="text-right font-ui text-[11px] uppercase" style={{ letterSpacing: '0.18em', color: 'var(--text-dim)' }}>
+                <div>{language === 'en' ? 'Issue No. 14' : 'Numărul 14'}</div>
+                <div className="mt-1.5" style={{ color: 'var(--gold)' }}>
+                  {language === 'en' ? 'Spring · 2026' : 'Primăvara · 2026'}
                 </div>
-              )}
-            </>
-          ) : (
-            <div className="py-24 text-center space-y-6">
-              <div className="relative inline-flex items-center justify-center w-24 h-24 rounded-full bg-accent/5 mb-4 shadow-inner ring-1 ring-border/10 backdrop-blur-sm">
-                <div className="absolute inset-0 rounded-full bg-gradient-to-tr from-accent/20 to-transparent blur-xl" />
-                <BookOpen className="h-10 w-10 text-accent/50 relative z-10" />
               </div>
-              <p className="text-2xl font-serif italic text-muted-foreground">
-                {t("articles.noArticles")}
-              </p>
-              <div className="h-px w-16 bg-border mx-auto" />
             </div>
-          )}
-        </div>
-      </section>
 
-      {/* Become a Writer CTA */}
-      <section className="container mx-auto px-4 py-24">
-        <div className="bg-accent text-white rounded-[3rem] p-12 md:p-20 flex flex-col md:flex-row items-center justify-between gap-12 relative overflow-hidden group shadow-[0_20px_60px_-15px_rgba(217,119,6,0.3)]">
-          <div className="absolute top-0 right-0 w-96 h-96 bg-white/10 rounded-full -mr-48 -mt-48 blur-3xl group-hover:bg-white/20 transition-all duration-1000" />
-          <div className="absolute bottom-0 left-0 w-64 h-64 bg-black/10 rounded-full -ml-32 -mb-32 blur-2xl group-hover:bg-black/20 transition-all duration-1000" />
-          
-          <div className="space-y-6 max-w-2xl text-center md:text-left relative z-10">
-            <h2 className="text-3xl sm:text-4xl md:text-6xl font-serif font-black italic leading-tight">
-              {language === 'en' ? "Share Your Romanian Story" : "Împărtășește Povestea Ta Românească"}
-            </h2>
-            <p className="text-xl text-white/90 font-serif italic max-w-xl">
-              {language === 'en' 
-                ? "Are you passionate about Romanian culture? Join our community of storytellers and help us preserve our heritage." 
-                : "Ești pasionat de cultura română? Alătură-te comunității noastre de povestitori și ajută-ne să ne păstrăm moștenirea."}
-            </p>
+            <div style={{ maxWidth: 980 }}>
+              <h1
+                className="font-display italic font-medium m-0"
+                style={{
+                  fontSize: 'clamp(64px, 10vw, 156px)',
+                  lineHeight: 0.92,
+                  letterSpacing: '-0.02em',
+                  color: '#f4ead7',
+                  textWrap: 'balance' as React.CSSProperties['textWrap'],
+                  whiteSpace: 'pre-line',
+                }}
+              >
+                {language === 'en'
+                  ? 'The land remembers,\nin a hundred quiet voices.'
+                  : 'Pământul își amintește,\nîn o sută de voci tăcute.'}
+              </h1>
+              <p
+                className="mt-8 max-w-[560px]"
+                style={{ fontSize: 20, lineHeight: 1.55, color: 'var(--text-dim)' }}
+              >
+                {language === 'en'
+                  ? 'A living archive of histories, traditions, and visual stories — gathered village by village, century by century, across the country we call home.'
+                  : 'O arhivă vie de istorii, tradiții și povești vizuale — adunate sat cu sat, secol cu secol, prin țara pe care o numim acasă.'}
+              </p>
+              <div className="flex items-center gap-3.5 mt-9 flex-wrap">
+                <button className="btn-ed" onClick={() => navigate('/map')}>
+                  {language === 'en' ? 'Open the map' : 'Deschide harta'}
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </button>
+                <button className="btn-ed btn-ed-ghost" onClick={() => document.getElementById('explore')?.scrollIntoView({ behavior: 'smooth' })}>
+                  {language === 'en' ? 'Browse the archive' : 'Explorează arhiva'}
+                </button>
+                <button className="btn-ed btn-ed-ghost" onClick={handleRandomStory}>
+                  {language === 'en' ? 'Random story' : 'Poveste aleatorie'}
+                </button>
+              </div>
+            </div>
           </div>
-          
-          <Button 
-            size="lg" 
-            variant="secondary" 
-            className="rounded-full px-12 h-20 text-2xl font-serif italic group relative z-10 shadow-xl hover:scale-105 active:scale-95 transition-all"
-            onClick={() => navigate('/contact-us')}
-          >
-            {language === 'en' ? "Become a Writer" : "Devino Scriitor"}
-          </Button>
-        </div>
-      </section>
-    </div>
 
-    {/* Parchment Article Viewer */}
-    <AnimatePresence>
-      {activeArticle && (
-        <ParchmentArticle
-          article={activeArticle}
-          onClose={handleCloseArticle}
-        />
-      )}
-    </AnimatePresence>
-  </>
-);
+          <div
+            className="absolute hidden md:block font-ui text-[10px] uppercase"
+            style={{
+              right: 'var(--gutter)', bottom: 140,
+              letterSpacing: '0.22em', color: 'var(--text-mute)',
+              writingMode: 'vertical-rl', transform: 'rotate(180deg)',
+            }}
+          >
+            {language === 'en' ? 'Photograph · The RoStory · Spring 2026' : 'Fotografie · The RoStory · Primăvara 2026'}
+          </div>
+        </section>
+
+        {/* TICKER */}
+        <section className="ticker overflow-hidden" style={{ borderBottom: '1px solid var(--line-soft)', padding: '22px 0', background: 'var(--overlay-ticker)' }}>
+          <div className="ticker-track">
+            {[...tickerItems, ...tickerItems, ...tickerItems].map((tx, i) => (
+              <div key={i} className="flex items-center gap-12 whitespace-nowrap" style={{ fontFamily: 'var(--display)', fontStyle: 'italic', fontSize: 22, color: 'var(--gold)' }}>
+                <span>{tx}</span>
+                <span style={{ color: 'var(--text-mute)' }}>✦</span>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* FEATURED — magazine-style spread */}
+        {featured && (
+          <section style={{ padding: '120px 0 80px' }}>
+            <div className="ed-container">
+              <SectionHeader
+                eyebrow={language === 'en' ? 'Featured this season' : 'Recomandate sezonul acesta'}
+                title={language === 'en' ? 'Three deep readings\non Romania this season.' : 'Trei lecturi profunde\ndespre România în acest sezon.'}
+                action={<span className="font-ui text-[11px] uppercase text-ink-mute" style={{ letterSpacing: '0.22em' }}>{language === 'en' ? 'Editorial selection' : 'Selecție editorială'}</span>}
+              />
+
+              <div className="grid grid-cols-1 lg:grid-cols-[1.6fr_1fr] gap-14 items-stretch">
+                <a href="#" onClick={(e) => { e.preventDefault(); handleOpenArticle(featured); }} className="block" style={{ color: 'inherit', textDecoration: 'none' }}>
+                  <div className="ph relative" data-tone={toneFor(featured.id)} data-label={placeLabel(featured)} style={{ aspectRatio: '5/6' }}>
+                    {(featured.mediaUrl || featured.posterUrl) && (
+                      <img src={featured.mediaUrl || featured.posterUrl} alt={getLocalized(featured, 'title', language)} className="absolute inset-0 w-full h-full object-cover" loading="lazy" />
+                    )}
+                    <div className="absolute left-6 top-6">
+                      <span className="pill" style={{ background: 'var(--overlay-deep)' }}>{language === 'en' ? 'Lead story' : 'Articolul principal'}</span>
+                    </div>
+                  </div>
+                  <div className="pt-7">
+                    <div className="eyebrow">
+                      {categoryMap.get(featured.categoryId) ? getLocalized(categoryMap.get(featured.categoryId)!, 'name', language) : ''} · {readMinutes(featured, language)} {language === 'en' ? 'min read' : 'min citire'}
+                    </div>
+                    <h3
+                      className="font-display italic font-medium m-0 mb-3.5 mt-5"
+                      style={{ fontSize: 'clamp(40px, 4.4vw, 60px)', lineHeight: 1.05, color: 'var(--parchment)', textWrap: 'balance' as React.CSSProperties['textWrap'] }}
+                    >
+                      {getLocalized(featured, 'title', language)}
+                    </h3>
+                    <p className="text-ink-dim m-0 max-w-[620px]" style={{ fontSize: 19, lineHeight: 1.55 }}>
+                      {getLocalized(featured, 'content', language).split('\n').filter(Boolean)[0]?.slice(0, 220)}
+                      {getLocalized(featured, 'content', language).length > 220 ? '…' : ''}
+                    </p>
+                  </div>
+                </a>
+
+                <div className="flex flex-col gap-12 justify-between">
+                  {[second, third].filter(Boolean).map(s => (
+                    <StoryCard
+                      key={s!.id}
+                      article={s!}
+                      category={categoryMap.get(s!.categoryId)}
+                      language={language}
+                      size="wide"
+                      isArticleFavorited={isFavorited(s!.id)}
+                      onOpen={handleOpenArticle}
+                      onFavoriteToggle={handleFavoriteToggle}
+                    />
+                  ))}
+                </div>
+              </div>
+            </div>
+          </section>
+        )}
+
+        {/* PULL QUOTE BREAK */}
+        <section style={{ padding: '60px 0', borderTop: '1px solid var(--line-soft)', borderBottom: '1px solid var(--line-soft)', background: 'linear-gradient(180deg, transparent, rgba(201,169,110,0.04), transparent)' }}>
+          <div className="ed-container">
+            <div className="flex items-center gap-12">
+              <div className="hidden md:block font-display italic" style={{ flex: '0 0 auto', fontSize: 64, color: 'var(--gold)', lineHeight: 1 }}>“</div>
+              <p
+                className="m-0 font-display italic"
+                style={{ fontSize: 'clamp(28px, 3vw, 40px)', lineHeight: 1.25, color: 'var(--parchment)', textWrap: 'balance' as React.CSSProperties['textWrap'] }}
+              >
+                {language === 'en'
+                  ? "We don't keep an archive because the past is finished. We keep one because it isn't."
+                  : 'Nu ținem o arhivă pentru că trecutul s-a încheiat. O ținem pentru că nu s-a încheiat.'}
+              </p>
+            </div>
+          </div>
+        </section>
+
+        {/* LATEST GRID */}
+        <section id="explore" style={{ padding: '120px 0 60px' }}>
+          <div className="ed-container">
+            <SectionHeader
+              eyebrow={language === 'en' ? 'Latest dispatches' : 'Ultimele povești'}
+              title={language === 'en' ? 'From the field.' : 'Din teren.'}
+              sub={language === 'en' ? 'New stories, fresh from the road.' : 'Povești noi, proaspete de pe drum.'}
+              action={
+                <button className="btn-ed btn-ed-ghost" onClick={() => navigate('/categories')}>
+                  {language === 'en' ? 'All categories →' : 'Toate categoriile →'}
+                </button>
+              }
+            />
+
+            {/* Category filter pills */}
+            <div className="flex flex-wrap gap-2 mb-12">
+              <button
+                onClick={() => handleCategoryChange(null)}
+                className="px-3.5 py-2 font-ui text-[11px] uppercase rounded-full cursor-pointer transition-colors"
+                style={{
+                  letterSpacing: '0.15em',
+                  border: '1px solid var(--line)',
+                  background: selectedCategory === null ? 'var(--gold)' : 'transparent',
+                  color: selectedCategory === null ? 'var(--ink)' : 'var(--text-dim)',
+                }}
+              >
+                {language === 'en' ? 'All' : 'Toate'}
+              </button>
+              {categories.map(c => (
+                <button
+                  key={c.id}
+                  onClick={() => handleCategoryChange(c.id)}
+                  className="px-3.5 py-2 font-ui text-[11px] uppercase rounded-full cursor-pointer transition-colors"
+                  style={{
+                    letterSpacing: '0.15em',
+                    border: '1px solid var(--line)',
+                    background: selectedCategory === c.id ? 'var(--gold)' : 'transparent',
+                    color: selectedCategory === c.id ? 'var(--ink)' : 'var(--text-dim)',
+                  }}
+                >
+                  {getLocalized(c, 'name', language)}
+                </button>
+              ))}
+            </div>
+
+            {isLoading ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-12 gap-y-[72px]">
+                {[1, 2, 3, 4, 5, 6].map(i => (
+                  <div key={i} style={{ aspectRatio: '3/4', border: '1px solid var(--line)', background: 'var(--ink-2)' }} className="animate-pulse" />
+                ))}
+              </div>
+            ) : (latest.length > 0 ? (
+              <>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-12 gap-y-[72px]">
+                  {latest.map(article => (
+                    <StoryCard
+                      key={article.id}
+                      article={article}
+                      category={categoryMap.get(article.categoryId)}
+                      language={language}
+                      size="md"
+                      isArticleFavorited={isFavorited(article.id)}
+                      onOpen={handleOpenArticle}
+                      onFavoriteToggle={handleFavoriteToggle}
+                    />
+                  ))}
+                </div>
+
+                {totalPages > 1 && (
+                  <div className="flex items-center justify-center gap-6 pt-12 mt-4">
+                    <button
+                      className="btn-ed btn-ed-ghost"
+                      onClick={() => setCurrentPage(p => p - 1)}
+                      disabled={currentPage === 1}
+                      style={{ opacity: currentPage === 1 ? 0.4 : 1 }}
+                    >
+                      <ChevronLeft className="w-3.5 h-3.5" />
+                      {language === 'en' ? 'Previous' : 'Anterior'}
+                    </button>
+                    <span className="font-ui text-[11px] uppercase" style={{ letterSpacing: '0.18em', color: 'var(--text-mute)' }}>
+                      {language === 'en' ? `Page ${currentPage} of ${totalPages}` : `Pagina ${currentPage} din ${totalPages}`}
+                    </span>
+                    <button
+                      className="btn-ed btn-ed-ghost"
+                      onClick={() => setCurrentPage(p => p + 1)}
+                      disabled={currentPage === totalPages}
+                      style={{ opacity: currentPage === totalPages ? 0.4 : 1 }}
+                    >
+                      {language === 'en' ? 'Next' : 'Următor'}
+                      <ChevronRight className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="py-24 text-center">
+                <div className="font-display italic text-2xl text-ink-dim">{t('articles.noArticles')}</div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* NEWSLETTER STRIP */}
+        <section
+          style={{
+            padding: '80px 0',
+            marginTop: 60,
+            background: 'linear-gradient(180deg, rgba(201,169,110,0.05), rgba(138,42,42,0.04))',
+            borderTop: '1px solid var(--line-soft)',
+            borderBottom: '1px solid var(--line-soft)',
+          }}
+        >
+          <div className="ed-container">
+            <div className="flex flex-wrap items-center justify-between gap-10">
+              <div style={{ maxWidth: 540 }}>
+                <div className="eyebrow mb-3.5">{language === 'en' ? 'The dispatch' : 'Buletinul'}</div>
+                <h3
+                  className="font-display italic font-medium m-0"
+                  style={{ fontSize: 'clamp(28px, 3vw, 44px)', lineHeight: 1.1, color: 'var(--parchment)' }}
+                >
+                  {language === 'en' ? 'One letter a month, from the road.' : 'O scrisoare pe lună, de pe drum.'}
+                </h3>
+                <p className="text-ink-dim mt-3" style={{ fontSize: 16 }}>
+                  {language === 'en' ? 'Field notes, photographs, and the occasional recipe. Free.' : 'Note de teren, fotografii și, ocazional, o rețetă. Gratuit.'}
+                </p>
+              </div>
+              <form
+                className="flex gap-2 ed-form"
+                style={{ flex: '1 1 360px', maxWidth: 520 }}
+                onSubmit={(e) => e.preventDefault()}
+              >
+                <input
+                  type="email"
+                  placeholder={language === 'en' ? 'your@email.com' : 'email@tau.ro'}
+                  style={{ flex: 1, background: 'transparent', borderRadius: 999, padding: '16px 22px' }}
+                />
+                <button type="submit" className="btn-ed">{language === 'en' ? 'Subscribe' : 'Abonează-te'}</button>
+              </form>
+            </div>
+          </div>
+        </section>
+      </div>
+
+    </>
+  );
 };
+
+const SectionHeader: React.FC<{ eyebrow?: string; title: string; sub?: string; action?: React.ReactNode }> = ({ eyebrow, title, sub, action }) => (
+  <div className="flex flex-wrap justify-between items-end gap-6 mb-12">
+    <div style={{ maxWidth: 720 }}>
+      {eyebrow && <div className="eyebrow mb-3.5">{eyebrow}</div>}
+      <h2
+        className="font-display italic font-medium m-0"
+        style={{
+          fontSize: 'clamp(36px, 5vw, 64px)',
+          lineHeight: 1.05,
+          color: 'var(--parchment)',
+          textWrap: 'balance' as React.CSSProperties['textWrap'],
+          whiteSpace: 'pre-line',
+        }}
+      >
+        {title}
+      </h2>
+      {sub && <p className="text-ink-dim mt-4 max-w-[600px]" style={{ fontSize: 18 }}>{sub}</p>}
+    </div>
+    {action}
+  </div>
+);
 
 export default Home;

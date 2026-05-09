@@ -60,6 +60,82 @@ const AuthCallback = lazy(() => import("@/pages/AuthCallback"));
 const Privacy = lazy(() => import("@/pages/Privacy"));
 const Terms = lazy(() => import("@/pages/Terms"));
 
+const EditorialFooter: React.FC<{ language: 'en' | 'ro' }> = ({ language }) => {
+  const archive = language === 'en'
+    ? ['Landmarks', 'Myths & Legends', 'History', 'Historical Figures', 'Traditions', 'Nature']
+    : ['Repere', 'Mituri & legende', 'Istorie', 'Personalități', 'Tradiții', 'Natură'];
+  const about = language === 'en'
+    ? ['Our editors', 'Contributors', 'Press kit', 'Newsletter', 'Style guide']
+    : ['Echipa', 'Contribuitori', 'Press kit', 'Newsletter', 'Ghid de stil'];
+  return (
+    <footer className="mt-32 pt-20 pb-10 border-t border-line bg-[color:var(--ink-2)]/30">
+      <div className="ed-container">
+        <div className="grid grid-cols-1 md:grid-cols-[1.4fr_1fr_1fr_1fr] gap-14 items-start">
+          <div>
+            <Link to="/" className="flex items-center gap-3">
+              <picture>
+                <source type="image/webp" srcSet="/logo.webp" />
+                <img src="/logo.png" alt="The RoStory" width={48} height={48} className="h-12 w-12 object-contain" />
+              </picture>
+              <span
+                className="font-display italic font-semibold text-[26px] leading-none"
+                style={{
+                  background: 'var(--logo-gradient)',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                  letterSpacing: '-0.01em',
+                }}
+              >
+                The RoStory
+              </span>
+            </Link>
+            <p className="text-ink-dim mt-6 max-w-[360px] text-base leading-relaxed">
+              {language === 'en'
+                ? 'A reader-supported visual archive of the histories, traditions, landscapes and people of Romania. Published from Bucharest.'
+                : 'O arhivă vizuală susținută de cititori cu istoriile, tradițiile, peisajele și oamenii României. Publicată din București.'}
+            </p>
+            <div className="mt-7">
+              <SocialLinks />
+            </div>
+          </div>
+          <FooterCol title={language === 'en' ? 'Archive' : 'Arhivă'} items={archive} />
+          <FooterCol title={language === 'en' ? 'About' : 'Despre'} items={about} />
+          <div>
+            <div className="eyebrow mb-4">{language === 'en' ? 'The fine print' : 'Detalii'}</div>
+            <ul className="list-none p-0 m-0 flex flex-col gap-3">
+              <li><Link to="/privacy" className="text-ink-dim hover:text-gold text-[15px] transition-colors">{language === 'en' ? 'Privacy policy' : 'Confidențialitate'}</Link></li>
+              <li><Link to="/terms" className="text-ink-dim hover:text-gold text-[15px] transition-colors">{language === 'en' ? 'Terms' : 'Termeni'}</Link></li>
+              <li><Link to="/contact-us" className="text-ink-dim hover:text-gold text-[15px] transition-colors">{language === 'en' ? 'Contact' : 'Contact'}</Link></li>
+            </ul>
+          </div>
+        </div>
+        <div className="rule my-14" />
+        <div className="flex flex-wrap justify-between gap-4 font-ui text-xs text-ink-mute tracking-[0.1em]">
+          <span>© {new Date().getFullYear()} The RoStory · {language === 'en' ? 'Made in Bucharest, with field notes from everywhere.' : 'Făcut în București, cu note de teren de pretutindeni.'}</span>
+          <span className="font-display italic text-base text-ink-dim max-w-md">
+            {language === 'en'
+              ? '“Storytelling is the essential human activity. The harder the situation, the more essential it is.”'
+              : '„Povestirea este activitatea umană esențială. Cu cât situația este mai grea, cu atât devine mai esențială.”'}
+          </span>
+        </div>
+      </div>
+    </footer>
+  );
+};
+
+const FooterCol: React.FC<{ title: string; items: string[] }> = ({ title, items }) => (
+  <div>
+    <div className="eyebrow mb-4">{title}</div>
+    <ul className="list-none p-0 m-0 flex flex-col gap-3">
+      {items.map(i => (
+        <li key={i}>
+          <a href="#" className="text-ink-dim hover:text-gold text-[15px] transition-colors">{i}</a>
+        </li>
+      ))}
+    </ul>
+  </div>
+);
+
 const App: React.FC = () => {
   const { isAdmin, isWriter, isLoading, user, isEmailVerified, sendVerification, isRecoveryMode } = useAuth();
   const { language } = useLanguage();
@@ -102,29 +178,29 @@ const App: React.FC = () => {
   };
 
   return (
-    <ThemedProvider attribute="class" defaultTheme="light">
+    <ThemedProvider attribute="class" defaultTheme="dark">
       <div className="min-h-screen bg-background text-foreground flex flex-col relative">
         <ScrollToTopOnRoute />
         <PaperOverlay />
         {user && !isEmailVerified && !hideAppChrome && (
-          <div className="bg-accent text-white py-2 px-4 flex items-center justify-center gap-4 text-sm font-serif italic sticky top-0 z-[60] shadow-md">
+          <div className="bg-accent text-[color:var(--ink)] py-2 px-4 flex items-center justify-center gap-4 text-sm font-display italic sticky top-0 z-[60] shadow-md">
             <div className="flex items-center gap-2">
               <AlertCircle className="h-4 w-4" />
               <span>
-                {language === 'en' 
-                  ? "Your email is not verified. Some features may be restricted." 
+                {language === 'en'
+                  ? "Your email is not verified. Some features may be restricted."
                   : "Email-ul tău nu este verificat. Unele funcționalități pot fi restricționate."}
               </span>
             </div>
-            <Button 
-              variant="link" 
-              size="sm" 
-              className="text-white underline p-0 h-auto font-bold uppercase tracking-wider text-xs"
+            <Button
+              variant="link"
+              size="sm"
+              className="text-[color:var(--ink)] underline p-0 h-auto font-bold uppercase tracking-wider text-xs"
               onClick={handleResendVerification}
               disabled={isVerifying}
             >
-              {isVerifying 
-                ? (language === 'en' ? "Sending..." : "Se trimite...") 
+              {isVerifying
+                ? (language === 'en' ? "Sending..." : "Se trimite...")
                 : (language === 'en' ? "Resend Link" : "Retrimite Link-ul")}
             </Button>
           </div>
@@ -164,11 +240,23 @@ const App: React.FC = () => {
                 element={canAccessAdmin ? <VideoStoryCreate /> : <Navigate to="/" replace />}
               />
               <Route
+                path="/admin/video-story/edit/:id"
+                element={canAccessAdmin ? <VideoStoryCreate /> : <Navigate to="/" replace />}
+              />
+              <Route
                 path="/admin/carousel-story/create"
                 element={canAccessAdmin ? <CarouselStoryCreate /> : <Navigate to="/" replace />}
               />
               <Route
+                path="/admin/carousel-story/edit/:id"
+                element={canAccessAdmin ? <CarouselStoryCreate /> : <Navigate to="/" replace />}
+              />
+              <Route
                 path="/admin/text-story/create"
+                element={canAccessAdmin ? <TextStoryCreate /> : <Navigate to="/" replace />}
+              />
+              <Route
+                path="/admin/text-story/edit/:id"
                 element={canAccessAdmin ? <TextStoryCreate /> : <Navigate to="/" replace />}
               />
               <Route
@@ -180,28 +268,7 @@ const App: React.FC = () => {
           </Suspense>
           </ErrorBoundary>
         </main>
-        {!hideAppChrome && (
-        <footer className="py-10 border-t border-border bg-secondary/30 text-center">
-          <div className="container mx-auto px-4 flex flex-col items-center gap-5">
-            <p className="font-serif text-lg italic text-secondary-foreground/70">
-              "Storytelling is the essential human activity. The harder the situation, the more essential it is."
-            </p>
-            <SocialLinks />
-            <div className="flex items-center gap-4 text-sm text-muted-foreground">
-              <Link to="/privacy" className="hover:text-accent transition-colors">
-                {language === "en" ? "Privacy Policy" : "Confidențialitate"}
-              </Link>
-              <span aria-hidden="true">·</span>
-              <Link to="/terms" className="hover:text-accent transition-colors">
-                {language === "en" ? "Terms" : "Termeni"}
-              </Link>
-            </div>
-            <p className="text-sm text-muted-foreground">
-              © {new Date().getFullYear()} The RoStory. All rights reserved.
-            </p>
-          </div>
-        </footer>
-        )}
+        {!hideAppChrome && <EditorialFooter language={language} />}
         <ScrollToTop />
       </div>
     </ThemedProvider>

@@ -3,7 +3,7 @@ import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { Article, getLocalized } from "@/lib/supabase";
 import { fetchPublicArticle, incrementView } from "@/lib/supabase";
 import { useLanguage } from "@/hooks/use-language";
-import { ParchmentArticle } from "@/components/organisms/ParchmentArticle";
+import { EditorialArticle } from "@/components/organisms/EditorialArticle";
 import { logError } from "@/lib/utils";
 import { SITE_NAME, SITE_URL } from "@/lib/constants";
 
@@ -16,11 +16,8 @@ const ArticleDetailPage: React.FC = () => {
   const [views, setViews] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Get the referrer path from location state, default to home
-  const fromState = location.state as { from?: string; category?: string; selectedLocation?: string } | null;
+  const fromState = location.state as { from?: string } | null;
   const fromPath = fromState?.from || "/";
-  const fromCategory = fromState?.category;
-  const selectedLocation = fromState?.selectedLocation;
 
   useEffect(() => {
     if (!id) return;
@@ -46,28 +43,18 @@ const ArticleDetailPage: React.FC = () => {
       }
     })();
 
-    // Increment view count on open
     incrementView(id);
 
     return () => { cancelled = true; };
-    // navigate and fromPath come from router state — including them would
-    // re-fetch on every router-state change, not when the article id changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
-  const handleClose = () => {
-    // If we came from categories with a category selected, preserve it in the URL
-    if (fromPath === "/categories" && fromCategory) {
-      navigate(`/categories?category=${fromCategory}`);
-    } else {
-      navigate(fromPath, { state: { selectedLocation } });
-    }
-  };
-
   if (isLoading) {
     return (
-      <div className="h-screen flex items-center justify-center bg-background">
-        <div className="animate-pulse text-2xl font-serif text-accent">Opening Scroll...</div>
+      <div className="h-screen flex items-center justify-center">
+        <div className="font-display italic text-2xl" style={{ color: 'var(--gold)' }}>
+          {language === 'en' ? 'Opening the page…' : 'Se deschide pagina…'}
+        </div>
       </div>
     );
   }
@@ -127,12 +114,7 @@ const ArticleDetailPage: React.FC = () => {
       <meta name="twitter:image" content={imageUrl} />
       <script type="application/ld+json">{JSON.stringify(jsonLd)}</script>
       <script type="application/ld+json">{JSON.stringify(breadcrumbLd)}</script>
-      <ParchmentArticle
-        article={article}
-        views={views}
-        incrementViewOnOpen={false}
-        onClose={handleClose}
-      />
+      <EditorialArticle article={article} views={views} />
     </>
   );
 };

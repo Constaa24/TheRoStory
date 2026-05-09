@@ -4,7 +4,6 @@ import {
   Article,
   AdminUserSummary,
   getLocalized,
-  parseChapters,
   CHAPTER_DELIMITER,
   fetchPublicContent,
   invalidatePublicContentCache,
@@ -1070,11 +1069,7 @@ const AdminDashboard: React.FC = () => {
                         {art.isPublished ? <X className="h-3.5 w-3.5" /> : <Check className="h-3.5 w-3.5" />}
                       </Button>
                     )}
-                    <Button variant="outline" size="icon" className="rounded-full h-7 w-7" onClick={() => setEditingArticle({ 
-                      ...art, 
-                      chaptersEn: (art.type === 'video' || art.type === 'carousel') ? [] : parseChapters(art.contentEn), 
-                      chaptersRo: (art.type === 'video' || art.type === 'carousel') ? [] : parseChapters(art.contentRo) 
-                    })}>
+                    <Button variant="outline" size="icon" className="rounded-full h-7 w-7" onClick={() => navigate(`/admin/${art.type === 'video' ? 'video' : art.type === 'carousel' ? 'carousel' : 'text'}-story/edit/${art.id}`)}>
                       <Edit className="h-3.5 w-3.5" />
                     </Button>
                     <Button variant="outline" size="icon" className="rounded-full h-7 w-7 text-destructive hover:text-destructive" onClick={() => requestDeleteArticle(art.id)}>
@@ -1136,15 +1131,11 @@ const AdminDashboard: React.FC = () => {
                             {art.isPublished ? <X className="h-4 w-4" /> : <Check className="h-4 w-4" />}
                           </Button>
                         )}
-                        <Button 
-                          variant="outline" 
-                          size="icon" 
+                        <Button
+                          variant="outline"
+                          size="icon"
                           className="rounded-full h-8 w-8"
-                          onClick={() => setEditingArticle({
-                            ...art,
-                            chaptersEn: (art.type === 'video' || art.type === 'carousel') ? [] : parseChapters(art.contentEn),
-                            chaptersRo: (art.type === 'video' || art.type === 'carousel') ? [] : parseChapters(art.contentRo)
-                          })}
+                          onClick={() => navigate(`/admin/${art.type === 'video' ? 'video' : art.type === 'carousel' ? 'carousel' : 'text'}-story/edit/${art.id}`)}
                         >
                           <Edit className="h-4 w-4" />
                         </Button>

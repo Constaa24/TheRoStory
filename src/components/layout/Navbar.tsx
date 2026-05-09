@@ -1,42 +1,48 @@
 import React from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/use-auth";
 import { useLanguage } from "@/hooks/use-language";
 import { useFocusTrap } from "@/hooks/use-focus-trap";
-import { Button } from "@/components/ui/button";
-import { 
-  DropdownMenu, 
-  DropdownMenuContent, 
-  DropdownMenuItem, 
-  DropdownMenuTrigger 
-} from "@/components/ui/dropdown-menu";
-import { Globe, User, Menu, X, Shield, Heart } from "lucide-react";
-import { SocialLinks } from "@/components/ui/social-links";
+import { User, Menu, X, Shield, Heart, Search, Sun, Moon, Loader2 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
-import { ThemeToggle } from "@/components/ui/theme-toggle";
-import { SearchBar } from "@/components/layout/SearchBar";
+import { useTheme } from "next-themes";
+import { Article, Category, searchArticles, fetchCategories, getLocalized } from "@/lib/supabase";
 
 export const Navbar: React.FC = () => {
   const { user, login, logout, isAdmin, isWriter } = useAuth();
   const { language, setLanguage, t } = useLanguage();
+  const { theme, setTheme } = useTheme();
   const location = useLocation();
   const [isMenuOpen, setIsMenuOpen] = React.useState(false);
+  const [profileOpen, setProfileOpen] = React.useState(false);
+  const [searchOpen, setSearchOpen] = React.useState(false);
   const mobileMenuRef = React.useRef<HTMLDivElement>(null);
-  // Trap focus inside the open mobile menu so keyboard users don't tab past
-  // it into the underlying page.
+  const profileRootRef = React.useRef<HTMLDivElement>(null);
+
   useFocusTrap(mobileMenuRef, isMenuOpen);
 
   React.useEffect(() => {
     if (!isMenuOpen) return;
-    const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setIsMenuOpen(false);
-    };
-    document.addEventListener('keydown', handleEscape);
-    return () => document.removeEventListener('keydown', handleEscape);
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setIsMenuOpen(false); };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
   }, [isMenuOpen]);
 
+  React.useEffect(() => {
+    if (!profileOpen) return;
+    const onDoc = (e: MouseEvent) => {
+      if (profileRootRef.current && !profileRootRef.current.contains(e.target as Node)) {
+        setProfileOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', onDoc);
+    return () => document.removeEventListener('mousedown', onDoc);
+  }, [profileOpen]);
+
   const showDashboard = isAdmin || isWriter;
+  const isDark = theme !== 'light';
+  const toggleTheme = () => setTheme(isDark ? 'light' : 'dark');
 
   const navLinks = [
     { name: t("nav.home"), path: "/" },
@@ -47,238 +53,540 @@ export const Navbar: React.FC = () => {
     { name: t("nav.contactUs"), path: "/contact-us" },
   ];
 
+  const initial = (user?.displayName || user?.email || 'U').charAt(0).toUpperCase();
+  const tier = language === 'en' ? 'Wanderer · Member' : 'Călător · Membru';
+
   return (
-    <div className="fixed top-0 left-0 right-0 z-50 pt-4 px-4 pointer-events-none flex justify-center">
-      <nav className="pointer-events-auto w-full max-w-7xl bg-background/80 backdrop-blur-xl border border-border/40 shadow-[0_8px_30px_rgb(0,0,0,0.08)] rounded-[2rem] transition-all duration-300">
-        <div className="px-6 py-3">
-          <div className="flex items-center justify-between w-full">
-            {/* Logo */}
-            <div className="flex-1 flex justify-start">
-              <Link to="/" className="flex items-center gap-2.5 hover:scale-105 transition-transform duration-300">
-              <picture>
-                <source type="image/webp" srcSet="/logo.webp" />
-                <img
-                  src="/logo.png"
-                  alt="The RoStory Logo"
-                  width={48}
-                  height={48}
-                  className="h-10 w-10 sm:h-12 sm:w-12 rounded-xl shrink-0 object-contain shadow-sm"
-                />
-              </picture>
-              <span className="text-xl sm:text-2xl font-serif font-black tracking-tighter text-primary whitespace-nowrap">
-                The <span className="text-accent">Ro</span>Story
-              </span>
-              </Link>
-            </div>
-
-            {/* Desktop Navigation */}
-            <div className="hidden md:flex items-center gap-6 shrink-0">
-              {navLinks.map((link) => (
-                <Link
-                  key={link.path}
-                  to={link.path}
-                  aria-current={location.pathname === link.path ? "page" : undefined}
-                  className={cn(
-                    "text-sm font-bold font-serif italic px-3 py-1.5 rounded-full transition-all duration-300 hover:bg-accent/10 whitespace-nowrap",
-                    location.pathname === link.path ? "text-accent bg-accent/5" : "text-foreground/70 hover:text-accent"
-                  )}
-                >
-                  {link.name}
-                </Link>
-              ))}
-            </div>
-
-            {/* Right Actions */}
-            <div className="hidden md:flex items-center gap-3 flex-1 justify-end">
-              <SearchBar />
-              <ThemeToggle />
-
-              {/* Language Switcher */}
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="rounded-full hover:bg-accent/10 hover:text-accent transition-colors" aria-label={t("nav.changeLanguage")}>
-                    <Globe className="h-5 w-5" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="rounded-[1.5rem] p-2 shadow-xl border-border/40 bg-background/95 backdrop-blur-md">
-                  <DropdownMenuItem 
-                    onClick={() => setLanguage("en")}
-                    className={cn("rounded-xl cursor-pointer font-serif italic transition-colors", language === "en" && "bg-accent/10 text-accent font-bold")}
-                  >
-                    English
-                  </DropdownMenuItem>
-                  <DropdownMenuItem 
-                    onClick={() => setLanguage("ro")}
-                    className={cn("rounded-xl cursor-pointer font-serif italic transition-colors", language === "ro" && "bg-accent/10 text-accent font-bold")}
-                  >
-                    Română
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-
-              {/* Auth */}
-              {user ? (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="outline" size="sm" className="gap-2 rounded-full border-border/40 hover:border-accent/40 hover:bg-accent/5 transition-all px-4 shadow-sm h-10">
-                      <Avatar className="h-6 w-6">
-                        <AvatarImage src={user.avatarUrl} alt={user.displayName || user.email || ''} />
-                        <AvatarFallback className="text-xs bg-accent/20 text-accent font-bold">
-                          {(user.displayName || user.email || "U").charAt(0).toUpperCase()}
-                        </AvatarFallback>
-                      </Avatar>
-                      <span className="text-sm font-serif italic font-bold truncate max-w-[100px]">
-                        {user.displayName || user.email}
-                      </span>
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="rounded-[1.5rem] p-2 shadow-xl border-border/40 bg-background/95 backdrop-blur-md w-56">
-                    <DropdownMenuItem asChild className="rounded-xl cursor-pointer font-serif italic mb-1">
-                      <Link to="/profile" className="flex items-center gap-2">
-                        <User className="h-4 w-4 text-accent" />
-                        {t("nav.profile")}
-                      </Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem asChild className="rounded-xl cursor-pointer font-serif italic mb-1">
-                      <Link to="/profile?tab=favorites" className="flex items-center gap-2">
-                        <Heart className="h-4 w-4 text-red-500" />
-                        {t("nav.favorites")}
-                      </Link>
-                    </DropdownMenuItem>
-                    {showDashboard && (
-                      <DropdownMenuItem asChild className="rounded-xl cursor-pointer font-serif italic mb-1">
-                        <Link to="/admin" className="flex items-center gap-2">
-                          <Shield className="h-4 w-4 text-accent" />
-                          {isAdmin ? t("nav.admin") : t("nav.dashboard")}
-                        </Link>
-                      </DropdownMenuItem>
-                    )}
-                    <div className="h-px bg-border/40 my-1 mx-2" />
-                    <DropdownMenuItem onClick={logout} className="rounded-xl cursor-pointer font-serif italic text-destructive hover:bg-destructive/10 hover:text-destructive">
-                      {t("nav.logout")}
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              ) : (
-                <Button onClick={login} variant="default" size="sm" className="rounded-full px-6 shadow-md hover:scale-105 active:scale-95 transition-all font-serif italic font-bold">
-                  {t("nav.login")}
-                </Button>
-              )}
-              
-            </div>
-
-            {/* Mobile Actions & Toggle */}
-            <div className="md:hidden flex items-center gap-2 flex-1 justify-end">
-              <SearchBar />
-
-              {user ? (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" className="rounded-full border border-border/40 p-0 overflow-hidden shadow-sm" aria-label={t("nav.userMenu")}>
-                      <Avatar className="h-9 w-9">
-                        <AvatarImage src={user.avatarUrl} alt={user.displayName || user.email || ''} />
-                        <AvatarFallback className="text-sm bg-accent/20 text-accent font-bold">
-                          {(user.displayName || user.email || "U").charAt(0).toUpperCase()}
-                        </AvatarFallback>
-                      </Avatar>
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="rounded-[1.5rem] p-2 shadow-xl border-border/40 bg-background/95 backdrop-blur-md w-56">
-                    <div className="px-3 py-2 text-sm font-serif italic font-bold border-b border-border/40 mb-2 truncate text-accent">
-                      {user.displayName || user.email}
-                    </div>
-                    <DropdownMenuItem asChild className="rounded-xl cursor-pointer font-serif italic mb-1">
-                      <Link to="/profile" className="flex items-center gap-2">
-                        <User className="h-4 w-4 text-accent" />
-                        {t("nav.profile")}
-                      </Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem asChild className="rounded-xl cursor-pointer font-serif italic mb-1">
-                      <Link to="/profile?tab=favorites" className="flex items-center gap-2">
-                        <Heart className="h-4 w-4 text-red-500" />
-                        {t("nav.favorites")}
-                      </Link>
-                    </DropdownMenuItem>
-                    {showDashboard && (
-                      <DropdownMenuItem asChild className="rounded-xl cursor-pointer font-serif italic mb-1">
-                        <Link to="/admin" className="flex items-center gap-2">
-                          <Shield className="h-4 w-4 text-accent" />
-                          {isAdmin ? t("nav.admin") : t("nav.dashboard")}
-                        </Link>
-                      </DropdownMenuItem>
-                    )}
-                    <div className="h-px bg-border/40 my-1 mx-2" />
-                    <DropdownMenuItem onClick={logout} className="rounded-xl cursor-pointer font-serif italic text-destructive hover:bg-destructive/10 hover:text-destructive">
-                      {t("nav.logout")}
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              ) : (
-                <Button onClick={login} variant="ghost" size="icon" className="rounded-full border border-border/40 shadow-sm hover:bg-accent/10 hover:text-accent transition-colors" aria-label={t("nav.login")}>
-                  <User className="h-5 w-5" />
-                </Button>
-              )}
-
-              <Button variant="ghost" size="icon" className="rounded-full hover:bg-accent/10 hover:text-accent transition-colors" onClick={() => setIsMenuOpen(!isMenuOpen)} aria-label={isMenuOpen ? t("nav.closeMenu") : t("nav.openMenu")} aria-expanded={isMenuOpen}>
-                {isMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
-              </Button>
-            </div>
-          </div>
-        </div>
-
-        {/* Mobile Menu */}
-        {isMenuOpen && (
-          <div
-            ref={mobileMenuRef}
-            role="dialog"
-            aria-modal="true"
-            aria-label={t("nav.openMenu")}
-            className="md:hidden absolute top-[calc(100%+1rem)] left-0 w-full bg-background/95 backdrop-blur-xl border border-border/40 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.2)] rounded-[2rem] py-6 px-6 flex flex-col gap-4 animate-fade-in overflow-hidden"
+    <header className="ed-nav">
+      <div className="ed-container flex items-center justify-between gap-6" style={{ padding: '18px 0', minHeight: 76 }}>
+        {/* Logo */}
+        <Link to="/" className="flex items-center gap-3 shrink-0">
+          <picture>
+            <source type="image/webp" srcSet="/logo.webp" />
+            <img src="/logo.png" alt="The RoStory" width={42} height={42} className="h-[42px] w-[42px] object-contain" />
+          </picture>
+          <span
+            className="font-display italic font-semibold text-[23px] leading-none whitespace-nowrap hidden sm:inline"
+            style={{
+              background: 'var(--logo-gradient)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              letterSpacing: '-0.01em',
+            }}
           >
-            {navLinks.map((link) => (
+            The RoStory
+          </span>
+        </Link>
+
+        {/* Desktop nav */}
+        <nav className="hidden lg:flex items-center gap-1">
+          {navLinks.map(link => {
+            const active = location.pathname === link.path || (link.path === '/' && location.pathname === '/');
+            return (
               <Link
                 key={link.path}
                 to={link.path}
-                onClick={() => setIsMenuOpen(false)}
-                aria-current={location.pathname === link.path ? "page" : undefined}
-                className={cn(
-                  "text-xl font-bold font-serif italic p-3 rounded-2xl transition-colors text-center",
-                  location.pathname === link.path ? "text-accent bg-accent/5" : "text-foreground/70 hover:text-accent hover:bg-accent/5"
-                )}
+                aria-current={active ? 'page' : undefined}
+                className="px-4 py-2.5 font-display italic font-medium text-[18px] transition-colors"
+                style={{
+                  color: active ? 'var(--gold)' : 'var(--text)',
+                  borderBottom: active ? '1px solid var(--gold)' : '1px solid transparent',
+                }}
               >
                 {link.name}
               </Link>
-            ))}
-            <div className="h-px bg-border/40 w-full my-2" />
+            );
+          })}
+        </nav>
 
-            <SocialLinks className="justify-center" />
+        {/* Right actions */}
+        <div className="flex items-center gap-2.5">
+          <button
+            onClick={() => setSearchOpen(s => !s)}
+            aria-label={language === 'en' ? 'Search' : 'Caută'}
+            className="hidden md:grid w-10 h-10 rounded-full place-items-center transition-colors hover:text-gold"
+            style={{ border: '1px solid var(--line)', background: 'transparent', color: 'var(--text)' }}
+          >
+            <Search className="w-4 h-4" />
+          </button>
 
-            <div className="h-px bg-border/40 w-full my-2" />
-
-            <div className="flex items-center justify-between px-2">
-              <div className="flex items-center gap-2 bg-secondary/20 p-1.5 rounded-full border border-border/40">
-                <Button 
-                  variant={language === "en" ? "default" : "ghost"} 
-                  size="sm" 
-                  className={cn("rounded-full font-bold", language === "en" && "shadow-sm")}
-                  onClick={() => setLanguage("en")}
+          {/* Lang toggle */}
+          <div className="hidden md:flex items-center" style={{ border: '1px solid var(--line)', borderRadius: 999, padding: 4 }}>
+            {(['en', 'ro'] as const).map(L => {
+              const active = language === L;
+              return (
+                <button
+                  key={L}
+                  onClick={() => setLanguage(L)}
+                  className="px-3 py-1.5 font-ui font-semibold text-[11px] tracking-[0.18em] rounded-full cursor-pointer transition-colors"
+                  style={{
+                    background: active ? 'var(--gold)' : 'transparent',
+                    color: active ? 'var(--ink)' : 'var(--text-dim)',
+                    border: 0,
+                  }}
                 >
-                  EN
-                </Button>
-                <Button 
-                  variant={language === "ro" ? "default" : "ghost"} 
-                  size="sm" 
-                  className={cn("rounded-full font-bold", language === "ro" && "shadow-sm")}
-                  onClick={() => setLanguage("ro")}
-                >
-                  RO
-                </Button>
+                  {L.toUpperCase()}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Theme toggle */}
+          <button
+            onClick={toggleTheme}
+            aria-label={isDark ? (language === 'en' ? 'Switch to light mode' : 'Mod luminos') : (language === 'en' ? 'Switch to dark mode' : 'Mod întunecat')}
+            className="grid w-10 h-10 rounded-full place-items-center transition-colors hover:text-gold"
+            style={{ border: '1px solid var(--line)', background: 'transparent', color: 'var(--text)' }}
+          >
+            {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+          </button>
+
+          {/* Profile / Account */}
+          <div ref={profileRootRef} className="relative">
+            <button
+              onClick={(e) => { e.stopPropagation(); setProfileOpen(o => !o); }}
+              aria-label={language === 'en' ? 'Account' : 'Cont'}
+              className="flex items-center gap-2.5 rounded-full transition-colors"
+              style={{
+                padding: user ? '4px 14px 4px 4px' : 0,
+                width: user ? 'auto' : 40,
+                height: 40,
+                border: '1px solid var(--line)',
+                background: user ? 'rgba(201,169,110,0.06)' : 'transparent',
+                color: 'var(--text)',
+                cursor: 'pointer',
+                justifyContent: user ? 'flex-start' : 'center',
+              }}
+            >
+              <span
+                className="grid place-items-center"
+                style={{
+                  width: 32,
+                  height: 32,
+                  borderRadius: '50%',
+                  background: user ? 'linear-gradient(135deg, var(--gold) 0%, var(--gold-deep) 100%)' : 'transparent',
+                  color: user ? 'var(--ink)' : 'var(--text)',
+                  fontFamily: 'var(--display)',
+                  fontStyle: 'italic',
+                  fontWeight: 600,
+                  fontSize: 14,
+                  overflow: 'hidden',
+                }}
+              >
+                {user?.avatarUrl ? (
+                  <Avatar className="h-8 w-8">
+                    <AvatarImage src={user.avatarUrl} alt={user.displayName || user.email || ''} />
+                    <AvatarFallback className="text-xs bg-transparent text-[color:var(--ink)] font-display italic font-semibold">{initial}</AvatarFallback>
+                  </Avatar>
+                ) : user ? (
+                  initial
+                ) : (
+                  <User className="w-[15px] h-[15px]" />
+                )}
+              </span>
+              {user && (
+                <span className="hidden sm:inline font-ui text-[11px] tracking-[0.15em] uppercase" style={{ color: 'var(--text-dim)' }}>
+                  {(user.displayName || user.email || '').split(' ')[0].slice(0, 12)}
+                </span>
+              )}
+            </button>
+
+            {profileOpen && (
+              <div
+                className="absolute right-0 z-[60] screen-anim"
+                style={{
+                  top: 'calc(100% + 12px)',
+                  width: 320,
+                  background: 'var(--ink-2)',
+                  border: '1px solid var(--line)',
+                  borderRadius: 4,
+                  boxShadow: 'var(--shadow-dropdown)',
+                }}
+              >
+                {user ? (
+                  <>
+                    <div className="px-6 pt-6 pb-5" style={{ borderBottom: '1px solid var(--line-soft)' }}>
+                      <div className="flex items-center gap-4">
+                        <span
+                          className="grid place-items-center overflow-hidden"
+                          style={{
+                            width: 44,
+                            height: 44,
+                            borderRadius: '50%',
+                            background: 'linear-gradient(135deg, var(--gold) 0%, var(--gold-deep) 100%)',
+                            color: 'var(--ink)',
+                            fontFamily: 'var(--display)',
+                            fontStyle: 'italic',
+                            fontWeight: 600,
+                            fontSize: 18,
+                          }}
+                        >
+                          {user.avatarUrl ? (
+                            <Avatar className="h-11 w-11">
+                              <AvatarImage src={user.avatarUrl} alt={user.displayName || user.email || ''} />
+                              <AvatarFallback className="bg-transparent text-[color:var(--ink)] font-display italic font-semibold">{initial}</AvatarFallback>
+                            </Avatar>
+                          ) : initial}
+                        </span>
+                        <div className="min-w-0">
+                          <div className="font-display italic text-[19px] truncate" style={{ color: 'var(--parchment)' }}>
+                            {user.displayName || user.email}
+                          </div>
+                          <div className="font-ui text-[10px] tracking-[0.15em] uppercase mt-0.5" style={{ color: 'var(--gold)' }}>
+                            {tier}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="py-2">
+                      <ProfileRow num={1} to="/profile" icon={<User className="w-4 h-4" />} label={t('nav.profile')} sub={language === 'en' ? 'Account & settings' : 'Cont și setări'} onNav={() => setProfileOpen(false)} />
+                      <ProfileRow num={2} to="/profile?tab=favorites" icon={<Heart className="w-4 h-4" />} label={t('nav.favorites')} sub={language === 'en' ? 'Saved stories' : 'Povești salvate'} onNav={() => setProfileOpen(false)} />
+                      {showDashboard && (
+                        <ProfileRow num={3} to="/admin" icon={<Shield className="w-4 h-4" />} label={isAdmin ? t('nav.admin') : t('nav.dashboard')} sub={language === 'en' ? 'Editorial dashboard' : 'Panou editorial'} onNav={() => setProfileOpen(false)} />
+                      )}
+                    </div>
+                    <div style={{ borderTop: '1px solid var(--line-soft)' }}>
+                      <button
+                        onClick={() => { logout(); setProfileOpen(false); }}
+                        className="w-full text-left px-6 py-3.5 font-ui text-[11px] tracking-[0.18em] uppercase cursor-pointer transition-colors"
+                        style={{ background: 'transparent', border: 0, color: 'var(--oxblood-2)' }}
+                        onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--hover-subtle)')}
+                        onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                      >
+                        {t('nav.logout')}
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <div className="p-6">
+                    <div className="eyebrow mb-2">{language === 'en' ? 'Welcome' : 'Bine ai venit'}</div>
+                    <h4 className="font-display italic font-medium text-[26px] leading-tight m-0 mb-4" style={{ color: 'var(--parchment)' }}>
+                      {language === 'en' ? 'Sign in to The RoStory.' : 'Intră în RoStory.'}
+                    </h4>
+                    <p className="text-ink-dim text-[13px] leading-relaxed m-0 mb-5">
+                      {language === 'en'
+                        ? 'Save stories, leave notes, and follow the field journals of our writers.'
+                        : 'Salvează povești, lasă notițe și urmărește jurnalele de teren ale scriitorilor.'}
+                    </p>
+                    <button
+                      onClick={() => { setProfileOpen(false); login(); }}
+                      className="btn-ed w-full justify-center"
+                      style={{ padding: '12px 20px' }}
+                    >
+                      {language === 'en' ? 'Continue with email' : 'Continuă cu email'}
+                    </button>
+                    <div className="flex items-center gap-2 my-4 font-ui text-[10px] tracking-[0.15em] uppercase" style={{ color: 'var(--text-mute)' }}>
+                      <span style={{ flex: 1, height: 1, background: 'var(--line)' }} />
+                      <span>{language === 'en' ? 'or' : 'sau'}</span>
+                      <span style={{ flex: 1, height: 1, background: 'var(--line)' }} />
+                    </div>
+                    <button
+                      onClick={() => { setProfileOpen(false); login(); }}
+                      className="w-full flex items-center justify-center gap-2.5 py-3 cursor-pointer transition-colors"
+                      style={{ border: '1px solid var(--line)', background: 'transparent', color: 'var(--text)', borderRadius: 4, fontFamily: 'var(--ui)', fontSize: 12, letterSpacing: '0.1em' }}
+                      onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--hover-subtle)')}
+                      onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                    >
+                      <span className="w-4 h-4 grid place-items-center font-bold">G</span>
+                      {language === 'en' ? 'Continue with Google' : 'Continuă cu Google'}
+                    </button>
+                    <div className="text-center mt-4 font-ui text-[10px] tracking-[0.15em] uppercase" style={{ color: 'var(--text-mute)' }}>
+                      {language === 'en' ? 'New here? ' : 'Nou aici? '}
+                      <Link to="/auth?mode=signup" onClick={() => setProfileOpen(false)} className="text-gold">
+                        {language === 'en' ? 'Create an account' : 'Creează cont'}
+                      </Link>
+                    </div>
+                  </div>
+                )}
               </div>
-              <ThemeToggle />
+            )}
+          </div>
+
+          {/* Mobile menu toggle */}
+          <button
+            onClick={() => setIsMenuOpen(o => !o)}
+            aria-label={isMenuOpen ? t('nav.closeMenu') : t('nav.openMenu')}
+            aria-expanded={isMenuOpen}
+            className="lg:hidden grid w-10 h-10 rounded-full place-items-center transition-colors hover:text-gold"
+            style={{ border: '1px solid var(--line)', background: 'transparent', color: 'var(--text)' }}
+          >
+            {isMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+          </button>
+        </div>
+      </div>
+
+      {/* Search overlay */}
+      {searchOpen && (
+        <NavSearchOverlay onClose={() => setSearchOpen(false)} language={language} />
+      )}
+
+      {/* Mobile menu */}
+      {isMenuOpen && (
+        <div
+          ref={mobileMenuRef}
+          role="dialog"
+          aria-modal="true"
+          aria-label={t('nav.openMenu')}
+          className="lg:hidden border-t screen-anim"
+          style={{ borderColor: 'var(--line-soft)', background: 'var(--overlay-nav)' }}
+        >
+          <div className="ed-container py-6 flex flex-col gap-2">
+            {navLinks.map(link => {
+              const active = location.pathname === link.path;
+              return (
+                <Link
+                  key={link.path}
+                  to={link.path}
+                  onClick={() => setIsMenuOpen(false)}
+                  aria-current={active ? 'page' : undefined}
+                  className={cn(
+                    'px-4 py-3 font-display italic text-[22px] transition-colors',
+                  )}
+                  style={{
+                    color: active ? 'var(--gold)' : 'var(--text)',
+                    borderBottom: '1px solid var(--line-soft)',
+                  }}
+                >
+                  {link.name}
+                </Link>
+              );
+            })}
+            <div className="flex items-center justify-between pt-4">
+              <div className="flex items-center" style={{ border: '1px solid var(--line)', borderRadius: 999, padding: 4 }}>
+                {(['en', 'ro'] as const).map(L => (
+                  <button
+                    key={L}
+                    onClick={() => setLanguage(L)}
+                    className="px-3 py-1.5 font-ui font-semibold text-[11px] tracking-[0.18em] rounded-full cursor-pointer"
+                    style={{
+                      background: language === L ? 'var(--gold)' : 'transparent',
+                      color: language === L ? 'var(--ink)' : 'var(--text-dim)',
+                      border: 0,
+                    }}
+                  >
+                    {L.toUpperCase()}
+                  </button>
+                ))}
+              </div>
+              <button
+                onClick={toggleTheme}
+                aria-label="Toggle theme"
+                className="grid w-10 h-10 rounded-full place-items-center"
+                style={{ border: '1px solid var(--line)', color: 'var(--text)' }}
+              >
+                {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+              </button>
             </div>
           </div>
-        )}
-      </nav>
+        </div>
+      )}
+    </header>
+  );
+};
+
+const NavSearchOverlay: React.FC<{ onClose: () => void; language: 'en' | 'ro' }> = ({ onClose, language }) => {
+  const navigate = useNavigate();
+  const [query, setQuery] = React.useState('');
+  const [results, setResults] = React.useState<Article[]>([]);
+  const [categories, setCategories] = React.useState<Category[]>([]);
+  const [isSearching, setIsSearching] = React.useState(false);
+  const [fetchError, setFetchError] = React.useState(false);
+  const inputRef = React.useRef<HTMLInputElement>(null);
+  const debounceRef = React.useRef<number | undefined>(undefined);
+  const reqIdRef = React.useRef(0);
+
+  React.useEffect(() => {
+    inputRef.current?.focus();
+  }, []);
+
+  React.useEffect(() => {
+    fetchCategories().then(setCategories).catch(() => {});
+  }, []);
+
+  React.useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
+  React.useEffect(() => {
+    const q = query.trim();
+    if (!q) {
+      setResults([]);
+      setIsSearching(false);
+      window.clearTimeout(debounceRef.current);
+      return;
+    }
+    setIsSearching(true);
+    window.clearTimeout(debounceRef.current);
+    const reqId = ++reqIdRef.current;
+    debounceRef.current = window.setTimeout(async () => {
+      try {
+        const articles = await searchArticles(q);
+        if (reqIdRef.current !== reqId) return;
+        setResults(articles);
+        setFetchError(false);
+      } catch {
+        if (reqIdRef.current !== reqId) return;
+        setFetchError(true);
+        setResults([]);
+      } finally {
+        if (reqIdRef.current === reqId) setIsSearching(false);
+      }
+    }, 300);
+    return () => window.clearTimeout(debounceRef.current);
+  }, [query]);
+
+  const handleSelect = (article: Article) => {
+    onClose();
+    navigate(`/article/${article.id}`);
+  };
+
+  const showResults = query.trim().length > 0;
+
+  return (
+    <div className="border-t" style={{ borderColor: 'var(--line-soft)', background: 'var(--overlay-nav)' }}>
+      <div className="ed-container py-6">
+        <div className="max-w-[720px] mx-auto flex flex-col gap-4">
+          <div className="flex items-center gap-4">
+            <span className="eyebrow shrink-0 hidden sm:inline">
+              {language === 'en' ? 'Search the archive' : 'Caută în arhivă'}
+            </span>
+            <div className="relative flex-1 min-w-0">
+              <Search
+                className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none"
+                style={{ color: 'var(--text-mute)' }}
+              />
+              <input
+                ref={inputRef}
+                type="text"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder={language === 'en' ? "Try 'Voroneț', 'salt mines', 'Mărțișor'…" : "Încearcă 'Voroneț', 'saline', 'Mărțișor'…"}
+                className="w-full"
+                style={{
+                  background: 'transparent',
+                  border: 0,
+                  borderBottom: '1px solid var(--gold)',
+                  borderRadius: 0,
+                  padding: '10px 36px 10px 36px',
+                  fontSize: 22,
+                  fontFamily: 'var(--display)',
+                  fontStyle: 'italic',
+                  color: 'var(--parchment)',
+                }}
+              />
+              {isSearching && (
+                <Loader2
+                  className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 animate-spin pointer-events-none"
+                  style={{ color: 'var(--gold)' }}
+                />
+              )}
+            </div>
+            <button
+              onClick={onClose}
+              className="pill cursor-pointer shrink-0"
+              aria-label={language === 'en' ? 'Close search' : 'Închide căutarea'}
+            >
+              Esc
+            </button>
+          </div>
+
+          {showResults && (
+            <div
+              className="overflow-hidden"
+              style={{ border: '1px solid var(--line)', background: 'var(--ink-2)' }}
+            >
+              {isSearching && results.length === 0 ? (
+                <div className="px-4 py-5 flex items-center justify-center gap-2 font-display italic" style={{ color: 'var(--text-dim)', fontSize: 14 }}>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  {language === 'en' ? 'Searching…' : 'Se caută…'}
+                </div>
+              ) : fetchError ? (
+                <div className="px-4 py-5 text-center font-display italic" style={{ color: 'var(--text-dim)', fontSize: 14 }}>
+                  {language === 'en' ? 'Search is unavailable right now.' : 'Căutarea nu este disponibilă acum.'}
+                </div>
+              ) : results.length > 0 ? (
+                results.map((article) => {
+                  const cat = categories.find((c) => c.id === article.categoryId);
+                  const thumb = article.type === 'video'
+                    ? article.posterUrl
+                    : article.type === 'carousel'
+                      ? article.mediaUrls?.[0] ?? article.mediaUrl
+                      : article.mediaUrl;
+                  return (
+                    <button
+                      key={article.id}
+                      onClick={() => handleSelect(article)}
+                      className="w-full flex items-center gap-3 px-4 py-3 transition-colors text-left focus:outline-none"
+                      style={{ borderBottom: '1px solid var(--line-soft)', background: 'transparent' }}
+                      onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--hover-subtle-strong)')}
+                      onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                    >
+                      <div className="h-11 w-11 overflow-hidden shrink-0" style={{ border: '1px solid var(--line)' }}>
+                        {thumb && (
+                          <img
+                            src={thumb}
+                            alt=""
+                            aria-hidden="true"
+                            className="h-full w-full object-cover"
+                          />
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p
+                          className="font-display italic m-0 truncate"
+                          style={{ color: 'var(--parchment)', fontSize: 17, lineHeight: 1.2 }}
+                        >
+                          {getLocalized(article, 'title', language)}
+                        </p>
+                        {cat && (
+                          <p
+                            className="font-ui text-[10px] uppercase mt-1 truncate"
+                            style={{ letterSpacing: '0.18em', color: 'var(--gold)' }}
+                          >
+                            {getLocalized(cat, 'name', language)}
+                          </p>
+                        )}
+                      </div>
+                    </button>
+                  );
+                })
+              ) : (
+                <div className="px-4 py-5 text-center font-display italic" style={{ color: 'var(--text-dim)', fontSize: 14 }}>
+                  {language === 'en' ? 'No stories found.' : 'Nu am găsit povești.'}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 };
+
+const ProfileRow: React.FC<{ num: number; to: string; icon: React.ReactNode; label: string; sub?: string; onNav: () => void }> = ({ num, to, icon, label, sub, onNav }) => (
+  <Link
+    to={to}
+    onClick={onNav}
+    className="flex items-center gap-4 px-6 py-3 transition-colors"
+    style={{ color: 'var(--text)', textDecoration: 'none' }}
+    onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--hover-subtle-strong)')}
+    onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+  >
+    <span
+      className="font-display italic"
+      style={{ width: 22, textAlign: 'center', color: 'var(--gold)', fontSize: 15 }}
+    >
+      {String(num).padStart(2, '0')}
+    </span>
+    <span className="flex-1 min-w-0">
+      <span className="block font-display italic text-[17px] leading-tight" style={{ color: 'var(--parchment)' }}>{label}</span>
+      {sub && <span className="block font-ui text-[10px] tracking-[0.15em] uppercase mt-1" style={{ color: 'var(--text-mute)' }}>{sub}</span>}
+    </span>
+    <span style={{ color: 'var(--text-mute)' }}>›</span>
+    <span className="sr-only">{icon}</span>
+  </Link>
+);

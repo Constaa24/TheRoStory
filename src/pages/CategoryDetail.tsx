@@ -1,17 +1,26 @@
 import React, { useEffect, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, Link } from "react-router-dom";
 import { Category, Article, getLocalized, supabase, toCamelCase, toCamelCaseArray } from "@/lib/supabase";
 import { useLanguage } from "@/hooks/use-language";
 import { useFavorites } from "@/hooks/use-favorites";
-import { ArrowLeft, ArrowRight, BookOpen, Heart, Video, ChevronRight } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { ArrowLeft, Heart, Play, Images, ChevronRight } from "lucide-react";
 import { StoryThumbnail } from "@/components/ui/story-thumbnail";
 import { cn, isAbortError } from "@/lib/utils";
-import { ParchmentArticle } from "@/components/organisms/ParchmentArticle";
-import { AnimatePresence } from "framer-motion";
-import { Link } from "react-router-dom";
 import { PageHead } from "@/components/layout/PageHead";
 import { SITE_URL } from "@/lib/constants";
+
+const TONES = ["warm", "forest", "sky", "oxblood", "bone"] as const;
+const toneFor = (id: string) => {
+  let h = 0;
+  for (let i = 0; i < id.length; i++) h = ((h << 5) - h) + id.charCodeAt(i);
+  return TONES[Math.abs(h) % TONES.length];
+};
+
+const readMinutes = (article: Article, language: 'en' | 'ro') => {
+  const text = getLocalized(article, 'content', language);
+  const words = text.split(/\s+/).filter(Boolean).length;
+  return Math.max(3, Math.round(words / 220));
+};
 
 const CategoryDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -21,46 +30,26 @@ const CategoryDetail: React.FC = () => {
   const [category, setCategory] = useState<Category | null>(null);
   const [articles, setArticles] = useState<Article[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [activeArticle, setActiveArticle] = useState<Article | null>(null);
+
+  const openArticle = (a: Article) => navigate(`/article/${a.id}`, { state: { from: `/category/${id}`, category: id } });
 
   useEffect(() => {
-    if (!id) {
-      navigate("/categories");
-      return;
-    }
+    if (!id) { navigate("/categories"); return; }
     let cancelled = false;
     const loadData = async () => {
       try {
-        // Targeted queries — pull only the category row we need and only
-        // the articles that belong to it, instead of fetching every public
-        // article and filtering client-side.
         const [categoryRes, articlesRes] = await Promise.all([
           supabase.from('categories').select('*').eq('id', id).maybeSingle(),
-          supabase
-            .from('articles')
-            .select('*')
-            .eq('is_published', true)
-            .eq('category_id', id)
-            .order('created_at', { ascending: false })
-            .limit(500),
+          supabase.from('articles').select('*').eq('is_published', true).eq('category_id', id).order('created_at', { ascending: false }).limit(500),
         ]);
-
         if (cancelled) return;
-
         if (categoryRes.error) throw categoryRes.error;
         if (articlesRes.error) throw articlesRes.error;
-
-        if (!categoryRes.data) {
-          navigate("/categories");
-          return;
-        }
-
+        if (!categoryRes.data) { navigate("/categories"); return; }
         setCategory(toCamelCase<Category>(categoryRes.data));
         setArticles(toCamelCaseArray<Article>(articlesRes.data || []));
       } catch (error) {
-        if (!isAbortError(error)) {
-          console.error("Error loading category content:", error);
-        }
+        if (!isAbortError(error)) console.error("Error loading category content:", error);
       } finally {
         if (!cancelled) setIsLoading(false);
       }
@@ -72,11 +61,10 @@ const CategoryDetail: React.FC = () => {
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-accent" />
+        <div className="h-10 w-10 border-4 border-t-transparent rounded-full animate-spin" style={{ borderColor: 'var(--gold)', borderTopColor: 'transparent' }} />
       </div>
     );
   }
-
   if (!category) return null;
 
   const categoryName = getLocalized(category, "name", language);
@@ -86,167 +74,150 @@ const CategoryDetail: React.FC = () => {
     : `Povești despre ${categoryName} — descoperă România prin ${articles.length} ${articles.length === 1 ? "poveste" : "povești"} pe The RoStory.`;
 
   const breadcrumbLd = {
-    "@context": "https://schema.org",
-    "@type": "BreadcrumbList",
+    "@context": "https://schema.org", "@type": "BreadcrumbList",
     itemListElement: [
       { "@type": "ListItem", position: 1, name: language === "en" ? "Home" : "Acasă", item: `${SITE_URL}/` },
       { "@type": "ListItem", position: 2, name: language === "en" ? "Categories" : "Categorii", item: `${SITE_URL}/categories` },
       { "@type": "ListItem", position: 3, name: categoryName, item: `${SITE_URL}/category/${category.id}` },
     ],
   };
-
   const itemListLd = {
-    "@context": "https://schema.org",
-    "@type": "ItemList",
-    itemListElement: articles.map((a, i) => ({
-      "@type": "ListItem",
-      position: i + 1,
-      url: `${SITE_URL}/article/${a.id}`,
-      name: getLocalized(a, "title", language),
-    })),
+    "@context": "https://schema.org", "@type": "ItemList",
+    itemListElement: articles.map((a, i) => ({ "@type": "ListItem", position: i + 1, url: `${SITE_URL}/article/${a.id}`, name: getLocalized(a, "title", language) })),
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="screen-anim pb-20">
       <PageHead title={pageTitle} description={pageDescription} language={language}>
         <script type="application/ld+json">{JSON.stringify(breadcrumbLd)}</script>
         <script type="application/ld+json">{JSON.stringify(itemListLd)}</script>
       </PageHead>
-      {/* Header — extra top padding so the sticky navbar doesn't cover the breadcrumb */}
-      <section className="relative pt-32 pb-16 bg-gradient-to-b from-secondary/30 to-background border-b border-border">
-        <div className="container mx-auto px-4">
-          {/* Breadcrumb */}
-          <nav aria-label="Breadcrumb" className="mb-6 text-sm text-muted-foreground">
-            <ol className="flex flex-wrap items-center gap-1.5">
-              <li>
-                <Link to="/" className="hover:text-accent transition-colors">
-                  {language === "en" ? "Home" : "Acasă"}
-                </Link>
-              </li>
-              <li aria-hidden="true"><ChevronRight className="h-3.5 w-3.5" /></li>
-              <li>
-                <Link to="/categories" className="hover:text-accent transition-colors">
-                  {language === "en" ? "Categories" : "Categorii"}
-                </Link>
-              </li>
-              <li aria-hidden="true"><ChevronRight className="h-3.5 w-3.5" /></li>
-              <li className="text-foreground/80 font-medium" aria-current="page">
-                {categoryName}
-              </li>
+
+      <section style={{ padding: '60px 0 40px', borderBottom: '1px solid var(--line-soft)' }}>
+        <div className="ed-container">
+          <button
+            onClick={() => navigate('/categories')}
+            className="flex items-center gap-2 mb-8 transition-colors hover:text-gold cursor-pointer"
+            style={{ color: 'var(--text-dim)', background: 'transparent', border: 0, fontFamily: 'var(--ui)', fontSize: 11, letterSpacing: '0.18em', textTransform: 'uppercase' }}
+          >
+            <ArrowLeft className="w-3.5 h-3.5" />
+            {language === 'en' ? 'Back' : 'Înapoi'}
+          </button>
+
+          <nav aria-label="Breadcrumb" className="mb-6 font-ui text-[11px] uppercase" style={{ letterSpacing: '0.18em', color: 'var(--text-mute)' }}>
+            <ol className="flex flex-wrap items-center gap-2">
+              <li><Link to="/" className="transition-colors hover:text-gold">{language === 'en' ? 'Home' : 'Acasă'}</Link></li>
+              <li><ChevronRight className="w-3 h-3" /></li>
+              <li><Link to="/categories" className="transition-colors hover:text-gold">{language === 'en' ? 'Categories' : 'Categorii'}</Link></li>
+              <li><ChevronRight className="w-3 h-3" /></li>
+              <li className="text-gold" aria-current="page">{categoryName}</li>
             </ol>
           </nav>
 
-          <Button
-            variant="ghost"
-            className="mb-8 group"
-            onClick={() => navigate("/categories")}
-          >
-            <ArrowLeft className="mr-2 h-4 w-4 group-hover:-translate-x-1 transition-transform" />
-            {language === "en" ? "Back to Categories" : "Înapoi la Categorii"}
-          </Button>
-
-          <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-            <div className="text-center md:text-left">
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-accent/10 text-accent text-sm font-medium mb-4">
-                <BookOpen className="h-4 w-4" />
-                {articles.length} {language === "en" ? "stories" : "povești"}
-              </div>
-              <h1 className="text-4xl md:text-5xl font-serif font-black text-primary italic">
+          <div className="flex flex-wrap items-end justify-between gap-6">
+            <div>
+              <div className="eyebrow mb-3.5">{language === 'en' ? 'Collection' : 'Colecția'}</div>
+              <h1
+                className="font-display italic font-medium m-0"
+                style={{
+                  fontSize: 'clamp(56px, 8vw, 120px)',
+                  lineHeight: 0.95,
+                  letterSpacing: '-0.01em',
+                  color: 'var(--parchment)',
+                }}
+              >
                 {categoryName}
               </h1>
+            </div>
+            <div className="font-ui text-[11px] uppercase" style={{ letterSpacing: '0.18em', color: 'var(--text-mute)' }}>
+              {articles.length} {language === 'en' ? 'stories' : 'povești'}
             </div>
           </div>
         </div>
       </section>
 
-      <div className="container mx-auto px-4 py-12">
-        {articles.length === 0 ? (
-          <div className="text-center py-20 bg-secondary/20 rounded-2xl border border-dashed border-border">
-            <p className="text-muted-foreground italic text-lg">
-              {t("articles.noArticles")}
-            </p>
-            <Button
-              variant="outline"
-              className="mt-6"
-              onClick={() => navigate("/categories")}
-            >
-              {language === "en" ? "Explore other categories" : "Explorează alte categorii"}
-            </Button>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {articles.map((article) => (
-              <div
-                key={article.id}
-                onClick={() => setActiveArticle(article)}
-                className="group flex flex-col h-full bg-card border border-border rounded-2xl overflow-hidden hover:shadow-2xl transition-all duration-500 hover:-translate-y-2 cursor-pointer relative"
-              >
-                <div className="absolute top-4 right-4 z-10">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className={cn(
-                      "rounded-full bg-black/20 backdrop-blur-md hover:bg-black/40 transition-colors",
-                      isFavorited(article.id) ? "text-red-500" : "text-white"
-                    )}
-                    onClick={(e) => handleFavoriteToggle(e, article.id)}
+      <section style={{ padding: '60px 0' }}>
+        <div className="ed-container">
+          {articles.length === 0 ? (
+            <div className="py-20 text-center" style={{ border: '1px dashed var(--line)' }}>
+              <p className="font-display italic text-2xl text-ink-dim">{t("articles.noArticles")}</p>
+              <button onClick={() => navigate("/categories")} className="btn-ed btn-ed-ghost mt-6">
+                {language === 'en' ? 'Explore other categories' : 'Explorează alte categorii'}
+              </button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-12 gap-y-[72px]">
+              {articles.map(article => {
+                const tone = toneFor(article.id);
+                const cover = article.mediaUrl || article.posterUrl || article.mediaUrls?.[0];
+                const fav = isFavorited(article.id);
+                return (
+                  <a
+                    key={article.id}
+                    href="#"
+                    onClick={(e) => { e.preventDefault(); openArticle(article); }}
+                    className="block cursor-pointer group"
+                    style={{ color: 'inherit', textDecoration: 'none' }}
                   >
-                    <Heart className={cn("h-5 w-5", isFavorited(article.id) && "fill-current")} />
-                  </Button>
-                </div>
-
-                {article.mediaUrl && (
-                  <div className="aspect-[16/10] overflow-hidden relative">
-                    {article.type === 'video' ? (
-                      <div className="w-full h-full relative">
-                        <StoryThumbnail
-                          posterUrl={article.posterUrl}
-                          alt={getLocalized(article, "title", language)}
-                          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
-                        />
-                        <div className="absolute inset-0 flex items-center justify-center bg-black/20 group-hover:bg-transparent transition-colors">
-                          <div className="p-3 bg-white/20 backdrop-blur-md rounded-full">
-                            <Video className="h-6 w-6 text-white" />
-                          </div>
+                    <div
+                      className="ph relative overflow-hidden"
+                      data-tone={tone}
+                      data-label={article.location?.toUpperCase() || categoryName.toUpperCase()}
+                      style={{ aspectRatio: '3/4' }}
+                    >
+                      {cover && (
+                        <>
+                          {article.type === 'video' ? (
+                            <StoryThumbnail posterUrl={article.posterUrl} alt={getLocalized(article, 'title', language)} className="absolute inset-0 w-full h-full object-cover" />
+                          ) : (
+                            <img src={cover} alt={getLocalized(article, 'title', language)} className="absolute inset-0 w-full h-full object-cover" loading="lazy" />
+                          )}
+                          <div className="absolute inset-0 pointer-events-none" style={{ background: 'var(--scrim-card)' }} />
+                        </>
+                      )}
+                      {article.type === 'video' && (
+                        <div className="absolute top-4 left-4 flex items-center gap-1.5 px-2.5 py-1" style={{ background: 'var(--overlay-dark)', border: '1px solid var(--gold)', color: 'var(--gold)', fontFamily: 'var(--ui)', fontSize: 10, letterSpacing: '0.18em' }}>
+                          <Play className="w-2.5 h-2.5" fill="currentColor" /> FILM
                         </div>
+                      )}
+                      {article.type === 'carousel' && article.mediaUrls && (
+                        <div className="absolute top-4 left-4 flex items-center gap-1.5 px-2.5 py-1" style={{ background: 'var(--overlay-dark)', border: '1px solid var(--gold)', color: 'var(--gold)', fontFamily: 'var(--ui)', fontSize: 10, letterSpacing: '0.18em' }}>
+                          <Images className="w-2.5 h-2.5" /> {article.mediaUrls.length}
+                        </div>
+                      )}
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleFavoriteToggle(e, article.id); }}
+                        aria-label="Favorite"
+                        className="absolute top-4 right-4 w-9 h-9 grid place-items-center rounded-full transition-colors"
+                        style={{ background: 'var(--overlay-medium)', border: '1px solid var(--line)', color: fav ? 'var(--oxblood-2)' : 'var(--text)', backdropFilter: 'blur(6px)' }}
+                      >
+                        <Heart className={cn('w-4 h-4', fav && 'fill-current')} />
+                      </button>
+                    </div>
+                    <div className="pt-5">
+                      <div className="flex items-center gap-3.5 font-ui text-[11px] uppercase" style={{ letterSpacing: '0.18em', color: 'var(--text-mute)' }}>
+                        <span style={{ color: 'var(--gold)' }}>{categoryName}</span>
+                        <span>·</span>
+                        <span>{readMinutes(article, language)} {language === 'en' ? 'min read' : 'min citire'}</span>
                       </div>
-                    ) : (
-                      <img
-                        src={article.mediaUrl}
-                        alt={getLocalized(article, "title", language)}
-                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
-                        loading="lazy"
-                      />
-                    )}
-                  </div>
-                )}
-                <div className="p-8 flex flex-col flex-1">
-                  <h3 className="text-xl font-serif italic font-bold text-primary mb-3 group-hover:text-accent transition-colors duration-300">
-                    {getLocalized(article, "title", language)}
-                  </h3>
-                  <p className="text-muted-foreground line-clamp-3 mb-6 flex-1">
-                    {getLocalized(article, "content", language).substring(0, 150)}...
-                  </p>
-                  <div className="flex items-center gap-2 text-accent font-semibold group-hover:gap-3 transition-all duration-300">
-                    <span className="text-sm uppercase tracking-wider">{t("articles.readMore")}</span>
-                    <ArrowRight className="h-4 w-4" />
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+                      <h3
+                        className="font-display italic font-medium m-0 mt-3 mb-2"
+                        style={{ fontSize: 22, lineHeight: 1.1, color: 'var(--text)', textWrap: 'balance' as React.CSSProperties['textWrap'] }}
+                      >
+                        {getLocalized(article, 'title', language)}
+                      </h3>
+                      <p className="text-ink-dim m-0" style={{ fontSize: 15 }}>
+                        {getLocalized(article, 'content', language).slice(0, 130)}…
+                      </p>
+                    </div>
+                  </a>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </section>
 
-      {/* Parchment Article Viewer */}
-      <AnimatePresence>
-        {activeArticle && (
-          <ParchmentArticle 
-            article={activeArticle} 
-            onClose={() => setActiveArticle(null)} 
-          />
-        )}
-      </AnimatePresence>
     </div>
   );
 };

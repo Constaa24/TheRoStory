@@ -1,13 +1,12 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { motion } from "framer-motion";
 import { Category, getLocalized, fetchCategories, fetchArticleCategoryCounts } from "@/lib/supabase";
 import { useLanguage } from "@/hooks/use-language";
-import { BookOpen, Layers } from "lucide-react";
 import { isAbortError } from "@/lib/utils";
-import { HeroBanner } from "@/components/layout/HeroBanner";
 import { PageHead } from "@/components/layout/PageHead";
 import { SITE_URL } from "@/lib/constants";
+
+const TONES = ["warm", "oxblood", "bone", "warm", "oxblood", "forest"] as const;
 
 const Categories: React.FC = () => {
   const { language } = useLanguage();
@@ -30,23 +29,13 @@ const Categories: React.FC = () => {
         setCategories(cats);
         setCategoryCounts(counts);
       } catch (error) {
-        if (!isAbortError(error)) {
-          console.error("Error loading content:", error);
-        }
+        if (!isAbortError(error)) console.error("Error loading content:", error);
       } finally {
         setIsLoading(false);
       }
     };
     loadData();
   }, []);
-
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-accent" />
-      </div>
-    );
-  }
 
   const pageTitle = language === "en" ? "Categories" : "Categorii";
   const pageDescription = language === "en"
@@ -65,60 +54,101 @@ const Categories: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background pb-20">
+    <div className="screen-anim pb-20">
       <PageHead title={pageTitle} description={pageDescription} language={language}>
         <script type="application/ld+json">{JSON.stringify(itemListLd)}</script>
       </PageHead>
-      <HeroBanner
-        title={language === "en" ? "Explore Categories" : "Explorează Categoriile"}
-        subtitle={language === "en"
-          ? "Discover stories about Romania organized by themes. From ancient history to breathtaking nature."
-          : "Descoperă povești despre România organizate pe teme. De la istorie antică la natură de vis."}
-        imageUrl="/hero/delta.jpg"
-        Icon={Layers}
-        height="h-[60vh]"
-      />
 
-      {/* Categories Grid */}
-      <div className="container mx-auto px-4 py-20 animate-fade-in">
-        <motion.div 
-          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-12"
-          initial={{ opacity: 0 }}
-          whileInView={{ opacity: 1 }}
-          viewport={{ once: true }}
-        >
-          {categories.map((category, index) => (
-            <motion.button
-              key={category.id}
-              onClick={() => handleCategorySelect(category.id)}
-              className="parchment-effect group relative p-12 rounded-[2.5rem] md:rounded-[3rem] border-none shadow-elegant hover:shadow-2xl hover:shadow-accent/20 transition-all duration-700 hover:-translate-y-3 text-left flex flex-col items-center justify-center space-y-6 min-h-[320px]"
-              initial={{ opacity: 0, y: 30 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: index * 0.1 }}
-            >
-              <div className="absolute top-10 right-10 text-accent/20 group-hover:text-accent/40 transition-colors">
-                <BookOpen className="h-12 w-12" />
-              </div>
-              
-              <div className="text-center space-y-4">
-                <div className="w-16 h-[1px] bg-accent mx-auto group-hover:w-24 transition-all duration-500" />
-                <h3 className="text-3xl font-serif font-black italic text-secondary-foreground leading-tight">
-                  {getLocalized(category, "name", language)}
-                </h3>
-                <div className="w-16 h-[1px] bg-accent mx-auto group-hover:w-24 transition-all duration-500" />
-                
-                <p className="text-sm font-sans uppercase tracking-[0.3em] text-accent font-bold pt-4">
-                  {categoryCounts[category.id] ?? 0} {language === "en" ? "Stories" : "Povești"}
-                </p>
-              </div>
+      {/* PAGE HERO */}
+      <section style={{ padding: '80px 0 56px', borderBottom: '1px solid var(--line-soft)' }}>
+        <div className="ed-container">
+          <div className="eyebrow mb-4">{language === 'en' ? 'Routes through the archive' : 'Trasee prin arhivă'}</div>
+          <h1
+            className="font-display italic font-medium m-0"
+            style={{
+              fontSize: 'clamp(56px, 8vw, 120px)',
+              lineHeight: 0.95,
+              letterSpacing: '-0.01em',
+              color: 'var(--parchment)',
+            }}
+          >
+            {language === 'en' ? 'Categories.' : 'Categorii.'}
+          </h1>
+          <p className="mt-7 max-w-[540px]" style={{ fontSize: 19, color: 'var(--text-dim)', lineHeight: 1.55 }}>
+            {language === 'en'
+              ? 'Different ways into the same country. Choose how you want to wander.'
+              : 'Căi diferite prin aceeași țară. Alege cum vrei să rătăcești.'}
+          </p>
+        </div>
+      </section>
 
-              <div className="absolute inset-0 border-[1px] border-secondary-foreground/5 pointer-events-none rounded-[2.5rem] md:rounded-[3rem]" />
-              <div className="absolute inset-3 border-[1px] border-accent/20 pointer-events-none group-hover:inset-2 transition-all duration-700 rounded-[2.5rem] md:rounded-[3rem]" />
-            </motion.button>
-          ))}
-        </motion.div>
-      </div>
+      {/* CATEGORIES GRID */}
+      <section style={{ padding: '60px 0 120px' }}>
+        <div className="ed-container">
+          {isLoading ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-14">
+              {[1, 2, 3, 4].map(i => (
+                <div key={i} className="animate-pulse" style={{ aspectRatio: '16/9', background: 'var(--ink-2)', border: '1px solid var(--line)' }} />
+              ))}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-14">
+              {categories.map((category, i) => {
+                const tone = TONES[i % TONES.length];
+                const name = getLocalized(category, 'name', language);
+                const count = categoryCounts[category.id] ?? 0;
+                return (
+                  <button
+                    key={category.id}
+                    onClick={() => handleCategorySelect(category.id)}
+                    className="block text-left cursor-pointer group transition-colors w-full"
+                    style={{ borderTop: '1px solid var(--line)', paddingTop: 28, background: 'transparent', border: 0, borderRadius: 0 }}
+                  >
+                    <div style={{ borderTop: '1px solid var(--line)', paddingTop: 28 }}>
+                      <div className="flex justify-between items-baseline mb-6">
+                        <div className="flex gap-4 items-baseline">
+                          <span className="font-ui text-[12px] uppercase" style={{ letterSpacing: '0.18em', color: 'var(--gold)' }}>
+                            {String(i + 1).padStart(2, '0')}
+                          </span>
+                          <h2
+                            className="font-display italic font-medium m-0 transition-colors group-hover:text-gold"
+                            style={{ fontSize: 'clamp(38px, 4vw, 56px)', lineHeight: 1, color: 'var(--parchment)' }}
+                          >
+                            {name}
+                          </h2>
+                        </div>
+                        <span className="font-ui text-[12px] uppercase" style={{ letterSpacing: '0.18em', color: 'var(--text-mute)' }}>
+                          {count} {language === 'en' ? 'stories' : 'povești'}
+                        </span>
+                      </div>
+
+                      <div
+                        className="ph mb-6 transition-transform group-hover:translate-y-[-2px]"
+                        data-tone={tone}
+                        data-label={name.toUpperCase()}
+                        style={{ aspectRatio: '16/9' }}
+                      />
+
+                      <div className="flex justify-between items-start gap-6">
+                        <div className="flex-1">
+                          <p className="text-ink-dim m-0 max-w-[480px]" style={{ fontSize: 15, lineHeight: 1.6 }}>
+                            {language === 'en'
+                              ? `Stories filed under ${name.toLowerCase()} — long reads, photo essays, and films.`
+                              : `Povești filtrate sub ${name.toLowerCase()} — lecturi, eseuri foto și filme.`}
+                          </p>
+                          <p className="font-display italic mt-3" style={{ fontSize: 18, color: 'var(--gold)' }}>
+                            {language === 'en' ? `Browse ${name.toLowerCase()} →` : `Explorează ${name.toLowerCase()} →`}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </section>
     </div>
   );
 };

@@ -371,6 +371,59 @@ export const createArticle = async (input: NewArticleInput): Promise<{ id: strin
   return { id };
 };
 
+export type UpdateArticleInput = Omit<NewArticleInput, 'userId'> & { id: string };
+
+export const updateArticle = async (input: UpdateArticleInput): Promise<void> => {
+  const titleEn = input.titleEn.trim();
+  const titleRo = input.titleRo.trim();
+  const location = input.location?.trim() || null;
+
+  if (!input.id) throw new Error('Article id is required');
+  if (!titleEn) throw new Error('Title (English) is required');
+  if (!titleRo) throw new Error('Title (Romanian) is required');
+  if (!input.categoryId) throw new Error('Category is required');
+
+  assertLen(titleEn, ARTICLE_LIMITS.TITLE_MAX, 'Title (English)');
+  assertLen(titleRo, ARTICLE_LIMITS.TITLE_MAX, 'Title (Romanian)');
+  assertLen(input.contentEn, ARTICLE_LIMITS.CONTENT_MAX, 'Content (English)');
+  assertLen(input.contentRo, ARTICLE_LIMITS.CONTENT_MAX, 'Content (Romanian)');
+  if (location) assertLen(location, ARTICLE_LIMITS.LOCATION_MAX, 'Location');
+  if (input.mediaUrl) assertLen(input.mediaUrl, ARTICLE_LIMITS.MEDIA_URL_MAX, 'Media URL');
+  if (input.posterUrl) assertLen(input.posterUrl, ARTICLE_LIMITS.MEDIA_URL_MAX, 'Poster URL');
+
+  if (input.mediaUrls) {
+    if (input.mediaUrls.length > ARTICLE_LIMITS.MEDIA_URLS_MAX) {
+      throw new Error(`Too many gallery images (max ${ARTICLE_LIMITS.MEDIA_URLS_MAX})`);
+    }
+    input.mediaUrls.forEach((url, i) => assertLen(url, ARTICLE_LIMITS.MEDIA_URL_MAX, `Gallery image #${i + 1}`));
+  }
+  if (input.mediaCaptions) {
+    input.mediaCaptions.forEach((cap, i) => {
+      if (cap?.en) assertLen(cap.en, ARTICLE_LIMITS.MEDIA_CAPTION_MAX, `Caption #${i + 1} (English)`);
+      if (cap?.ro) assertLen(cap.ro, ARTICLE_LIMITS.MEDIA_CAPTION_MAX, `Caption #${i + 1} (Romanian)`);
+    });
+  }
+
+  const updates: Record<string, unknown> = {
+    title_en: titleEn,
+    title_ro: titleRo,
+    content_en: input.contentEn,
+    content_ro: input.contentRo,
+    category_id: input.categoryId,
+    location,
+    media_url: input.mediaUrl ?? null,
+    poster_url: input.posterUrl ?? null,
+    media_urls: input.mediaUrls ?? null,
+    media_captions: input.mediaCaptions ?? null,
+    is_published: input.isPublished,
+  };
+
+  const { error } = await supabase.from('articles').update(updates).eq('id', input.id);
+  if (error) throw error;
+
+  invalidatePublicContentCache();
+};
+
 export const fetchCategories = async (): Promise<Category[]> => {
   const { data, error } = await supabase
     .from('categories')

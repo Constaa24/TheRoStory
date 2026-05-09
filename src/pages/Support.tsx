@@ -1,31 +1,19 @@
 import React, { useState } from "react";
 import { useLanguage } from "@/hooks/use-language";
-import { Heart, CreditCard, Sparkles, Landmark, Banknote, Copy, Check, User, Building2, FileText } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { motion } from "framer-motion";
-import { HeroBanner } from "@/components/layout/HeroBanner";
+import { CreditCard, Landmark, Copy, Check, User, Building2, FileText } from "lucide-react";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-  DialogDescription
+  DialogDescription,
 } from "@/components/ui/dialog";
 import { PageHead } from "@/components/layout/PageHead";
 import { toast } from "sonner";
 
 const RevolutIcon = ({ className }: { className?: string }) => (
-  <svg 
-    viewBox="0 0 24 24" 
-    fill="none" 
-    stroke="currentColor" 
-    strokeWidth="2" 
-    strokeLinecap="round" 
-    strokeLinejoin="round" 
-    className={className}
-  >
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
     <path d="M5 10h9.5a4.5 4.5 0 1 1 0 9h-3.5" />
     <path d="M5 10h3v10h-3z" />
   </svg>
@@ -33,342 +21,335 @@ const RevolutIcon = ({ className }: { className?: string }) => (
 
 const Support: React.FC = () => {
   const { language } = useLanguage();
+  const [copiedField, setCopiedField] = useState<"iban" | "reference" | null>(null);
 
   const content = {
     en: {
-      title: "Support The RoStory",
-      subtitle: "Help us share Romania's rich culture with the world",
-      intro: "The RoStory is a passion project dedicated to showcasing the beauty, history, and traditions of Romania. Your support helps us continue creating quality content and reaching more people worldwide.",
-      whySupport: "Why Support Us?",
-      reasons: [
-        {
-          icon: Sparkles,
-          title: "Quality Content",
-          description: "Your support helps us research and create authentic, well-crafted stories about Romanian culture."
-        },
-        {
-          icon: Heart,
-          title: "Preserve Heritage",
-          description: "Help us document and share Romania's traditions before they're forgotten."
-        },
-        {
-          icon: Banknote,
-          title: "Independent Voice",
-          description: "Support independent storytelling free from commercial pressures."
-        }
+      title: "Help keep the\narchive open.",
+      subtitle: "Become a contributor",
+      intro: "The RoStory is reader-supported. Your contribution funds field research, photography, translation, and the slow work of listening.",
+      revolut: "Revolut", paypal: "PayPal", bankTransfer: "Bank transfer",
+      revolutDesc: "Quickest. Direct from your Revolut wallet.",
+      paypalDesc: "International. Card, bank, or PayPal balance.",
+      bankDesc: "Larger amounts or recurring transfers in RON.",
+      whereTitle: "Where it goes",
+      whereLead: "I am one mind, a suite of neural networks, and a great deal of train tickets.",
+      whereRows: [
+        { label: "Field reporting & travel", pct: 38 },
+        { label: "Photography & video production", pct: 26 },
+        { label: "Translation (EN ↔ RO)", pct: 14 },
+        { label: "Editorial & fact-checking", pct: 12 },
+        { label: "Hosting & maintenance", pct: 10 },
       ],
-      donateTitle: "Ways to Support",
-      donateIntro: "Every contribution, big or small, makes a difference.",
-      revolut: "Revolut",
-      paypal: "PayPal Donation",
-      bankTransfer: "Bank Transfer",
+      thank: "Thank you",
+      thankMsg: "Whether you donate or simply share our stories, you're helping keep this archive alive.",
       bankDetails: {
-        title: "Bank transfer (RON)",
-        subtitle: "Use these details from any bank app.",
-        beneficiaryLabel: "Beneficiary",
-        beneficiaryValue: "Ionescu Emanuel-Constantin",
-        ibanLabel: "IBAN",
-        ibanValue: "RO95 REVO 0000 1310 9615 3763",
-        bankLabel: "Bank",
-        bankValue: "Revolut Bank",
-        referenceLabel: "Payment reference",
-        referenceValue: "RoStory donation",
-        copy: "Copy",
-        copied: "Copied",
-        copySuccess: "Copied to clipboard",
-        copyError: "Couldn't copy — please copy manually"
+        title: "Bank transfer (RON)", subtitle: "Use these details from any bank app.",
+        beneficiaryLabel: "Beneficiary", beneficiaryValue: "Ionescu Emanuel-Constantin",
+        ibanLabel: "IBAN", ibanValue: "RO95 REVO 0000 1310 9615 3763",
+        bankLabel: "Bank", bankValue: "Revolut Bank",
+        referenceLabel: "Payment reference", referenceValue: "RoStory donation",
+        copy: "Copy", copied: "Copied",
+        copySuccess: "Copied to clipboard", copyError: "Couldn't copy — please copy manually",
       },
-      thankYou: "Thank You",
-      thankYouMessage: "Whether you donate or simply share our stories, you're helping spread the beauty of Romania. Thank you from the heart!"
     },
     ro: {
-      title: "Susține The RoStory",
-      subtitle: "Ajută-ne să împărtășim bogata cultură a României cu lumea",
-      intro: "The RoStory este un proiect de suflet dedicat prezentării frumuseții, istoriei și tradițiilor României. Sprijinul tău ne ajută să continuăm să creăm conținut de calitate și să ajungem la mai mulți oameni din întreaga lume.",
-      whySupport: "De ce să ne susții?",
-      reasons: [
-        {
-          icon: Sparkles,
-          title: "Conținut de Calitate",
-          description: "Sprijinul tău ne ajută să cercetăm și să creăm povești autentice despre cultura românească."
-        },
-        {
-          icon: Heart,
-          title: "Păstrează Moștenirea",
-          description: "Ajută-ne să documentăm și să împărtășim tradițiile României."
-        },
-        {
-          icon: Banknote,
-          title: "Voce Independentă",
-          description: "Susține povestirile independente, libere de presiuni comerciale."
-        }
+      title: "Ajută să ținem\narhiva deschisă.",
+      subtitle: "Devino contribuitor",
+      intro: "RoStory este susținut de cititori. Contribuția ta finanțează cercetarea pe teren, fotografia, traducerea și munca lentă de a asculta.",
+      revolut: "Revolut", paypal: "PayPal", bankTransfer: "Transfer bancar",
+      revolutDesc: "Cel mai rapid. Direct din portofelul tău Revolut.",
+      paypalDesc: "Internațional. Card, bancă sau sold PayPal.",
+      bankDesc: "Sume mai mari sau transferuri recurente în RON.",
+      whereTitle: "Unde se duce",
+      whereLead: "Sunt o singură minte, un set de rețele neuronale și foarte multe bilete de tren.",
+      whereRows: [
+        { label: "Reportaje și deplasări", pct: 38 },
+        { label: "Fotografie și producție video", pct: 26 },
+        { label: "Traducere (RO ↔ EN)", pct: 14 },
+        { label: "Editare și verificare", pct: 12 },
+        { label: "Găzduire și mentenanță", pct: 10 },
       ],
-      donateTitle: "Modalități de Susținere",
-      donateIntro: "Fiecare contribuție, mare sau mică, contează.",
-      revolut: "Revolut",
-      paypal: "Donație PayPal",
-      bankTransfer: "Transfer bancar",
+      thank: "Mulțumim",
+      thankMsg: "Fie că donezi sau pur și simplu împărtășești poveștile noastre, ne ajuți să ținem arhiva în viață.",
       bankDetails: {
-        title: "Transfer bancar (RON)",
-        subtitle: "Folosește aceste detalii din orice aplicație bancară.",
-        beneficiaryLabel: "Beneficiar",
-        beneficiaryValue: "Ionescu Emanuel-Constantin",
-        ibanLabel: "IBAN",
-        ibanValue: "RO95 REVO 0000 1310 9615 3763",
-        bankLabel: "Banca",
-        bankValue: "Revolut Bank",
-        referenceLabel: "Detalii plată",
-        referenceValue: "Donație RoStory",
-        copy: "Copiază",
-        copied: "Copiat",
-        copySuccess: "Copiat în clipboard",
-        copyError: "Nu s-a putut copia — copiază manual"
+        title: "Transfer bancar (RON)", subtitle: "Folosește aceste detalii din orice aplicație bancară.",
+        beneficiaryLabel: "Beneficiar", beneficiaryValue: "Ionescu Emanuel-Constantin",
+        ibanLabel: "IBAN", ibanValue: "RO95 REVO 0000 1310 9615 3763",
+        bankLabel: "Banca", bankValue: "Revolut Bank",
+        referenceLabel: "Detalii plată", referenceValue: "Donație RoStory",
+        copy: "Copiază", copied: "Copiat",
+        copySuccess: "Copiat în clipboard", copyError: "Nu s-a putut copia — copiază manual",
       },
-      thankYou: "Mulțumesc",
-      thankYouMessage: "Fie că donezi sau pur și simplu împărtășești poveștile noastre, ajuți la răspândirea frumuseții României. Mulțumesc din suflet!"
-    }
+    },
   };
 
   const t = content[language];
-
-  // Tracks which field was last copied so we can flash a "Copied" check next
-  // to its button. Resets after a couple of seconds so repeat clicks still
-  // give visual feedback.
-  const [copiedField, setCopiedField] = useState<"iban" | "reference" | null>(null);
 
   const handleCopy = async (value: string, field: "iban" | "reference") => {
     try {
       await navigator.clipboard.writeText(value);
       setCopiedField(field);
       toast.success(t.bankDetails.copySuccess);
-      window.setTimeout(() => {
-        setCopiedField((prev) => (prev === field ? null : prev));
-      }, 2000);
+      window.setTimeout(() => setCopiedField((prev) => (prev === field ? null : prev)), 2000);
     } catch {
       toast.error(t.bankDetails.copyError);
     }
   };
 
-  return (
-    <div className="min-h-screen bg-background pb-20">
-      <PageHead title={t.title} description={t.subtitle} language={language} />
-      <HeroBanner
-        title={t.title}
-        subtitle={t.subtitle}
-        imageUrl="/hero/church.jpg"
-        Icon={Heart}
-        height="h-[60vh]"
-      />
+  const tiers = [
+    {
+      label: t.revolut,
+      icon: <RevolutIcon className="w-7 h-7" />,
+      desc: t.revolutDesc,
+      onClick: () => window.open("https://revolut.me/manu2492", "_blank", "noopener,noreferrer"),
+      popular: true,
+    },
+    {
+      label: t.paypal,
+      icon: <CreditCard className="w-7 h-7" />,
+      desc: t.paypalDesc,
+      onClick: () => window.open("https://paypal.me/Constaa24?locale.x=ro_RO&country.x=RO", "_blank", "noopener,noreferrer"),
+    },
+    {
+      label: t.bankTransfer,
+      icon: <Landmark className="w-7 h-7" />,
+      desc: t.bankDesc,
+      isDialog: true,
+    },
+  ];
 
-      <div className="container mx-auto px-4 py-20 max-w-5xl animate-fade-in">
-        {/* Introduction */}
-        <div className="text-center mb-24 max-w-3xl mx-auto">
-          <p className="text-2xl font-serif italic text-foreground/80 leading-relaxed">
+  return (
+    <div className="screen-anim pb-20">
+      <PageHead title={t.subtitle} description={t.intro} language={language} />
+
+      {/* Page hero */}
+      <section style={{ padding: '80px 0 56px', borderBottom: '1px solid var(--line-soft)' }}>
+        <div className="ed-container">
+          <div className="eyebrow mb-4">{t.subtitle}</div>
+          <h1
+            className="font-display italic font-medium m-0"
+            style={{
+              fontSize: 'clamp(56px, 8vw, 120px)',
+              lineHeight: 0.95,
+              letterSpacing: '-0.01em',
+              color: 'var(--parchment)',
+              textWrap: 'balance' as React.CSSProperties['textWrap'],
+              whiteSpace: 'pre-line',
+            }}
+          >
+            {t.title}
+          </h1>
+          <p className="mt-7 max-w-[540px]" style={{ fontSize: 19, color: 'var(--text-dim)', lineHeight: 1.55 }}>
             {t.intro}
           </p>
-          <div className="h-[1px] w-24 bg-accent mx-auto mt-10" />
         </div>
+      </section>
 
-        {/* Why Support Section */}
-        <div className="mb-24">
-          <h2 className="text-4xl font-serif font-black italic text-primary text-center mb-12">
-            {t.whySupport}
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {t.reasons.map((reason, index) => (
-              <motion.div
-                key={index}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: index * 0.1 }}
-              >
-                <Card className="parchment-effect p-10 text-center border-none shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_20px_60px_rgb(0,0,0,0.08)] transition-all duration-700 hover:-translate-y-2 h-full flex flex-col items-center justify-center space-y-6 rounded-[2.5rem] md:rounded-[3rem] relative group">
-                  <div className="absolute inset-2 border-[1px] border-accent/10 pointer-events-none group-hover:inset-1 transition-all duration-700 rounded-[2.5rem] md:rounded-[3rem]" />
-                  <div className="bg-accent/10 rounded-full p-4 mb-2 group-hover:bg-accent/20 transition-colors duration-500">
-                    <reason.icon className="h-8 w-8 text-accent" />
-                  </div>
-                  <h3 className="text-2xl font-serif italic font-bold text-primary">
-                    {reason.title}
-                  </h3>
-                  <p className="text-muted-foreground leading-relaxed">
-                    {reason.description}
-                  </p>
-                </Card>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-
-        {/* Donate Section */}
-        <div className="mb-16">
-          <h2 className="text-2xl font-serif italic text-primary text-center mb-4">
-            {t.donateTitle}
-          </h2>
-          <p className="text-center text-muted-foreground mb-8">
-            {t.donateIntro}
-          </p>
-          
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <Button
-              variant="outline"
-              size="lg"
-              className="h-auto py-8 flex flex-col gap-3 rounded-[2rem] hover:bg-accent hover:text-primary-foreground transition-all duration-500 group border-border/60 shadow-sm hover:shadow-xl hover:-translate-y-1"
-              onClick={() => window.open("https://revolut.me/manu2492", "_blank", "noopener,noreferrer")}
-            >
-              <RevolutIcon className="h-10 w-10 group-hover:scale-110 transition-transform duration-500" />
-              <span className="font-serif italic text-lg">{t.revolut}</span>
-            </Button>
-            
-            <Button
-              variant="outline"
-              size="lg"
-              className="h-auto py-8 flex flex-col gap-3 rounded-[2rem] hover:bg-accent hover:text-primary-foreground transition-all duration-500 group border-border/60 shadow-sm hover:shadow-xl hover:-translate-y-1"
-              onClick={() => window.open("https://paypal.me/Constaa24?locale.x=ro_RO&country.x=RO", "_blank", "noopener,noreferrer")}
-            >
-              <CreditCard className="h-10 w-10 group-hover:scale-110 transition-transform duration-500" />
-              <span className="font-serif italic text-lg">{t.paypal}</span>
-            </Button>
-            
-            <Dialog>
-              <DialogTrigger asChild>
-                <Button
-                  variant="outline"
-                  size="lg"
-                  className="h-auto py-8 flex flex-col gap-3 rounded-[2rem] hover:bg-accent hover:text-primary-foreground transition-all duration-500 group border-border/60 shadow-sm hover:shadow-xl hover:-translate-y-1"
+      {/* Tiers (donation methods styled as editorial cards) */}
+      <section style={{ padding: '60px 0 80px' }}>
+        <div className="ed-container">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-7">
+            {tiers.map((tier, i) => {
+              const card = (
+                <div
+                  className="relative cursor-pointer transition-colors group"
+                  style={{
+                    padding: '40px 32px',
+                    border: tier.popular ? '1px solid var(--gold)' : '1px solid var(--line)',
+                    background: tier.popular ? 'linear-gradient(180deg, rgba(201,169,110,0.06), transparent)' : 'var(--overlay-panel-soft)',
+                  }}
                 >
-                  <Landmark className="h-10 w-10 group-hover:scale-110 transition-transform duration-500" />
-                  <span className="font-serif italic text-lg">{t.bankTransfer}</span>
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="parchment-effect border-none shadow-2xl sm:max-w-md rounded-[3rem] sm:rounded-[3.5rem] p-0 overflow-hidden">
-                <DialogHeader className="px-6 sm:px-8 pt-10 pb-5 space-y-3">
-                  <div className="flex justify-center">
-                    <div className="h-14 w-14 rounded-full bg-accent/15 border border-accent/30 flex items-center justify-center shadow-sm">
-                      <Landmark className="h-6 w-6 text-accent" />
-                    </div>
+                  {tier.popular && (
+                    <span
+                      className="pill absolute"
+                      style={{
+                        top: -14,
+                        left: 24,
+                        background: 'var(--ink)',
+                        color: 'var(--gold)',
+                        borderColor: 'var(--gold)',
+                      }}
+                    >
+                      {language === 'en' ? 'Most chosen' : 'Cel mai ales'}
+                    </span>
+                  )}
+                  <div className="grid place-items-center mb-5" style={{ width: 56, height: 56, borderRadius: '50%', background: 'rgba(201,169,110,0.12)', color: 'var(--gold)' }}>
+                    {tier.icon}
                   </div>
-                  <DialogTitle className="text-2xl sm:text-3xl font-serif italic font-bold text-primary text-center leading-tight">
-                    {t.bankDetails.title}
-                  </DialogTitle>
-                  <div className="h-[1px] w-20 bg-accent mx-auto" />
-                  <DialogDescription className="text-center text-sm font-serif italic text-muted-foreground">
-                    {t.bankDetails.subtitle}
-                  </DialogDescription>
-                </DialogHeader>
-
-                <div className="px-6 sm:px-8 pb-8 space-y-5">
-                  {/* Beneficiary — quiet label/value row */}
-                  <div className="flex items-start gap-3">
-                    <div className="h-8 w-8 rounded-full bg-accent/10 flex items-center justify-center shrink-0 mt-0.5">
-                      <User className="h-3.5 w-3.5 text-accent" />
-                    </div>
-                    <div className="flex-1 min-w-0 space-y-0.5">
-                      <p className="text-[10px] uppercase tracking-[0.25em] font-bold text-muted-foreground">
-                        {t.bankDetails.beneficiaryLabel}
-                      </p>
-                      <p className="font-serif italic text-base sm:text-lg text-foreground/90">
-                        {t.bankDetails.beneficiaryValue}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* IBAN — hero block. Largest, monospaced, copy-first. */}
-                  <div className="rounded-3xl bg-accent/5 border border-accent/20 p-5 space-y-3 shadow-inner">
-                    <div className="flex items-center justify-between gap-3">
-                      <p className="text-[10px] uppercase tracking-[0.25em] font-bold text-accent">
-                        {t.bankDetails.ibanLabel}
-                      </p>
-                      <button
-                        type="button"
-                        onClick={() => handleCopy(t.bankDetails.ibanValue.replace(/\s+/g, ""), "iban")}
-                        className="flex items-center gap-1.5 text-[11px] uppercase tracking-wider font-bold text-muted-foreground hover:text-accent transition-colors rounded-full px-2.5 py-1 hover:bg-accent/10"
-                        aria-label={t.bankDetails.copy}
-                      >
-                        {copiedField === "iban" ? (
-                          <>
-                            <Check className="h-3.5 w-3.5" />
-                            {t.bankDetails.copied}
-                          </>
-                        ) : (
-                          <>
-                            <Copy className="h-3.5 w-3.5" />
-                            {t.bankDetails.copy}
-                          </>
-                        )}
-                      </button>
-                    </div>
-                    <p className="font-mono text-sm sm:text-base text-foreground/90 break-all leading-relaxed select-all">
-                      {t.bankDetails.ibanValue}
-                    </p>
-                  </div>
-
-                  {/* Bank — quiet label/value row */}
-                  <div className="flex items-start gap-3">
-                    <div className="h-8 w-8 rounded-full bg-accent/10 flex items-center justify-center shrink-0 mt-0.5">
-                      <Building2 className="h-3.5 w-3.5 text-accent" />
-                    </div>
-                    <div className="flex-1 min-w-0 space-y-0.5">
-                      <p className="text-[10px] uppercase tracking-[0.25em] font-bold text-muted-foreground">
-                        {t.bankDetails.bankLabel}
-                      </p>
-                      <p className="font-serif italic text-base sm:text-lg text-foreground/90">
-                        {t.bankDetails.bankValue}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Payment reference — gold callout, the second thing the
-                      user will paste into their banking app. */}
-                  <div className="rounded-3xl bg-accent/10 border border-accent/30 p-5 space-y-2">
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="flex items-center gap-2">
-                        <FileText className="h-3.5 w-3.5 text-accent" />
-                        <p className="text-[10px] uppercase tracking-[0.25em] font-bold text-accent">
-                          {t.bankDetails.referenceLabel}
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => handleCopy(t.bankDetails.referenceValue, "reference")}
-                        className="flex items-center gap-1.5 text-[11px] uppercase tracking-wider font-bold text-muted-foreground hover:text-accent transition-colors rounded-full px-2.5 py-1 hover:bg-accent/15"
-                        aria-label={t.bankDetails.copy}
-                      >
-                        {copiedField === "reference" ? (
-                          <>
-                            <Check className="h-3.5 w-3.5" />
-                            {t.bankDetails.copied}
-                          </>
-                        ) : (
-                          <>
-                            <Copy className="h-3.5 w-3.5" />
-                            {t.bankDetails.copy}
-                          </>
-                        )}
-                      </button>
-                    </div>
-                    <p className="font-serif italic font-bold text-lg text-accent select-all">
-                      {t.bankDetails.referenceValue}
-                    </p>
+                  <h3
+                    className="font-display italic font-medium m-0"
+                    style={{ fontSize: 36, lineHeight: 1.05, color: 'var(--parchment)' }}
+                  >
+                    {tier.label}
+                  </h3>
+                  <p className="mt-3 mb-7" style={{ color: 'var(--text-dim)', fontSize: 15, lineHeight: 1.55 }}>
+                    {tier.desc}
+                  </p>
+                  <div className="btn-ed w-full justify-center" style={{ background: tier.popular ? 'var(--gold)' : 'transparent', color: tier.popular ? 'var(--ink)' : 'var(--gold)' }}>
+                    {language === 'en' ? `Donate via ${tier.label}` : `Donează prin ${tier.label}`}
                   </div>
                 </div>
-              </DialogContent>
-            </Dialog>
+              );
+
+              if (tier.isDialog) {
+                return (
+                  <Dialog key={i}>
+                    <DialogTrigger asChild>
+                      <button className="text-left p-0" style={{ background: 'transparent', border: 0 }}>
+                        {card}
+                      </button>
+                    </DialogTrigger>
+                    <DialogContent
+                      className="sm:max-w-md p-0 overflow-hidden"
+                      style={{
+                        border: '1px solid var(--line)',
+                        background: 'var(--ink-2)',
+                        borderRadius: 4,
+                        color: 'var(--text)',
+                      }}
+                    >
+                      <DialogHeader className="px-7 pt-9 pb-3 space-y-3">
+                        <div className="grid place-items-center mx-auto" style={{ width: 56, height: 56, borderRadius: '50%', background: 'rgba(201,169,110,0.12)', color: 'var(--gold)' }}>
+                          <Landmark className="w-6 h-6" />
+                        </div>
+                        <DialogTitle
+                          className="font-display italic text-center m-0"
+                          style={{ fontSize: 28, lineHeight: 1.1, color: 'var(--parchment)' }}
+                        >
+                          {t.bankDetails.title}
+                        </DialogTitle>
+                        <div className="rule-gold mx-auto" style={{ width: 80 }} />
+                        <DialogDescription className="text-center font-display italic" style={{ color: 'var(--text-dim)' }}>
+                          {t.bankDetails.subtitle}
+                        </DialogDescription>
+                      </DialogHeader>
+
+                      <div className="px-7 pb-8 space-y-5">
+                        <DetailRow icon={<User className="w-3.5 h-3.5" />} label={t.bankDetails.beneficiaryLabel} value={t.bankDetails.beneficiaryValue} />
+
+                        <div className="rounded-sm p-5 space-y-3" style={{ background: 'rgba(201,169,110,0.06)', border: '1px solid var(--line)' }}>
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="eyebrow">{t.bankDetails.ibanLabel}</div>
+                            <CopyButton
+                              copied={copiedField === 'iban'}
+                              onClick={() => handleCopy(t.bankDetails.ibanValue.replace(/\s+/g, ''), 'iban')}
+                              copy={t.bankDetails.copy}
+                              copiedLabel={t.bankDetails.copied}
+                            />
+                          </div>
+                          <p className="font-mono break-all select-all" style={{ fontSize: 15, color: 'var(--parchment)', lineHeight: 1.6, margin: 0 }}>
+                            {t.bankDetails.ibanValue}
+                          </p>
+                        </div>
+
+                        <DetailRow icon={<Building2 className="w-3.5 h-3.5" />} label={t.bankDetails.bankLabel} value={t.bankDetails.bankValue} />
+
+                        <div className="rounded-sm p-5 space-y-2" style={{ background: 'rgba(138,42,42,0.07)', border: '1px solid var(--line)' }}>
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="eyebrow flex items-center gap-2"><FileText className="w-3.5 h-3.5" /> {t.bankDetails.referenceLabel}</div>
+                            <CopyButton
+                              copied={copiedField === 'reference'}
+                              onClick={() => handleCopy(t.bankDetails.referenceValue, 'reference')}
+                              copy={t.bankDetails.copy}
+                              copiedLabel={t.bankDetails.copied}
+                            />
+                          </div>
+                          <p className="font-display italic font-medium select-all" style={{ fontSize: 18, color: 'var(--gold)', margin: 0 }}>
+                            {t.bankDetails.referenceValue}
+                          </p>
+                        </div>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+                );
+              }
+
+              return (
+                <button key={i} onClick={tier.onClick} className="text-left p-0" style={{ background: 'transparent', border: 0 }}>
+                  {card}
+                </button>
+              );
+            })}
           </div>
         </div>
+      </section>
 
-        {/* Thank You Section */}
-        <div className="text-center py-16 px-8 bg-secondary/10 rounded-[3rem] border border-dashed border-border/50 shadow-sm mt-12">
-          <h3 className="text-xl font-serif italic text-primary mb-4">
-            {t.thankYou}
-          </h3>
-          <p className="text-muted-foreground max-w-md mx-auto">
-            {t.thankYouMessage}
-          </p>
+      {/* Where it goes */}
+      <section style={{ padding: '80px 0', borderTop: '1px solid var(--line-soft)' }}>
+        <div className="ed-container">
+          <div className="grid grid-cols-1 md:grid-cols-[1fr_1.5fr] gap-20 items-start">
+            <div>
+              <div className="eyebrow mb-3.5">{t.whereTitle}</div>
+              <h3
+                className="font-display italic font-medium m-0"
+                style={{ fontSize: 'clamp(32px, 3.4vw, 48px)', lineHeight: 1.1, color: 'var(--parchment)' }}
+              >
+                {t.whereLead}
+              </h3>
+            </div>
+            <div className="flex flex-col gap-5">
+              {t.whereRows.map((row, i) => (
+                <div key={i}>
+                  <div className="flex justify-between mb-2">
+                    <span className="font-display italic" style={{ fontSize: 19 }}>{row.label}</span>
+                    <span className="font-ui text-[11px]" style={{ letterSpacing: '0.15em', color: 'var(--gold)' }}>{row.pct}%</span>
+                  </div>
+                  <div style={{ height: 1, background: 'var(--line)', position: 'relative' }}>
+                    <div style={{ position: 'absolute', left: 0, top: -1, height: 3, width: row.pct + '%', background: 'var(--gold)' }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
-      </div>
+      </section>
+
+      {/* Thank you */}
+      <section style={{ padding: '80px 0' }}>
+        <div className="ed-container">
+          <div className="text-center max-w-[600px] mx-auto py-12 px-6" style={{ border: '1px dashed var(--line)' }}>
+            <div className="eyebrow mb-4">{t.thank}</div>
+            <p className="font-display italic m-0" style={{ fontSize: 'clamp(22px, 2.4vw, 30px)', lineHeight: 1.3, color: 'var(--parchment)' }}>
+              {t.thankMsg}
+            </p>
+          </div>
+        </div>
+      </section>
     </div>
   );
 };
+
+const DetailRow: React.FC<{ icon: React.ReactNode; label: string; value: string }> = ({ icon, label, value }) => (
+  <div className="flex items-start gap-3">
+    <div className="grid place-items-center shrink-0" style={{ width: 32, height: 32, borderRadius: '50%', background: 'rgba(201,169,110,0.10)', color: 'var(--gold)', marginTop: 2 }}>
+      {icon}
+    </div>
+    <div className="flex-1 min-w-0">
+      <div className="eyebrow">{label}</div>
+      <p className="font-display italic" style={{ fontSize: 17, color: 'var(--parchment)', margin: '4px 0 0' }}>{value}</p>
+    </div>
+  </div>
+);
+
+const CopyButton: React.FC<{ copied: boolean; onClick: () => void; copy: string; copiedLabel: string }> = ({ copied, onClick, copy, copiedLabel }) => (
+  <button
+    type="button"
+    onClick={onClick}
+    className="flex items-center gap-1.5 font-ui text-[10px] uppercase font-bold transition-colors"
+    style={{
+      letterSpacing: '0.15em',
+      color: copied ? 'var(--gold)' : 'var(--text-dim)',
+      background: 'transparent',
+      border: '1px solid var(--line)',
+      padding: '5px 10px',
+      borderRadius: 999,
+      cursor: 'pointer',
+    }}
+  >
+    {copied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+    {copied ? copiedLabel : copy}
+  </button>
+);
 
 export default Support;

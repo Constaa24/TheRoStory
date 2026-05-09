@@ -188,20 +188,20 @@ const Auth: React.FC = () => {
 
   if (isVerificationSent) {
     return (
-      <div className="container mx-auto px-4 py-20 flex justify-center items-center min-h-[70vh]">
+      <div className="ed-container py-20 flex justify-center items-center min-h-[70vh]">
         <motion.div 
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
           className="max-w-md w-full"
         >
-          <Card className="border-border/40 bg-secondary/20 backdrop-blur-md text-center">
+          <Card className="border-line bg-[color:var(--ink-2)]/60 backdrop-blur-md text-center rounded-sm">
             <CardHeader>
               <div className="flex justify-center mb-4">
                 <div className="h-16 w-16 bg-accent/10 rounded-full flex items-center justify-center text-accent">
                   <Mail className="h-8 w-8" />
                 </div>
               </div>
-              <CardTitle className="text-3xl font-serif italic text-primary">
+              <CardTitle className="text-3xl font-display italic text-[color:var(--parchment)]">
                 {t("auth.checkEmail")}
               </CardTitle>
               <CardDescription className="text-muted-foreground font-serif italic text-lg">
@@ -228,15 +228,15 @@ const Auth: React.FC = () => {
 
   if (view === "forgot-password") {
     return (
-      <div className="container mx-auto px-4 py-20 flex justify-center items-center min-h-[80vh]">
+      <div className="ed-container py-20 flex justify-center items-center min-h-[80vh]">
         <motion.div 
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
           className="max-w-md w-full"
         >
-          <Card className="border-border/40 bg-secondary/20 backdrop-blur-md shadow-2xl">
+          <Card className="border-line bg-[color:var(--ink-2)]/60 backdrop-blur-md shadow-2xl rounded-sm">
             <CardHeader className="text-center">
-              <CardTitle className="text-3xl font-serif italic text-primary">
+              <CardTitle className="text-3xl font-display italic text-[color:var(--parchment)]">
                 {t("auth.resetPassword")}
               </CardTitle>
               <CardDescription className="text-muted-foreground font-serif italic">
@@ -284,15 +284,15 @@ const Auth: React.FC = () => {
     // If user has no session and not coming from reset mode, show error state
     if (!isResetMode && !user) {
       return (
-        <div className="container mx-auto px-4 py-20 flex justify-center items-center min-h-[80vh]">
+        <div className="ed-container py-20 flex justify-center items-center min-h-[80vh]">
           <motion.div 
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
             className="max-w-md w-full"
           >
-            <Card className="border-border/40 bg-secondary/20 backdrop-blur-md shadow-2xl">
+            <Card className="border-line bg-[color:var(--ink-2)]/60 backdrop-blur-md shadow-2xl rounded-sm">
               <CardHeader className="text-center">
-                <CardTitle className="text-3xl font-serif italic text-primary">
+                <CardTitle className="text-3xl font-display italic text-[color:var(--parchment)]">
                   {t("auth.invalidResetLink")}
                 </CardTitle>
                 <CardDescription className="text-muted-foreground font-serif italic">
@@ -331,15 +331,15 @@ const Auth: React.FC = () => {
     }
 
     return (
-      <div className="container mx-auto px-4 py-20 flex justify-center items-center min-h-[80vh]">
+      <div className="ed-container py-20 flex justify-center items-center min-h-[80vh]">
         <motion.div 
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
           className="max-w-md w-full"
         >
-          <Card className="border-border/40 bg-secondary/20 backdrop-blur-md shadow-2xl">
+          <Card className="border-line bg-[color:var(--ink-2)]/60 backdrop-blur-md shadow-2xl rounded-sm">
             <CardHeader className="text-center">
-              <CardTitle className="text-3xl font-serif italic text-primary">
+              <CardTitle className="text-3xl font-display italic text-[color:var(--parchment)]">
                 {t("auth.newPassword")}
               </CardTitle>
               <CardDescription className="text-muted-foreground font-serif italic">
@@ -387,24 +387,34 @@ const Auth: React.FC = () => {
   }
 
   return (
-    <div className="container mx-auto px-4 py-20 flex justify-center items-center min-h-[80vh]">
+    <div className="ed-container py-20 flex justify-center items-center min-h-[80vh]">
       <motion.div 
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         className="max-w-md w-full"
       >
-        <Card className="border-border/40 bg-secondary/20 backdrop-blur-md shadow-2xl">
+        <Card className="border-line bg-[color:var(--ink-2)]/60 backdrop-blur-md shadow-2xl rounded-sm">
           <CardHeader className="text-center">
-            <CardTitle className="text-4xl font-serif italic font-bold text-primary px-2 pb-1">The RoStory</CardTitle>
+            <CardTitle
+              className="text-4xl font-display italic font-semibold px-2 pb-1"
+              style={{
+                background: 'var(--logo-gradient)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                letterSpacing: '-0.01em',
+              }}
+            >
+              The RoStory
+            </CardTitle>
             <CardDescription className="text-muted-foreground font-serif italic">
               {activeTab === "login" ? t("auth.continueJourney") : t("auth.startStory")}
             </CardDescription>
           </CardHeader>
           <CardContent>
             <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-              <TabsList className="grid w-full grid-cols-2 rounded-full p-1 h-12 bg-accent/5 border border-accent/10">
-                <TabsTrigger value="login" className="rounded-full font-serif italic">{t("auth.loginTab")}</TabsTrigger>
-                <TabsTrigger value="signup" className="rounded-full font-serif italic">{t("auth.signupTab")}</TabsTrigger>
+              <TabsList className="grid w-full grid-cols-2 rounded-full p-1 h-12 bg-[color:var(--ink)]/40 border border-line">
+                <TabsTrigger value="login" className="rounded-full font-display italic data-[state=active]:bg-[color:var(--gold)] data-[state=active]:text-[color:var(--ink)]">{t("auth.loginTab")}</TabsTrigger>
+                <TabsTrigger value="signup" className="rounded-full font-display italic data-[state=active]:bg-[color:var(--gold)] data-[state=active]:text-[color:var(--ink)]">{t("auth.signupTab")}</TabsTrigger>
               </TabsList>
               
               <TabsContent value="login">

@@ -4,46 +4,26 @@ import { motion, AnimatePresence } from "framer-motion";
 import * as topojson from "topojson-client";
 import * as d3 from "d3-geo";
 import countiesTopoData from "@/lib/counties_topo";
-import {
-  fetchMapArticles,
-  Article,
-  getLocalized
-} from "@/lib/supabase";
+import { fetchMapArticles, Article, getLocalized } from "@/lib/supabase";
 import { useLanguage } from "@/hooks/use-language";
-import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { StoryThumbnail } from "@/components/ui/story-thumbnail";
-import {
-  X,
-  MapPin,
-  BookText,
-  Video,
-  ChevronRight,
-  Maximize2,
-  Minimize2,
-  Info,
-  RotateCcw
-} from "lucide-react";
+import { X, MapPin, ChevronRight, Maximize2, Minimize2, RotateCcw, ArrowLeft } from "lucide-react";
 import { cn, isAbortError } from "@/lib/utils";
-import { HeroBanner } from "@/components/layout/HeroBanner";
 import { PageHead } from "@/components/layout/PageHead";
 
 // Choropleth tiers — counties get progressively warmer as story density grows.
-// Tiers chosen empirically: most counties have 0-2 stories, a few have many.
-// All Tailwind class strings are listed verbatim so JIT picks them up.
+// Mapped to direct gold/oxblood opacities to fit the editorial palette.
 const STORY_DENSITY_TIERS: Array<{
   min: number;
   max: number;
   label: string;
-  fill: string;
-  stroke: string;
-  hover: string;
-  swatch: string;
+  fillOpacity: number;
+  hoverOpacity: number;
 }> = [
-  { min: 1, max: 2, label: "1–2", fill: "fill-accent/20", stroke: "stroke-accent/30", hover: "hover:fill-accent/30", swatch: "bg-accent/20" },
-  { min: 3, max: 5, label: "3–5", fill: "fill-accent/40", stroke: "stroke-accent/50", hover: "hover:fill-accent/55", swatch: "bg-accent/40" },
-  { min: 6, max: 10, label: "6–10", fill: "fill-accent/60", stroke: "stroke-accent/70", hover: "hover:fill-accent/75", swatch: "bg-accent/60" },
-  { min: 11, max: Infinity, label: "11+", fill: "fill-accent/80", stroke: "stroke-accent/90", hover: "hover:fill-accent/90", swatch: "bg-accent/80" },
+  { min: 1, max: 2, label: "1–2", fillOpacity: 0.18, hoverOpacity: 0.32 },
+  { min: 3, max: 5, label: "3–5", fillOpacity: 0.34, hoverOpacity: 0.5 },
+  { min: 6, max: 10, label: "6–10", fillOpacity: 0.55, hoverOpacity: 0.7 },
+  { min: 11, max: Infinity, label: "11+", fillOpacity: 0.78, hoverOpacity: 0.9 },
 ];
 
 const tierForCount = (count: number) => {
@@ -51,8 +31,6 @@ const tierForCount = (count: number) => {
   return STORY_DENSITY_TIERS.find((t) => count >= t.min && count <= t.max) ?? STORY_DENSITY_TIERS[STORY_DENSITY_TIERS.length - 1];
 };
 
-// SVG viewBox — referenced for pan math so changing dimensions doesn't
-// silently break the zoom centering.
 const MAP_VIEW_W = 800;
 const MAP_VIEW_H = 600;
 const ZOOM_SCALE = 2.2;
@@ -66,40 +44,22 @@ const MapPage: React.FC = () => {
   const [selectedLocation, setSelectedLocation] = useState<string | null>(null);
   const [isZoomed, setIsZoomed] = useState(false);
   const [isAnimating, setIsAnimating] = useState(false);
-
-  // Ref to the stories panel — used to scroll it into view on mobile
-  // when a county is selected, since the panel renders below the map.
+  const [hoverCounty, setHoverCounty] = useState<string | null>(null);
   const panelRef = useRef<HTMLDivElement | null>(null);
 
-  // Process map data
   type CountyPath = { id: string; name: string; d: string; lx: number; ly: number };
   const { paths } = useMemo<{ paths: CountyPath[] }>(() => {
-    // topojson.feature returns FeatureCollection when given a GeometryCollection.
-    // The shim in counties_topo.d.ts pins the properties shape to {name: string}
-    // so we don't need any casts.
     const geojson = topojson.feature(countiesTopoData, countiesTopoData.objects["romania.counties"]);
-    // Type narrowing — feature() also overloads to a single Feature when the
-    // input is one geometry. Our input is a GeometryCollection, so this is
-    // always a FeatureCollection.
     const features = "features" in geojson ? geojson.features : [geojson];
-
     const projection = d3.geoMercator().fitSize([MAP_VIEW_W, MAP_VIEW_H], geojson);
     const pathGenerator = d3.geoPath().projection(projection);
 
     const countyPaths: CountyPath[] = features.map((feature) => {
       let name: string = feature.properties?.name ?? "";
       if (name === "SatuMare") name = "Satu Mare";
-
       const centroid = pathGenerator.centroid(feature);
-      return {
-        id: name,
-        name,
-        d: pathGenerator(feature) || "",
-        lx: centroid[0],
-        ly: centroid[1],
-      };
+      return { id: name, name, d: pathGenerator(feature) || "", lx: centroid[0], ly: centroid[1] };
     });
-
     return { paths: countyPaths };
   }, []);
 
@@ -107,35 +67,23 @@ const MapPage: React.FC = () => {
     let cancelled = false;
     setIsLoading(true);
     fetchMapArticles()
-      .then((data) => {
-        if (!cancelled) setArticles(data || []);
-      })
-      .catch((error) => {
-        if (!isAbortError(error)) console.error("Error fetching data:", error);
-      })
-      .finally(() => {
-        if (!cancelled) setIsLoading(false);
-      });
+      .then((data) => { if (!cancelled) setArticles(data || []); })
+      .catch((error) => { if (!isAbortError(error)) console.error("Error fetching data:", error); })
+      .finally(() => { if (!cancelled) setIsLoading(false); });
 
-    // Restore selected location from state if returning from an article
     const state = location.state as { selectedLocation?: string } | null;
     if (state?.selectedLocation) {
       setSelectedLocation(state.selectedLocation);
       setIsZoomed(true);
     }
-
     return () => { cancelled = true; };
-    // location.state is read once on mount intentionally — re-running on
-    // navigation would clobber the user's current selection.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const storiesPerLocation = useMemo(() => {
     const counts: Record<string, number> = {};
     articles.forEach(art => {
-      if (art.location) {
-        counts[art.location] = (counts[art.location] || 0) + 1;
-      }
+      if (art.location) counts[art.location] = (counts[art.location] || 0) + 1;
     });
     return counts;
   }, [articles]);
@@ -145,49 +93,35 @@ const MapPage: React.FC = () => {
     return articles.filter(art => art.location === selectedLocation);
   }, [selectedLocation, articles]);
 
-  const handleLocationClick = useCallback((location: string) => {
-    if (selectedLocation === location) {
+  const allLocationsByCount = useMemo(() => {
+    return Object.entries(storiesPerLocation)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 12);
+  }, [storiesPerLocation]);
+
+  const handleLocationClick = useCallback((loc: string) => {
+    if (selectedLocation === loc) {
       setSelectedLocation(null);
       setIsZoomed(false);
     } else {
-      setSelectedLocation(location);
+      setSelectedLocation(loc);
       setIsZoomed(true);
     }
   }, [selectedLocation]);
 
-  // On mobile the panel renders below the map — scroll it into view so
-  // tapping a county doesn't leave the user looking at an unchanged hero.
-  // We also avoid scrolling on desktop (lg+) where the panel sits beside
-  // the map and is already visible.
   useEffect(() => {
     if (!selectedLocation) return;
     if (typeof window === "undefined") return;
     const isDesktop = window.matchMedia("(min-width: 1024px)").matches;
     if (isDesktop) return;
-    const id = window.setTimeout(() => {
-      panelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-    }, 80);
+    const id = window.setTimeout(() => panelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 80);
     return () => window.clearTimeout(id);
   }, [selectedLocation]);
 
-  const closeList = useCallback(() => {
-    setSelectedLocation(null);
-    setIsZoomed(false);
-  }, []);
+  const closeList = useCallback(() => { setSelectedLocation(null); setIsZoomed(false); }, []);
 
-  const selectedPath = useMemo(() => {
-    return paths.find(p => p.id === selectedLocation);
-  }, [selectedLocation, paths]);
+  const selectedPath = useMemo(() => paths.find(p => p.id === selectedLocation), [selectedLocation, paths]);
 
-  // Safety: framer-motion can fire onAnimationStart without onAnimationComplete
-  // (interrupted by a new animation, route change, etc.), leaving isAnimating
-  // permanently true and disabling map clicks. Auto-clear is a backstop for
-  // that case — onAnimationComplete is the canonical "done" signal.
-  //
-  // The transition is a spring at stiffness=80/damping=15 (ratio ~0.83,
-  // underdamped). It empirically settles in ~1.1–1.4s and can briefly
-  // overshoot. 1800ms gives the spring room to fully settle without
-  // legitimate clicks racing the still-running zoom.
   useEffect(() => {
     if (!isAnimating) return;
     const id = window.setTimeout(() => setIsAnimating(false), 1800);
@@ -200,347 +134,389 @@ const MapPage: React.FC = () => {
     : "Explorează bogatul patrimoniu cultural al României prin povești bazate pe locație — apasă orice județ pentru a-i descoperi poveștile.";
 
   return (
-    <div className="min-h-screen bg-background pb-20">
+    <div className="screen-anim pb-20">
       <PageHead title={mapTitle} description={mapDescription} language={language} />
-      <HeroBanner
-        title={mapTitle}
-        subtitle={language === 'en'
-          ? "Explore Romania's rich cultural heritage through location-based storytelling."
-          : "Explorează bogatul patrimoniu cultural al României prin povești bazate pe locație."}
-        imageUrl="/hero/map.jpg"
-        Icon={MapPin}
-        height="h-[40vh]"
-      />
 
-      <div className="container mx-auto px-4 py-20 max-w-7xl space-y-16 animate-fade-in">
-
-      {isLoading && (
-        <div className="flex h-[40vh] items-center justify-center">
-          <div className="animate-pulse flex flex-col items-center gap-4">
-            <div className="h-12 w-12 border-4 border-accent border-t-transparent rounded-full animate-spin"></div>
-            <p className="font-serif italic text-accent">{t("common.loading")}</p>
-          </div>
-        </div>
-      )}
-
-      {!isLoading && (
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
-        {/* Map Section */}
-        <div className="lg:col-span-2 space-y-4">
-        <div className={cn(
-          "relative bg-card/40 rounded-[2rem] p-4 sm:p-8 border-2 border-primary/10 overflow-hidden transition-all duration-700",
-          isZoomed ? "shadow-2xl ring-2 ring-accent/40" : "shadow-elegant"
-        )}>
-          {/* Zoom controls */}
-          <div className="absolute top-4 left-4 z-10 flex flex-col gap-2">
-            <Button
-              variant="secondary"
-              size="icon"
-              className="rounded-full shadow-md bg-background/90 backdrop-blur-sm border border-border/50"
-              onClick={() => setIsZoomed(!isZoomed)}
-              title={isZoomed ? t("map.zoomOut") : t("map.zoomIn")}
-            >
-              {isZoomed ? <Minimize2 className="h-5 w-5 text-primary" /> : <Maximize2 className="h-5 w-5 text-primary" />}
-            </Button>
-            <Button
-              variant="secondary"
-              size="icon"
-              className="rounded-full shadow-md bg-background/90 backdrop-blur-sm border border-border/50"
-              onClick={() => {
-                setSelectedLocation(null);
-                setIsZoomed(false);
-              }}
-              title={t("map.reset")}
-              aria-label={t("map.reset")}
-            >
-              <RotateCcw className="h-5 w-5 text-primary" />
-            </Button>
-          </div>
-
-          <motion.div
-            className="w-full aspect-[4/3] flex items-center justify-center"
-            animate={{
-              scale: isZoomed ? ZOOM_SCALE : 1,
-              x: isZoomed && selectedPath ? -(selectedPath.lx - MAP_VIEW_W / 2) * ZOOM_SCALE : 0,
-              y: isZoomed && selectedPath ? -(selectedPath.ly - MAP_VIEW_H / 2) * ZOOM_SCALE : 0,
-            }}
-            transition={{ type: "spring", stiffness: 80, damping: 15 }}
-            onAnimationStart={() => setIsAnimating(true)}
-            onAnimationComplete={() => setIsAnimating(false)}
-          >
-            <svg
-              viewBox={`0 0 ${MAP_VIEW_W} ${MAP_VIEW_H}`}
-              className={cn("w-full h-full transition-all duration-300", isAnimating && "pointer-events-none")}
-              style={{
-                filter: isAnimating ? 'none' : 'drop-shadow(0 15px 35px hsl(var(--primary) / 0.15))',
-                shapeRendering: "geometricPrecision"
-              }}
-              role="img"
-              aria-label={language === 'en' ? "Map of Romania's counties" : "Harta județelor României"}
-            >
-              {paths.map((county) => {
-                const id = county.id;
-                const count = storiesPerLocation[id] || 0;
-                const isSelected = selectedLocation === id;
-                const tier = tierForCount(count);
-
-                const ariaLabel = count > 0
-                  ? `${county.name} — ${count} ${count === 1 ? t("map.storyOne") : t("map.storyMany")}`
-                  : `${county.name} — ${t("map.legendNone")}`;
-
-                return (
-                  <g
-                    key={id}
-                    role="button"
-                    tabIndex={0}
-                    aria-label={ariaLabel}
-                    aria-pressed={isSelected}
-                    onClick={() => !isAnimating && handleLocationClick(id)}
-                    onKeyDown={(e) => {
-                      if (isAnimating) return;
-                      if (e.key === "Enter" || e.key === " ") {
-                        e.preventDefault();
-                        handleLocationClick(id);
-                      }
-                    }}
-                    className={cn(
-                      "cursor-pointer group transition-opacity duration-300 outline-none",
-                      "focus-visible:[&_path]:stroke-accent focus-visible:[&_path]:stroke-[2]",
-                      isAnimating && "pointer-events-none"
-                    )}
-                  >
-                    <path
-                      d={county.d}
-                      strokeLinejoin="round"
-                      strokeLinecap="round"
-                      className={cn(
-                        "transition-all duration-300",
-                        isSelected
-                          ? "fill-accent stroke-accent-foreground stroke-[2]"
-                          : tier
-                            ? cn(tier.fill, tier.stroke, tier.hover, "stroke-[1] hover:stroke-accent")
-                            : "fill-primary/10 stroke-primary/20 stroke-[0.5] hover:fill-primary/20"
-                      )}
-                    />
-
-                    {/* County name label — visible on hover/focus or when selected */}
-                    <text
-                      x={county.lx}
-                      y={county.ly}
-                      textAnchor="middle"
-                      dominantBaseline="middle"
-                      className={cn(
-                        "pointer-events-none transition-all duration-300 font-serif italic",
-                        isSelected
-                          ? "fill-accent-foreground opacity-100 font-black"
-                          : "fill-primary/70 opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100 font-bold"
-                      )}
-                      style={{ fontSize: '10px' }}
-                    >
-                      {county.name}
-                    </text>
-
-                    {/* Story count badge — native SVG to avoid foreignObject compositing overhead */}
-                    {count > 0 && (
-                      <>
-                        <circle
-                          cx={county.lx}
-                          cy={county.ly + 16}
-                          r="10"
-                          strokeWidth="1"
-                          className={cn(
-                            "pointer-events-none",
-                            isSelected ? "fill-background stroke-accent" : "fill-accent stroke-none"
-                          )}
-                        />
-                        <text
-                          x={county.lx}
-                          y={county.ly + 16}
-                          textAnchor="middle"
-                          dominantBaseline="middle"
-                          className={cn(
-                            "pointer-events-none",
-                            isSelected ? "fill-accent" : "fill-white"
-                          )}
-                          style={{ fontSize: '9px', fontWeight: 900 }}
-                        >
-                          {count}
-                        </text>
-                      </>
-                    )}
-                  </g>
-                );
-              })}
-            </svg>
-          </motion.div>
-
-          {/* Legend — shows the choropleth scale so users can read story
-              density at a glance instead of guessing what the shading means. */}
-          <div className="mt-6 pt-4 border-t border-border/30 flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-[10px] uppercase tracking-widest font-bold text-muted-foreground">
-            <span className="font-serif italic normal-case tracking-normal text-xs text-foreground/70">
-              {t("map.legendTitle")}
-            </span>
-            <div className="flex items-center gap-1.5">
-              <span className="h-3 w-5 rounded-sm bg-primary/10 border border-primary/20" aria-hidden="true" />
-              <span>{t("map.legendNone")}</span>
+      {/* PAGE HERO */}
+      <section style={{ padding: '80px 0 56px', borderBottom: '1px solid var(--line-soft)' }}>
+        <div className="ed-container">
+          <div className="grid grid-cols-1 lg:grid-cols-[1.2fr_0.9fr] gap-14 items-end">
+            <div>
+              <div className="eyebrow mb-4">{language === 'en' ? 'Cartography of memory' : 'Cartografia memoriei'}</div>
+              <h1
+                className="font-display italic font-medium m-0"
+                style={{
+                  fontSize: 'clamp(56px, 8vw, 120px)',
+                  lineHeight: 0.95,
+                  letterSpacing: '-0.01em',
+                  color: 'var(--parchment)',
+                  textWrap: 'balance' as React.CSSProperties['textWrap'],
+                  whiteSpace: 'pre-line',
+                }}
+              >
+                {language === 'en' ? 'Find a story\non the map.' : 'Găsește o poveste\npe hartă.'}
+              </h1>
+              <p className="mt-7 max-w-[540px]" style={{ fontSize: 19, color: 'var(--text-dim)', lineHeight: 1.55 }}>
+                {language === 'en'
+                  ? 'Each pin is a place. Each place is a story still being told. Pan the country, follow the rivers, and pick a thread to pull.'
+                  : 'Fiecare loc este o poveste încă spusă. Plimbă-te prin țară, urmează râurile, alege un fir.'}
+              </p>
             </div>
-            {STORY_DENSITY_TIERS.map((tier) => (
-              <div key={tier.label} className="flex items-center gap-1.5">
-                <span
-                  className={cn("h-3 w-5 rounded-sm border border-accent/30", tier.swatch)}
-                  aria-hidden="true"
-                />
-                <span>{tier.label}</span>
+            <div className="hidden lg:block">
+              <div className="grid grid-cols-3 gap-4">
+                <Stat value={Object.keys(storiesPerLocation).length} label={language === 'en' ? 'Active regions' : 'Regiuni active'} />
+                <Stat value={articles.filter(a => a.location).length} label={language === 'en' ? 'Pinned stories' : 'Povești fixate'} />
+                <Stat value={paths.length} label={language === 'en' ? 'Counties' : 'Județe'} />
               </div>
-            ))}
+            </div>
           </div>
         </div>
+      </section>
 
-        {/* Standalone hint card — separate from the map so it doesn't overlap
-            the legend when stacked at the bottom of the map container. */}
-        <div className="flex items-center justify-center gap-2 px-4 py-3 bg-background/60 backdrop-blur-sm rounded-2xl border border-border/40 text-xs font-serif italic text-muted-foreground shadow-sm">
-          <Info className="h-3.5 w-3.5 text-accent shrink-0" />
-          <span>{t("map.clickToZoom")}</span>
-        </div>
-        </div>
+      {/* MAP GRID */}
+      <section style={{ padding: '60px 0 120px' }}>
+        <div className="ed-container">
+          {isLoading && (
+            <div className="flex h-[40vh] items-center justify-center">
+              <div className="animate-pulse flex flex-col items-center gap-4">
+                <div className="h-10 w-10 border-4 border-t-transparent rounded-full animate-spin" style={{ borderColor: 'var(--gold)', borderTopColor: 'transparent' }} />
+                <p className="font-display italic text-gold">{t("common.loading")}</p>
+              </div>
+            </div>
+          )}
 
-        {/* Stories Panel */}
-        <AnimatePresence>
-          {selectedLocation && (
-            <motion.div
-              key={selectedLocation}
-              ref={panelRef}
-              initial={{ opacity: 0, x: 50 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: 50 }}
-              className="lg:col-span-1 h-full scroll-mt-24"
-            >
-              <Card className="h-full border-none shadow-elegant bg-background/50 backdrop-blur-sm flex flex-col rounded-[2rem] overflow-hidden">
-                <div className="p-6 bg-accent text-white flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <MapPin className="h-5 w-5" />
-                    <div>
-                      <h3 className="font-serif font-black italic text-xl leading-none">{selectedLocation}</h3>
-                      <p className="text-xs opacity-80 mt-1">
-                        {filteredArticles.length}{" "}
-                        {filteredArticles.length === 1 ? t("map.storyOne") : t("map.storyMany")}
-                      </p>
+          {!isLoading && (
+            <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-12 items-start">
+              <div className="lg:sticky lg:top-24">
+                <div
+                  className="relative overflow-hidden"
+                  style={{
+                    background: 'radial-gradient(ellipse at 50% 40%, rgba(201,169,110,.06), transparent 60%), var(--ink-2)',
+                    border: '1px solid var(--line)',
+                    borderRadius: 4,
+                    padding: 32,
+                    aspectRatio: '4/3',
+                  }}
+                >
+                  {/* Compass */}
+                  <div className="absolute top-6 right-7 flex flex-col items-center gap-1.5 font-ui text-[10px] uppercase" style={{ letterSpacing: '0.2em', color: 'var(--text-mute)' }}>
+                    <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+                      <circle cx="16" cy="16" r="14" stroke="var(--line)" />
+                      <path d="M16 4 L19 16 L16 28 L13 16 Z" fill="var(--gold)" opacity=".4" />
+                      <path d="M16 4 L19 16 L16 16 Z" fill="var(--gold)" />
+                    </svg>
+                    <span>N</span>
+                  </div>
+
+                  {/* Coords (decorative) */}
+                  <div className="absolute top-6 left-7 font-display italic text-[13px]" style={{ color: 'var(--text-mute)' }}>
+                    44.4°N · 26.1°E
+                  </div>
+
+                  {/* Zoom / reset controls */}
+                  <div className="absolute bottom-6 left-7 z-10 flex flex-col gap-2">
+                    <button
+                      className="grid w-10 h-10 rounded-full place-items-center transition-colors"
+                      style={{ border: '1px solid var(--line)', background: 'var(--ink)', color: 'var(--text)' }}
+                      onClick={() => setIsZoomed(!isZoomed)}
+                      title={isZoomed ? t("map.zoomOut") : t("map.zoomIn")}
+                      aria-label={isZoomed ? t("map.zoomOut") : t("map.zoomIn")}
+                    >
+                      {isZoomed ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+                    </button>
+                    <button
+                      className="grid w-10 h-10 rounded-full place-items-center transition-colors"
+                      style={{ border: '1px solid var(--line)', background: 'var(--ink)', color: 'var(--text)' }}
+                      onClick={() => { setSelectedLocation(null); setIsZoomed(false); }}
+                      title={t("map.reset")}
+                      aria-label={t("map.reset")}
+                    >
+                      <RotateCcw className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  {/* Scale */}
+                  <div className="absolute bottom-6 right-7 font-ui text-[10px] uppercase" style={{ letterSpacing: '0.2em', color: 'var(--text-mute)' }}>
+                    <div className="flex items-center gap-2">
+                      <span style={{ width: 60, height: 1, background: 'var(--gold)', display: 'inline-block' }} />
+                      <span>100 KM</span>
                     </div>
                   </div>
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    className="rounded-full text-white hover:bg-white/20"
-                    onClick={closeList}
+
+                  {/* Paper grid pattern definition */}
+                  <motion.div
+                    className="w-full h-full"
+                    animate={{
+                      scale: isZoomed ? ZOOM_SCALE : 1,
+                      x: isZoomed && selectedPath ? -(selectedPath.lx - MAP_VIEW_W / 2) * ZOOM_SCALE : 0,
+                      y: isZoomed && selectedPath ? -(selectedPath.ly - MAP_VIEW_H / 2) * ZOOM_SCALE : 0,
+                    }}
+                    transition={{ type: "spring", stiffness: 80, damping: 15 }}
+                    onAnimationStart={() => setIsAnimating(true)}
+                    onAnimationComplete={() => setIsAnimating(false)}
                   >
-                    <X className="h-5 w-5" />
-                  </Button>
+                    <svg
+                      viewBox={`0 0 ${MAP_VIEW_W} ${MAP_VIEW_H}`}
+                      className={cn("w-full h-full transition-all duration-300", isAnimating && "pointer-events-none")}
+                      style={{ shapeRendering: 'geometricPrecision' }}
+                      role="img"
+                      aria-label={language === 'en' ? "Map of Romania's counties" : "Harta județelor României"}
+                    >
+                      <defs>
+                        <pattern id="paper-grid" patternUnits="userSpaceOnUse" width="40" height="40">
+                          <rect width="40" height="40" fill="rgba(201,169,110,0.04)" />
+                          <path d="M0 20h40M20 0v40" stroke="rgba(201,169,110,0.05)" strokeWidth="0.5" />
+                        </pattern>
+                        <filter id="map-glow">
+                          <feGaussianBlur stdDeviation="3" />
+                        </filter>
+                      </defs>
+
+                      {/* Paper backdrop fill */}
+                      <rect width={MAP_VIEW_W} height={MAP_VIEW_H} fill="url(#paper-grid)" />
+
+                      {paths.map((county) => {
+                        const id = county.id;
+                        const count = storiesPerLocation[id] || 0;
+                        const isSelected = selectedLocation === id;
+                        const isHovered = hoverCounty === id;
+                        const tier = tierForCount(count);
+                        const fillOpacity = isSelected ? 1 : (isHovered && tier ? tier.hoverOpacity : (tier ? tier.fillOpacity : 0.04));
+
+                        const ariaLabel = count > 0
+                          ? `${county.name} — ${count} ${count === 1 ? t("map.storyOne") : t("map.storyMany")}`
+                          : `${county.name} — ${t("map.legendNone")}`;
+
+                        return (
+                          <g
+                            key={id}
+                            role="button"
+                            tabIndex={0}
+                            aria-label={ariaLabel}
+                            aria-pressed={isSelected}
+                            onClick={() => !isAnimating && handleLocationClick(id)}
+                            onMouseEnter={() => setHoverCounty(id)}
+                            onMouseLeave={() => setHoverCounty(null)}
+                            onKeyDown={(e) => {
+                              if (isAnimating) return;
+                              if (e.key === "Enter" || e.key === " ") { e.preventDefault(); handleLocationClick(id); }
+                            }}
+                            className={cn("cursor-pointer outline-none", isAnimating && "pointer-events-none")}
+                            style={{ transition: 'fill-opacity .2s' }}
+                          >
+                            <path
+                              d={county.d}
+                              fill="var(--gold)"
+                              fillOpacity={fillOpacity}
+                              stroke={isSelected ? "var(--gold)" : "var(--gold-deep)"}
+                              strokeWidth={isSelected ? 1.6 : 0.6}
+                              strokeLinejoin="round"
+                              strokeLinecap="round"
+                              style={{ transition: 'all .25s' }}
+                            />
+
+                            {/* County label — only visible on hover/select */}
+                            {(isSelected || isHovered) && (
+                              <text
+                                x={county.lx}
+                                y={county.ly - 3}
+                                textAnchor="middle"
+                                dominantBaseline="middle"
+                                fontFamily="var(--display)"
+                                fontStyle="italic"
+                                fontSize="11"
+                                fill={isSelected ? "var(--ink)" : "var(--gold)"}
+                                style={{ pointerEvents: 'none', transition: 'fill .2s' }}
+                              >
+                                {county.name}
+                              </text>
+                            )}
+
+                            {count > 0 && (
+                              <>
+                                <circle
+                                  cx={county.lx}
+                                  cy={county.ly + (isSelected || isHovered ? 12 : 0)}
+                                  r="9"
+                                  fill={isSelected ? "var(--ink)" : "var(--ink-2)"}
+                                  stroke="var(--gold)"
+                                  strokeWidth="1.5"
+                                  style={{ pointerEvents: 'none' }}
+                                />
+                                <circle cx={county.lx} cy={county.ly + (isSelected || isHovered ? 12 : 0)} r="3" fill="var(--gold)" style={{ pointerEvents: 'none' }} />
+                                <text
+                                  x={county.lx + 14}
+                                  y={county.ly + (isSelected || isHovered ? 12 : 0)}
+                                  textAnchor="start"
+                                  dominantBaseline="middle"
+                                  fontFamily="var(--ui)"
+                                  fontSize="9"
+                                  fill="var(--gold)"
+                                  letterSpacing="0.15em"
+                                  style={{ pointerEvents: 'none' }}
+                                >
+                                  {count}
+                                </text>
+                              </>
+                            )}
+                          </g>
+                        );
+                      })}
+                    </svg>
+                  </motion.div>
                 </div>
 
-                <div className="flex-1 overflow-y-auto p-4 space-y-4">
-                  {filteredArticles.length > 0 ? (
-                    filteredArticles.map((art) => (
-                      <motion.div
-                        key={art.id}
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className="group cursor-pointer bg-secondary/10 hover:bg-accent/5 rounded-2xl p-4 border border-transparent hover:border-accent/20 transition-all"
-                        onClick={() => navigate(`/article/${art.id}`, { 
-                          state: { 
-                            from: "/map",
-                            selectedLocation: selectedLocation
-                          } 
-                        })}
-                      >
-                        <div className="flex gap-4">
-                          {art.mediaUrl && (
-                            <div className="h-16 w-16 rounded-xl overflow-hidden shrink-0 shadow-sm">
-                              {art.type === 'video' ? (
-                                <StoryThumbnail posterUrl={art.posterUrl} className="h-full w-full object-cover" />
-                              ) : (
-                                <img src={art.mediaUrl} alt="" className="h-full w-full object-cover" loading="lazy" />
-                              )}
-                            </div>
-                          )}
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-1">
-                              {art.type === 'video' ? (
-                                <Video className="h-3 w-3 text-accent" />
-                              ) : (
-                                <BookText className="h-3 w-3 text-accent" />
-                              )}
-                              <span className="text-[10px] uppercase tracking-widest font-bold text-accent">
-                                {art.type}
-                              </span>
-                            </div>
-                            <h4 className="font-serif font-bold italic text-sm line-clamp-2 leading-snug group-hover:text-accent transition-colors">
-                              {getLocalized(art, "title", language)}
-                            </h4>
-                          </div>
-                          <ChevronRight className="h-4 w-4 self-center text-muted-foreground group-hover:text-accent group-hover:translate-x-1 transition-all" />
-                        </div>
-                      </motion.div>
-                    ))
-                  ) : (
-                    <div className="flex flex-col items-center justify-center py-20 text-center text-muted-foreground space-y-4">
-                      <div className="p-4 bg-secondary/50 rounded-full">
-                        <MapPin className="h-10 w-10 opacity-20" />
+                {/* Legend strip */}
+                <div className="flex flex-wrap items-center gap-6 mt-6 font-ui text-[11px] uppercase" style={{ letterSpacing: '0.15em', color: 'var(--text-mute)' }}>
+                  <span className="flex items-center gap-2">
+                    <span className="rounded-full" style={{ width: 8, height: 8, background: 'var(--gold)' }} />
+                    {language === 'en' ? 'Story pinned' : 'Poveste fixată'}
+                  </span>
+                  <span className="flex items-center gap-2">
+                    <span style={{ width: 14, height: 1, background: 'var(--gold)' }} />
+                    {language === 'en' ? 'Border' : 'Graniță'}
+                  </span>
+                  <span className="ml-auto">
+                    {Object.values(storiesPerLocation).reduce((a, b) => a + b, 0)} {language === 'en' ? 'stories pinned' : 'povești fixate'}
+                  </span>
+                </div>
+              </div>
+
+              {/* SIDEBAR */}
+              <aside className="flex flex-col gap-8">
+                {/* Active story panel */}
+                <AnimatePresence>
+                  {selectedLocation && (
+                    <motion.div
+                      ref={panelRef}
+                      key={selectedLocation}
+                      initial={{ opacity: 0, x: 20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: 20 }}
+                      style={{ border: '1px solid var(--line)', padding: 28, background: 'var(--overlay-panel)' }}
+                    >
+                      <div className="flex items-center justify-between mb-4">
+                        <span className="eyebrow flex items-center gap-2"><MapPin className="w-3 h-3" /> {selectedLocation}</span>
+                        <button
+                          onClick={closeList}
+                          aria-label="Close"
+                          className="grid w-7 h-7 rounded-full place-items-center transition-colors hover:text-gold"
+                          style={{ border: '1px solid var(--line)', background: 'transparent', color: 'var(--text-dim)' }}
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
                       </div>
-                      <p className="font-serif italic">{t("map.noStories")}</p>
-                    </div>
+                      <h3 className="font-display italic font-medium m-0" style={{ fontSize: 28, lineHeight: 1.1, color: 'var(--parchment)' }}>
+                        {filteredArticles.length} {filteredArticles.length === 1 ? (language === 'en' ? 'story' : 'poveste') : (language === 'en' ? 'stories' : 'povești')}
+                      </h3>
+                      <p className="text-ink-dim mt-2" style={{ fontSize: 14 }}>
+                        {language === 'en' ? `Pinned to ${selectedLocation}.` : `Fixate în ${selectedLocation}.`}
+                      </p>
+
+                      <div className="mt-6 flex flex-col gap-3">
+                        {filteredArticles.length > 0 ? filteredArticles.map(art => (
+                          <button
+                            key={art.id}
+                            onClick={() => navigate(`/article/${art.id}`, { state: { from: '/map', selectedLocation } })}
+                            className="flex items-center gap-4 p-3 cursor-pointer transition-colors text-left"
+                            style={{ border: '1px solid var(--line-soft)', background: 'transparent' }}
+                          >
+                            <div className="shrink-0 w-14 h-14 overflow-hidden" style={{ border: '1px solid var(--line)' }}>
+                              {art.type === 'video'
+                                ? <StoryThumbnail posterUrl={art.posterUrl} className="w-full h-full object-cover" />
+                                : art.mediaUrl
+                                  ? <img src={art.mediaUrl} alt="" className="w-full h-full object-cover" loading="lazy" />
+                                  : <div className="w-full h-full ph" data-tone="warm" />}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="font-ui text-[10px] uppercase mb-1" style={{ letterSpacing: '0.18em', color: 'var(--gold)' }}>
+                                {art.type === 'video' ? (language === 'en' ? 'Film' : 'Film') : art.type === 'carousel' ? (language === 'en' ? 'Photo essay' : 'Eseu foto') : (language === 'en' ? 'Long read' : 'Lectură')}
+                              </div>
+                              <div className="font-display italic text-[17px] leading-tight line-clamp-2" style={{ color: 'var(--parchment)' }}>
+                                {getLocalized(art, 'title', language)}
+                              </div>
+                            </div>
+                            <ChevronRight className="w-4 h-4 shrink-0" style={{ color: 'var(--text-mute)' }} />
+                          </button>
+                        )) : (
+                          <p className="font-display italic text-ink-dim text-center py-6">{t("map.noStories")}</p>
+                        )}
+                      </div>
+                    </motion.div>
                   )}
+                </AnimatePresence>
+
+                {!selectedLocation && (
+                  <div style={{ border: '1px solid var(--line)', padding: 28, background: 'var(--overlay-panel-soft)' }}>
+                    <div className="eyebrow mb-3.5">{language === 'en' ? 'How to read this' : 'Cum se citește'}</div>
+                    <h3 className="font-display italic font-medium m-0" style={{ fontSize: 24, lineHeight: 1.15, color: 'var(--parchment)' }}>
+                      {language === 'en' ? 'Tap a county to pull a thread.' : 'Apasă un județ pentru a trage de un fir.'}
+                    </h3>
+                    <p className="text-ink-dim mt-3" style={{ fontSize: 14, lineHeight: 1.6 }}>
+                      {language === 'en'
+                        ? 'Counties shaded gold contain stories. Darker means more. Click to zoom and read.'
+                        : 'Județele aurii conțin povești. Mai închis înseamnă mai multe. Apasă pentru zoom și lectură.'}
+                    </p>
+                  </div>
+                )}
+
+                {/* Region directory */}
+                <div>
+                  <div className="eyebrow mb-3.5">{language === 'en' ? 'Most pinned' : 'Cele mai fixate'}</div>
+                  <div className="flex flex-col">
+                    {allLocationsByCount.map(([loc, count], i) => (
+                      <button
+                        key={loc}
+                        onClick={() => handleLocationClick(loc)}
+                        onMouseEnter={() => setHoverCounty(loc)}
+                        onMouseLeave={() => setHoverCounty(null)}
+                        className="flex justify-between items-center py-4 cursor-pointer text-left"
+                        style={{
+                          borderBottom: i < allLocationsByCount.length - 1 ? '1px solid var(--line-soft)' : 'none',
+                          background: 'transparent',
+                          border: 0,
+                        }}
+                      >
+                        <span
+                          className="font-display italic"
+                          style={{
+                            fontSize: 22,
+                            color: (selectedLocation === loc || hoverCounty === loc) ? 'var(--gold)' : 'var(--text)',
+                          }}
+                        >
+                          {loc}
+                        </span>
+                        <span className="font-ui text-[11px] uppercase" style={{ letterSpacing: '0.15em', color: 'var(--text-mute)' }}>
+                          {count} {language === 'en' ? 'stories' : 'povești'}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              </Card>
-            </motion.div>
-          )}
-        </AnimatePresence>
 
-        {/* Empty state when no location selected — visible on all sizes so
-            mobile users get a contextual hint after the hero. */}
-        {!selectedLocation && (
-          <div className="lg:col-span-1 flex flex-col h-full items-center justify-center text-center p-8 bg-secondary/5 rounded-[2rem] border border-dashed border-border/50">
-            <div className="p-6 bg-secondary/20 rounded-full mb-6">
-              <MapPin className="h-12 w-12 text-accent/20" />
+                {selectedLocation && (
+                  <button
+                    onClick={() => navigate('/categories')}
+                    className="btn-ed btn-ed-ghost w-full justify-center"
+                  >
+                    <ArrowLeft className="w-3.5 h-3.5" />
+                    {language === 'en' ? 'Browse categories' : 'Explorează categorii'}
+                  </button>
+                )}
+              </aside>
             </div>
-            <h3 className="font-serif font-black italic text-2xl text-primary mb-2">
-              {t("map.selectRegion")}
-            </h3>
-            <p className="text-muted-foreground font-serif italic">
-              {t("map.selectRegionHint")}
-            </p>
-          </div>
-        )}
-      </div>
-      )}
-
-      {/* Statistics Section */}
-      {!isLoading && (
-      <section className="mt-20 grid grid-cols-1 md:grid-cols-3 gap-8">
-        <Card className="p-8 border-none shadow-elegant bg-accent/5 rounded-[2rem] text-center space-y-2">
-          <p className="text-4xl font-black text-accent">{Object.keys(storiesPerLocation).length}</p>
-          <p className="font-serif italic text-muted-foreground uppercase tracking-widest text-xs font-bold">
-            {language === 'en' ? "Active Regions" : "Regiuni Active"}
-          </p>
-        </Card>
-        <Card className="p-8 border-none shadow-elegant bg-accent/5 rounded-[2rem] text-center space-y-2">
-          {/* Only count stories that have a location — otherwise this stat
-              double-counts general articles on a page that's about geography. */}
-          <p className="text-4xl font-black text-accent">{articles.filter(a => a.location).length}</p>
-          <p className="font-serif italic text-muted-foreground uppercase tracking-widest text-xs font-bold">
-            {language === 'en' ? "Stories on the Map" : "Povești pe Hartă"}
-          </p>
-        </Card>
-        <Card className="p-8 border-none shadow-elegant bg-accent/5 rounded-[2rem] text-center space-y-2">
-          <p className="text-4xl font-black text-accent">{paths.length}</p>
-          <p className="font-serif italic text-muted-foreground uppercase tracking-widest text-xs font-bold">
-            {language === 'en' ? "Counties Covered" : "Județe Acoperite"}
-          </p>
-        </Card>
+          )}
+        </div>
       </section>
-      )}
-      </div>
     </div>
   );
 };
+
+const Stat: React.FC<{ value: React.ReactNode; label: string }> = ({ value, label }) => (
+  <div>
+    <div className="eyebrow mb-1.5">{label}</div>
+    <div className="font-display italic" style={{ fontSize: 36, lineHeight: 1, color: 'var(--gold)' }}>{value}</div>
+  </div>
+);
 
 export default MapPage;

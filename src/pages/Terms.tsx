@@ -1,7 +1,5 @@
 import React from "react";
 import { useLanguage } from "@/hooks/use-language";
-import { ScrollText } from "lucide-react";
-import { HeroBanner } from "@/components/layout/HeroBanner";
 import { PageHead } from "@/components/layout/PageHead";
 
 const Terms: React.FC = () => {
@@ -117,38 +115,45 @@ const Terms: React.FC = () => {
   const c = content[language];
 
   return (
-    <div className="min-h-screen bg-background pb-20">
-      <PageHead
-        title={c.title}
-        description={c.subtitle}
-        language={language}
-      />
-      <HeroBanner
-        title={c.title}
-        subtitle={c.subtitle}
-        imageUrl="/hero/parliament.jpg"
-        Icon={ScrollText}
-        height="h-[50vh]"
-      />
+    <div className="screen-anim pb-20">
+      <PageHead title={c.title} description={c.subtitle} language={language} />
 
-      <div className="container mx-auto px-4 py-16 max-w-3xl animate-fade-in">
-        <p className="text-sm font-sans uppercase tracking-[0.2em] text-accent font-bold mb-12 text-center">
-          {c.lastUpdated}
-        </p>
-
-        <div className="space-y-12">
-          {c.sections.map((section, i) => (
-            <section key={i}>
-              <h2 className="text-2xl font-serif font-black italic text-primary mb-4">
-                {section.heading}
-              </h2>
-              <p className="text-foreground/80 font-serif leading-relaxed text-lg">
-                {section.body}
-              </p>
-            </section>
-          ))}
+      <section style={{ padding: '80px 0 56px', borderBottom: '1px solid var(--line-soft)' }}>
+        <div className="ed-container">
+          <div className="eyebrow mb-4">{language === 'en' ? 'Legal' : 'Legal'}</div>
+          <h1
+            className="font-display italic font-medium m-0"
+            style={{ fontSize: 'clamp(56px, 8vw, 120px)', lineHeight: 0.95, letterSpacing: '-0.01em', color: 'var(--parchment)' }}
+          >
+            {c.title}
+          </h1>
+          <p className="mt-7 max-w-[540px]" style={{ fontSize: 19, color: 'var(--text-dim)', lineHeight: 1.55 }}>
+            {c.subtitle}
+          </p>
         </div>
-      </div>
+      </section>
+
+      <section style={{ padding: '60px 0 100px' }}>
+        <div className="ed-container">
+          <div className="max-w-[760px] mx-auto">
+            <p className="font-ui text-[11px] uppercase mb-12" style={{ letterSpacing: '0.18em', color: 'var(--gold)' }}>
+              {c.lastUpdated}
+            </p>
+            <div className="flex flex-col gap-12">
+              {c.sections.map((section, i) => (
+                <section key={i}>
+                  <h2 className="font-display italic font-medium m-0 mb-4" style={{ fontSize: 28, lineHeight: 1.15, color: 'var(--parchment)' }}>
+                    {section.heading}
+                  </h2>
+                  <p className="m-0" style={{ fontSize: 17, color: 'var(--text)', lineHeight: 1.75, fontFamily: 'var(--serif)' }}>
+                    {section.body}
+                  </p>
+                </section>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
     </div>
   );
 };

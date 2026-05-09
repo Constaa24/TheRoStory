@@ -1,19 +1,12 @@
 import React, { useState, useRef, useEffect, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
-import { Category, CHAPTER_DELIMITER, ARTICLE_LIMITS } from "@/lib/supabase";
-import { fetchCategories, uploadUserFile, createArticle } from "@/lib/supabase";
+import { useNavigate, useParams } from "react-router-dom";
+import { Category, CHAPTER_DELIMITER, ARTICLE_LIMITS, parseChapters } from "@/lib/supabase";
+import { fetchCategories, uploadUserFile, createArticle, updateArticle, fetchPublicArticle } from "@/lib/supabase";
 
-// Per-chapter cap — 10 chapters * 5000 chars = 50,000 = ARTICLE_LIMITS.CONTENT_MAX.
-// Acts as both UX feedback and a defense against single-chapter paste-bombs
-// that would otherwise fail at save time.
 const PER_CHAPTER_MAX = 5000;
 import { useLanguage } from "@/hooks/use-language";
 import { useAuth } from "@/hooks/use-auth";
 import { useUnsavedChangesWarning } from "@/hooks/use-unsaved-changes";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Card } from "@/components/ui/card";
 import {
   Select,
   SelectContent,
@@ -23,7 +16,6 @@ import {
 } from "@/components/ui/select";
 import {
   ArrowLeft,
-  BookText,
   Loader2,
   Save,
   Image as ImageIcon,
@@ -32,16 +24,20 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { toast } from "sonner";
-import { cn, isAbortError } from "@/lib/utils";
+import { isAbortError } from "@/lib/utils";
 import { COUNTIES } from "@/lib/constants";
 
 const MIN_CHAPTERS = 1;
 const MAX_CHAPTERS = 10;
 
+const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'];
+
 const TextStoryCreate: React.FC = () => {
   const { user, isAdmin } = useAuth();
   const { language, t } = useLanguage();
   const navigate = useNavigate();
+  const { id: editingId } = useParams<{ id?: string }>();
+  const isEditing = !!editingId;
 
   const [categories, setCategories] = useState<Category[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -72,20 +68,48 @@ const TextStoryCreate: React.FC = () => {
 
   useEffect(() => {
     let cancelled = false;
-    fetchCategories()
-      .then(cats => {
-        if (!cancelled) setCategories(cats);
-      })
-      .catch(err => {
-        if (!isAbortError(err)) console.error("Error loading categories:", err);
-      })
-      .finally(() => {
+    const loadAll = async () => {
+      try {
+        const cats = await fetchCategories();
+        if (cancelled) return;
+        setCategories(cats);
+        if (editingId) {
+          const { article } = await fetchPublicArticle(editingId);
+          if (cancelled) return;
+          if (!article || article.type !== 'text') {
+            toast.error(language === 'en' ? 'Article not found' : 'Articol negăsit');
+            navigate('/admin', { replace: true });
+            return;
+          }
+          setTitleEn(article.titleEn || '');
+          setTitleRo(article.titleRo || '');
+          setCategoryId(article.categoryId || '');
+          setLocation(article.location || '');
+          setMediaUrl(article.mediaUrl || '');
+          setPublishImmediately(!!article.isPublished);
+          const trimTrailing = (arr: string[]): string[] => {
+            const out = [...arr];
+            while (out.length > 1 && !out[out.length - 1].trim()) out.pop();
+            return out;
+          };
+          const en = trimTrailing(parseChapters(article.contentEn || ''));
+          const ro = trimTrailing(parseChapters(article.contentRo || ''));
+          const len = Math.max(en.length, ro.length, 1);
+          while (en.length < len) en.push('');
+          while (ro.length < len) ro.push('');
+          setChaptersEn(en);
+          setChaptersRo(ro);
+        }
+      } catch (err) {
+        if (!isAbortError(err)) console.error("Error loading text data:", err);
+      } finally {
         if (!cancelled) setIsLoading(false);
-      });
-    return () => {
-      cancelled = true;
+      }
     };
-  }, []);
+    loadAll();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editingId]);
 
   const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -95,7 +119,6 @@ const TextStoryCreate: React.FC = () => {
       event.target.value = "";
       return;
     }
-
     setIsUploading(true);
     try {
       const { publicUrl } = await uploadUserFile(file, {
@@ -152,15 +175,11 @@ const TextStoryCreate: React.FC = () => {
     if (!user) return;
     setShowErrors(true);
     if (validationErrors.length > 0) {
-      toast.error(language === "en"
-        ? "Please fix the highlighted fields"
-        : "Te rugăm să corectezi câmpurile evidențiate");
+      toast.error(language === "en" ? "Please fix the highlighted fields" : "Te rugăm să corectezi câmpurile evidențiate");
       return;
     }
-
     setIsSaving(true);
     try {
-      // Trim trailing empty chapters before joining so we don't store padding
       const filledEn = [...chaptersEn];
       const filledRo = [...chaptersRo];
       while (filledEn.length > 1 && !filledEn[filledEn.length - 1].trim() && !filledRo[filledRo.length - 1]?.trim()) {
@@ -168,26 +187,29 @@ const TextStoryCreate: React.FC = () => {
         filledRo.pop();
       }
 
-      await createArticle({
-        type: "text",
+      const payload = {
+        type: 'text' as const,
         titleEn,
         titleRo,
         contentEn: filledEn.join(CHAPTER_DELIMITER),
         contentRo: filledRo.join(CHAPTER_DELIMITER),
         categoryId,
-        userId: user.id,
-        isPublished: isAdmin ? publishImmediately : false,
         location: location || undefined,
         mediaUrl: mediaUrl || null,
-      });
+      };
 
-      toast.success(language === "en" ? "Story created!" : "Povestea a fost creată!");
+      if (isEditing && editingId) {
+        await updateArticle({ ...payload, id: editingId, isPublished: isAdmin ? publishImmediately : false });
+        toast.success(language === "en" ? "Story updated!" : "Povestea a fost actualizată!");
+      } else {
+        await createArticle({ ...payload, userId: user.id, isPublished: isAdmin ? publishImmediately : false });
+        toast.success(language === "en" ? "Story created!" : "Povestea a fost creată!");
+      }
       navigate("/admin");
     } catch (error) {
-      if (!isAbortError(error)) {
-        console.error("Error saving text story:", error);
-      }
-      toast.error(language === "en" ? "Error saving story" : "Eroare la salvarea poveștii");
+      if (!isAbortError(error)) console.error("Error saving text story:", error);
+      const message = error instanceof Error ? error.message : (language === "en" ? "Error saving story" : "Eroare la salvarea poveștii");
+      toast.error(message);
     } finally {
       setIsSaving(false);
     }
@@ -196,323 +218,380 @@ const TextStoryCreate: React.FC = () => {
   if (isLoading) {
     return (
       <div className="flex h-screen items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-accent" />
+        <Loader2 className="h-8 w-8 animate-spin" style={{ color: 'var(--gold)' }} />
       </div>
     );
   }
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-5xl animate-fade-in pb-32">
-      <Button
-        variant="ghost"
-        className="mb-6 rounded-full group"
-        onClick={() => navigate("/admin")}
-      >
-        <ArrowLeft className="mr-2 h-4 w-4 transition-transform group-hover:-translate-x-1" />
-        {language === "en" ? "Back to Dashboard" : "Înapoi la Panou"}
-      </Button>
-
-      <div className="flex items-center gap-4 mb-8">
-        <div className="p-3 bg-accent/10 rounded-2xl">
-          <BookText className="h-8 w-8 text-accent" />
-        </div>
-        <div>
-          <h1 className="text-3xl font-serif font-black italic text-primary">
-            {language === "en" ? "Create Text Story" : "Creează Poveste Text"}
+    <div className="screen-anim pb-32">
+      {/* Page hero */}
+      <section style={{ padding: '60px 0 32px', borderBottom: '1px solid var(--line-soft)' }}>
+        <div className="ed-container">
+          <button
+            onClick={() => navigate('/admin')}
+            className="flex items-center gap-2 mb-6 transition-colors hover:text-gold cursor-pointer"
+            style={{ color: 'var(--text-dim)', background: 'transparent', border: 0, fontFamily: 'var(--ui)', fontSize: 11, letterSpacing: '0.18em', textTransform: 'uppercase' }}
+          >
+            <ArrowLeft className="w-3.5 h-3.5" />
+            {language === 'en' ? 'Back to dashboard' : 'Înapoi la panou'}
+          </button>
+          <div className="eyebrow mb-3">
+            {isEditing
+              ? (language === 'en' ? 'Editing · Long read' : 'Editare · Lectură lungă')
+              : (language === 'en' ? 'New entry · Long read' : 'Intrare nouă · Lectură lungă')}
+          </div>
+          <h1 className="font-display italic font-medium m-0" style={{ fontSize: 'clamp(48px, 7vw, 96px)', lineHeight: 0.95, letterSpacing: '-0.01em', color: 'var(--parchment)' }}>
+            {isEditing
+              ? (language === 'en' ? 'Edit long read.' : 'Editează lectura.')
+              : (language === 'en' ? 'Write a long read.' : 'Scrie o lectură lungă.')}
           </h1>
-          <p className="text-muted-foreground">
-            {language === "en"
-              ? "Write a chapter-based story about Romanian culture"
-              : "Scrie o poveste pe capitole despre cultura română"}
+          <p className="mt-5 max-w-[640px]" style={{ fontSize: 17, color: 'var(--text-dim)', lineHeight: 1.55 }}>
+            {language === 'en'
+              ? 'Up to ten chapters, in two languages. The first chapter renders with a drop cap; later chapters get Roman-numeral headers.'
+              : 'Până la zece capitole, în două limbi. Primul capitol primește o literă inițială; capitolele următoare au cifre romane.'}
           </p>
         </div>
-      </div>
+      </section>
 
       {/* Validation summary */}
       {showErrors && validationErrors.length > 0 && (
-        <Card className="p-4 mb-6 border-destructive/40 bg-destructive/5" role="alert" aria-live="polite">
-          <div className="flex items-start gap-3">
-            <AlertCircle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
-            <div>
-              <p className="font-medium text-destructive mb-1">
-                {language === "en"
-                  ? `Please fix ${validationErrors.length} ${validationErrors.length === 1 ? "issue" : "issues"} before saving:`
-                  : `Te rugăm să corectezi ${validationErrors.length} ${validationErrors.length === 1 ? "problemă" : "probleme"} înainte de salvare:`}
-              </p>
-              <ul className="text-sm text-destructive/80 list-disc list-inside space-y-0.5">
-                {validationErrors.map(e => <li key={e.field}>{e.message}</li>)}
-              </ul>
+        <section style={{ padding: '20px 0 0' }}>
+          <div className="ed-container">
+            <div
+              role="alert"
+              aria-live="polite"
+              className="flex items-start gap-3 p-5"
+              style={{ border: '1px solid var(--oxblood-2)', background: 'rgba(168,60,60,0.08)' }}
+            >
+              <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" style={{ color: 'var(--oxblood-2)' }} />
+              <div>
+                <p className="font-display italic m-0 mb-2" style={{ fontSize: 18, color: 'var(--oxblood-2)' }}>
+                  {language === 'en'
+                    ? `Please fix ${validationErrors.length} ${validationErrors.length === 1 ? 'issue' : 'issues'}.`
+                    : `Te rugăm să corectezi ${validationErrors.length} ${validationErrors.length === 1 ? 'problemă' : 'probleme'}.`}
+                </p>
+                <ul className="m-0 pl-5" style={{ color: 'var(--text-dim)', fontSize: 14, lineHeight: 1.7 }}>
+                  {validationErrors.map(e => <li key={e.field}>{e.message}</li>)}
+                </ul>
+              </div>
             </div>
           </div>
-        </Card>
+        </section>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* LEFT COLUMN — metadata */}
-        <div className="space-y-6 lg:col-span-1">
-          <Card className="p-6 border-none shadow-elegant bg-background/50 backdrop-blur-sm space-y-4">
-            <h2 className="text-xl font-serif italic mb-2">
-              {language === "en" ? "Story Details" : "Detalii Poveste"}
-            </h2>
+      <section style={{ padding: '40px 0 60px' }} className="ed-form">
+        <div className="ed-container">
+          <div className="grid grid-cols-1 lg:grid-cols-[1fr_2fr] gap-10 items-start">
+            {/* LEFT — meta */}
+            <div className="flex flex-col gap-7 lg:sticky lg:top-24">
+              <FormBlock title={language === 'en' ? 'Story details' : 'Detalii poveste'}>
+                <Field label={language === 'en' ? 'Title (English)' : 'Titlu (Engleză)'} required error={showErrors ? errorFor('titleEn')?.message : undefined}>
+                  <input
+                    type="text"
+                    value={titleEn}
+                    onChange={(e) => setTitleEn(e.target.value)}
+                    placeholder={language === 'en' ? 'Enter title in English' : 'Introdu titlul în engleză'}
+                    maxLength={ARTICLE_LIMITS.TITLE_MAX}
+                    style={showErrors && errorFor('titleEn') ? { borderColor: 'var(--oxblood-2)' } : undefined}
+                  />
+                </Field>
+                <Field label={language === 'en' ? 'Title (Romanian)' : 'Titlu (Română)'} required error={showErrors ? errorFor('titleRo')?.message : undefined}>
+                  <input
+                    type="text"
+                    value={titleRo}
+                    onChange={(e) => setTitleRo(e.target.value)}
+                    placeholder={language === 'en' ? 'Enter title in Romanian' : 'Introdu titlul în română'}
+                    maxLength={ARTICLE_LIMITS.TITLE_MAX}
+                    style={showErrors && errorFor('titleRo') ? { borderColor: 'var(--oxblood-2)' } : undefined}
+                  />
+                </Field>
+                <Field label={language === 'en' ? 'Category' : 'Categorie'} required error={showErrors ? errorFor('category')?.message : undefined}>
+                  <Select value={categoryId} onValueChange={setCategoryId}>
+                    <SelectTrigger className="rounded-sm border-line bg-[color:var(--ink-2)]" style={showErrors && errorFor('category') ? { borderColor: 'var(--oxblood-2)' } : undefined}>
+                      <SelectValue placeholder={language === 'en' ? 'Select a category' : 'Selectează o categorie'} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {categories.map(cat => (
+                        <SelectItem key={cat.id} value={cat.id}>
+                          {language === 'en' ? cat.nameEn : cat.nameRo}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </Field>
+                <Field label={t('location.label')}>
+                  <Select value={location} onValueChange={setLocation}>
+                    <SelectTrigger className="rounded-sm border-line bg-[color:var(--ink-2)]">
+                      <SelectValue placeholder={t('location.select')} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {COUNTIES.map(county => (
+                        <SelectItem key={county} value={county}>{county}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </Field>
+              </FormBlock>
 
-            <div className="space-y-2">
-              <label className="text-sm font-medium">
-                {language === "en" ? "Title (English)" : "Titlu (Engleză)"} <span className="text-destructive">*</span>
-              </label>
-              <Input
-                value={titleEn}
-                onChange={e => setTitleEn(e.target.value)}
-                placeholder={language === "en" ? "Enter title in English" : "Introdu titlul în engleză"}
-                className={cn(showErrors && errorFor("titleEn") && "border-destructive")}
-                maxLength={ARTICLE_LIMITS.TITLE_MAX}
-              />
+              <FormBlock title={language === 'en' ? 'Lead image' : 'Imagine principală'}>
+                {mediaUrl ? (
+                  <div className="ph relative" data-tone="warm" style={{ aspectRatio: '4/3' }}>
+                    <img src={mediaUrl} alt="" className="absolute inset-0 w-full h-full object-cover" />
+                    <button
+                      type="button"
+                      onClick={() => setMediaUrl('')}
+                      className="absolute top-2 right-2 grid w-8 h-8 place-items-center rounded-full transition-colors"
+                      style={{ background: 'var(--overlay-dark)', border: '1px solid var(--oxblood-2)', color: 'var(--oxblood-2)' }}
+                      aria-label={language === 'en' ? 'Remove cover image' : 'Elimină imaginea'}
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={isUploading}
+                    className="w-full flex flex-col items-center justify-center gap-3 py-12 cursor-pointer transition-colors"
+                    style={{
+                      border: '2px dashed var(--line)',
+                      background: isUploading ? 'rgba(201,169,110,0.05)' : 'transparent',
+                      color: 'var(--text-dim)',
+                      aspectRatio: '4/3',
+                    }}
+                  >
+                    {isUploading ? (
+                      <Loader2 className="w-6 h-6 animate-spin" style={{ color: 'var(--gold)' }} />
+                    ) : (
+                      <>
+                        <ImageIcon className="w-6 h-6" style={{ color: 'var(--gold)' }} />
+                        <span className="font-ui text-[11px] uppercase" style={{ letterSpacing: '0.18em' }}>
+                          {language === 'en' ? 'Upload cover' : 'Încarcă coperta'}
+                        </span>
+                        <span className="font-ui text-[10px]" style={{ color: 'var(--text-mute)' }}>
+                          JPG · PNG · WebP · 10 MB
+                        </span>
+                      </>
+                    )}
+                  </button>
+                )}
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={handleImageUpload}
+                  accept="image/*"
+                  className="hidden"
+                />
+                <Field label={language === 'en' ? 'Or paste image URL' : 'Sau lipește URL imagine'}>
+                  <input
+                    type="url"
+                    placeholder="https://..."
+                    value={mediaUrl}
+                    onChange={(e) => setMediaUrl(e.target.value)}
+                    maxLength={ARTICLE_LIMITS.MEDIA_URL_MAX}
+                  />
+                </Field>
+              </FormBlock>
+
+              {isAdmin && (
+                <FormBlock title={language === 'en' ? 'Visibility' : 'Vizibilitate'}>
+                  <label className="flex items-start gap-3 cursor-pointer select-none" style={{ marginBottom: 0 }}>
+                    <input
+                      type="checkbox"
+                      checked={publishImmediately}
+                      onChange={(e) => setPublishImmediately(e.target.checked)}
+                      className="mt-1 w-4 h-4 accent-[color:var(--gold)]"
+                    />
+                    <span style={{ flex: 1, marginBottom: 0, textTransform: 'none', letterSpacing: 'normal' }}>
+                      <span className="font-display italic block" style={{ color: 'var(--parchment)', fontSize: 17 }}>
+                        {isEditing
+                          ? (language === 'en' ? 'Published' : 'Publicat')
+                          : (language === 'en' ? 'Publish immediately' : 'Publică imediat')}
+                      </span>
+                      <span className="font-ui text-[11px] uppercase mt-1 block" style={{ letterSpacing: '0.15em', color: 'var(--text-mute)' }}>
+                        {isEditing
+                          ? (language === 'en' ? 'Toggle off to revert to draft.' : 'Dezactivează pentru a reveni la ciornă.')
+                          : (language === 'en' ? 'Otherwise saved as a draft only you can see.' : 'Altfel se salvează ca ciornă, vizibilă doar pentru tine.')}
+                      </span>
+                    </span>
+                  </label>
+                </FormBlock>
+              )}
             </div>
 
-            <div className="space-y-2">
-              <label className="text-sm font-medium">
-                {language === "en" ? "Title (Romanian)" : "Titlu (Română)"} <span className="text-destructive">*</span>
-              </label>
-              <Input
-                value={titleRo}
-                onChange={e => setTitleRo(e.target.value)}
-                placeholder={language === "en" ? "Enter title in Romanian" : "Introdu titlul în română"}
-                className={cn(showErrors && errorFor("titleRo") && "border-destructive")}
-                maxLength={ARTICLE_LIMITS.TITLE_MAX}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium">
-                {language === "en" ? "Category" : "Categorie"} <span className="text-destructive">*</span>
-              </label>
-              <Select value={categoryId} onValueChange={setCategoryId}>
-                <SelectTrigger className={cn("rounded-xl", showErrors && errorFor("category") && "border-destructive")}>
-                  <SelectValue placeholder={language === "en" ? "Select a category" : "Selectează o categorie"} />
-                </SelectTrigger>
-                <SelectContent>
-                  {categories.map(cat => (
-                    <SelectItem key={cat.id} value={cat.id}>
-                      {language === "en" ? cat.nameEn : cat.nameRo}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium">{t("location.label")}</label>
-              <Select value={location} onValueChange={setLocation}>
-                <SelectTrigger className="rounded-xl">
-                  <SelectValue placeholder={t("location.select")} />
-                </SelectTrigger>
-                <SelectContent>
-                  {COUNTIES.map(county => (
-                    <SelectItem key={county} value={county}>{county}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </Card>
-
-          <Card className="p-6 border-none shadow-elegant bg-background/50 backdrop-blur-sm space-y-4">
-            <h2 className="text-xl font-serif italic mb-2">
-              {language === "en" ? "Cover Image" : "Imagine Copertă"}
-            </h2>
-
-            {mediaUrl ? (
-              <div className="relative group rounded-xl overflow-hidden border border-border">
-                <img src={mediaUrl} alt="" className="w-full aspect-[4/3] object-cover" />
+            {/* RIGHT — chapters */}
+            <div className="flex flex-col gap-6">
+              <div className="flex items-end justify-between">
+                <div>
+                  <div className="eyebrow mb-2">{language === 'en' ? 'Chapters' : 'Capitole'}</div>
+                  <h2 className="font-display italic m-0" style={{ fontSize: 32, lineHeight: 1.1, color: 'var(--parchment)' }}>
+                    {chaptersEn.length} / {MAX_CHAPTERS}
+                  </h2>
+                </div>
                 <button
                   type="button"
-                  onClick={() => setMediaUrl("")}
-                  className="absolute top-2 right-2 p-1.5 rounded-full bg-destructive text-destructive-foreground opacity-0 group-hover:opacity-100 transition-opacity"
-                  aria-label={language === "en" ? "Remove cover image" : "Elimină imaginea"}
+                  onClick={addChapter}
+                  disabled={chaptersEn.length >= MAX_CHAPTERS}
+                  className="btn-ed btn-ed-ghost"
+                  style={{ opacity: chaptersEn.length >= MAX_CHAPTERS ? 0.4 : 1 }}
                 >
-                  <Trash2 className="h-3.5 w-3.5" />
+                  <Plus className="w-3.5 h-3.5" />
+                  {language === 'en' ? 'Add chapter' : 'Adaugă capitol'}
                 </button>
               </div>
-            ) : (
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                disabled={isUploading}
-                className={cn(
-                  "w-full aspect-[4/3] rounded-xl border-2 border-dashed flex flex-col items-center justify-center gap-2 transition-colors",
-                  isUploading ? "border-accent/50 bg-accent/5" : "border-muted-foreground/20 hover:border-accent/50 hover:bg-accent/5"
-                )}
-              >
-                {isUploading ? (
-                  <Loader2 className="h-8 w-8 animate-spin text-accent" />
-                ) : (
-                  <>
-                    <ImageIcon className="h-8 w-8 text-accent" />
-                    <span className="text-sm font-medium">
-                      {language === "en" ? "Click to upload" : "Apasă pentru încărcare"}
-                    </span>
-                    <span className="text-xs text-muted-foreground">JPG, PNG, WebP · 10 MB max</span>
-                  </>
-                )}
-              </button>
-            )}
-            <input
-              type="file"
-              ref={fileInputRef}
-              onChange={handleImageUpload}
-              accept="image/*"
-              className="hidden"
-            />
 
-            <div className="space-y-2">
-              <label className="text-sm font-medium">
-                {language === "en" ? "Or paste image URL" : "Sau lipește URL imagine"}
-              </label>
-              <Input
-                placeholder="https://..."
-                value={mediaUrl}
-                onChange={e => setMediaUrl(e.target.value)}
-                maxLength={ARTICLE_LIMITS.MEDIA_URL_MAX}
-              />
-            </div>
-          </Card>
+              {showErrors && errorFor('content') && (
+                <p className="font-ui text-[11px] uppercase" style={{ letterSpacing: '0.15em', color: 'var(--oxblood-2)' }}>
+                  {errorFor('content')?.message}
+                </p>
+              )}
 
-          {isAdmin && (
-            <Card className="p-6 border-none shadow-elegant bg-background/50 backdrop-blur-sm">
-              <label className="flex items-center gap-3 cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={publishImmediately}
-                  onChange={e => setPublishImmediately(e.target.checked)}
-                  className="h-4 w-4 rounded border-input accent-accent"
-                />
-                <div>
-                  <span className="font-medium">
-                    {language === "en" ? "Publish immediately" : "Publică imediat"}
-                  </span>
-                  <p className="text-xs text-muted-foreground">
-                    {language === "en"
-                      ? "Otherwise saved as a draft only you can see."
-                      : "Altfel se salvează ca ciornă, vizibilă doar pentru tine."}
-                  </p>
-                </div>
-              </label>
-            </Card>
-          )}
-        </div>
-
-        {/* RIGHT COLUMN — chapters */}
-        <div className="lg:col-span-2 space-y-6">
-          <Card className="p-6 border-none shadow-elegant bg-background/50 backdrop-blur-sm">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-serif italic">
-                {language === "en" ? "Chapters" : "Capitole"}
-              </h2>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={addChapter}
-                disabled={chaptersEn.length >= MAX_CHAPTERS}
-                className="rounded-full"
-              >
-                <Plus className="h-4 w-4 mr-1.5" />
-                {language === "en" ? "Add chapter" : "Adaugă capitol"}
-              </Button>
-            </div>
-
-            {showErrors && errorFor("content") && (
-              <p className="text-sm text-destructive mb-4">{errorFor("content")?.message}</p>
-            )}
-
-            <div className="space-y-6">
-              {chaptersEn.map((_, index) => (
-                <div key={index} className="space-y-3 pb-6 border-b border-border last:border-0 last:pb-0">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-sm font-bold uppercase tracking-wider text-accent">
-                      {language === "en" ? `Chapter ${index + 1}` : `Capitolul ${index + 1}`}
-                    </h3>
-                    {chaptersEn.length > MIN_CHAPTERS && (
-                      <button
-                        type="button"
-                        onClick={() => removeChapter(index)}
-                        className="p-1.5 rounded-full text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
-                        aria-label={language === "en" ? `Remove chapter ${index + 1}` : `Elimină capitolul ${index + 1}`}
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
-                    )}
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <label className="text-xs font-medium text-muted-foreground">
-                        {language === "en" ? "English" : "Engleză"}
-                      </label>
-                      <Textarea
-                        rows={6}
-                        value={chaptersEn[index]}
-                        onChange={e => updateChapter("en", index, e.target.value)}
-                        placeholder={language === "en" ? "Write this chapter in English..." : "Scrie acest capitol în engleză..."}
-                        className="rounded-xl"
-                        maxLength={PER_CHAPTER_MAX}
-                      />
+              <div className="flex flex-col gap-6">
+                {chaptersEn.map((_, index) => (
+                  <div
+                    key={index}
+                    className="p-6 flex flex-col gap-4"
+                    style={{ border: '1px solid var(--line)', background: 'var(--overlay-panel-soft)' }}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-baseline gap-3">
+                        <span
+                          className="font-display italic"
+                          style={{ color: 'var(--gold)', fontSize: 28, lineHeight: 1, fontStyle: 'italic' }}
+                        >
+                          {ROMAN[index]}.
+                        </span>
+                        <span className="eyebrow">
+                          {language === 'en' ? `Chapter ${index + 1}` : `Capitolul ${index + 1}`}
+                        </span>
+                        {index === 0 && (
+                          <span className="font-ui text-[10px] uppercase" style={{ letterSpacing: '0.18em', color: 'var(--text-mute)' }}>
+                            · {language === 'en' ? 'Drop cap' : 'Literă inițială'}
+                          </span>
+                        )}
+                      </div>
+                      {chaptersEn.length > MIN_CHAPTERS && (
+                        <button
+                          type="button"
+                          onClick={() => removeChapter(index)}
+                          className="grid w-8 h-8 place-items-center rounded-full transition-colors"
+                          style={{ border: '1px solid var(--line)', background: 'transparent', color: 'var(--text-mute)' }}
+                          aria-label={language === 'en' ? `Remove chapter ${index + 1}` : `Elimină capitolul ${index + 1}`}
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
                     </div>
-                    <div className="space-y-2">
-                      <label className="text-xs font-medium text-muted-foreground">
-                        {language === "en" ? "Romanian" : "Română"}
-                      </label>
-                      <Textarea
-                        rows={6}
-                        value={chaptersRo[index]}
-                        onChange={e => updateChapter("ro", index, e.target.value)}
-                        placeholder={language === "en" ? "Write this chapter in Romanian..." : "Scrie acest capitol în română..."}
-                        className="rounded-xl"
-                        maxLength={PER_CHAPTER_MAX}
-                      />
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <Field label={language === 'en' ? 'English' : 'Engleză'} compact>
+                        <textarea
+                          rows={8}
+                          value={chaptersEn[index]}
+                          onChange={(e) => updateChapter('en', index, e.target.value)}
+                          placeholder={language === 'en' ? 'Write this chapter in English. Wrap a paragraph with > to make it a pull quote.' : 'Scrie acest capitol în engleză. Începe un paragraf cu > pentru un citat scos în evidență.'}
+                          maxLength={PER_CHAPTER_MAX}
+                          style={{ resize: 'vertical', fontFamily: 'var(--serif)', fontSize: 15, lineHeight: 1.65 }}
+                        />
+                        <p className="font-ui text-[10px] uppercase mt-1.5" style={{ letterSpacing: '0.15em', color: 'var(--text-mute)' }}>
+                          {chaptersEn[index]?.length || 0} / {PER_CHAPTER_MAX}
+                        </p>
+                      </Field>
+                      <Field label={language === 'en' ? 'Romanian' : 'Română'} compact>
+                        <textarea
+                          rows={8}
+                          value={chaptersRo[index]}
+                          onChange={(e) => updateChapter('ro', index, e.target.value)}
+                          placeholder={language === 'en' ? 'Write this chapter in Romanian.' : 'Scrie acest capitol în română.'}
+                          maxLength={PER_CHAPTER_MAX}
+                          style={{ resize: 'vertical', fontFamily: 'var(--serif)', fontSize: 15, lineHeight: 1.65 }}
+                        />
+                        <p className="font-ui text-[10px] uppercase mt-1.5" style={{ letterSpacing: '0.15em', color: 'var(--text-mute)' }}>
+                          {chaptersRo[index]?.length || 0} / {PER_CHAPTER_MAX}
+                        </p>
+                      </Field>
                     </div>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
 
-            <p className="text-xs text-muted-foreground mt-4">
-              {language === "en"
-                ? `Up to ${MAX_CHAPTERS} chapters. Empty trailing chapters are removed automatically on save.`
-                : `Până la ${MAX_CHAPTERS} capitole. Capitolele goale de la final sunt eliminate automat la salvare.`}
-            </p>
-          </Card>
+              <p className="font-ui text-[11px] uppercase" style={{ letterSpacing: '0.15em', color: 'var(--text-mute)' }}>
+                {language === 'en'
+                  ? `Up to ${MAX_CHAPTERS} chapters. Empty trailing chapters are removed automatically on save.`
+                  : `Până la ${MAX_CHAPTERS} capitole. Capitolele goale de la final sunt eliminate automat la salvare.`}
+              </p>
+            </div>
+          </div>
         </div>
-      </div>
+      </section>
 
       {/* Sticky save bar */}
-      <div className="fixed bottom-0 left-0 right-0 z-30 border-t border-border bg-background/95 backdrop-blur-md shadow-[0_-4px_20px_rgba(0,0,0,0.04)]">
-        <div className="container mx-auto px-4 py-3 flex items-center justify-end gap-3">
-          <Button
-            variant="ghost"
-            onClick={() => navigate("/admin")}
+      <div
+        className="fixed bottom-0 left-0 right-0 z-30"
+        style={{
+          borderTop: '1px solid var(--line)',
+          background: 'var(--overlay-nav)',
+          backdropFilter: 'blur(14px)',
+          WebkitBackdropFilter: 'blur(14px)',
+        }}
+      >
+        <div className="ed-container py-4 flex items-center justify-end gap-3">
+          <button
+            onClick={() => navigate('/admin')}
             disabled={isSaving}
-            className="rounded-full"
+            className="font-ui text-[11px] uppercase cursor-pointer transition-colors hover:text-gold"
+            style={{ background: 'transparent', border: 0, color: 'var(--text-dim)', letterSpacing: '0.18em', padding: '10px 18px' }}
           >
-            {language === "en" ? "Cancel" : "Anulează"}
-          </Button>
-          <Button
+            {language === 'en' ? 'Cancel' : 'Anulează'}
+          </button>
+          <button
             onClick={handleSave}
             disabled={isSaving || isUploading}
-            className="rounded-full px-8 h-11"
+            className="btn-ed"
+            style={{ opacity: isSaving || isUploading ? 0.5 : 1 }}
           >
             {isSaving ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              <>
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                {language === 'en' ? 'Saving…' : 'Se salvează…'}
+              </>
             ) : (
-              <Save className="mr-2 h-4 w-4" />
+              <>
+                <Save className="w-3.5 h-3.5" />
+                {isEditing
+                  ? (language === 'en' ? 'Save changes' : 'Salvează modificările')
+                  : (isAdmin && publishImmediately
+                      ? (language === 'en' ? 'Publish story' : 'Publică povestea')
+                      : (language === 'en' ? 'Save as draft' : 'Salvează ca ciornă'))}
+              </>
             )}
-            {isSaving
-              ? (language === "en" ? "Saving..." : "Se salvează...")
-              : (isAdmin && publishImmediately
-                  ? (language === "en" ? "Publish Story" : "Publică Povestea")
-                  : (language === "en" ? "Save as Draft" : "Salvează ca Ciornă"))}
-          </Button>
+          </button>
         </div>
       </div>
     </div>
   );
 };
+
+const FormBlock: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => (
+  <div className="flex flex-col gap-4 p-6" style={{ border: '1px solid var(--line)', background: 'var(--overlay-panel-soft)' }}>
+    <div className="eyebrow">{title}</div>
+    {children}
+  </div>
+);
+
+const Field: React.FC<{ label: string; required?: boolean; compact?: boolean; error?: string; children: React.ReactNode }> = ({ label, required, compact, error, children }) => (
+  <div className={compact ? '' : 'flex flex-col'}>
+    <label style={{ marginBottom: compact ? 4 : 8 }}>
+      {label}
+      {required && <span style={{ color: 'var(--oxblood-2)', marginLeft: 4 }}>*</span>}
+    </label>
+    {children}
+    {error && (
+      <p className="font-ui text-[10px] uppercase mt-1.5" style={{ letterSpacing: '0.15em', color: 'var(--oxblood-2)' }}>
+        {error}
+      </p>
+    )}
+  </div>
+);
 
 export default TextStoryCreate;

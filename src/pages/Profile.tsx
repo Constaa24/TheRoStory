@@ -274,7 +274,16 @@ const Profile: React.FC = () => {
   };
 
   return (
-    <div className="container mx-auto px-4 pt-32 pb-20 max-w-4xl">
+    <div className="screen-anim pb-20">
+      <section style={{ padding: '60px 0 32px', borderBottom: '1px solid var(--line-soft)' }}>
+        <div className="ed-container">
+          <div className="eyebrow mb-3">{language === 'en' ? 'Account' : 'Cont'}</div>
+          <h1 className="font-display italic font-medium m-0" style={{ fontSize: 'clamp(48px, 7vw, 96px)', lineHeight: 0.95, letterSpacing: '-0.01em', color: 'var(--parchment)' }}>
+            {language === 'en' ? 'Your profile.' : 'Profilul tău.'}
+          </h1>
+        </div>
+      </section>
+    <div className="ed-container py-12 max-w-4xl">
       <PageHead
         title={language === "en" ? "Profile" : "Profil"}
         description={language === "en"
@@ -286,11 +295,11 @@ const Profile: React.FC = () => {
       </PageHead>
       <Tabs value={activeTab} onValueChange={(val) => setSearchParams({ tab: val })} className="space-y-8">
         <div className="flex justify-center">
-          <TabsList className="grid w-full max-w-md grid-cols-2 rounded-full p-1 h-12 bg-secondary/30 backdrop-blur-sm border border-border/40">
-            <TabsTrigger value="profile" className="rounded-full text-base font-serif italic">
+          <TabsList className="grid w-full max-w-md grid-cols-2 rounded-full p-1 h-12 bg-[color:var(--ink)]/40 backdrop-blur-sm border border-line">
+            <TabsTrigger value="profile" className="rounded-full text-base font-display italic data-[state=active]:bg-[color:var(--gold)] data-[state=active]:text-[color:var(--ink)]">
               {t("profile.title")}
             </TabsTrigger>
-            <TabsTrigger value="favorites" className="rounded-full text-base font-serif italic gap-2">
+            <TabsTrigger value="favorites" className="rounded-full text-base font-display italic gap-2 data-[state=active]:bg-[color:var(--gold)] data-[state=active]:text-[color:var(--ink)]">
               <Heart className="h-4 w-4" />
               {language === 'en' ? 'Favorites' : 'Favorite'}
             </TabsTrigger>
@@ -298,7 +307,7 @@ const Profile: React.FC = () => {
         </div>
 
         <TabsContent value="profile" className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-          <Card className="border-none shadow-[0_20px_60px_-15px_rgba(0,0,0,0.1)] bg-secondary/20 backdrop-blur-sm max-w-2xl mx-auto rounded-[2.5rem] md:rounded-[3rem] p-4 md:p-8">
+          <Card className="border border-line shadow-2xl bg-[color:var(--ink-2)]/60 backdrop-blur-sm max-w-2xl mx-auto rounded-sm p-4 md:p-8">
             <CardHeader className="text-center relative">
               <div className="absolute top-6 right-6">
                 <Badge variant="outline" className="gap-1.5 py-1 px-3 border-accent/30 bg-accent/5">
@@ -306,7 +315,7 @@ const Profile: React.FC = () => {
                   <span className="capitalize font-serif italic text-accent">{role}</span>
                 </Badge>
               </div>
-              <CardTitle className="text-3xl font-serif font-bold text-primary">
+              <CardTitle className="text-3xl font-display italic text-[color:var(--parchment)]">
                 {t("profile.title")}
               </CardTitle>
               <CardDescription className="text-muted-foreground">
@@ -604,12 +613,13 @@ const Profile: React.FC = () => {
       {/* Parchment Article Viewer */}
       <AnimatePresence>
         {activeArticle && (
-          <ParchmentArticle 
-            article={activeArticle} 
-            onClose={() => setActiveArticle(null)} 
+          <ParchmentArticle
+            article={activeArticle}
+            onClose={() => setActiveArticle(null)}
           />
         )}
       </AnimatePresence>
+    </div>
     </div>
   );
 };

@@ -1,23 +1,19 @@
 import React, { useState, useRef, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { Category } from "@/lib/supabase";
-import { fetchCategories, uploadUserFile, createArticle, deleteStorageFile } from "@/lib/supabase";
+import { fetchCategories, uploadUserFile, createArticle, updateArticle, deleteStorageFile, fetchPublicArticle } from "@/lib/supabase";
 import { ARTICLE_LIMITS } from "@/lib/supabase";
 import { useLanguage } from "@/hooks/use-language";
 import { useAuth } from "@/hooks/use-auth";
 import { useUnsavedChangesWarning } from "@/hooks/use-unsaved-changes";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { 
-  Select, 
-  SelectContent, 
-  SelectItem, 
-  SelectTrigger, 
-  SelectValue 
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from "@/components/ui/select";
-import { Card } from "@/components/ui/card";
-import { ArrowLeft, Video, Upload, Loader2, Save, X, Image as ImageIcon } from "lucide-react";
+import { ArrowLeft, Upload, Loader2, Save, X, Image as ImageIcon } from "lucide-react";
 import { toast } from "sonner";
 import { isAbortError } from "@/lib/utils";
 import { COUNTIES } from "@/lib/constants";
@@ -27,16 +23,18 @@ const VideoStoryCreate: React.FC = () => {
   const { user, isAdmin } = useAuth();
   const { language, t } = useLanguage();
   const navigate = useNavigate();
-  
+  const { id: editingId } = useParams<{ id?: string }>();
+  const isEditing = !!editingId;
+
   const [categories, setCategories] = useState<Category[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
   const [isGeneratingPoster, setIsGeneratingPoster] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isPublished, setIsPublished] = useState(false);
   const videoInputRef = useRef<HTMLInputElement>(null);
   const posterInputRef = useRef<HTMLInputElement>(null);
 
-  // Form states
   const [titleEn, setTitleEn] = useState("");
   const [titleRo, setTitleRo] = useState("");
   const [descriptionEn, setDescriptionEn] = useState("");
@@ -62,36 +60,52 @@ const VideoStoryCreate: React.FC = () => {
 
   useEffect(() => {
     let cancelled = false;
-    fetchCategories()
-      .then(cats => {
-        if (!cancelled) setCategories(cats);
-      })
-      .catch(err => {
-        if (!isAbortError(err)) console.error("Error loading categories:", err);
-      })
-      .finally(() => {
+    const loadAll = async () => {
+      try {
+        const cats = await fetchCategories();
+        if (cancelled) return;
+        setCategories(cats);
+        if (editingId) {
+          const { article } = await fetchPublicArticle(editingId);
+          if (cancelled) return;
+          if (!article || article.type !== 'video') {
+            toast.error(language === 'en' ? 'Article not found' : 'Articol negăsit');
+            navigate('/admin', { replace: true });
+            return;
+          }
+          setTitleEn(article.titleEn || '');
+          setTitleRo(article.titleRo || '');
+          setDescriptionEn(article.contentEn || '');
+          setDescriptionRo(article.contentRo || '');
+          setCategoryId(article.categoryId || '');
+          setLocation(article.location || '');
+          setVideoUrl(article.mediaUrl || '');
+          setPosterUrl(article.posterUrl || '');
+          setIsPublished(!!article.isPublished);
+        }
+      } catch (err) {
+        if (!isAbortError(err)) console.error("Error loading video data:", err);
+      } finally {
         if (!cancelled) setIsLoading(false);
-      });
+      }
+    };
+    loadAll();
     return () => { cancelled = true; };
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editingId]);
 
   const handleVideoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
-
     if (!user?.id) {
       toast.error(language === 'en' ? "Not authenticated" : "Neautentificat");
       event.target.value = "";
       return;
     }
-
-    // Clear input immediately so the same file can be re-selected if needed
     if (event.target) event.target.value = "";
 
     setIsUploading(true);
     try {
-      // Clean up the previous video / poster before replacing them — avoids
-      // orphaning blobs when a user re-uploads.
       if (videoStoragePath) await deleteStorageFile('articles', videoStoragePath);
       if (posterStoragePath) await deleteStorageFile('articles', posterStoragePath);
       setVideoUrl("");
@@ -108,13 +122,8 @@ const VideoStoryCreate: React.FC = () => {
       });
       setVideoUrl(publicUrl);
       setVideoStoragePath(storagePath);
-      toast.success(language === 'en' ? "Video uploaded successfully" : "Video încărcat cu succes");
+      toast.success(language === 'en' ? "Video uploaded" : "Video încărcat");
 
-      // Generate and upload poster in the background. We track this with
-      // isGeneratingPoster so the Save button stays disabled until either
-      // the poster lands or we know it failed — without this gate, a fast-
-      // saving user can persist an empty posterUrl while the upload is
-      // still in flight.
       setIsGeneratingPoster(true);
       createVideoPosterImageFile(file, `${crypto.randomUUID()}-poster.jpg`)
         .then(async (posterFile) => {
@@ -130,7 +139,7 @@ const VideoStoryCreate: React.FC = () => {
         })
         .catch((posterError) => {
           console.warn("Poster generation/upload failed:", posterError);
-          toast.warning(language === 'en' ? "Poster generation failed — you can upload one manually." : "Generarea posterului a eșuat — îl poți încărca manual.");
+          toast.warning(language === 'en' ? "Poster generation failed — upload one manually." : "Generarea posterului a eșuat — încarcă unul manual.");
         })
         .finally(() => setIsGeneratingPoster(false));
     } catch (error) {
@@ -145,32 +154,23 @@ const VideoStoryCreate: React.FC = () => {
   const handlePosterUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
-
     if (!user?.id) {
       toast.error(language === 'en' ? "Not authenticated" : "Neautentificat");
       event.target.value = "";
       return;
     }
-
     setIsUploading(true);
     try {
-      // If the user is replacing an existing poster, clean up the old file.
-      // We only do this when the previous poster came from our upload path
-      // (we know its storage path); a manually pasted URL is left alone.
-      if (posterStoragePath) {
-        await deleteStorageFile('articles', posterStoragePath);
-      }
-
+      if (posterStoragePath) await deleteStorageFile('articles', posterStoragePath);
       const { publicUrl, storagePath } = await uploadUserFile(file, {
         bucket: 'articles',
         kind: 'image',
         userId: user.id,
         subfolder: 'stories/posters',
       });
-
       setPosterUrl(publicUrl);
       setPosterStoragePath(storagePath);
-      toast.success(language === 'en' ? "Poster uploaded successfully" : "Poster încărcat cu succes");
+      toast.success(language === 'en' ? "Poster uploaded" : "Poster încărcat");
     } catch (error) {
       console.error("Error uploading poster:", error);
       const message = error instanceof Error ? error.message : (language === 'en' ? "Error uploading poster" : "Eroare la încărcarea posterului");
@@ -186,28 +186,31 @@ const VideoStoryCreate: React.FC = () => {
       toast.error(language === 'en' ? "Please fill all required fields and upload a video" : "Vă rugăm să completați toate câmpurile obligatorii și să încărcați un video");
       return;
     }
-
     setIsSaving(true);
     try {
-      await createArticle({
-        type: 'video',
+      const payload = {
+        type: 'video' as const,
         titleEn,
         titleRo,
         contentEn: descriptionEn,
         contentRo: descriptionRo,
         categoryId,
-        userId: user.id,
-        isPublished: isAdmin,
         location: location || undefined,
         mediaUrl: videoUrl,
         posterUrl: posterUrl || null,
-      });
-
-      toast.success(language === 'en' ? "Video story created successfully!" : "Povestea video a fost creată cu succes!");
+      };
+      if (isEditing && editingId) {
+        await updateArticle({ ...payload, id: editingId, isPublished });
+        toast.success(language === 'en' ? "Film updated!" : "Filmul a fost actualizat!");
+      } else {
+        await createArticle({ ...payload, userId: user.id, isPublished: isAdmin });
+        toast.success(language === 'en' ? "Film created!" : "Filmul a fost creat!");
+      }
       navigate("/admin");
     } catch (error) {
       console.error("Error saving video story:", error);
-      toast.error(language === 'en' ? "Error saving video story" : "Eroare la salvarea poveștii video");
+      const message = error instanceof Error ? error.message : (language === 'en' ? "Error saving story" : "Eroare la salvarea poveștii");
+      toast.error(message);
     } finally {
       setIsSaving(false);
     }
@@ -216,252 +219,361 @@ const VideoStoryCreate: React.FC = () => {
   if (isLoading) {
     return (
       <div className="flex h-screen items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-accent" />
+        <Loader2 className="h-8 w-8 animate-spin" style={{ color: 'var(--gold)' }} />
       </div>
     );
   }
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-4xl animate-fade-in">
-      <Button 
-        variant="ghost" 
-        className="mb-6 rounded-full group"
-        onClick={() => navigate("/admin")}
-      >
-        <ArrowLeft className="mr-2 h-4 w-4 transition-transform group-hover:-translate-x-1" />
-        {language === 'en' ? "Back to Dashboard" : "Înapoi la Panou"}
-      </Button>
-
-      <div className="flex items-center gap-4 mb-8">
-        <div className="p-3 bg-accent/10 rounded-2xl">
-          <Video className="h-8 w-8 text-accent" />
-        </div>
-        <div>
-          <h1 className="text-3xl font-serif font-black italic text-primary">
-            {language === 'en' ? "Create Video Story" : "Crează Poveste Video"}
+    <div className="screen-anim pb-32">
+      {/* Page hero */}
+      <section style={{ padding: '60px 0 32px', borderBottom: '1px solid var(--line-soft)' }}>
+        <div className="ed-container">
+          <button
+            onClick={() => navigate('/admin')}
+            className="flex items-center gap-2 mb-6 transition-colors hover:text-gold cursor-pointer"
+            style={{ color: 'var(--text-dim)', background: 'transparent', border: 0, fontFamily: 'var(--ui)', fontSize: 11, letterSpacing: '0.18em', textTransform: 'uppercase' }}
+          >
+            <ArrowLeft className="w-3.5 h-3.5" />
+            {language === 'en' ? 'Back to dashboard' : 'Înapoi la panou'}
+          </button>
+          <div className="eyebrow mb-3">
+            {isEditing
+              ? (language === 'en' ? 'Editing · Film' : 'Editare · Film')
+              : (language === 'en' ? 'New entry · Film' : 'Intrare nouă · Film')}
+          </div>
+          <h1 className="font-display italic font-medium m-0" style={{ fontSize: 'clamp(48px, 7vw, 96px)', lineHeight: 0.95, letterSpacing: '-0.01em', color: 'var(--parchment)' }}>
+            {isEditing
+              ? (language === 'en' ? 'Edit film.' : 'Editează filmul.')
+              : (language === 'en' ? 'Publish a film.' : 'Publică un film.')}
           </h1>
-          <p className="text-muted-foreground">
-            {language === 'en' ? "Share a visual story about Romanian culture" : "Împărtășește o poveste vizuală despre cultura română"}
+          <p className="mt-5 max-w-[640px]" style={{ fontSize: 17, color: 'var(--text-dim)', lineHeight: 1.55 }}>
+            {language === 'en'
+              ? 'Upload the video and a poster image. The description becomes the synopsis on the article page.'
+              : 'Încarcă videoclipul și o imagine poster. Descrierea devine sinopsisul pe pagina articolului.'}
           </p>
         </div>
-      </div>
+      </section>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <div className="space-y-6">
-          <Card className="p-6 border-none shadow-elegant bg-background/50 backdrop-blur-sm space-y-4">
-            <h2 className="text-xl font-serif italic mb-2">{language === 'en' ? "Story Details" : "Detalii Poveste"}</h2>
-            
-            <div className="space-y-2">
-              <label className="text-sm font-medium">{language === 'en' ? "Title (English)" : "Titlu (Engleză)"}</label>
-              <Input
-                value={titleEn}
-                onChange={(e) => setTitleEn(e.target.value)}
-                placeholder="Enter title in English"
-                maxLength={ARTICLE_LIMITS.TITLE_MAX}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium">{language === 'en' ? "Title (Romanian)" : "Titlu (Română)"}</label>
-              <Input
-                value={titleRo}
-                onChange={(e) => setTitleRo(e.target.value)}
-                placeholder="Introdu titlul în română"
-                maxLength={ARTICLE_LIMITS.TITLE_MAX}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium">{language === 'en' ? "Category" : "Categorie"}</label>
-              <Select value={categoryId} onValueChange={setCategoryId}>
-                <SelectTrigger className="rounded-xl">
-                  <SelectValue placeholder={language === 'en' ? "Select a category" : "Selectează o categorie"} />
-                </SelectTrigger>
-                <SelectContent>
-                  {categories.map((cat) => (
-                    <SelectItem key={cat.id} value={cat.id}>
-                      {language === 'en' ? cat.nameEn : cat.nameRo}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </Card>
-
-          <Card className="p-6 border-none shadow-elegant bg-background/50 backdrop-blur-sm space-y-4">
-            <h2 className="text-xl font-serif italic mb-2">{language === 'en' ? "Description" : "Descriere"}</h2>
-            
-            <div className="space-y-2">
-              <label className="text-sm font-medium">{language === 'en' ? "Description (English)" : "Descriere (Engleză)"}</label>
-              <Textarea
-                value={descriptionEn}
-                onChange={(e) => setDescriptionEn(e.target.value)}
-                placeholder="What is this video about?"
-                className="min-h-[120px] rounded-xl"
-                maxLength={ARTICLE_LIMITS.CONTENT_MAX}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium">{language === 'en' ? "Description (Romanian)" : "Descriere (Română)"}</label>
-              <Textarea
-                value={descriptionRo}
-                onChange={(e) => setDescriptionRo(e.target.value)}
-                placeholder="Despre ce este acest video?"
-                className="min-h-[120px] rounded-xl"
-                maxLength={ARTICLE_LIMITS.CONTENT_MAX}
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <label className="text-sm font-medium">{t("location.label")}</label>
-              <Select value={location} onValueChange={setLocation}>
-                <SelectTrigger className="rounded-xl">
-                  <SelectValue placeholder={t("location.select")} />
-                </SelectTrigger>
-                <SelectContent>
-                  {COUNTIES.map((county) => (
-                    <SelectItem key={county} value={county}>{county}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </Card>
-        </div>
-
-        <div className="space-y-6">
-          <Card className="p-6 border-none shadow-elegant bg-background/50 backdrop-blur-sm h-full flex flex-col">
-            <h2 className="text-xl font-serif italic mb-4">{language === 'en' ? "Video Upload" : "Încărcare Video"}</h2>
-            
-            <div 
-              className={`flex-1 border-2 border-dashed rounded-2xl flex flex-col items-center justify-center p-8 transition-colors ${
-                videoUrl ? 'border-green-500/50 bg-green-50/10' : 'border-muted-foreground/20 hover:border-accent/50'
-              }`}
-            >
-              {videoUrl ? (
-                <div className="w-full space-y-4">
-                  <video 
-                    src={videoUrl} 
-                    poster={posterUrl || undefined}
-                    controls 
-                    className="w-full rounded-xl shadow-lg aspect-video object-cover"
+      <section style={{ padding: '40px 0 60px' }} className="ed-form">
+        <div className="ed-container">
+          <div className="grid grid-cols-1 lg:grid-cols-[1fr_1.2fr] gap-10 items-start">
+            {/* LEFT — meta */}
+            <div className="flex flex-col gap-7">
+              <FormBlock title={language === 'en' ? 'Story details' : 'Detalii poveste'}>
+                <Field label={language === 'en' ? 'Title (English)' : 'Titlu (Engleză)'} required>
+                  <input
+                    type="text"
+                    value={titleEn}
+                    onChange={(e) => setTitleEn(e.target.value)}
+                    placeholder={language === 'en' ? 'Enter title in English' : 'Introdu titlul în engleză'}
+                    maxLength={ARTICLE_LIMITS.TITLE_MAX}
                   />
-                  <div className="flex justify-between items-center bg-green-500/10 p-3 rounded-xl">
-                    <span className="text-xs text-green-600 font-medium">Video Ready</span>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-8 w-8 p-0 rounded-full hover:bg-red-500/10 hover:text-red-500"
+                </Field>
+                <Field label={language === 'en' ? 'Title (Romanian)' : 'Titlu (Română)'} required>
+                  <input
+                    type="text"
+                    value={titleRo}
+                    onChange={(e) => setTitleRo(e.target.value)}
+                    placeholder={language === 'en' ? 'Enter title in Romanian' : 'Introdu titlul în română'}
+                    maxLength={ARTICLE_LIMITS.TITLE_MAX}
+                  />
+                </Field>
+                <Field label={language === 'en' ? 'Category' : 'Categorie'} required>
+                  <Select value={categoryId} onValueChange={setCategoryId}>
+                    <SelectTrigger className="rounded-sm border-line bg-[color:var(--ink-2)]">
+                      <SelectValue placeholder={language === 'en' ? 'Select a category' : 'Selectează o categorie'} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {categories.map(cat => (
+                        <SelectItem key={cat.id} value={cat.id}>
+                          {language === 'en' ? cat.nameEn : cat.nameRo}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </Field>
+                <Field label={t('location.label')}>
+                  <Select value={location} onValueChange={setLocation}>
+                    <SelectTrigger className="rounded-sm border-line bg-[color:var(--ink-2)]">
+                      <SelectValue placeholder={t('location.select')} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {COUNTIES.map(county => (
+                        <SelectItem key={county} value={county}>{county}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </Field>
+              </FormBlock>
+
+              {isEditing && isAdmin && (
+                <FormBlock title={language === 'en' ? 'Visibility' : 'Vizibilitate'}>
+                  <label className="flex items-start gap-3 cursor-pointer select-none" style={{ marginBottom: 0 }}>
+                    <input
+                      type="checkbox"
+                      checked={isPublished}
+                      onChange={(e) => setIsPublished(e.target.checked)}
+                      className="mt-1 w-4 h-4 accent-[color:var(--gold)]"
+                    />
+                    <span style={{ flex: 1, marginBottom: 0, textTransform: 'none', letterSpacing: 'normal' }}>
+                      <span className="font-display italic block" style={{ color: 'var(--parchment)', fontSize: 17 }}>
+                        {language === 'en' ? 'Published' : 'Publicat'}
+                      </span>
+                      <span className="font-ui text-[11px] uppercase mt-1 block" style={{ letterSpacing: '0.15em', color: 'var(--text-mute)' }}>
+                        {language === 'en' ? 'Toggle off to revert to draft.' : 'Dezactivează pentru a reveni la ciornă.'}
+                      </span>
+                    </span>
+                  </label>
+                </FormBlock>
+              )}
+
+              <FormBlock title={language === 'en' ? 'Synopsis' : 'Sinopsis'}>
+                <p className="font-ui text-[11px] uppercase mb-2" style={{ letterSpacing: '0.15em', color: 'var(--text-mute)' }}>
+                  {language === 'en' ? 'Shown beside the video on the article page.' : 'Afișat lângă video pe pagina articolului.'}
+                </p>
+                <Field label={language === 'en' ? 'English' : 'Engleză'}>
+                  <textarea
+                    value={descriptionEn}
+                    onChange={(e) => setDescriptionEn(e.target.value)}
+                    placeholder={language === 'en' ? 'What is this film about?' : 'Despre ce este acest film?'}
+                    rows={5}
+                    maxLength={ARTICLE_LIMITS.CONTENT_MAX}
+                    style={{ resize: 'vertical' }}
+                  />
+                </Field>
+                <Field label={language === 'en' ? 'Romanian' : 'Română'}>
+                  <textarea
+                    value={descriptionRo}
+                    onChange={(e) => setDescriptionRo(e.target.value)}
+                    placeholder={language === 'en' ? 'What is this film about?' : 'Despre ce este acest film?'}
+                    rows={5}
+                    maxLength={ARTICLE_LIMITS.CONTENT_MAX}
+                    style={{ resize: 'vertical' }}
+                  />
+                </Field>
+              </FormBlock>
+            </div>
+
+            {/* RIGHT — video */}
+            <div className="flex flex-col gap-7">
+              <div>
+                <div className="eyebrow mb-2">{language === 'en' ? 'Video file' : 'Fișier video'}</div>
+                <h2 className="font-display italic m-0" style={{ fontSize: 28, lineHeight: 1.1, color: 'var(--parchment)' }}>
+                  {videoUrl
+                    ? (language === 'en' ? 'Preview' : 'Previzualizare')
+                    : (language === 'en' ? 'Upload your film.' : 'Încarcă filmul tău.')}
+                </h2>
+              </div>
+
+              <input
+                type="file"
+                ref={videoInputRef}
+                onChange={handleVideoUpload}
+                accept=".mp4,.webm,.mov,video/mp4,video/webm,video/quicktime"
+                className="hidden"
+              />
+
+              {videoUrl ? (
+                <div className="flex flex-col gap-4">
+                  <div className="video-frame relative" style={{ aspectRatio: '16/9' }}>
+                    <video
+                      src={videoUrl}
+                      poster={posterUrl || undefined}
+                      controls
+                      className="absolute inset-0 w-full h-full object-cover"
+                    />
+                  </div>
+                  <div className="flex items-center justify-between p-3" style={{ border: '1px solid var(--line)', background: 'var(--overlay-panel-soft)' }}>
+                    <span className="font-ui text-[11px] uppercase flex items-center gap-2" style={{ letterSpacing: '0.18em', color: 'var(--gold)' }}>
+                      <span className="rounded-full" style={{ width: 6, height: 6, background: 'var(--gold)' }} />
+                      {language === 'en' ? 'Video ready' : 'Video pregătit'}
+                    </span>
+                    <button
+                      type="button"
                       onClick={() => {
-                        // Best-effort cleanup of the uploaded blobs so we don't
-                        // accumulate orphans when a user changes their mind.
                         if (videoStoragePath) void deleteStorageFile('articles', videoStoragePath);
                         if (posterStoragePath) void deleteStorageFile('articles', posterStoragePath);
-                        setVideoUrl("");
-                        setPosterUrl("");
+                        setVideoUrl('');
+                        setPosterUrl('');
                         setVideoStoragePath(null);
                         setPosterStoragePath(null);
                       }}
+                      className="grid w-8 h-8 place-items-center rounded-full transition-colors"
+                      style={{ border: '1px solid var(--line)', background: 'transparent', color: 'var(--oxblood-2)' }}
+                      aria-label={language === 'en' ? 'Remove video' : 'Elimină videoul'}
                     >
-                      <X className="h-4 w-4" />
-                    </Button>
+                      <X className="w-3.5 h-3.5" />
+                    </button>
                   </div>
                 </div>
               ) : (
-                <>
-                  <div className="p-4 bg-accent/5 rounded-full mb-4">
-                    {isUploading ? (
-                      <Loader2 className="h-8 w-8 animate-spin text-accent" />
-                    ) : (
-                      <Upload className="h-8 w-8 text-accent" />
-                    )}
-                  </div>
-                  <div className="text-center space-y-2">
-                    <p className="font-medium">
-                      {isUploading ? (language === 'en' ? "Uploading..." : "Se încarcă...") : (language === 'en' ? "Click to upload video" : "Click pentru a încărca video")}
-                    </p>
-                    <p className="text-xs text-muted-foreground">MP4, WebM or MOV (Max 500MB)</p>
-                  </div>
-                  <Button 
-                    disabled={isUploading}
-                    className="mt-6 rounded-full"
-                    onClick={() => videoInputRef.current?.click()}
-                  >
-                    {language === 'en' ? "Select Video" : "Selectează Video"}
-                  </Button>
-                </>
-              )}
-              <input 
-                type="file" 
-                ref={videoInputRef} 
-                onChange={handleVideoUpload} 
-                accept=".mp4,.webm,.mov,video/mp4,video/webm,video/quicktime"
-                className="hidden" 
-              />
-            </div>
-
-            <div className="mt-4 space-y-2">
-              <label className="text-sm font-medium">
-                {language === 'en' ? "Poster URL (Thumbnail)" : "URL Poster (Miniatură)"}
-              </label>
-              <div className="flex gap-2">
-                <Input
-                  placeholder="https://..."
-                  value={posterUrl}
-                  onChange={(e) => setPosterUrl(e.target.value)}
-                />
-                <input
-                  type="file"
-                  ref={posterInputRef}
-                  onChange={handlePosterUpload}
-                  accept="image/*"
-                  className="hidden"
-                />
-                <Button
+                <button
                   type="button"
-                  variant="outline"
-                  size="icon"
-                  onClick={() => posterInputRef.current?.click()}
+                  onClick={() => videoInputRef.current?.click()}
                   disabled={isUploading}
-                  title={language === 'en' ? "Upload poster image" : "Încarcă imagine poster"}
+                  className="w-full flex flex-col items-center justify-center gap-4 py-16 cursor-pointer transition-colors"
+                  style={{
+                    border: '2px dashed var(--line)',
+                    background: isUploading ? 'rgba(201,169,110,0.05)' : 'transparent',
+                    color: 'var(--text-dim)',
+                    aspectRatio: '16/9',
+                  }}
                 >
-                  {isUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImageIcon className="h-4 w-4" />}
-                </Button>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                {language === 'en'
-                  ? "A poster is auto-generated when you upload a video, but you can override it here."
-                  : "Un poster este generat automat la încărcarea video-ului, dar îl poți înlocui aici."}
-              </p>
-            </div>
-
-            <Button
-              className="w-full mt-6 rounded-full h-12 text-lg font-serif italic"
-              disabled={isSaving || isUploading || isGeneratingPoster || !videoUrl}
-              onClick={handleSave}
-            >
-              {isSaving ? (
-                <>
-                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                  {language === 'en' ? "Saving Story..." : "Se salvează..."}
-                </>
-              ) : isGeneratingPoster ? (
-                <>
-                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                  {language === 'en' ? "Generating poster..." : "Se generează posterul..."}
-                </>
-              ) : (
-                <>
-                  <Save className="mr-2 h-5 w-5" />
-                  {language === 'en' ? "Publish Video Story" : "Publică Povestea Video"}
-                </>
+                  {isUploading ? (
+                    <>
+                      <Loader2 className="w-7 h-7 animate-spin" style={{ color: 'var(--gold)' }} />
+                      <span className="font-ui text-[11px] uppercase" style={{ letterSpacing: '0.18em' }}>
+                        {language === 'en' ? 'Uploading…' : 'Se încarcă…'}
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="w-7 h-7" style={{ color: 'var(--gold)' }} />
+                      <span className="font-display italic" style={{ color: 'var(--parchment)', fontSize: 22 }}>
+                        {language === 'en' ? 'Click to upload video' : 'Apasă pentru a încărca video'}
+                      </span>
+                      <span className="font-ui text-[10px] uppercase" style={{ letterSpacing: '0.18em', color: 'var(--text-mute)' }}>
+                        MP4 · WebM · MOV · 500 MB max
+                      </span>
+                    </>
+                  )}
+                </button>
               )}
-            </Button>
-          </Card>
+
+              {/* Poster section */}
+              <FormBlock title={language === 'en' ? 'Poster (thumbnail)' : 'Poster (miniatură)'}>
+                <p className="font-ui text-[11px] uppercase mb-2" style={{ letterSpacing: '0.15em', color: 'var(--text-mute)' }}>
+                  {language === 'en'
+                    ? 'Auto-generated when you upload a video — override below if you prefer.'
+                    : 'Generat automat la încărcarea videoului — înlocuiește dedesubt dacă preferi.'}
+                </p>
+
+                {posterUrl && (
+                  <div className="ph relative mb-3" data-tone="warm" style={{ aspectRatio: '16/9' }}>
+                    <img src={posterUrl} alt="" className="absolute inset-0 w-full h-full object-cover" />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (posterStoragePath) void deleteStorageFile('articles', posterStoragePath);
+                        setPosterUrl('');
+                        setPosterStoragePath(null);
+                      }}
+                      className="absolute top-2 right-2 grid w-8 h-8 place-items-center rounded-full"
+                      style={{ background: 'var(--overlay-dark)', border: '1px solid var(--oxblood-2)', color: 'var(--oxblood-2)' }}
+                      aria-label={language === 'en' ? 'Remove poster' : 'Elimină posterul'}
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                )}
+
+                <Field label={language === 'en' ? 'Poster URL' : 'URL Poster'}>
+                  <div className="flex gap-2">
+                    <input
+                      type="url"
+                      placeholder="https://..."
+                      value={posterUrl}
+                      onChange={(e) => setPosterUrl(e.target.value)}
+                      style={{ flex: 1 }}
+                    />
+                    <input
+                      type="file"
+                      ref={posterInputRef}
+                      onChange={handlePosterUpload}
+                      accept="image/*"
+                      className="hidden"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => posterInputRef.current?.click()}
+                      disabled={isUploading}
+                      className="grid w-12 h-12 place-items-center rounded-sm cursor-pointer transition-colors hover:text-gold shrink-0"
+                      style={{ border: '1px solid var(--line)', background: 'var(--ink-2)', color: 'var(--text)' }}
+                      title={language === 'en' ? 'Upload poster' : 'Încarcă poster'}
+                    >
+                      {isUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <ImageIcon className="w-4 h-4" />}
+                    </button>
+                  </div>
+                </Field>
+
+                {isGeneratingPoster && (
+                  <p className="font-ui text-[10px] uppercase flex items-center gap-2 mt-2" style={{ letterSpacing: '0.18em', color: 'var(--gold)' }}>
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                    {language === 'en' ? 'Generating poster…' : 'Se generează posterul…'}
+                  </p>
+                )}
+              </FormBlock>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Sticky save bar */}
+      <div
+        className="fixed bottom-0 left-0 right-0 z-30"
+        style={{
+          borderTop: '1px solid var(--line)',
+          background: 'var(--overlay-nav)',
+          backdropFilter: 'blur(14px)',
+          WebkitBackdropFilter: 'blur(14px)',
+        }}
+      >
+        <div className="ed-container py-4 flex items-center justify-end gap-3">
+          <button
+            onClick={() => navigate('/admin')}
+            disabled={isSaving}
+            className="font-ui text-[11px] uppercase cursor-pointer transition-colors hover:text-gold"
+            style={{ background: 'transparent', border: 0, color: 'var(--text-dim)', letterSpacing: '0.18em', padding: '10px 18px' }}
+          >
+            {language === 'en' ? 'Cancel' : 'Anulează'}
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={isSaving || isUploading || isGeneratingPoster || !videoUrl}
+            className="btn-ed"
+            style={{ opacity: isSaving || isUploading || isGeneratingPoster || !videoUrl ? 0.5 : 1 }}
+          >
+            {isSaving ? (
+              <>
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                {language === 'en' ? 'Saving…' : 'Se salvează…'}
+              </>
+            ) : isGeneratingPoster ? (
+              <>
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                {language === 'en' ? 'Generating poster…' : 'Se generează posterul…'}
+              </>
+            ) : (
+              <>
+                <Save className="w-3.5 h-3.5" />
+                {isEditing
+                  ? (language === 'en' ? 'Save changes' : 'Salvează modificările')
+                  : (language === 'en' ? 'Publish film' : 'Publică filmul')}
+              </>
+            )}
+          </button>
         </div>
       </div>
     </div>
   );
 };
+
+const FormBlock: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => (
+  <div className="flex flex-col gap-4 p-6" style={{ border: '1px solid var(--line)', background: 'var(--overlay-panel-soft)' }}>
+    <div className="eyebrow">{title}</div>
+    {children}
+  </div>
+);
+
+const Field: React.FC<{ label: string; required?: boolean; compact?: boolean; children: React.ReactNode }> = ({ label, required, compact, children }) => (
+  <div className={compact ? '' : 'flex flex-col'}>
+    <label style={{ marginBottom: compact ? 4 : 8 }}>
+      {label}
+      {required && <span style={{ color: 'var(--oxblood-2)', marginLeft: 4 }}>*</span>}
+    </label>
+    {children}
+  </div>
+);
 
 export default VideoStoryCreate;

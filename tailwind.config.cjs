@@ -66,17 +66,32 @@ module.exports = {
   		},
   		fontFamily: {
   			sans: [
-  				'var(--font-sans)',
-  				'Inter',
+  				'Manrope',
+  				'-apple-system',
+  				'BlinkMacSystemFont',
   				'sans-serif'
   			],
   			serif: [
-  				'var(--font-serif)',
-  				'Playfair Display',
+  				'Newsreader',
+  				'Georgia',
   				'serif'
   			],
+  			display: [
+  				'Cormorant Garamond',
+  				'Cormorant',
+  				'Georgia',
+  				'serif'
+  			],
+  			ui: [
+  				'Manrope',
+  				'-apple-system',
+  				'BlinkMacSystemFont',
+  				'sans-serif'
+  			],
   			mono: [
-  				'var(--font-mono)',
+  				'ui-monospace',
+  				'SFMono-Regular',
+  				'Menlo',
   				'monospace'
   			]
   		},
