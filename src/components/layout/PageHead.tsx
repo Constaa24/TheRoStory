@@ -7,7 +7,7 @@ interface PageHeadProps {
   title: string;
   /** Meta description (~155 chars max) */
   description: string;
-  /** Optional override; defaults to /og-image.png */
+  /** Optional override; defaults to /og-image.jpg */
   imageUrl?: string;
   /** Locale: 'en' or 'ro'. Drives og:locale and html lang */
   language: "en" | "ro";
@@ -36,7 +36,7 @@ export const PageHead: React.FC<PageHeadProps> = ({
   const location = useLocation();
   const canonical = `${SITE_URL}${location.pathname}`;
   const fullTitle = `${title} — ${SITE_NAME}`;
-  const image = imageUrl || `${SITE_URL}/og-image.png`;
+  const image = imageUrl || `${SITE_URL}/og-image.jpg`;
   const ogLocale = language === "en" ? "en_US" : "ro_RO";
 
   return (

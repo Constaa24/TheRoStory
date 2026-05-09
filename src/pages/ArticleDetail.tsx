@@ -80,7 +80,7 @@ const ArticleDetailPage: React.FC = () => {
     article.posterUrl ||
     article.mediaUrl ||
     article.mediaUrls?.[0] ||
-    `${SITE_URL}/og-image.png`;
+    `${SITE_URL}/og-image.jpg`;
   const articleUrl = `${SITE_URL}/article/${article.id}`;
 
   const jsonLd = {
