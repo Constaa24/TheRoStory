@@ -115,25 +115,27 @@ const Categories: React.FC = () => {
                   <button
                     key={category.id}
                     onClick={() => handleCategorySelect(category.id)}
-                    className="block text-left cursor-pointer group transition-colors w-full"
-                    style={{ borderTop: '1px solid var(--line)', paddingTop: 28, background: 'transparent', border: 0, borderRadius: 0 }}
+                    className="block text-left cursor-pointer group transition-colors w-full h-full"
+                    style={{ background: 'transparent', border: 0, padding: 0, borderRadius: 0 }}
                   >
-                    <div style={{ borderTop: '1px solid var(--line)', paddingTop: 28 }}>
-                      <div className="flex justify-between items-baseline mb-6">
-                        <div className="flex gap-4 items-baseline">
-                          <span className="font-ui text-[12px] uppercase" style={{ letterSpacing: '0.18em', color: 'var(--gold)' }}>
-                            {String(i + 1).padStart(2, '0')}
+                    <div style={{ borderTop: '1px solid var(--line)', paddingTop: 28 }} className="h-full flex flex-col">
+                      <div className="mb-6 md:min-h-[120px] lg:min-h-[140px]">
+                        <div className="flex justify-between items-baseline">
+                          <div className="flex gap-4 items-baseline">
+                            <span className="font-ui text-[12px] uppercase shrink-0" style={{ letterSpacing: '0.18em', color: 'var(--gold)' }}>
+                              {String(i + 1).padStart(2, '0')}
+                            </span>
+                            <h2
+                              className="font-display italic font-medium m-0 transition-colors group-hover:text-gold"
+                              style={{ fontSize: 'clamp(38px, 4vw, 56px)', lineHeight: 1, color: 'var(--parchment)' }}
+                            >
+                              {name}
+                            </h2>
+                          </div>
+                          <span className="font-ui text-[12px] uppercase shrink-0 ml-4" style={{ letterSpacing: '0.18em', color: 'var(--text-mute)' }}>
+                            {count} {language === 'en' ? 'stories' : 'povești'}
                           </span>
-                          <h2
-                            className="font-display italic font-medium m-0 transition-colors group-hover:text-gold"
-                            style={{ fontSize: 'clamp(38px, 4vw, 56px)', lineHeight: 1, color: 'var(--parchment)' }}
-                          >
-                            {name}
-                          </h2>
                         </div>
-                        <span className="font-ui text-[12px] uppercase" style={{ letterSpacing: '0.18em', color: 'var(--text-mute)' }}>
-                          {count} {language === 'en' ? 'stories' : 'povești'}
-                        </span>
                       </div>
 
                       <div className="mb-6 relative overflow-hidden transition-transform group-hover:translate-y-[-2px]" style={{ aspectRatio: '16/9' }}>

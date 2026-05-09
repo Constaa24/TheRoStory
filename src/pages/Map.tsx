@@ -191,7 +191,7 @@ const MapPage: React.FC = () => {
                 <div
                   className="relative overflow-hidden"
                   style={{
-                    background: 'radial-gradient(ellipse at 50% 40%, rgba(201,169,110,.06), transparent 60%), var(--ink-2)',
+                    background: 'radial-gradient(ellipse at 50% 40%, rgba(var(--line-rgb), 0.06), transparent 60%), var(--ink-2)',
                     border: '1px solid var(--line)',
                     borderRadius: 4,
                     padding: 32,
@@ -264,8 +264,8 @@ const MapPage: React.FC = () => {
                     >
                       <defs>
                         <pattern id="paper-grid" patternUnits="userSpaceOnUse" width="40" height="40">
-                          <rect width="40" height="40" fill="rgba(201,169,110,0.04)" />
-                          <path d="M0 20h40M20 0v40" stroke="rgba(201,169,110,0.05)" strokeWidth="0.5" />
+                          <rect width="40" height="40" fill="rgba(var(--line-rgb), 0.04)" />
+                          <path d="M0 20h40M20 0v40" stroke="rgba(var(--line-rgb), 0.15)" strokeWidth="0.5" />
                         </pattern>
                         <filter id="map-glow">
                           <feGaussianBlur stdDeviation="3" />

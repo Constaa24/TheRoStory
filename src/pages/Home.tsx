@@ -303,9 +303,9 @@ const Home: React.FC = () => {
                 <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--gold)', boxShadow: '0 0 8px var(--gold)' }} />
                 {language === 'en' ? 'An archive of the Romanian imagination' : 'O arhivă a imaginației românești'}
               </div>
-              <div className="text-right font-ui text-[11px] uppercase" style={{ letterSpacing: '0.18em', color: 'var(--text-dim)' }}>
+              <div className="text-right font-ui text-[11px] uppercase" style={{ letterSpacing: '0.18em', color: 'rgba(255, 255, 255, 0.7)' }}>
                 <div>{language === 'en' ? 'Issue No. 14' : 'Numărul 14'}</div>
-                <div className="mt-1.5" style={{ color: 'var(--gold)' }}>
+                <div className="mt-1.5" style={{ color: '#f0e3c2', textShadow: '0 1px 3px rgba(0,0,0,0.8)' }}>
                   {language === 'en' ? 'Spring · 2026' : 'Primăvara · 2026'}
                 </div>
               </div>
@@ -329,7 +329,7 @@ const Home: React.FC = () => {
               </h1>
               <p
                 className="mt-8 max-w-[560px]"
-                style={{ fontSize: 20, lineHeight: 1.55, color: 'var(--text-dim)' }}
+                style={{ fontSize: 20, lineHeight: 1.55, color: 'rgba(255, 255, 255, 0.7)' }}
               >
                 {language === 'en'
                   ? 'A living archive of histories, traditions, and visual stories — gathered village by village, century by century, across the country we call home.'
@@ -354,7 +354,7 @@ const Home: React.FC = () => {
             className="absolute hidden md:block font-ui text-[10px] uppercase"
             style={{
               right: 'var(--gutter)', bottom: 140,
-              letterSpacing: '0.22em', color: 'var(--text-mute)',
+              letterSpacing: '0.22em', color: 'rgba(255, 255, 255, 0.5)',
               writingMode: 'vertical-rl', transform: 'rotate(180deg)',
             }}
           >
@@ -451,7 +451,7 @@ const Home: React.FC = () => {
         <section id="explore" style={{ padding: '120px 0 60px' }}>
           <div className="ed-container">
             <SectionHeader
-              eyebrow={language === 'en' ? 'Latest dispatches' : 'Ultimele povești'}
+              eyebrow={language === 'en' ? 'Latest stories' : 'Ultimele povești'}
               title={language === 'en' ? 'From the field.' : 'Din teren.'}
               sub={language === 'en' ? 'New stories, fresh from the road.' : 'Povești noi, proaspete de pe drum.'}
               action={

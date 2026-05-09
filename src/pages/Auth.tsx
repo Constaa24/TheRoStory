@@ -464,15 +464,10 @@ const Auth: React.FC = () => {
                     {isLoading ? <Loader2 className="animate-spin h-5 w-5" /> : t("auth.loginTab")}
                   </Button>
                   
-                  <div className="relative my-4">
-                    <div className="absolute inset-0 flex items-center">
-                      <span className="w-full border-t border-border/30" />
-                    </div>
-                    <div className="relative flex justify-center text-xs uppercase">
-                      <span className="bg-secondary/20 px-2 text-muted-foreground font-serif italic">
-                        {t("auth.orContinueWith")}
-                      </span>
-                    </div>
+                  <div className="relative my-4 flex justify-center text-xs uppercase">
+                    <span className="text-muted-foreground font-serif italic">
+                      {t("auth.orContinueWith")}
+                    </span>
                   </div>
 
                   <div className="flex justify-center">
@@ -543,15 +538,10 @@ const Auth: React.FC = () => {
                     {isLoading ? <Loader2 className="animate-spin h-5 w-5" /> : t("auth.createAccount")}
                   </Button>
                   
-                  <div className="relative my-4">
-                    <div className="absolute inset-0 flex items-center">
-                      <span className="w-full border-t border-border/30" />
-                    </div>
-                    <div className="relative flex justify-center text-xs uppercase">
-                      <span className="bg-secondary/20 px-2 text-muted-foreground font-serif italic">
-                        {t("auth.orContinueWith")}
-                      </span>
-                    </div>
+                  <div className="relative my-4 flex justify-center text-xs uppercase">
+                    <span className="text-muted-foreground font-serif italic">
+                      {t("auth.orContinueWith")}
+                    </span>
                   </div>
                   
                   <div className="flex justify-center">

@@ -261,7 +261,7 @@ export const Navbar: React.FC = () => {
                   <div className="p-6">
                     <div className="eyebrow mb-2">{language === 'en' ? 'Welcome' : 'Bine ai venit'}</div>
                     <h4 className="font-display italic font-medium text-[26px] leading-tight m-0 mb-4" style={{ color: 'var(--parchment)' }}>
-                      {language === 'en' ? 'Sign in to The RoStory.' : 'Intră în RoStory.'}
+                      {language === 'en' ? 'Sign in to The RoStory.' : 'Intră în The RoStory.'}
                     </h4>
                     <p className="text-ink-dim text-[13px] leading-relaxed m-0 mb-5">
                       {language === 'en'

@@ -56,7 +56,7 @@ const Support: React.FC = () => {
     ro: {
       title: "Ajută să ținem\narhiva deschisă.",
       subtitle: "Devino contribuitor",
-      intro: "RoStory este susținut de cititori. Contribuția ta finanțează cercetarea pe teren, fotografia, traducerea și munca lentă de a asculta.",
+      intro: "The RoStory este susținut de cititori. Contribuția ta finanțează cercetarea pe teren, fotografia, traducerea și munca lentă de a asculta.",
       revolut: "Revolut", paypal: "PayPal", bankTransfer: "Transfer bancar",
       revolutDesc: "Cel mai rapid. Direct din portofelul tău Revolut.",
       paypalDesc: "Internațional. Card, bancă sau sold PayPal.",
