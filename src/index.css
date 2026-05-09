@@ -37,7 +37,7 @@
     --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
 
     --container: 1320px;
-    --gutter: clamp(20px, 4vw, 56px);
+    --gutter: clamp(24px, 6vw, 56px);
 
     /* Semi-transparent overlays (theme-aware) */
     --overlay-dark: rgba(13, 11, 8, 0.7);

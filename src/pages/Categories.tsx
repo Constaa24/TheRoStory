@@ -80,7 +80,7 @@ const Categories: React.FC = () => {
           <h1
             className="font-display italic font-medium m-0"
             style={{
-              fontSize: 'clamp(56px, 8vw, 120px)',
+              fontSize: 'clamp(42px, 8vw, 120px)',
               lineHeight: 0.95,
               letterSpacing: '-0.01em',
               color: 'var(--parchment)',

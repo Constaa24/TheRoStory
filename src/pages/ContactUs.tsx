@@ -85,7 +85,7 @@ const ContactUs: React.FC = () => {
           <div className="eyebrow mb-4">{language === 'en' ? 'Write to us' : 'Scrie-ne'}</div>
           <h1
             className="font-display italic font-medium m-0"
-            style={{ fontSize: 'clamp(56px, 8vw, 120px)', lineHeight: 0.95, letterSpacing: '-0.01em', color: 'var(--parchment)' }}
+            style={{ fontSize: 'clamp(42px, 8vw, 120px)', lineHeight: 0.95, letterSpacing: '-0.01em', color: 'var(--parchment)' }}
           >
             {language === 'en' ? 'Say Hello.' : 'Salutări.'}
           </h1>

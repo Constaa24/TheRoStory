@@ -104,7 +104,7 @@ export const Navbar: React.FC = () => {
           <button
             onClick={() => setSearchOpen(s => !s)}
             aria-label={language === 'en' ? 'Search' : 'Caută'}
-            className="hidden md:grid w-10 h-10 rounded-full place-items-center transition-colors hover:text-gold"
+            className="grid w-10 h-10 rounded-full place-items-center transition-colors hover:text-gold"
             style={{ border: '1px solid var(--line)', background: 'transparent', color: 'var(--text)' }}
           >
             <Search className="w-4 h-4" />
@@ -135,7 +135,7 @@ export const Navbar: React.FC = () => {
           <button
             onClick={toggleTheme}
             aria-label={isDark ? (language === 'en' ? 'Switch to light mode' : 'Mod luminos') : (language === 'en' ? 'Switch to dark mode' : 'Mod întunecat')}
-            className="grid w-10 h-10 rounded-full place-items-center transition-colors hover:text-gold"
+            className="hidden md:grid w-10 h-10 rounded-full place-items-center transition-colors hover:text-gold"
             style={{ border: '1px solid var(--line)', background: 'transparent', color: 'var(--text)' }}
           >
             {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
