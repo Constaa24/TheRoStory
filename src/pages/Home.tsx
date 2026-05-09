@@ -253,11 +253,11 @@ const Home: React.FC = () => {
   // when viewing the full archive. When a category is selected, treat the
   // request as a filter and route every article into the explore grid so users
   // don't get an empty section.
-  const showFeatured = selectedCategory === null && articles.length >= 1;
+  const showFeatured = selectedCategory === null && currentPage === 1 && articles.length >= 1;
   const featured = showFeatured ? articles[0] : undefined;
   const second = showFeatured ? articles[1] : undefined;
   const third = showFeatured ? articles[2] : undefined;
-  const latest = showFeatured ? articles.slice(3, 9) : articles;
+  const latest = articles;
 
   const tickerItems = language === 'en'
     ? ['Dacia · Wallachia · Moldavia', '1859 — The Small Union', 'Transilvania · Bucovina · Dobrogea', 'Folktales of the Carpathians', 'Wooden churches of Maramureș', 'Salt mines beneath the Apuseni']
