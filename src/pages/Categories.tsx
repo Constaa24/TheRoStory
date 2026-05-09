@@ -8,6 +8,20 @@ import { SITE_URL } from "@/lib/constants";
 
 const TONES = ["warm", "oxblood", "bone", "warm", "oxblood", "forest"] as const;
 
+const CATEGORY_IMAGES: Record<string, string> = {
+  "history": "/categories/cat_history_new.png",
+  "science": "/categories/cat_science_new.png",
+  "landmarks": "/categories/cat_landmarks_new.png",
+  "historical-figures": "/categories/cat_historical_figures_new.png",
+  "traditions": "/categories/cat_2.png",
+  "myths": "/categories/cat_1.png",
+  "nature": "/categories/cat_nature_new.png"
+};
+
+const getCategoryImage = (slug: string, index: number) => {
+  return CATEGORY_IMAGES[slug] || `/categories/cat_${(index % 2) + 1}.png`;
+};
+
 const Categories: React.FC = () => {
   const { language } = useLanguage();
   const navigate = useNavigate();
@@ -122,12 +136,20 @@ const Categories: React.FC = () => {
                         </span>
                       </div>
 
-                      <div
-                        className="ph mb-6 transition-transform group-hover:translate-y-[-2px]"
-                        data-tone={tone}
-                        data-label={name.toUpperCase()}
-                        style={{ aspectRatio: '16/9' }}
-                      />
+                      <div className="mb-6 relative overflow-hidden transition-transform group-hover:translate-y-[-2px]" style={{ aspectRatio: '16/9' }}>
+                        <img 
+                          src={getCategoryImage((category as any).slug || name.toLowerCase(), i)} 
+                          alt={name}
+                          className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                        />
+                        <div className="absolute bottom-4 left-4 right-4 flex justify-center">
+                          <div className="inline-block px-3 py-1.5 backdrop-blur-md bg-black/40 border border-white/10 rounded">
+                            <span className="font-ui text-xs tracking-widest text-white/90">
+                              {name.toUpperCase()}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
 
                       <div className="flex justify-between items-start gap-6">
                         <div className="flex-1">
