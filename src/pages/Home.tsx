@@ -245,11 +245,15 @@ const Home: React.FC = () => {
   const prevPageUrl = currentPage > 1 ? `${SITE_URL}/?page=${currentPage - 1}` : null;
   const nextPageUrl = currentPage < totalPages ? `${SITE_URL}/?page=${currentPage + 1}` : null;
 
-  // Pick lead/featured stories from the page
-  const featured = articles[0];
-  const second = articles[1];
-  const third = articles[2];
-  const latest = articles.slice(3, 9);
+  // The magazine-style featured spread is editorial top picks — only meaningful
+  // when viewing the full archive. When a category is selected, treat the
+  // request as a filter and route every article into the explore grid so users
+  // don't get an empty section.
+  const showFeatured = selectedCategory === null && articles.length >= 1;
+  const featured = showFeatured ? articles[0] : undefined;
+  const second = showFeatured ? articles[1] : undefined;
+  const third = showFeatured ? articles[2] : undefined;
+  const latest = showFeatured ? articles.slice(3, 9) : articles;
 
   const tickerItems = language === 'en'
     ? ['Dacia · Wallachia · Moldavia', '1859 — The Small Union', 'Transilvania · Bucovina · Dobrogea', 'Folktales of the Carpathians', 'Wooden churches of Maramureș', 'Salt mines beneath the Apuseni']
@@ -267,7 +271,7 @@ const Home: React.FC = () => {
         {/* CINEMATIC HERO */}
         <section
           className="relative overflow-hidden"
-          style={{ height: 'calc(100vh - 76px)', minHeight: 680, borderBottom: '1px solid var(--line-soft)' }}
+          style={{ minHeight: 'min(calc(100vh - 76px), 760px)', borderBottom: '1px solid var(--line-soft)' }}
         >
           <div className="absolute inset-0">
             <picture>

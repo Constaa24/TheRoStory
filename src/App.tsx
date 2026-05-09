@@ -1,7 +1,6 @@
 import React, { Suspense, lazy } from "react";
-import { Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { Routes, Route, Navigate, useLocation, Link } from "react-router-dom";
 import { ThemeProvider } from "next-themes";
-import { Link } from "react-router-dom";
 import { Navbar } from "@/components/layout/Navbar";
 import { ScrollToTop } from "@/components/ui/ScrollToTop";
 import ScrollToTopOnRoute from "@/components/ui/ScrollToTopOnRoute";
@@ -12,6 +11,7 @@ import { AlertCircle } from "lucide-react";
 import { PaperOverlay } from "@/components/ui/PaperOverlay";
 import { SocialLinks } from "@/components/ui/social-links";
 import { toast } from "sonner";
+import { fetchCategories, Category } from "@/lib/supabase";
 
 // next-themes@0.4.x dropped children from ThemeProviderProps for RSC compatibility;
 // re-add it via a typed wrapper so JSX children work without errors.
@@ -60,13 +60,41 @@ const AuthCallback = lazy(() => import("@/pages/AuthCallback"));
 const Privacy = lazy(() => import("@/pages/Privacy"));
 const Terms = lazy(() => import("@/pages/Terms"));
 
-const EditorialFooter: React.FC<{ language: 'en' | 'ro' }> = ({ language }) => {
-  const archive = language === 'en'
-    ? ['Landmarks', 'Myths & Legends', 'History', 'Historical Figures', 'Traditions', 'Nature']
-    : ['Repere', 'Mituri & legende', 'Istorie', 'Personalități', 'Tradiții', 'Natură'];
+type FooterItem = { label: string; href: string };
+
+function FooterCol({ title, items }: { title: string; items: FooterItem[] }) {
+  return (
+    <div>
+      <div className="eyebrow mb-4">{title}</div>
+      <ul className="list-none p-0 m-0 flex flex-col gap-3">
+        {items.map(i => (
+          <li key={i.label}>
+            <Link to={i.href} className="text-ink-dim hover:text-gold text-[15px] transition-colors">{i.label}</Link>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function EditorialFooter({ language }: { language: 'en' | 'ro' }) {
+  const [categories, setCategories] = React.useState<Category[]>([]);
+
+  React.useEffect(() => {
+    fetchCategories().then(setCategories).catch(() => {});
+  }, []);
+
+  const archiveItems: FooterItem[] = categories.map(cat => ({
+    label: language === 'en' ? cat.nameEn : cat.nameRo,
+    href: `/category/${cat.id}`,
+  }));
+
   const about = language === 'en'
     ? ['Our editors', 'Contributors', 'Press kit', 'Newsletter', 'Style guide']
     : ['Echipa', 'Contribuitori', 'Press kit', 'Newsletter', 'Ghid de stil'];
+
+  const aboutItems: FooterItem[] = about.map(label => ({ label, href: '#' }));
+
   return (
     <footer className="mt-32 pt-20 pb-10 border-t border-line bg-[color:var(--ink-2)]/30">
       <div className="ed-container">
@@ -98,8 +126,8 @@ const EditorialFooter: React.FC<{ language: 'en' | 'ro' }> = ({ language }) => {
               <SocialLinks />
             </div>
           </div>
-          <FooterCol title={language === 'en' ? 'Archive' : 'Arhivă'} items={archive} />
-          <FooterCol title={language === 'en' ? 'About' : 'Despre'} items={about} />
+          <FooterCol title={language === 'en' ? 'Archive' : 'Arhivă'} items={archiveItems} />
+          <FooterCol title={language === 'en' ? 'About' : 'Despre'} items={aboutItems} />
           <div>
             <div className="eyebrow mb-4">{language === 'en' ? 'The fine print' : 'Detalii'}</div>
             <ul className="list-none p-0 m-0 flex flex-col gap-3">
@@ -114,27 +142,14 @@ const EditorialFooter: React.FC<{ language: 'en' | 'ro' }> = ({ language }) => {
           <span>© {new Date().getFullYear()} The RoStory · {language === 'en' ? 'Made in Bucharest, with field notes from everywhere.' : 'Făcut în București, cu note de teren de pretutindeni.'}</span>
           <span className="font-display italic text-base text-ink-dim max-w-md">
             {language === 'en'
-              ? '“Storytelling is the essential human activity. The harder the situation, the more essential it is.”'
-              : '„Povestirea este activitatea umană esențială. Cu cât situația este mai grea, cu atât devine mai esențială.”'}
+              ? '"Storytelling is the essential human activity. The harder the situation, the more essential it is."'
+              : '„Povestirea este activitatea umană esențială. Cu cât situația este mai grea, cu atât devine mai esențială."'}
           </span>
         </div>
       </div>
     </footer>
   );
 };
-
-const FooterCol: React.FC<{ title: string; items: string[] }> = ({ title, items }) => (
-  <div>
-    <div className="eyebrow mb-4">{title}</div>
-    <ul className="list-none p-0 m-0 flex flex-col gap-3">
-      {items.map(i => (
-        <li key={i}>
-          <a href="#" className="text-ink-dim hover:text-gold text-[15px] transition-colors">{i}</a>
-        </li>
-      ))}
-    </ul>
-  </div>
-);
 
 const App: React.FC = () => {
   const { isAdmin, isWriter, isLoading, user, isEmailVerified, sendVerification, isRecoveryMode } = useAuth();

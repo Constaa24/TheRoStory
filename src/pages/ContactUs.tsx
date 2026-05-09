@@ -207,7 +207,7 @@ const ContactUs: React.FC = () => {
                   { k: language === 'en' ? 'Founded' : 'Fondat', v: '2025' },
                   { k: language === 'en' ? 'Stories' : 'Povești', v: '180+' },
                   { k: language === 'en' ? 'Languages' : 'Limbi', v: 'EN · RO' },
-                  { k: language === 'en' ? 'Made in' : 'Făcut în', v: 'București' },
+                  { k: language === 'en' ? 'Made in' : 'Făcut în', v: language === 'en' ? 'Bucharest' : 'București' },
                 ].map(s => (
                   <div key={s.k}>
                     <div className="eyebrow mb-1.5">{s.k}</div>
