@@ -45,6 +45,7 @@ export function useFavorites() {
   }, [user, fetchFavorites]);
 
   const handleFavoriteToggle = useCallback(async (e: React.MouseEvent, articleId: string) => {
+    e.preventDefault();
     e.stopPropagation();
     if (!user) {
       toast.error(language === 'en' ? "Please log in to favorite articles" : "Vă rugăm să vă autentificați pentru a salva articolele favorite");
