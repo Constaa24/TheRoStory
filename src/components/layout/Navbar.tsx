@@ -66,12 +66,14 @@ export const Navbar: React.FC = () => {
             <img src="/logo.png" alt="The RoStory" width={42} height={42} className="h-[42px] w-[42px] object-contain" />
           </picture>
           <span
-            className="font-display italic font-semibold text-[23px] leading-none whitespace-nowrap hidden sm:inline"
+            className="font-display italic font-semibold text-[23px] whitespace-nowrap hidden sm:inline"
             style={{
               background: 'var(--logo-gradient)',
               WebkitBackgroundClip: 'text',
               WebkitTextFillColor: 'transparent',
               letterSpacing: '-0.01em',
+              lineHeight: 1.2,
+              padding: '0.1em 0',
             }}
           >
             The RoStory

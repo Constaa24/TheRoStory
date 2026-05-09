@@ -51,8 +51,12 @@ const StoryCard = React.memo<StoryCardProps>(({ article, category, language, siz
       ? { aspect: '16/10', titleSize: 28 }
       : { aspect: '3/4', titleSize: 22 };
   const tone = toneFor(article.id);
-  const hasMedia = !!article.mediaUrl || !!(article.mediaUrls && article.mediaUrls.length);
-  const cover = article.mediaUrl || article.posterUrl || article.mediaUrls?.[0];
+  const cover = article.type === 'video'
+    ? article.posterUrl
+    : article.type === 'carousel'
+      ? article.mediaUrls?.[0] || article.mediaUrl
+      : article.mediaUrl;
+  const hasMedia = !!cover || (article.type === 'video' && !!article.mediaUrl);
 
   return (
     <a

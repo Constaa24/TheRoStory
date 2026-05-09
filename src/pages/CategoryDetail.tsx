@@ -149,7 +149,11 @@ const CategoryDetail: React.FC = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-12 gap-y-[72px]">
               {articles.map(article => {
                 const tone = toneFor(article.id);
-                const cover = article.mediaUrl || article.posterUrl || article.mediaUrls?.[0];
+                const cover = article.type === 'video'
+                  ? article.posterUrl
+                  : article.type === 'carousel'
+                    ? article.mediaUrls?.[0] || article.mediaUrl
+                    : article.mediaUrl;
                 const fav = isFavorited(article.id);
                 return (
                   <a
