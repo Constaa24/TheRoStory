@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { Loader2, Mail, Lock, User } from "lucide-react";
+import { Loader2, Mail, Lock, User, Eye, EyeOff } from "lucide-react";
 import { motion } from "framer-motion";
 
 const GoogleIcon: React.FC = () => (
@@ -70,6 +70,11 @@ const Auth: React.FC = () => {
   const [password, setPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [displayName, setDisplayName] = useState("");
+  // One toggle per field — sharing a single boolean across login/signup
+  // would reveal both fields at once even if only one is on screen.
+  const [showLoginPwd, setShowLoginPwd] = useState(false);
+  const [showSignupPwd, setShowSignupPwd] = useState(false);
+  const [showNewPwd, setShowNewPwd] = useState(false);
 
   const leaveRecoveryMode = async (nextPath: string = "/auth") => {
     if (isRecoveryMode) {
@@ -247,9 +252,6 @@ const Auth: React.FC = () => {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <p className="text-sm text-muted-foreground">
-                {t("auth.verifyEmailPrompt")}
-              </p>
               <p className="text-xs text-muted-foreground italic">
                 {t("auth.didntGetEmail")}
               </p>
@@ -408,14 +410,23 @@ const Auth: React.FC = () => {
                     <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                     <Input
                       id="new-password"
-                      type="password"
-                      className="pl-10 bg-background/50"
+                      type={showNewPwd ? "text" : "password"}
+                      className="pl-10 pr-11 bg-background/50"
                       value={newPassword}
                       onChange={(e) => setNewPassword(e.target.value)}
                       required
                       minLength={8}
                       maxLength={72}
                     />
+                    <button
+                      type="button"
+                      onClick={() => setShowNewPwd(s => !s)}
+                      aria-label={showNewPwd ? t("auth.hidePassword") : t("auth.showPassword")}
+                      aria-pressed={showNewPwd}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8 grid place-items-center rounded-full text-muted-foreground hover:text-[color:var(--gold)] transition-colors"
+                    >
+                      {showNewPwd ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
                   </div>
                 </div>
                 <Button type="submit" className="w-full rounded-full h-12 text-lg font-serif italic" disabled={isLoading}>
@@ -495,13 +506,22 @@ const Auth: React.FC = () => {
                       <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                       <Input
                         id="password"
-                        type="password"
-                        className="pl-10 bg-background/50"
+                        type={showLoginPwd ? "text" : "password"}
+                        className="pl-10 pr-11 bg-background/50"
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
                         required
                         maxLength={72}
                       />
+                      <button
+                        type="button"
+                        onClick={() => setShowLoginPwd(s => !s)}
+                        aria-label={showLoginPwd ? t("auth.hidePassword") : t("auth.showPassword")}
+                        aria-pressed={showLoginPwd}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8 grid place-items-center rounded-full text-muted-foreground hover:text-[color:var(--gold)] transition-colors"
+                      >
+                        {showLoginPwd ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
                     </div>
                   </div>
                   <div className="flex justify-end">
@@ -578,14 +598,23 @@ const Auth: React.FC = () => {
                       <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                       <Input
                         id="signup-password"
-                        type="password"
-                        className="pl-10 bg-background/50"
+                        type={showSignupPwd ? "text" : "password"}
+                        className="pl-10 pr-11 bg-background/50"
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
                         required
                         minLength={8}
                         maxLength={72}
                       />
+                      <button
+                        type="button"
+                        onClick={() => setShowSignupPwd(s => !s)}
+                        aria-label={showSignupPwd ? t("auth.hidePassword") : t("auth.showPassword")}
+                        aria-pressed={showSignupPwd}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8 grid place-items-center rounded-full text-muted-foreground hover:text-[color:var(--gold)] transition-colors"
+                      >
+                        {showSignupPwd ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
                     </div>
                   </div>
                   <Button type="submit" className="w-full rounded-full h-12 text-lg font-serif italic" disabled={isLoading}>

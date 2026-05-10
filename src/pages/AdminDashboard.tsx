@@ -36,6 +36,7 @@ import {
   TableRow 
 } from "@/components/ui/table";
 import { Card } from "@/components/ui/card";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   Dialog,
   DialogContent,
@@ -1258,6 +1259,7 @@ const AdminDashboard: React.FC = () => {
 
         {isAdmin && (
           <TabsContent value="users" className="space-y-6">
+            <TooltipProvider delayDuration={150}>
             <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
               <h2 className="text-xl sm:text-2xl font-serif italic text-secondary-foreground">{t("admin.users.heading")}</h2>
               <div className="flex flex-wrap items-center gap-2 text-xs sm:text-sm">
@@ -1306,12 +1308,19 @@ const AdminDashboard: React.FC = () => {
                       <div className="flex items-center gap-2 flex-wrap">
                         <p className="font-medium text-sm truncate">{u.displayName || t("admin.users.anonymous")}</p>
                         {!u.emailVerified && (
-                          <span
-                            title={t("admin.users.unverifiedTooltip")}
-                            className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded-full border border-amber-500/40 text-amber-500 font-ui"
-                          >
-                            {t("admin.users.unverified")}
-                          </span>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span
+                                tabIndex={0}
+                                className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded-full border border-amber-500/40 text-amber-500 font-ui cursor-help"
+                              >
+                                {t("admin.users.unverified")}
+                              </span>
+                            </TooltipTrigger>
+                            <TooltipContent side="top" className="max-w-[220px] text-center">
+                              {t("admin.users.unverifiedTooltip")}
+                            </TooltipContent>
+                          </Tooltip>
                         )}
                       </div>
                       <p className="text-xs text-muted-foreground truncate">{u.email}</p>
@@ -1373,12 +1382,19 @@ const AdminDashboard: React.FC = () => {
                         <div className="flex items-center gap-2">
                           <span className="truncate">{u.email}</span>
                           {!u.emailVerified && (
-                            <span
-                              title={t("admin.users.unverifiedTooltip")}
-                              className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded-full border border-amber-500/40 text-amber-500 font-ui shrink-0"
-                            >
-                              {t("admin.users.unverified")}
-                            </span>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span
+                                  tabIndex={0}
+                                  className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded-full border border-amber-500/40 text-amber-500 font-ui shrink-0 cursor-help"
+                                >
+                                  {t("admin.users.unverified")}
+                                </span>
+                              </TooltipTrigger>
+                              <TooltipContent side="top" className="max-w-[220px] text-center">
+                                {t("admin.users.unverifiedTooltip")}
+                              </TooltipContent>
+                            </Tooltip>
                           )}
                         </div>
                       </TableCell>
@@ -1446,6 +1462,7 @@ const AdminDashboard: React.FC = () => {
                 {t("admin.users.next")}
               </Button>
             </div>
+            </TooltipProvider>
           </TabsContent>
         )}
       </Tabs>
