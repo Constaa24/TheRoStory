@@ -228,7 +228,7 @@ const Home: React.FC = () => {
     return () => { cancelled = true; };
   }, [currentPage, selectedCategory]);
 
-  const pageTitle = language === 'en' ? 'The RoStory — Stories of Romania' : 'The RoStory — Povești din România';
+  const pageTitle = language === 'en' ? 'Stories of Romania' : 'Povești din România';
   const pageDescription = language === 'en'
     ? 'Discover the culture, history, and traditions of Romania through visual stories — articles, videos, and photo galleries from every region.'
     : 'Descoperă cultura, istoria și tradițiile României prin povești vizuale — articole, videoclipuri și galerii foto din fiecare regiune.';

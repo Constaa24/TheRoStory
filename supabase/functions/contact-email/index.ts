@@ -170,7 +170,7 @@ Deno.serve(async (req) => {
     }
 
     const emailSubject = safeSubject
-      ? `[${escapeHtml(safeSubject)}] New message from ${safeName}`
+      ? `[${safeSubject}] New message from ${safeName}`
       : `New message from ${safeName}`;
     const html = `
       <div style="font-family: Arial, sans-serif; line-height: 1.5;">

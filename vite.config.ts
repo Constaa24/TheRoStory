@@ -99,15 +99,10 @@ export default defineConfig({
 
           // Heavy or feature-scoped libraries get their own chunks so the
           // landing page doesn't pay for them up-front.
-          if (id.includes('recharts') || id.includes('d3-')) return 'charts';
-          if (id.includes('topojson-client')) return 'map';
+          if (id.includes('d3-') || id.includes('topojson-client')) return 'map';
           if (id.includes('embla-carousel')) return 'carousel';
           if (id.includes('framer-motion')) return 'motion';
           if (id.includes('@dnd-kit')) return 'dnd';
-          if (id.includes('react-resizable-panels')) return 'panels';
-          if (id.includes('react-day-picker') || id.includes('date-fns')) return 'datepicker';
-          if (id.includes('cmdk')) return 'cmdk';
-          if (id.includes('vaul')) return 'vaul';
           if (id.includes('lucide-react')) return 'icons';
           if (id.includes('@radix-ui')) return 'radix';
 

@@ -89,16 +89,10 @@ function EditorialFooter({ language }: { language: 'en' | 'ro' }) {
     href: `/category/${cat.id}`,
   }));
 
-  const about = language === 'en'
-    ? ['Our editors', 'Contributors', 'Press kit', 'Newsletter', 'Style guide']
-    : ['Echipa', 'Contribuitori', 'Press kit', 'Newsletter', 'Ghid de stil'];
-
-  const aboutItems: FooterItem[] = about.map(label => ({ label, href: '#' }));
-
   return (
     <footer className="mt-32 pt-20 pb-10 border-t border-line bg-[color:var(--ink-2)]/30">
       <div className="ed-container">
-        <div className="grid grid-cols-1 md:grid-cols-[1.4fr_1fr_1fr_1fr] gap-14 items-start">
+        <div className="grid grid-cols-1 md:grid-cols-[1.4fr_1fr_1fr] gap-14 items-start">
           <div>
             <Link to="/" className="flex items-center gap-3">
               <picture>
@@ -127,7 +121,6 @@ function EditorialFooter({ language }: { language: 'en' | 'ro' }) {
             </div>
           </div>
           <FooterCol title={language === 'en' ? 'Archive' : 'Arhivă'} items={archiveItems} />
-          <FooterCol title={language === 'en' ? 'About' : 'Despre'} items={aboutItems} />
           <div>
             <div className="eyebrow mb-4">{language === 'en' ? 'The fine print' : 'Detalii'}</div>
             <ul className="list-none p-0 m-0 flex flex-col gap-3">

@@ -58,7 +58,7 @@ export const Navbar: React.FC = () => {
 
   return (
     <header className="ed-nav">
-      <div className="ed-container flex items-center justify-between gap-6" style={{ padding: '18px 0', minHeight: 76 }}>
+      <div className="ed-container flex items-center justify-between gap-6" style={{ paddingTop: 18, paddingBottom: 18, minHeight: 76 }}>
         {/* Logo */}
         <Link to="/" className="flex items-center gap-3 shrink-0">
           <picture>
@@ -148,48 +148,32 @@ export const Navbar: React.FC = () => {
             <button
               onClick={(e) => { e.stopPropagation(); setProfileOpen(o => !o); }}
               aria-label={language === 'en' ? 'Account' : 'Cont'}
-              className="flex items-center gap-2.5 rounded-full transition-colors"
+              className="grid place-items-center rounded-full transition-colors hover:text-gold"
               style={{
-                padding: user ? '4px 14px 4px 4px' : 0,
-                width: user ? 'auto' : 40,
+                width: 40,
                 height: 40,
                 border: '1px solid var(--line)',
                 background: user ? 'rgba(201,169,110,0.06)' : 'transparent',
                 color: 'var(--text)',
                 cursor: 'pointer',
-                justifyContent: user ? 'flex-start' : 'center',
+                overflow: 'hidden',
               }}
             >
-              <span
-                className="grid place-items-center"
-                style={{
-                  width: 32,
-                  height: 32,
-                  borderRadius: '50%',
-                  background: user ? 'linear-gradient(135deg, var(--gold) 0%, var(--gold-deep) 100%)' : 'transparent',
-                  color: user ? 'var(--ink)' : 'var(--text)',
-                  fontFamily: 'var(--display)',
-                  fontStyle: 'italic',
-                  fontWeight: 600,
-                  fontSize: 14,
-                  overflow: 'hidden',
-                }}
-              >
-                {user?.avatarUrl ? (
-                  <Avatar className="h-8 w-8">
-                    <AvatarImage src={user.avatarUrl} alt={user.displayName || user.email || ''} />
-                    <AvatarFallback className="text-xs bg-transparent text-[color:var(--ink)] font-display italic font-semibold">{initial}</AvatarFallback>
-                  </Avatar>
-                ) : user ? (
-                  initial
-                ) : (
-                  <User className="w-[15px] h-[15px]" />
-                )}
-              </span>
-              {user && (
-                <span className="hidden sm:inline font-ui text-[11px] tracking-[0.15em] uppercase" style={{ color: 'var(--text-dim)' }}>
-                  {(user.displayName || user.email || '').split(' ')[0].slice(0, 12)}
-                </span>
+              {user?.avatarUrl ? (
+                <Avatar className="h-full w-full">
+                  <AvatarImage src={user.avatarUrl} alt={user.displayName || user.email || ''} />
+                  <AvatarFallback
+                    className="text-xs bg-transparent font-display italic font-semibold"
+                    style={{ background: 'linear-gradient(135deg, var(--gold) 0%, var(--gold-deep) 100%)', color: 'var(--ink)' }}
+                  >{initial}</AvatarFallback>
+                </Avatar>
+              ) : user ? (
+                <span
+                  className="grid place-items-center w-full h-full font-display italic font-semibold text-sm"
+                  style={{ background: 'linear-gradient(135deg, var(--gold) 0%, var(--gold-deep) 100%)', color: 'var(--ink)' }}
+                >{initial}</span>
+              ) : (
+                <User className="w-[15px] h-[15px]" />
               )}
             </button>
 
@@ -332,7 +316,7 @@ export const Navbar: React.FC = () => {
           className="lg:hidden border-t screen-anim"
           style={{ borderColor: 'var(--line-soft)', background: 'var(--overlay-nav)' }}
         >
-          <div className="ed-container py-6 flex flex-col gap-2">
+          <div className="ed-container flex flex-col gap-2" style={{ paddingTop: 96, paddingBottom: 96 }}>
             {navLinks.map(link => {
               const active = location.pathname === link.path;
               return (
@@ -353,7 +337,7 @@ export const Navbar: React.FC = () => {
                 </Link>
               );
             })}
-            <div className="flex items-center justify-between pt-4">
+            <div className="flex items-center justify-center gap-6 pt-10 mt-2">
               <div className="flex items-center" style={{ border: '1px solid var(--line)', borderRadius: 999, padding: 4 }}>
                 {(['en', 'ro'] as const).map(L => (
                   <button
