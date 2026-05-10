@@ -1,35 +1,63 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
+import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2"
+import { getCorsHeaders, isAllowedOrigin } from "../_shared/cors.ts"
 
-const PROD_ORIGINS = [
-  'https://therostory.com',
-  'https://www.therostory.com',
-]
+// Module-scoped service-role client. Env vars don't change between
+// invocations on the same instance, so creating it once per cold start
+// avoids the per-request createClient cost. Use a getter so the function
+// can still respond with "Server not configured" instead of throwing
+// on import when env is missing during local dev.
+const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? ''
+const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+const ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY') ?? ''
 
-const DEV_ORIGINS = [
-  'http://localhost:3000',
-  'http://localhost:5173',
-]
-
-const IS_LOCAL = Deno.env.get('SUPABASE_URL')?.includes('localhost') || Deno.env.get('SUPABASE_URL')?.includes('127.0.0.1')
-const ALLOWED_ORIGINS = IS_LOCAL ? [...PROD_ORIGINS, ...DEV_ORIGINS] : PROD_ORIGINS
-
-function isAllowedOrigin(origin: string): boolean {
-  // Production-only CORS. Preview deployments are intentionally excluded:
-  // the previous regex matched any `the-rostory-*.vercel.app`, which Vercel
-  // doesn't reserve globally — anyone could deploy a project with that name
-  // prefix and call this function from their origin. Use a staging Supabase
-  // project for preview deploys instead.
-  return ALLOWED_ORIGINS.includes(origin);
+let cachedAdminClient: SupabaseClient | null = null
+function getAdminClient(): SupabaseClient {
+  if (!cachedAdminClient) {
+    cachedAdminClient = createClient(SUPABASE_URL, SERVICE_ROLE_KEY)
+  }
+  return cachedAdminClient
 }
 
-function getCorsHeaders(req: Request) {
-  const origin = req.headers.get('Origin') || ''
-  const allowedOrigin = isAllowedOrigin(origin) ? origin : ALLOWED_ORIGINS[0]
-  return {
-    'Access-Control-Allow-Origin': allowedOrigin,
-    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+// Storage paths owned by a user — these are the prefixes that uploadUserFile
+// writes under. Keep this list in sync with the `subfolder:` values in
+// AdminDashboard, TextStoryCreate, VideoStoryCreate, CarouselStoryCreate.
+const userStoragePrefixes = (userId: string): { bucket: string; prefix: string }[] => [
+  { bucket: 'avatars', prefix: userId },
+  { bucket: 'articles', prefix: userId },
+  { bucket: 'articles', prefix: `carousels/${userId}` },
+  { bucket: 'articles', prefix: `stories/videos/${userId}` },
+  { bucket: 'articles', prefix: `stories/posters/${userId}` },
+]
+
+// Best-effort recursive cleanup of all files a user owns. Errors are
+// logged but not thrown — orphan storage is an annoyance, not a reason
+// to block the auth row delete (which is the legally-required action).
+async function deleteUserStorage(adminClient: SupabaseClient, userId: string): Promise<void> {
+  for (const { bucket, prefix } of userStoragePrefixes(userId)) {
+    try {
+      const { data: files, error: listError } = await adminClient.storage
+        .from(bucket)
+        .list(prefix, { limit: 1000 })
+      if (listError) {
+        console.warn(`deleteUserStorage list ${bucket}/${prefix} failed`, listError.message)
+        continue
+      }
+      if (!files || files.length === 0) continue
+
+      const paths = files
+        .filter((f) => f && f.name && !f.name.endsWith('/'))
+        .map((f) => `${prefix}/${f.name}`)
+      if (paths.length === 0) continue
+
+      const { error: removeError } = await adminClient.storage.from(bucket).remove(paths)
+      if (removeError) {
+        console.warn(`deleteUserStorage remove ${bucket}/${prefix} failed`, removeError.message)
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err)
+      console.warn(`deleteUserStorage unexpected error for ${bucket}/${prefix}:`, message)
+    }
   }
 }
 
@@ -46,12 +74,19 @@ Deno.serve(async (req) => {
     })
   }
 
-  try {
-    const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? ''
-    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    const anonKey = Deno.env.get('SUPABASE_ANON_KEY') ?? ''
+  // Belt-and-suspenders: getCorsHeaders already maps disallowed origins to
+  // the canonical prod origin so the browser blocks the response. This
+  // also rejects scripted clients that ignore CORS entirely.
+  const origin = req.headers.get('Origin')
+  if (origin && !isAllowedOrigin(origin)) {
+    return new Response(JSON.stringify({ error: 'Origin not allowed' }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 403,
+    })
+  }
 
-    if (!supabaseUrl || !serviceRoleKey || !anonKey) {
+  try {
+    if (!SUPABASE_URL || !SERVICE_ROLE_KEY || !ANON_KEY) {
       return new Response(JSON.stringify({ error: 'Server not configured' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 500,
@@ -73,11 +108,11 @@ Deno.serve(async (req) => {
       })
     }
 
-    // Service-role client for admin operations
-    const adminClient = createClient(supabaseUrl, serviceRoleKey)
+    const adminClient = getAdminClient()
 
-    // Create a user-scoped client to verify the token
-    const userClient = createClient(supabaseUrl, anonKey, {
+    // User-scoped client used only to verify the JWT. Created per-request
+    // because the Authorization header changes per call.
+    const userClient = createClient(SUPABASE_URL, ANON_KEY, {
       global: { headers: { Authorization: authHeader } }
     })
     const { data: { user }, error: userError } = await userClient.auth.getUser()
@@ -94,6 +129,12 @@ Deno.serve(async (req) => {
 
     // Self-service actions (any authenticated user)
     if (action === 'deleteOwnAccount') {
+      // Storage cleanup before the auth row delete: storage objects don't
+      // cascade with auth.users, so without this they orphan forever.
+      // The articles/comments rows themselves cascade via the FK
+      // (migration 20260511000000), so we only need to handle storage.
+      await deleteUserStorage(adminClient, user.id)
+
       const { error } = await adminClient.auth.admin.deleteUser(user.id)
       if (error) {
         console.error('deleteOwnAccount failed', error.message)
@@ -280,6 +321,11 @@ Deno.serve(async (req) => {
           status: 400,
         })
       }
+
+      // Storage objects don't cascade with auth.users — clean them up
+      // first so they don't orphan in the bucket. Articles/comments rows
+      // cascade via the FK (migration 20260511000000).
+      await deleteUserStorage(adminClient, id)
 
       const { error } = await adminClient.auth.admin.deleteUser(id)
       if (error) throw error

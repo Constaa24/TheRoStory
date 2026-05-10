@@ -1,35 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-
-const PROD_ORIGINS = [
-  "https://therostory.com",
-  "https://www.therostory.com",
-];
-
-const DEV_ORIGINS = [
-  "http://localhost:3000",
-  "http://localhost:5173",
-];
-
-const IS_LOCAL =
-  Deno.env.get("SUPABASE_URL")?.includes("localhost") ||
-  Deno.env.get("SUPABASE_URL")?.includes("127.0.0.1");
-const ALLOWED_ORIGINS = IS_LOCAL ? [...PROD_ORIGINS, ...DEV_ORIGINS] : PROD_ORIGINS;
-
-function isAllowedOrigin(origin: string): boolean {
-  // Production-only CORS — see admin-api for rationale.
-  return ALLOWED_ORIGINS.includes(origin);
-}
-
-function getCorsHeaders(req: Request) {
-  const origin = req.headers.get("Origin") || "";
-  const allowedOrigin = isAllowedOrigin(origin) ? origin : ALLOWED_ORIGINS[0];
-  return {
-    "Access-Control-Allow-Origin": allowedOrigin,
-    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-    "Access-Control-Allow-Methods": "POST, OPTIONS",
-  };
-}
+import { getCorsHeaders, isAllowedOrigin } from "../_shared/cors.ts";
 
 // In-memory rate limiter, keyed by `<ip>:<articleId>`. Same pattern as
 // contact-email — survives across requests within a single edge instance,

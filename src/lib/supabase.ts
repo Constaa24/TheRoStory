@@ -425,6 +425,15 @@ export const updateArticle = async (input: UpdateArticleInput): Promise<void> =>
 };
 
 export const fetchCategories = async (): Promise<Category[]> => {
+  // Reuse the cache that fetchPublicContent already populates — the footer
+  // mounts on every navigation and used to fire a fresh categories query
+  // each time even though the home/categories pages had just fetched the
+  // same rows seconds earlier.
+  const cached = publicContentCache.published;
+  if (cached && Date.now() - cached.time < CACHE_TTL) {
+    return cached.data.categories;
+  }
+
   const { data, error } = await supabase
     .from('categories')
     .select('*')
@@ -598,7 +607,11 @@ export const fetchComments = async (
   }
 };
 
-export const postComment = async (comment: Omit<Comment, 'id' | 'createdAt'>) => {
+export const postComment = async (comment: Omit<Comment, 'id' | 'createdAt' | 'userDisplayName'>) => {
+  // user_display_name is set server-side by the set_comment_display_name
+  // BEFORE INSERT trigger (migrations 20260507/20260508). Sending one from
+  // the client used to look meaningful but was always discarded — strip it
+  // from the type so callers don't bother building the value.
   try {
     const { error } = await supabase.from('comments').insert(toSnakeCase({
       id: `cmt_${crypto.randomUUID()}`,
@@ -683,25 +696,32 @@ export const incrementView = async (articleId: string): Promise<boolean> => {
 };
 
 export const toggleFavorite = async (userId: string, articleId: string) => {
+  // Atomic toggle: try INSERT first; if a row already exists we'd violate
+  // the (user_id, article_id) UNIQUE constraint, so DELETE instead. The
+  // previous SELECT-then-INSERT/DELETE was a TOCTOU race — two near-
+  // simultaneous calls could both see "not favorited" and both attempt
+  // INSERT. The useFavorites hook guards against UI double-clicks, but
+  // any direct API caller (or future callsite without the guard) hit
+  // the race.
   try {
-    const { data, error: selectError } = await supabase
+    const { error: insertError } = await supabase
       .from('favorites')
-      .select('id')
+      .insert({ user_id: userId, article_id: articleId });
+
+    if (!insertError) return true; // Added
+
+    // 23505 = unique_violation. Anything else is a real error.
+    const isUniqueViolation =
+      (insertError as { code?: string })?.code === '23505';
+    if (!isUniqueViolation) throw insertError;
+
+    const { error: deleteError } = await supabase
+      .from('favorites')
+      .delete()
       .eq('user_id', userId)
-      .eq('article_id', articleId)
-      .maybeSingle();
-
-    if (selectError) throw selectError;
-
-    if (data) {
-      const { error: deleteError } = await supabase.from('favorites').delete().eq('id', data.id);
-      if (deleteError) throw deleteError;
-      return false; // Removed
-    } else {
-      const { error: insertError } = await supabase.from('favorites').insert({ user_id: userId, article_id: articleId });
-      if (insertError) throw insertError;
-      return true; // Added
-    }
+      .eq('article_id', articleId);
+    if (deleteError) throw deleteError;
+    return false; // Removed
   } catch (error) {
     console.error("Error toggling favorite in Supabase:", error);
     throw error;

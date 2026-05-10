@@ -405,14 +405,13 @@ export const ParchmentArticle: React.FC<ParchmentArticleProps> = ({
 
     setIsPosting(true);
     try {
-      // Only persist a display name if the user has actually set one.
-      // Falling back to the email local-part would leak it publicly via the
-      // anon-readable `comments` table.
-      const displayName = user.displayName?.trim();
+      // user_display_name is resolved server-side by the
+      // set_comment_display_name trigger from profiles → auth metadata
+      // → email local-part → 'Anonymous'. Sending one from the client
+      // is silently ignored.
       const success = await postComment({
         articleId: article.id,
         userId: user.id,
-        userDisplayName: displayName || undefined,
         content: newComment.trim()
       });
 

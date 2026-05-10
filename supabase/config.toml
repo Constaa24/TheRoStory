@@ -75,7 +75,10 @@ allowed_cidrs = ["0.0.0.0/0"]
 allowed_cidrs_v6 = ["::/0"]
 
 [realtime]
-enabled = true
+# Disabled — the codebase doesn't use supabase.channel() anywhere.
+# Comments, favorites, and articles are fetched on demand. Re-enable
+# the day we add live comment feeds or collaborative editing.
+enabled = false
 # Bind realtime via either IPv4 or IPv6. (default: IPv4)
 # ip_version = "IPv6"
 # The maximum length in bytes of HTTP request headers. (default: 4096)
