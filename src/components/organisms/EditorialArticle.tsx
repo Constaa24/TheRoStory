@@ -32,7 +32,7 @@ const formatDate = (iso: string, lang: 'en' | 'ro') => {
   } catch { return ''; }
 };
 
-export const EditorialArticle: React.FC<Props> = ({ article }) => {
+export const EditorialArticle: React.FC<Props> = ({ article, views }) => {
   const { language } = useLanguage();
   const { handleFavoriteToggle, isFavorited } = useFavorites();
   const navigate = useNavigate();
@@ -71,9 +71,9 @@ export const EditorialArticle: React.FC<Props> = ({ article }) => {
     <div className="screen-anim pb-20">
       <div className="read-progress" style={{ width: progress + '%' }} />
 
-      {article.type === 'text' && <TextArticle article={article} category={category} />}
-      {article.type === 'carousel' && <PhotoEssay article={article} category={category} />}
-      {article.type === 'video' && <VideoFilm article={article} category={category} />}
+      {article.type === 'text' && <TextArticle article={article} category={category} views={views} />}
+      {article.type === 'carousel' && <PhotoEssay article={article} category={category} views={views} />}
+      {article.type === 'video' && <VideoFilm article={article} category={category} views={views} />}
 
       {/* Footer actions */}
       <section style={{ padding: '60px 0 0', borderTop: '1px solid var(--line-soft)' }}>
@@ -185,7 +185,7 @@ const ArticleMasthead: React.FC<{ article: Article; category?: Category; kindLab
   );
 };
 
-const Byline: React.FC<{ article: Article }> = ({ article }) => {
+const Byline: React.FC<{ article: Article; views?: number }> = ({ article, views }) => {
   const { language } = useLanguage();
   return (
     <div className="ed-container" style={{ paddingTop: 28, paddingBottom: 36 }}>
@@ -197,6 +197,9 @@ const Byline: React.FC<{ article: Article }> = ({ article }) => {
         <div className="flex flex-col items-start md:items-end gap-3 md:text-right">
           <div className="font-ui text-[11px] uppercase" style={{ letterSpacing: '0.18em', color: 'var(--text-mute)' }}>
             {formatDate(article.createdAt, language)} · {readMinutes(article, language)} {language === 'en' ? 'min read' : 'min citire'}
+            {views !== undefined && views > 0 && (
+              <> · {views.toLocaleString()} {language === 'en' ? 'views' : 'vizualizări'}</>
+            )}
           </div>
         </div>
       </div>
@@ -205,7 +208,7 @@ const Byline: React.FC<{ article: Article }> = ({ article }) => {
 };
 
 // ── Variant A: TEXT ARTICLE (long-form essay) ───────────────────────
-const TextArticle: React.FC<{ article: Article; category?: Category }> = ({ article, category }) => {
+const TextArticle: React.FC<{ article: Article; category?: Category; views?: number }> = ({ article, category, views }) => {
   const { language } = useLanguage();
   const title = getLocalized(article, 'title', language);
   const content = getLocalized(article, 'content', language);
@@ -237,7 +240,7 @@ const TextArticle: React.FC<{ article: Article; category?: Category }> = ({ arti
         </div>
       </section>
 
-      <Byline article={article} />
+      <Byline article={article} views={views} />
 
       {/* Lead image */}
       {cover && (
@@ -319,7 +322,7 @@ const romanNumeral = (n: number): string => {
 };
 
 // ── Variant B: PHOTO ESSAY ───────────────────────────────────────────
-const PhotoEssay: React.FC<{ article: Article; category?: Category }> = ({ article, category }) => {
+const PhotoEssay: React.FC<{ article: Article; category?: Category; views?: number }> = ({ article, category, views }) => {
   const { language } = useLanguage();
   const title = getLocalized(article, 'title', language);
   const content = getLocalized(article, 'content', language);
@@ -390,6 +393,7 @@ const PhotoEssay: React.FC<{ article: Article; category?: Category }> = ({ artic
             <div className="flex flex-wrap gap-8 mt-10 items-center font-ui text-[11px] uppercase" style={{ letterSpacing: '0.18em', color: 'var(--parchment)' }}>
               <span>{scenes.length} {language === 'en' ? 'frames' : 'cadre'}</span>
               <span>{readMinutes(article, language)} {language === 'en' ? 'min read' : 'min citire'}</span>
+              {views !== undefined && views > 0 && <span>{views.toLocaleString()} {language === 'en' ? 'views' : 'vizualizări'}</span>}
               <span>{language === 'en' ? 'Scroll to begin ↓' : 'Derulează pentru a începe ↓'}</span>
             </div>
           </div>
@@ -497,7 +501,7 @@ const PhotoScene: React.FC<{ scene: { url: string; caption: string; tone: string
 };
 
 // ── Variant C: VIDEO FILM ────────────────────────────────────────────
-const VideoFilm: React.FC<{ article: Article; category?: Category }> = ({ article, category }) => {
+const VideoFilm: React.FC<{ article: Article; category?: Category; views?: number }> = ({ article, category, views }) => {
   const { language } = useLanguage();
   const title = getLocalized(article, 'title', language);
   const content = getLocalized(article, 'content', language);
@@ -657,6 +661,13 @@ const VideoFilm: React.FC<{ article: Article; category?: Category }> = ({ articl
                     {readMinutes(article, language)} {language === 'en' ? 'min film' : 'min film'}
                   </div>
                 </div>
+                {views !== undefined && views > 0 && (
+                  <div className="px-6 py-4" style={{ borderBottom: '1px solid var(--line-soft)' }}>
+                    <div className="font-display italic" style={{ fontSize: 19, color: 'var(--parchment)' }}>
+                      {views.toLocaleString()} {language === 'en' ? 'views' : 'vizualizări'}
+                    </div>
+                  </div>
+                )}
                 <div className="px-6 py-4">
                   <div className="font-display italic" style={{ fontSize: 19, color: 'var(--parchment)' }}>
                     {category ? getLocalized(category, 'name', language) : (language === 'en' ? 'Story' : 'Poveste')}

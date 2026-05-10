@@ -173,8 +173,8 @@ const publicContentCache: {
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
 // Listeners notified whenever public content is invalidated. Used by views
-// that maintain their own derived caches (e.g. SearchBar's category list)
-// so they don't display stale data after admin edits.
+// that maintain their own derived caches so they don't display stale data
+// after admin edits.
 const cacheInvalidationListeners = new Set<() => void>();
 
 export const subscribeToPublicContentInvalidation = (listener: () => void): (() => void) => {
@@ -509,6 +509,29 @@ export const fetchRandomArticle = async (): Promise<Article | null> => {
     if (error || !data) return null;
     return toCamelCase<Article>(data);
   } catch {
+    return null;
+  }
+};
+
+/**
+ * Fetches any article by ID regardless of published status — for use by
+ * admin/writer edit flows that need to load drafts.
+ */
+export const fetchAnyArticle = async (id: string): Promise<Article | null> => {
+  try {
+    const { data, error } = await supabase
+      .from('articles')
+      .select('*')
+      .eq('id', id)
+      .maybeSingle();
+    if (error) throw error;
+    if (!data) return null;
+    return toCamelCase<Article>(data);
+  } catch (error) {
+    if (!isAbortError(error)) {
+      console.error("Error fetching article:", error);
+      throw error;
+    }
     return null;
   }
 };
@@ -892,11 +915,12 @@ export const sendContactMessage = async (
   name: string,
   email: string,
   message: string,
-  website: string = ""
+  website: string = "",
+  subject?: string
 ): Promise<ContactMessageResult> => {
   try {
     const { data, error } = await supabase.functions.invoke('contact-email', {
-      body: { name, email, message, website }
+      body: { name, email, message, website, subject }
     });
 
     if (error) {

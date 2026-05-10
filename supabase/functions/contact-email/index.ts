@@ -106,7 +106,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { name, email, message, website } = await req.json();
+    const { name, email, message, website, subject } = await req.json();
 
     // Honeypot field for basic bot filtering
     if (String(website || "").trim()) {
@@ -118,6 +118,7 @@ Deno.serve(async (req) => {
 
     const safeName = String(name || "").trim();
     const safeEmail = String(email || "").trim();
+    const safeSubject = String(subject || "").trim().slice(0, 200);
     const safeMessage = String(message || "").trim();
 
     if (!safeName || !safeEmail || !safeMessage) {
@@ -168,12 +169,15 @@ Deno.serve(async (req) => {
       });
     }
 
-    const subject = `New message from ${safeName}`;
+    const emailSubject = safeSubject
+      ? `[${escapeHtml(safeSubject)}] New message from ${safeName}`
+      : `New message from ${safeName}`;
     const html = `
       <div style="font-family: Arial, sans-serif; line-height: 1.5;">
         <h2>New Contact Form Message</h2>
         <p><strong>Name:</strong> ${escapeHtml(safeName)}</p>
         <p><strong>Email:</strong> ${escapeHtml(safeEmail)}</p>
+        ${safeSubject ? `<p><strong>Subject:</strong> ${escapeHtml(safeSubject)}</p>` : ''}
         <p><strong>Message:</strong></p>
         <pre style="white-space: pre-wrap; padding: 12px; border: 1px solid #eee; border-radius: 8px;">${escapeHtml(
           safeMessage
@@ -191,7 +195,7 @@ Deno.serve(async (req) => {
         from: CONTACT_FROM_EMAIL,
         to: [CONTACT_TO_EMAIL],
         reply_to: safeEmail,
-        subject,
+        subject: emailSubject,
         html,
       }),
     });

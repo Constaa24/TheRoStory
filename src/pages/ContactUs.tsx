@@ -12,6 +12,7 @@ import { PageHead } from "@/components/layout/PageHead";
 type ContactFormValues = {
   name: string;
   email: string;
+  subject: string;
   message: string;
   website?: string;
 };
@@ -32,6 +33,7 @@ const ContactUs: React.FC = () => {
   const contactSchema = React.useMemo(() => z.object({
     name: z.string().min(2, { message: t("contact.validation.name") }),
     email: z.string().email({ message: t("contact.validation.email") }),
+    subject: z.string().min(1),
     message: z.string().min(10, { message: t("contact.validation.message") }).max(5000),
     website: z.string().optional(),
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -41,13 +43,13 @@ const ContactUs: React.FC = () => {
 
   const form = useForm<ContactFormValues>({
     resolver,
-    defaultValues: { name: "", email: "", message: "", website: "" },
+    defaultValues: { name: "", email: "", subject: language === 'en' ? 'Pitch a story' : 'Propune o poveste', message: "", website: "" },
   });
 
   const onSubmit = async (data: ContactFormValues) => {
     setIsSubmitting(true);
     try {
-      const result = await sendContactMessage(data.name, data.email, data.message, data.website || "");
+      const result = await sendContactMessage(data.name, data.email, data.message, data.website || "", data.subject);
       if (result.ok) {
         toast.success(t("contact.success"));
         form.reset();
@@ -163,11 +165,11 @@ const ContactUs: React.FC = () => {
 
               <div>
                 <label>{language === 'en' ? 'Subject' : 'Subiect'}</label>
-                <select defaultValue="">
-                  <option value="">{language === 'en' ? 'Pitch a story' : 'Propune o poveste'}</option>
-                  <option>{language === 'en' ? 'Press request' : 'Cerere presă'}</option>
-                  <option>{language === 'en' ? 'Correction' : 'Corectură'}</option>
-                  <option>{language === 'en' ? 'General' : 'General'}</option>
+                <select {...form.register('subject')}>
+                  <option value={language === 'en' ? 'Pitch a story' : 'Propune o poveste'}>{language === 'en' ? 'Pitch a story' : 'Propune o poveste'}</option>
+                  <option value={language === 'en' ? 'Press request' : 'Cerere presă'}>{language === 'en' ? 'Press request' : 'Cerere presă'}</option>
+                  <option value={language === 'en' ? 'Correction' : 'Corectură'}>{language === 'en' ? 'Correction' : 'Corectură'}</option>
+                  <option value={language === 'en' ? 'General' : 'General'}>{language === 'en' ? 'General' : 'General'}</option>
                 </select>
               </div>
 

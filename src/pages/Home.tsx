@@ -497,14 +497,14 @@ const Home: React.FC = () => {
             </div>
 
             {isLoading ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-12 gap-y-[72px]">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-12 gap-y-10 md:gap-y-[72px]">
                 {[1, 2, 3, 4, 5, 6].map(i => (
                   <div key={i} style={{ aspectRatio: '3/4', border: '1px solid var(--line)', background: 'var(--ink-2)' }} className="animate-pulse" />
                 ))}
               </div>
             ) : (latest.length > 0 ? (
               <>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-12 gap-y-[72px]">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-12 gap-y-10 md:gap-y-[72px]">
                   {latest.map(article => (
                     <StoryCard
                       key={article.id}
@@ -578,8 +578,8 @@ const Home: React.FC = () => {
                 </p>
               </div>
               <form
-                className="flex gap-2 ed-form"
-                style={{ flex: '1 1 360px', maxWidth: 520 }}
+                className="flex gap-2 ed-form w-full"
+                style={{ flex: '1 1 260px', maxWidth: 520 }}
                 onSubmit={(e) => e.preventDefault()}
               >
                 <input

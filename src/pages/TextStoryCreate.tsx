@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Category, CHAPTER_DELIMITER, ARTICLE_LIMITS, parseChapters } from "@/lib/supabase";
-import { fetchCategories, uploadUserFile, createArticle, updateArticle, fetchPublicArticle } from "@/lib/supabase";
+import { fetchCategories, uploadUserFile, createArticle, updateArticle, fetchAnyArticle } from "@/lib/supabase";
 
 const PER_CHAPTER_MAX = 5000;
 import { useLanguage } from "@/hooks/use-language";
@@ -74,7 +74,7 @@ const TextStoryCreate: React.FC = () => {
         if (cancelled) return;
         setCategories(cats);
         if (editingId) {
-          const { article } = await fetchPublicArticle(editingId);
+          const article = await fetchAnyArticle(editingId);
           if (cancelled) return;
           if (!article || article.type !== 'text') {
             toast.error(language === 'en' ? 'Article not found' : 'Articol negăsit');

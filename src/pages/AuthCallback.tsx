@@ -143,6 +143,16 @@ const AuthCallback: React.FC = () => {
           if (!mountedRef.current) return;
 
           if (error) {
+            // The PKCE code may have been consumed by the SDK already in
+            // another context (e.g. a background tab). If a session exists,
+            // the login succeeded — treat it as success.
+            const { data: { session: existingSession } } = await supabase.auth.getSession();
+            if (existingSession) {
+              void exitRecoveryMode();
+              setStatus("success");
+              scheduleRedirect("/", 2000);
+              return;
+            }
             setStatus("error");
             setErrorMessage(error.message);
             return;
@@ -246,6 +256,17 @@ const AuthCallback: React.FC = () => {
         }
 
         if (!mountedRef.current) return;
+
+        // Last resort: if a session already exists the user is authenticated
+        // (SDK or another tab handled the handshake). Redirect as success.
+        const { data: { session: fallbackSession } } = await supabase.auth.getSession();
+        if (fallbackSession) {
+          void exitRecoveryMode();
+          setStatus("success");
+          scheduleRedirect("/", 2000);
+          return;
+        }
+
         setStatus("error");
         setErrorMessage(
           languageRef.current === "en"

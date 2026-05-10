@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Category, MediaCaption } from "@/lib/supabase";
-import { fetchCategories, uploadUserFile, createArticle, updateArticle, deleteStorageFile, fetchPublicArticle, ARTICLE_LIMITS } from "@/lib/supabase";
+import { fetchCategories, uploadUserFile, createArticle, updateArticle, deleteStorageFile, fetchAnyArticle, ARTICLE_LIMITS } from "@/lib/supabase";
 
 type GalleryItem = { id: string; url: string; storagePath: string | null };
 import { useLanguage } from "@/hooks/use-language";
@@ -63,7 +63,7 @@ const CarouselStoryCreate: React.FC = () => {
         if (cancelled) return;
         setCategories(cats);
         if (editingId) {
-          const { article } = await fetchPublicArticle(editingId);
+          const article = await fetchAnyArticle(editingId);
           if (cancelled) return;
           if (!article || article.type !== 'carousel') {
             toast.error(language === 'en' ? 'Article not found' : 'Articol negăsit');

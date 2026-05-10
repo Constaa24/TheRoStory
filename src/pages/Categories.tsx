@@ -6,8 +6,6 @@ import { isAbortError } from "@/lib/utils";
 import { PageHead } from "@/components/layout/PageHead";
 import { SITE_URL } from "@/lib/constants";
 
-const TONES = ["warm", "oxblood", "bone", "warm", "oxblood", "forest"] as const;
-
 const CATEGORY_IMAGES: Record<string, string> = {
   "history": "/categories/cat_history_new.png",
   "science": "/categories/cat_science_new.png",
@@ -108,7 +106,6 @@ const Categories: React.FC = () => {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-14">
               {categories.map((category, i) => {
-                const tone = TONES[i % TONES.length];
                 const name = getLocalized(category, 'name', language);
                 const count = categoryCounts[category.id] ?? 0;
                 return (

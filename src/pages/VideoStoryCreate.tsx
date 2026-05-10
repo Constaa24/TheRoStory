@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Category } from "@/lib/supabase";
-import { fetchCategories, uploadUserFile, createArticle, updateArticle, deleteStorageFile, fetchPublicArticle } from "@/lib/supabase";
+import { fetchCategories, uploadUserFile, createArticle, updateArticle, deleteStorageFile, fetchAnyArticle } from "@/lib/supabase";
 import { ARTICLE_LIMITS } from "@/lib/supabase";
 import { useLanguage } from "@/hooks/use-language";
 import { useAuth } from "@/hooks/use-auth";
@@ -66,7 +66,7 @@ const VideoStoryCreate: React.FC = () => {
         if (cancelled) return;
         setCategories(cats);
         if (editingId) {
-          const { article } = await fetchPublicArticle(editingId);
+          const article = await fetchAnyArticle(editingId);
           if (cancelled) return;
           if (!article || article.type !== 'video') {
             toast.error(language === 'en' ? 'Article not found' : 'Articol negăsit');
