@@ -27,7 +27,7 @@ interface AuthContextType {
   signUp: (params: { email: string; password: string; displayName: string; metadata?: Record<string, unknown> }) => Promise<AuthResponse>;
   signIn: (email: string, password: string) => Promise<AuthTokenResponsePassword>;
   signInWithGoogle: () => Promise<OAuthResponse>;
-  sendVerification: () => Promise<AuthResponse | void>;
+  sendVerification: (email?: string) => Promise<AuthResponse | void>;
   sendPasswordReset: (email: string) => Promise<{ data: object | null; error: Error | null }>;
   confirmPasswordReset: (newPassword: string) => Promise<UserResponse>;
   refreshUser: () => Promise<void>;
@@ -333,17 +333,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
 
-  const sendVerification = async (): Promise<AuthResponse | void> => {
-    // Resend the confirmation email for the current user
-    if (user?.email) {
-      const origin = window.location.origin;
-      return supabase.auth.resend({
-        type: 'signup',
-        email: user.email,
-        options: { emailRedirectTo: `${origin}/auth/callback` }
-      });
-    }
-    return;
+  const sendVerification = async (email?: string): Promise<AuthResponse | void> => {
+    // Resend the confirmation email. Accepts an explicit email so the
+    // post-signup screen and the "Email not confirmed" login fallback
+    // can both call this without a logged-in user. Defaults to the
+    // current user's email for the in-app banner case.
+    const targetEmail = email ?? user?.email;
+    if (!targetEmail) return;
+    const origin = window.location.origin;
+    return supabase.auth.resend({
+      type: 'signup',
+      email: targetEmail,
+      options: { emailRedirectTo: `${origin}/auth/callback` }
+    });
   };
 
   const sendPasswordReset = (email: string) => {

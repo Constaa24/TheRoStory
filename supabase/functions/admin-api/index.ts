@@ -248,7 +248,8 @@ Deno.serve(async (req) => {
           displayName: profile?.display_name || u.user_metadata?.display_name || '',
           avatarUrl: profile?.avatar_url || u.user_metadata?.avatar_url || '',
           role: roleMatch ? roleMatch.role : 'reader',
-          createdAt: u.created_at
+          createdAt: u.created_at,
+          emailVerified: !!u.email_confirmed_at,
         }
       })
 

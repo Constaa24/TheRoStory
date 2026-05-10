@@ -128,6 +128,7 @@ export type AdminUserSummary = {
   avatarUrl: string;
   role: 'admin' | 'writer' | 'reader';
   createdAt: string;
+  emailVerified: boolean;
 };
 
 export type AdminUsersPage = {
@@ -861,14 +862,29 @@ export const fetchAllUsers = async (page: number = 1, perPage: number = 25): Pro
       perPage: safePerPage,
     });
 
+    // Default emailVerified to `true` when the server omits it. During a
+    // deployment window where the edge function still returns the old
+    // shape, treating unknown as verified avoids alarming admins with a
+    // false "Unverified" badge on every row.
+    const rawUsers = Array.isArray(data.users) ? (data.users as Partial<AdminUserSummary>[]) : [];
+    const users: AdminUserSummary[] = rawUsers.map((u) => ({
+      id: u.id ?? '',
+      email: u.email ?? '',
+      displayName: u.displayName ?? '',
+      avatarUrl: u.avatarUrl ?? '',
+      role: (u.role ?? 'reader') as AdminUserSummary['role'],
+      createdAt: u.createdAt ?? '',
+      emailVerified: u.emailVerified ?? true,
+    }));
+
     return {
-      users: Array.isArray(data.users) ? (data.users as AdminUserSummary[]) : [],
+      users,
       page: typeof data.page === 'number' ? data.page : safePage,
       perPage: typeof data.perPage === 'number' ? data.perPage : safePerPage,
       total: typeof data.total === 'number' ? data.total : null,
       hasMore: typeof data.hasMore === 'boolean'
         ? data.hasMore
-        : Array.isArray(data.users) && data.users.length === safePerPage,
+        : users.length === safePerPage,
     };
   } catch (error) {
     console.error("Error fetching users from Supabase:", error);

@@ -27,6 +27,7 @@ const Auth: React.FC = () => {
     signInWithGoogle,
     sendPasswordReset,
     confirmPasswordReset,
+    sendVerification,
     user,
     isRecoveryMode,
     exitRecoveryMode,
@@ -41,6 +42,11 @@ const Auth: React.FC = () => {
 
   const [isLoading, setIsLoading] = useState(false);
   const [isVerificationSent, setIsVerificationSent] = useState(false);
+  // Tracks whether the verification screen was reached because login was
+  // attempted on an unconfirmed account, vs. a fresh signup. Affects the
+  // copy on the screen but the resend action is the same.
+  const [verificationReason, setVerificationReason] = useState<"signup" | "unconfirmed-login">("signup");
+  const [isResending, setIsResending] = useState(false);
   const [activeTab, setActiveTab] = useState(searchParams.get("mode") === "signup" ? "signup" : "login");
   const [view, setView] = useState<"auth" | "forgot-password" | "reset-password">(
     (isResetPasswordPath || isResetMode) ? "reset-password" : "auth"
@@ -82,6 +88,14 @@ const Auth: React.FC = () => {
       navigate("/");
     } catch (error) {
       const message = error instanceof Error ? error.message : t("auth.loginFailed");
+      // Supabase rejects sign-in on unconfirmed accounts with this error.
+      // Surface a recovery path instead of just a dead-end toast.
+      const lower = message.toLowerCase();
+      if (lower.includes("email not confirmed") || lower.includes("not confirmed")) {
+        setVerificationReason("unconfirmed-login");
+        setIsVerificationSent(true);
+        return;
+      }
       toast.error(message);
     } finally {
       setIsLoading(false);
@@ -106,6 +120,7 @@ const Auth: React.FC = () => {
       if (result?.error) {
         const message = (result.error.message || '').toLowerCase();
         if (message.includes('registered') || message.includes('exists') || message.includes('already')) {
+          setVerificationReason("signup");
           setIsVerificationSent(true);
           toast.success(t("auth.signupGeneric"));
           return;
@@ -115,6 +130,7 @@ const Auth: React.FC = () => {
 
       // Email confirmation needed: user exists but no session yet.
       if (result?.data?.user && !result?.data?.session) {
+        setVerificationReason("signup");
         setIsVerificationSent(true);
         toast.success(t("auth.accountCreatedVerify"));
       } else {
@@ -187,9 +203,29 @@ const Auth: React.FC = () => {
   };
 
   if (isVerificationSent) {
+    const handleResend = async () => {
+      const target = email.trim();
+      if (!target) return;
+      setIsResending(true);
+      try {
+        const result = await sendVerification(target);
+        if (result && 'error' in result && result.error) throw result.error;
+        toast.success(t("auth.resendVerificationSuccess"));
+      } catch {
+        // Don't surface the underlying message — Supabase's resend errors
+        // can leak details (rate-limit values, account state). A generic
+        // failure toast is enough.
+        toast.error(t("auth.resendVerificationFailed"));
+      } finally {
+        setIsResending(false);
+      }
+    };
+
+    const isUnconfirmedLogin = verificationReason === "unconfirmed-login";
+
     return (
       <div className="ed-container py-20 flex justify-center items-center min-h-[70vh]">
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
           className="max-w-md w-full"
@@ -202,18 +238,36 @@ const Auth: React.FC = () => {
                 </div>
               </div>
               <CardTitle className="text-3xl font-display italic text-[color:var(--parchment)]">
-                {t("auth.checkEmail")}
+                {isUnconfirmedLogin ? t("auth.emailNotConfirmedTitle") : t("auth.checkEmail")}
               </CardTitle>
               <CardDescription className="text-muted-foreground font-serif italic text-lg">
-                {`${t("auth.verificationSentTo")} ${email}`}
+                {isUnconfirmedLogin
+                  ? t("auth.emailNotConfirmedDesc")
+                  : `${t("auth.verificationSentTo")} ${email}`}
               </CardDescription>
             </CardHeader>
-            <CardContent>
-              <p className="text-sm text-muted-foreground mb-6">
+            <CardContent className="space-y-4">
+              <p className="text-sm text-muted-foreground">
                 {t("auth.verifyEmailPrompt")}
               </p>
+              <p className="text-xs text-muted-foreground italic">
+                {t("auth.didntGetEmail")}
+              </p>
+              <Button
+                type="button"
+                className="w-full rounded-full h-12 font-serif italic"
+                onClick={handleResend}
+                disabled={isResending || !email.trim()}
+              >
+                {isResending ? (
+                  <Loader2 className="animate-spin h-5 w-5" />
+                ) : (
+                  t("auth.resendVerification")
+                )}
+              </Button>
               <Button
                 variant="outline"
+                type="button"
                 className="w-full rounded-full h-12 font-serif italic"
                 onClick={() => navigate("/")}
               >

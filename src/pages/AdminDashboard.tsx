@@ -1303,7 +1303,17 @@ const AdminDashboard: React.FC = () => {
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="font-medium text-sm truncate">{u.displayName || t("admin.users.anonymous")}</p>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="font-medium text-sm truncate">{u.displayName || t("admin.users.anonymous")}</p>
+                        {!u.emailVerified && (
+                          <span
+                            title={t("admin.users.unverifiedTooltip")}
+                            className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded-full border border-amber-500/40 text-amber-500 font-ui"
+                          >
+                            {t("admin.users.unverified")}
+                          </span>
+                        )}
+                      </div>
                       <p className="text-xs text-muted-foreground truncate">{u.email}</p>
                       <div className="flex items-center gap-2 mt-2">
                         <Select value={u.role} onValueChange={(val) => handleUpdateRole(u.id, val)} disabled={u.id === user?.id}>
@@ -1359,7 +1369,19 @@ const AdminDashboard: React.FC = () => {
                         </div>
                         {u.displayName || t("admin.users.anonymous")}
                       </TableCell>
-                      <TableCell>{u.email}</TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <span className="truncate">{u.email}</span>
+                          {!u.emailVerified && (
+                            <span
+                              title={t("admin.users.unverifiedTooltip")}
+                              className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded-full border border-amber-500/40 text-amber-500 font-ui shrink-0"
+                            >
+                              {t("admin.users.unverified")}
+                            </span>
+                          )}
+                        </div>
+                      </TableCell>
                       <TableCell>
                         <Select 
                           value={u.role} 
