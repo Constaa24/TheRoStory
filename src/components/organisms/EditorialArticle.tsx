@@ -109,7 +109,7 @@ export const EditorialArticle: React.FC<Props> = ({ article, views }) => {
       {article.type === 'video' && <VideoFilm article={article} category={category} views={views} />}
 
       {/* Footer actions */}
-      <section style={{ padding: '60px 0 0', borderTop: '1px solid var(--line-soft)' }}>
+      <section style={{ padding: '60px 0', borderTop: '1px solid var(--line-soft)' }}>
         <div className="ed-container max-w-[760px] mx-auto flex flex-wrap justify-between items-center gap-6">
           <div className="font-ui text-[11px] uppercase" style={{ letterSpacing: '0.18em', color: 'var(--text-mute)' }}>
             {kindLabel} · {readMinutes(article, language)} {language === 'en' ? 'min read' : 'min citire'}
