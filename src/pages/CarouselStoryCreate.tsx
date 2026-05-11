@@ -490,22 +490,30 @@ const CarouselStoryCreate: React.FC = () => {
                           </span>
                         </div>
                         <Field label={language === 'en' ? 'English caption' : 'Legendă engleză'} compact>
-                          <input
-                            type="text"
-                            placeholder={language === 'en' ? 'A short line shown beneath this image…' : 'O linie scurtă afișată sub această imagine…'}
+                          <textarea
+                            placeholder={language === 'en' ? 'Shown beneath this image on the article page…' : 'Afișată sub această imagine în pagina articolului…'}
                             value={caption.en}
                             onChange={(e) => updateCaption(index, 'en', e.target.value)}
-                            maxLength={200}
+                            maxLength={ARTICLE_LIMITS.MEDIA_CAPTION_MAX}
+                            rows={3}
+                            style={{ resize: 'vertical' }}
                           />
+                          <div className="font-ui text-[10px] mt-1 text-right" style={{ color: 'var(--text-mute)', letterSpacing: '0.1em' }}>
+                            {caption.en.length}/{ARTICLE_LIMITS.MEDIA_CAPTION_MAX}
+                          </div>
                         </Field>
                         <Field label={language === 'en' ? 'Romanian caption' : 'Legendă română'} compact>
-                          <input
-                            type="text"
-                            placeholder={language === 'en' ? 'Aceeași linie scurtă, în română…' : 'Aceeași linie scurtă, în română…'}
+                          <textarea
+                            placeholder={language === 'en' ? 'Aceeași legendă, în română…' : 'Aceeași legendă, în română…'}
                             value={caption.ro}
                             onChange={(e) => updateCaption(index, 'ro', e.target.value)}
-                            maxLength={200}
+                            maxLength={ARTICLE_LIMITS.MEDIA_CAPTION_MAX}
+                            rows={3}
+                            style={{ resize: 'vertical' }}
                           />
+                          <div className="font-ui text-[10px] mt-1 text-right" style={{ color: 'var(--text-mute)', letterSpacing: '0.1em' }}>
+                            {caption.ro.length}/{ARTICLE_LIMITS.MEDIA_CAPTION_MAX}
+                          </div>
                         </Field>
                       </div>
                     </div>

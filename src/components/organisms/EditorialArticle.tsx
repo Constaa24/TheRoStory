@@ -500,7 +500,8 @@ const PhotoScene: React.FC<{ scene: { url: string; caption: string; tone: string
           <div className="flex flex-wrap justify-between items-start gap-12">
             {text && (
               <p
-                className="font-display italic m-0 max-w-[720px]"
+                className="font-display italic m-0 max-w-[720px] line-clamp-5"
+                title={text}
                 style={{ fontSize: 'clamp(28px, 3vw, 38px)', lineHeight: 1.25, color: 'var(--parchment)', textWrap: 'balance' as React.CSSProperties['textWrap'] }}
               >
                 {text}
@@ -522,7 +523,8 @@ const PhotoScene: React.FC<{ scene: { url: string; caption: string; tone: string
             <span className="font-ui text-[11px] block mb-5" style={{ letterSpacing: '0.22em', color: 'var(--gold)' }}>{indexLabel}</span>
             {text && (
               <p
-                className="font-display italic m-0"
+                className="font-display italic m-0 line-clamp-8"
+                title={text}
                 style={{ fontSize: 'clamp(26px, 2.6vw, 34px)', lineHeight: 1.3, color: 'var(--parchment)', textWrap: 'balance' as React.CSSProperties['textWrap'] }}
               >
                 {text}
