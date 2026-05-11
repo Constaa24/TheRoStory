@@ -141,13 +141,6 @@ const Categories: React.FC = () => {
                           alt={name}
                           className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
                         />
-                        <div className="absolute bottom-4 left-4 right-4 flex justify-center">
-                          <div className="inline-block px-3 py-1.5 backdrop-blur-md bg-black/40 border border-white/10 rounded">
-                            <span className="font-ui text-xs tracking-widest text-white/90">
-                              {name.toUpperCase()}
-                            </span>
-                          </div>
-                        </div>
                       </div>
 
                       <div className="flex justify-between items-start gap-6">
