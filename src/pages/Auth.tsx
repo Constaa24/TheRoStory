@@ -643,7 +643,8 @@ const Auth: React.FC = () => {
               </TabsContent>
             </Tabs>
           </CardContent>
-          <CardFooter className="flex justify-center border-t border-border/10 py-4">
+          <CardFooter className="flex flex-col justify-center py-4 relative border-t-0">
+            <div className="absolute top-0 left-8 right-8 h-px opacity-70" style={{ background: 'linear-gradient(90deg, transparent, var(--line), transparent)' }} />
             <p className="text-xs text-muted-foreground text-center px-4 italic font-serif">
               {t("auth.agreement")}
             </p>
