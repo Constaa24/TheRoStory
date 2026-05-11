@@ -25,8 +25,7 @@ import { Article, getLocalized } from "@/lib/supabase";
 import { fetchUserFavorites, toggleFavorite, deleteOwnAccount, exportOwnData, supabase, deleteStorageFile, extractStoragePath } from "@/lib/supabase";
 import { isAbortError } from "@/lib/utils";
 import { Camera, Loader2, Shield, Heart, ChevronRight, CheckCircle2, AlertCircle, Trash2, Download } from "lucide-react";
-import { ParchmentArticle } from "@/components/organisms/ParchmentArticle";
-import { AnimatePresence, motion } from "framer-motion";
+import { motion } from "framer-motion";
 import { PageHead } from "@/components/layout/PageHead";
 
 const Profile: React.FC = () => {
@@ -43,7 +42,6 @@ const Profile: React.FC = () => {
   const [favorites, setFavorites] = useState<Article[]>([]);
   const [isLoadingFavorites, setIsLoadingFavorites] = useState(false);
   const [favoritesLoadError, setFavoritesLoadError] = useState<string | null>(null);
-  const [activeArticle, setActiveArticle] = useState<Article | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -548,9 +546,9 @@ const Profile: React.FC = () => {
                     animate={{ opacity: 1, scale: 1 }}
                     exit={{ opacity: 0, scale: 0.95 }}
                   >
-                    <Card 
+                    <Card
                       className="group overflow-hidden border-none shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_20px_60px_rgb(0,0,0,0.08)] transition-all duration-700 bg-secondary/5 cursor-pointer h-full flex flex-col rounded-[2rem] hover:-translate-y-2 relative"
-                      onClick={() => setActiveArticle(article)}
+                      onClick={() => navigate(`/article/${article.id}`, { state: { from: '/profile?tab=favorites' } })}
                     >
                       <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none z-10">
                         <div className="absolute inset-0 bg-accent/5 mix-blend-overlay" />
@@ -609,16 +607,6 @@ const Profile: React.FC = () => {
           </div>
         </TabsContent>
       </Tabs>
-
-      {/* Parchment Article Viewer */}
-      <AnimatePresence>
-        {activeArticle && (
-          <ParchmentArticle
-            article={activeArticle}
-            onClose={() => setActiveArticle(null)}
-          />
-        )}
-      </AnimatePresence>
     </div>
     </div>
   );

@@ -87,22 +87,10 @@ export type Article = {
   mediaCaptions?: MediaCaption[];
   location?: string;
   createdAt: string;
+  updatedAt?: string;
   // UI-only fields for chapter editing (not stored in DB)
   chaptersEn?: string[];
   chaptersRo?: string[];
-};
-
-export type UserRole = {
-  id: string;
-  userId: string;
-  role: 'admin' | 'writer' | 'reader';
-};
-
-export type Favorite = {
-  id: string;
-  userId: string;
-  articleId: string;
-  createdAt: string;
 };
 
 export type Comment = {
@@ -112,13 +100,6 @@ export type Comment = {
   userDisplayName?: string;
   content: string;
   createdAt: string;
-};
-
-export type ArticleView = {
-  id: string;
-  articleId: string;
-  viewCount: number;
-  updatedAt: string;
 };
 
 export type AdminUserSummary = {
@@ -137,12 +118,6 @@ export type AdminUsersPage = {
   perPage: number;
   total: number | null;
   hasMore: boolean;
-};
-
-export type ContactMessageResult = {
-  ok: boolean;
-  status?: number;
-  error?: string;
 };
 
 // ---- Localization utility ----
@@ -173,24 +148,11 @@ const publicContentCache: {
 
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
-// Listeners notified whenever public content is invalidated. Used by views
-// that maintain their own derived caches so they don't display stale data
-// after admin edits.
-const cacheInvalidationListeners = new Set<() => void>();
-
-export const subscribeToPublicContentInvalidation = (listener: () => void): (() => void) => {
-  cacheInvalidationListeners.add(listener);
-  return () => { cacheInvalidationListeners.delete(listener); };
-};
-
 /** Invalidate the public content cache (call after admin creates/edits/deletes content). */
 export const invalidatePublicContentCache = () => {
   publicContentCache.published = null;
   publicContentCache.all = null;
   _categoryCountsCache = null;
-  cacheInvalidationListeners.forEach((listener) => {
-    try { listener(); } catch { /* ignore listener errors */ }
-  });
 };
 
 // Lightweight cache for category article counts (category_id column only)
@@ -429,8 +391,9 @@ export const fetchCategories = async (): Promise<Category[]> => {
   // Reuse the cache that fetchPublicContent already populates — the footer
   // mounts on every navigation and used to fire a fresh categories query
   // each time even though the home/categories pages had just fetched the
-  // same rows seconds earlier.
-  const cached = publicContentCache.published;
+  // same rows seconds earlier. Either cache key works for categories since
+  // the categories list is the same regardless of published-only filtering.
+  const cached = publicContentCache.published ?? publicContentCache.all;
   if (cached && Date.now() - cached.time < CACHE_TTL) {
     return cached.data.categories;
   }
@@ -947,6 +910,12 @@ export const updateUserRole = async (userId: string, role: string) => {
   }
 };
 
+type ContactMessageResult = {
+  ok: boolean;
+  status?: number;
+  error?: string;
+};
+
 export const sendContactMessage = async (
   name: string,
   email: string,
@@ -987,24 +956,6 @@ export const sendContactMessage = async (
 };
 
 // ---- Storage ----
-
-export const uploadFile = async (
-  bucket: string,
-  path: string,
-  file: File
-): Promise<string> => {
-  const { error } = await supabase.storage
-    .from(bucket)
-    .upload(path, file, { upsert: true });
-
-  if (error) throw error;
-
-  const { data } = supabase.storage
-    .from(bucket)
-    .getPublicUrl(path);
-
-  return data.publicUrl;
-};
 
 /**
  * Best-effort cleanup of a storage object. Used after a user removes media
@@ -1108,6 +1059,11 @@ export const uploadUserFile = async (
     ? `${subfolder}/${userId}/${id}.${rawExtension}`
     : `${userId}/${id}.${rawExtension}`;
 
-  const publicUrl = await uploadFile(bucket, path, file);
-  return { publicUrl, storagePath: path };
+  const { error: uploadError } = await supabase.storage
+    .from(bucket)
+    .upload(path, file, { upsert: true });
+  if (uploadError) throw uploadError;
+
+  const { data } = supabase.storage.from(bucket).getPublicUrl(path);
+  return { publicUrl: data.publicUrl, storagePath: path };
 };

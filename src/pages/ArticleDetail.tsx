@@ -77,7 +77,7 @@ const ArticleDetailPage: React.FC = () => {
     description,
     image: imageUrl,
     datePublished: article.createdAt,
-    dateModified: article.createdAt,
+    dateModified: article.updatedAt || article.createdAt,
     inLanguage: language === "en" ? "en" : "ro",
     mainEntityOfPage: { "@type": "WebPage", "@id": articleUrl },
     publisher: {

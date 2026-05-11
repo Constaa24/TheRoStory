@@ -44,8 +44,8 @@ function urlEntry({ loc, lastmod, changefreq, priority }) {
 
 async function fetchPublishedArticles(supabaseUrl, anonKey) {
   // Use the REST API directly so we don't need the Supabase JS client at build.
-  // Pull `created_at` as a fallback `lastmod` source — the schema has no
-  // `updated_at` column today, so we approximate with creation time.
+  // Pull `updated_at` for the `lastmod` field — falls back to `created_at` for
+  // any row predating the migration that introduced the column.
   // Pagination: PostgREST caps responses at the project's `max-rows` (default
   // 1000). We page with the Range header so the sitemap stays complete as
   // article count grows.
@@ -54,7 +54,7 @@ async function fetchPublishedArticles(supabaseUrl, anonKey) {
   let from = 0;
   while (true) {
     const to = from + PAGE - 1;
-    const endpoint = `${supabaseUrl}/rest/v1/articles?select=id,created_at&is_published=eq.true&order=created_at.desc`;
+    const endpoint = `${supabaseUrl}/rest/v1/articles?select=id,created_at,updated_at&is_published=eq.true&order=created_at.desc`;
     // We don't read the count anywhere; using count=exact would force a
     // full COUNT(*) on the articles table for every paginated request.
     // Loop termination relies on `batch.length < PAGE`.
@@ -91,12 +91,15 @@ async function main() {
   } else {
     try {
       const articles = await fetchPublishedArticles(supabaseUrl, anonKey);
-      articleEntries = articles.map((a) => ({
-        loc: `${SITE_URL}/article/${a.id}`,
-        lastmod: a.created_at ? new Date(a.created_at).toISOString().slice(0, 10) : undefined,
-        changefreq: "monthly",
-        priority: "0.7",
-      }));
+      articleEntries = articles.map((a) => {
+        const lastmodSource = a.updated_at || a.created_at;
+        return {
+          loc: `${SITE_URL}/article/${a.id}`,
+          lastmod: lastmodSource ? new Date(lastmodSource).toISOString().slice(0, 10) : undefined,
+          changefreq: "monthly",
+          priority: "0.7",
+        };
+      });
       console.log(`[generate-sitemap] Included ${articleEntries.length} article URLs.`);
     } catch (err) {
       console.warn("[generate-sitemap] Failed to fetch articles:", err.message);

@@ -1,10 +1,11 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Article, Category, getLocalized, parseChapters, fetchCategories, fetchArticlesPage } from "@/lib/supabase";
+import { Article, Category, getLocalized, parseChapters, fetchCategories, fetchPublicContent } from "@/lib/supabase";
 import { useLanguage } from "@/hooks/use-language";
 import { useFavorites } from "@/hooks/use-favorites";
 import { ArrowLeft, Heart, Share2, Printer, Play, Pause, Maximize2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { ArticleComments } from "@/components/organisms/ArticleComments";
 
 interface Props {
   article: Article;
@@ -53,10 +54,42 @@ export const EditorialArticle: React.FC<Props> = ({ article, views }) => {
 
   useEffect(() => {
     fetchCategories().then(setCategories).catch(() => {});
-    fetchArticlesPage(1, 6, null)
-      .then(({ articles }) => setRelated(articles.filter(a => a.id !== article.id).slice(0, 3)))
+    // Related-articles selection: same-category first (up to 3); if fewer
+    // than 3 match, fill the remainder with a stable shuffle of other
+    // published articles so we always show three thumbnails.
+    fetchPublicContent()
+      .then(({ articles }) => {
+        const sameCategory = articles
+          .filter(a => a.id !== article.id && a.categoryId === article.categoryId)
+          .slice(0, 3);
+        if (sameCategory.length >= 3) {
+          setRelated(sameCategory);
+          return;
+        }
+        const pool = articles.filter(
+          a => a.id !== article.id && a.categoryId !== article.categoryId
+        );
+        // Deterministic shuffle keyed off article.id so the list is stable
+        // across renders (Mulberry32 seeded from a hash of article.id).
+        let seed = 0;
+        for (let i = 0; i < article.id.length; i++) {
+          seed = ((seed << 5) - seed + article.id.charCodeAt(i)) | 0;
+        }
+        const rand = () => {
+          seed = (seed + 0x6d2b79f5) | 0;
+          let t = seed;
+          t = Math.imul(t ^ (t >>> 15), t | 1);
+          t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+          return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+        };
+        for (let i = pool.length - 1; i > 0; i--) {
+          const j = Math.floor(rand() * (i + 1));
+          [pool[i], pool[j]] = [pool[j], pool[i]];
+        }
+        setRelated([...sameCategory, ...pool.slice(0, 3 - sameCategory.length)]);
+      })
       .catch(() => {});
-  }, [article.id]);
+  }, [article.id, article.categoryId]);
 
   const category = categories.find(c => c.id === article.categoryId);
   const fav = isFavorited(article.id);
@@ -107,6 +140,9 @@ export const EditorialArticle: React.FC<Props> = ({ article, views }) => {
           </div>
         </div>
       </section>
+
+      {/* Comments */}
+      <ArticleComments articleId={article.id} />
 
       {/* Related */}
       {related.length > 0 && (

@@ -1,39 +1,35 @@
-import React, { useEffect, useState, useRef, useMemo } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import {
   Category,
   Article,
   AdminUserSummary,
   getLocalized,
-  CHAPTER_DELIMITER,
   fetchPublicContent,
   invalidatePublicContentCache,
   fetchAllUsers,
   deleteUser as deleteUserFunc,
   updateUserRole as updateUserRoleFunc,
-  uploadUserFile,
-  ARTICLE_LIMITS
 } from "@/lib/supabase";
 import { supabase } from "@/lib/supabase";
 import { useLanguage } from "@/hooks/use-language";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { 
-  Select, 
-  SelectContent, 
-  SelectItem, 
-  SelectTrigger, 
-  SelectValue 
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { 
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableHead, 
-  TableHeader, 
-  TableRow 
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow
 } from "@/components/ui/table";
 import { Card } from "@/components/ui/card";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -43,7 +39,6 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-  DialogFooter,
   DialogDescription
 } from "@/components/ui/dialog";
 import {
@@ -55,24 +50,10 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Plus, Trash2, Edit, Image as ImageIcon, Check, X, Loader2, Lock, Users, FileText, Tag, ShieldCheck, CheckCircle2, XCircle, Video, BookText, Images } from "lucide-react";
+import { Plus, Trash2, Edit, Check, X, Loader2, Lock, Users, FileText, Tag, ShieldCheck, CheckCircle2, XCircle, Video, BookText, Images } from "lucide-react";
 import { toast } from "sonner";
 import { cn, isAbortError } from "@/lib/utils";
-import { COUNTIES } from "@/lib/constants";
-import { createVideoPosterImageFile } from "@/lib/video-poster";
 import { useNavigate } from "react-router-dom";
-
-const combineChapters = (chapters: string[]): string => {
-  // Find the last index that has any non-whitespace content. If every chapter
-  // is empty we return an empty string — the caller should treat that as
-  // "no content" rather than persisting a single empty chunk.
-  let lastIndex = -1;
-  for (let i = 0; i < chapters.length; i++) {
-    if (chapters[i]?.trim()) lastIndex = i;
-  }
-  if (lastIndex === -1) return "";
-  return chapters.slice(0, lastIndex + 1).join(CHAPTER_DELIMITER);
-};
 
 const USERS_PER_PAGE = 25;
 
@@ -88,11 +69,6 @@ const AdminDashboard: React.FC = () => {
   const [usersTotal, setUsersTotal] = useState<number | null>(null);
   const [usersHasMore, setUsersHasMore] = useState(false);
   const [showTypeSelection, setShowTypeSelection] = useState(false);
-  const [editingArticle, setEditingArticle] = useState<Article | null>(null);
-  const [isUploading, setIsUploading] = useState(false);
-  const editFileInputRef = useRef<HTMLInputElement>(null);
-  const editCarouselImageInputRef = useRef<HTMLInputElement>(null);
-  const editPosterInputRef = useRef<HTMLInputElement>(null);
 
   // Confirmation dialog state — replaces the inconsistent native confirm()
   // calls so destructive actions feel like the rest of the app.
@@ -210,79 +186,6 @@ const AdminDashboard: React.FC = () => {
     }
   };
 
-  const handleUpdateArticle = async () => {
-    if (!editingArticle || !editingArticle.titleEn || !editingArticle.titleRo || !editingArticle.categoryId) {
-      toast.error(t("admin.articles.fillRequired"));
-      return;
-    }
-    try {
-      const titleEn = editingArticle.titleEn.trim();
-      const titleRo = editingArticle.titleRo.trim();
-      const contentEn = (editingArticle.type === 'video' || editingArticle.type === 'carousel')
-        ? editingArticle.contentEn
-        : combineChapters(editingArticle.chaptersEn || [""]);
-      const contentRo = (editingArticle.type === 'video' || editingArticle.type === 'carousel')
-        ? editingArticle.contentRo
-        : combineChapters(editingArticle.chaptersRo || [""]);
-
-      // Mirror the createArticle limits — the DB has length CHECKs that
-      // would otherwise raise a confusing constraint-violation error.
-      if (titleEn.length > ARTICLE_LIMITS.TITLE_MAX || titleRo.length > ARTICLE_LIMITS.TITLE_MAX) {
-        throw new Error(t("admin.articles.errTitleTooLong").replace("{max}", String(ARTICLE_LIMITS.TITLE_MAX)));
-      }
-      if ((contentEn || "").length > ARTICLE_LIMITS.CONTENT_MAX || (contentRo || "").length > ARTICLE_LIMITS.CONTENT_MAX) {
-        throw new Error(t("admin.articles.errContentTooLong").replace("{max}", String(ARTICLE_LIMITS.CONTENT_MAX)));
-      }
-      // For text stories, refuse to save an article with no chapter content —
-      // combineChapters() returns "" when every chapter is blank, and a
-      // story with no body shouldn't be persistable from the dashboard.
-      if (editingArticle.type === 'text' && !contentEn?.trim() && !contentRo?.trim()) {
-        throw new Error(t("admin.common.contentRequired"));
-      }
-      if (editingArticle.location && editingArticle.location.length > ARTICLE_LIMITS.LOCATION_MAX) {
-        throw new Error(t("admin.articles.errLocationTooLong").replace("{max}", String(ARTICLE_LIMITS.LOCATION_MAX)));
-      }
-      if (editingArticle.mediaUrls && editingArticle.mediaUrls.length > ARTICLE_LIMITS.MEDIA_URLS_MAX) {
-        throw new Error(t("admin.articles.errTooManyGalleryImages").replace("{max}", String(ARTICLE_LIMITS.MEDIA_URLS_MAX)));
-      }
-      // A carousel without images would render the Unsplash placeholder
-      // on Home and CategoryDetail. Refuse to persist that state.
-      if (editingArticle.type === 'carousel' && (!editingArticle.mediaUrls || editingArticle.mediaUrls.length === 0)) {
-        throw new Error(t("admin.articles.carouselRequiresImages"));
-      }
-
-      const updates: Record<string, unknown> = {
-        title_en: titleEn,
-        title_ro: titleRo,
-        content_en: contentEn,
-        content_ro: contentRo,
-        category_id: editingArticle.categoryId,
-        location: editingArticle.location || null,
-        media_url: editingArticle.mediaUrl,
-        poster_url: editingArticle.posterUrl || null,
-        media_urls: editingArticle.mediaUrls,
-      };
-
-      if (isAdmin) {
-        updates.is_published = !!editingArticle.isPublished;
-      }
-
-      const { error } = await supabase
-        .from('articles')
-        .update(updates)
-        .eq('id', editingArticle.id);
-
-      if (error) throw error;
-
-      setEditingArticle(null);
-      fetchData();
-      toast.success(t("admin.articles.updated"));
-    } catch (error) {
-      const message = error instanceof Error ? error.message : t("admin.articles.errUpdate");
-      toast.error(message);
-    }
-  };
-
   const togglePublish = async (article: Article) => {
     if (!isAdmin) {
       toast.error(t("admin.articles.adminOnlyPublish"));
@@ -397,56 +300,6 @@ const AdminDashboard: React.FC = () => {
       console.error("Error updating role:", error);
       toast.error(t("admin.users.errRoleUpdate"));
     }
-  };
-
-  const handleCarouselImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    if (!user?.id) {
-      toast.error(t("admin.common.notAuthenticated"));
-      event.target.value = "";
-      return;
-    }
-
-    setIsUploading(true);
-    try {
-      const { publicUrl } = await uploadUserFile(file, {
-        bucket: 'articles',
-        kind: 'image',
-        userId: user.id,
-        subfolder: 'carousels',
-      });
-
-      if (editingArticle) {
-        const currentUrls = editingArticle.mediaUrls || [];
-        const newUrls = [...currentUrls, publicUrl];
-        setEditingArticle({
-          ...editingArticle,
-          mediaUrls: newUrls,
-          mediaUrl: editingArticle.mediaUrl || publicUrl // Set first if none
-        });
-      }
-      toast.success(t("admin.common.imageUploaded"));
-    } catch (error) {
-      console.error("Error uploading image:", error);
-      const message = error instanceof Error ? error.message : t("admin.common.errUpload");
-      toast.error(message);
-    } finally {
-      setIsUploading(false);
-      if (event.target) event.target.value = "";
-    }
-  };
-
-  const removeCarouselImage = (index: number) => {
-    if (!editingArticle) return;
-    const currentUrls = editingArticle.mediaUrls || [];
-    const newUrls = currentUrls.filter((_, i) => i !== index);
-    setEditingArticle({ 
-      ...editingArticle, 
-      mediaUrls: newUrls,
-      mediaUrl: newUrls.length > 0 ? newUrls[0] : "" // Update main mediaUrl
-    });
   };
 
   const usersRangeStart = allUsers.length === 0 ? 0 : (usersPage - 1) * USERS_PER_PAGE + 1;
@@ -678,366 +531,6 @@ const AdminDashboard: React.FC = () => {
               </Dialog>
             </div>
           </div>
-
-          <Dialog open={!!editingArticle} onOpenChange={(open) => !open && setEditingArticle(null)}>
-            <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-              <DialogHeader>
-                <DialogTitle className="font-serif italic text-2xl">{t("admin.articles.editStory")}</DialogTitle>
-                <DialogDescription className="sr-only">
-                  {t("admin.articles.editStoryDesc")}
-                </DialogDescription>
-              </DialogHeader>
-              {editingArticle && (
-                <div className="grid gap-6 py-4">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium">{t("admin.articles.titleEn")}</label>
-                      <Input
-                        value={editingArticle.titleEn}
-                        onChange={(e) => setEditingArticle({...editingArticle, titleEn: e.target.value})}
-                        maxLength={ARTICLE_LIMITS.TITLE_MAX}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium">{t("admin.articles.titleRo")}</label>
-                      <Input
-                        value={editingArticle.titleRo}
-                        onChange={(e) => setEditingArticle({...editingArticle, titleRo: e.target.value})}
-                        maxLength={ARTICLE_LIMITS.TITLE_MAX}
-                      />
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">{t("admin.articles.category")}</label>
-                    <Select
-                      value={editingArticle.categoryId}
-                      onValueChange={(val) => setEditingArticle({...editingArticle, categoryId: val})}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder={t("admin.articles.category")} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {categories.map(cat => (
-                          <SelectItem key={cat.id} value={cat.id}>
-                            {cat.nameEn} / {cat.nameRo}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">
-                      {editingArticle.type === 'video' ? t("admin.articles.mediaVideoUrl") : (editingArticle.type === 'carousel' ? t("admin.articles.galleryImages") : t("admin.articles.mediaImageUrl"))}
-                    </label>
-                    <div className="flex gap-2">
-                      <Input
-                        placeholder={editingArticle.type === 'carousel' ? t("admin.articles.galleryImages") : "https://..."}
-                        value={editingArticle.mediaUrl}
-                        onChange={(e) => setEditingArticle({...editingArticle, mediaUrl: e.target.value})}
-                        disabled={editingArticle.type === 'carousel'}
-                      />
-                      <input
-                        type="file"
-                        accept={editingArticle.type === 'video' ? "video/*" : "image/*"}
-                        className="hidden"
-                        ref={editFileInputRef}
-                        onChange={async (e) => {
-                          const file = e.target.files?.[0];
-                          if (!file) return;
-
-                          if (!user?.id) {
-                            toast.error(t("admin.common.notAuthenticated"));
-                            e.target.value = "";
-                            return;
-                          }
-
-                          setIsUploading(true);
-                          try {
-                            const isCarousel = editingArticle.type === 'carousel';
-                            const isVideo = editingArticle.type === 'video';
-                            const { publicUrl } = await uploadUserFile(file, {
-                              bucket: 'articles',
-                              kind: isVideo ? 'video' : 'image',
-                              userId: user.id,
-                              subfolder: isCarousel ? 'carousels' : undefined,
-                            });
-
-                            if (isCarousel) {
-                              const currentUrls = editingArticle.mediaUrls || [];
-                              setEditingArticle({
-                                ...editingArticle,
-                                mediaUrls: [publicUrl, ...currentUrls],
-                                mediaUrl: publicUrl
-                              });
-                            } else if (isVideo) {
-                              let posterPublicUrl = "";
-                              try {
-                                const posterFile = await createVideoPosterImageFile(file, `${crypto.randomUUID()}-poster.jpg`);
-                                if (posterFile) {
-                                  const posterRes = await uploadUserFile(posterFile, {
-                                    bucket: 'articles',
-                                    kind: 'image',
-                                    userId: user.id,
-                                  });
-                                  posterPublicUrl = posterRes.publicUrl;
-                                }
-                              } catch (posterError) {
-                                console.warn("Poster generation/upload failed:", posterError);
-                              }
-                              setEditingArticle({
-                                ...editingArticle,
-                                mediaUrl: publicUrl,
-                                posterUrl: posterPublicUrl || ""
-                              });
-                            } else {
-                              setEditingArticle({ ...editingArticle, mediaUrl: publicUrl });
-                            }
-                            toast.success(t("admin.common.imageUploaded"));
-                          } catch (error) {
-                            const message = error instanceof Error ? error.message : t("admin.common.errUpload");
-                            toast.error(message);
-                          } finally {
-                            setIsUploading(false);
-                            e.target.value = "";
-                          }
-                        }}
-                      />
-                      {editingArticle.type !== 'carousel' && (
-                        <Button 
-                          variant="outline" 
-                          size="icon"
-                          onClick={() => editFileInputRef.current?.click()}
-                          disabled={isUploading}
-                        >
-                          {isUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : (editingArticle.type === 'video' ? <Video className="h-4 w-4" /> : <ImageIcon className="h-4 w-4" />)}
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                  {isAdmin && (
-                    <div className="flex items-center gap-2">
-                      <input 
-                        type="checkbox" 
-                        id="editIsPublished"
-                        checked={!!editingArticle.isPublished}
-                        onChange={(e) => setEditingArticle({...editingArticle, isPublished: e.target.checked})}
-                        className="rounded border-gray-300"
-                      />
-                      <label htmlFor="editIsPublished" className="text-sm font-medium">{t("admin.articles.publishedToast")}</label>
-                    </div>
-                  )}
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">{t("location.label")}</label>
-                    <Select 
-                      value={editingArticle.location} 
-                      onValueChange={(val) => setEditingArticle({ ...editingArticle, location: val })}
-                    >
-                      <SelectTrigger className="rounded-xl">
-                        <SelectValue placeholder={t("location.select")} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {COUNTIES.map((county) => (
-                          <SelectItem key={county} value={county}>{county}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  {editingArticle.type === 'video' ? (
-                    <div className="space-y-4">
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium">{t("admin.articles.descEn")}</label>
-                        <Textarea
-                          rows={5}
-                          value={editingArticle.contentEn}
-                          onChange={(e) => setEditingArticle({...editingArticle, contentEn: e.target.value})}
-                          maxLength={ARTICLE_LIMITS.CONTENT_MAX}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium">{t("admin.articles.descRo")}</label>
-                        <Textarea
-                          rows={5}
-                          value={editingArticle.contentRo}
-                          onChange={(e) => setEditingArticle({...editingArticle, contentRo: e.target.value})}
-                          maxLength={ARTICLE_LIMITS.CONTENT_MAX}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium">{t("admin.articles.posterUrl")}</label>
-                        <div className="flex gap-2">
-                          <Input
-                            placeholder="https://..."
-                            value={editingArticle.posterUrl || ""}
-                            onChange={(e) => setEditingArticle({ ...editingArticle, posterUrl: e.target.value })}
-                          />
-                          <input
-                            type="file"
-                            accept="image/*"
-                            className="hidden"
-                            ref={editPosterInputRef}
-                            onChange={async (e) => {
-                              const file = e.target.files?.[0];
-                              if (!file) return;
-
-                              if (!user?.id) {
-                                toast.error(t("admin.common.notAuthenticated"));
-                                e.target.value = "";
-                                return;
-                              }
-
-                              setIsUploading(true);
-                              try {
-                                const { publicUrl } = await uploadUserFile(file, {
-                                  bucket: 'articles',
-                                  kind: 'image',
-                                  userId: user.id,
-                                });
-
-                                setEditingArticle({ ...editingArticle, posterUrl: publicUrl });
-                                toast.success(t("admin.common.imageUploaded"));
-                              } catch (error) {
-                                const message = error instanceof Error ? error.message : t("admin.common.errUpload");
-                                toast.error(message);
-                              } finally {
-                                setIsUploading(false);
-                                e.target.value = "";
-                              }
-                            }}
-                          />
-                          <Button
-                            variant="outline"
-                            size="icon"
-                            onClick={() => editPosterInputRef.current?.click()}
-                            disabled={isUploading}
-                            title={t("admin.articles.posterUrl")}
-                          >
-                            {isUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImageIcon className="h-4 w-4" />}
-                          </Button>
-                        </div>
-                      </div>
-                      {editingArticle.mediaUrl && (
-                        <div className="space-y-2">
-                          <video
-                            src={editingArticle.mediaUrl}
-                            poster={editingArticle.posterUrl || undefined}
-                            controls
-                            className="w-full rounded-xl aspect-video bg-black"
-                          />
-                        </div>
-                      )}
-                    </div>
-                  ) : editingArticle.type === 'carousel' ? (
-                    <div className="space-y-6">
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <label className="text-sm font-medium">{t("admin.articles.descEn")}</label>
-                          <Textarea
-                            rows={5}
-                            value={editingArticle.contentEn}
-                            onChange={(e) => setEditingArticle({...editingArticle, contentEn: e.target.value})}
-                            maxLength={ARTICLE_LIMITS.CONTENT_MAX}
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <label className="text-sm font-medium">{t("admin.articles.descRo")}</label>
-                          <Textarea
-                            rows={5}
-                            value={editingArticle.contentRo}
-                            onChange={(e) => setEditingArticle({...editingArticle, contentRo: e.target.value})}
-                            maxLength={ARTICLE_LIMITS.CONTENT_MAX}
-                          />
-                        </div>
-                      </div>
-
-                      <div className="space-y-4">
-                        <label className="text-sm font-medium flex justify-between items-center">
-                          {t("admin.articles.galleryImages")}
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-8 rounded-full"
-                            onClick={() => editCarouselImageInputRef.current?.click()}
-                            disabled={isUploading}
-                          >
-                            {isUploading ? <Loader2 className="mr-2 h-3 w-3 animate-spin" /> : <Plus className="mr-2 h-3 w-3" />}
-                            {t("admin.addImage")}
-                          </Button>
-                        </label>
-
-                        <input
-                          type="file"
-                          ref={editCarouselImageInputRef}
-                          onChange={handleCarouselImageUpload}
-                          accept="image/*"
-                          className="hidden"
-                        />
-
-                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                          {editingArticle.mediaUrls?.map((url, index) => (
-                            <div key={index} className="relative group aspect-square rounded-lg overflow-hidden border border-border">
-                              <img src={url} className="w-full h-full object-cover" alt={`${t("admin.articles.galleryImages")} ${index + 1}`} loading="lazy" />
-                              <Button
-                                variant="destructive"
-                                size="icon"
-                                className="absolute top-1 right-1 h-6 w-6 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                                onClick={() => removeCarouselImage(index)}
-                                aria-label={t("admin.articles.removeImage")}
-                              >
-                                <X className="h-3 w-3" />
-                              </Button>
-                              <div className="absolute bottom-1 left-1 bg-black/50 text-white text-[10px] px-1.5 py-0.5 rounded backdrop-blur-sm">
-                                {index + 1}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  ) : (
-                    <>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        {editingArticle.chaptersEn?.map((chapter, index) => (
-                          <div key={index} className="space-y-2">
-                            <label className="text-sm font-medium">{`${language === 'en' ? 'Chapter' : 'Capitolul'} ${index + 1} (${language === 'en' ? 'English' : 'Engleză'})`}</label>
-                            <Textarea
-                              rows={5}
-                              value={chapter}
-                              onChange={(e) => {
-                                const updatedChapters = [...(editingArticle.chaptersEn || [])];
-                                updatedChapters[index] = e.target.value;
-                                setEditingArticle({...editingArticle, chaptersEn: updatedChapters});
-                              }}
-                            />
-                          </div>
-                        ))}
-                      </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        {editingArticle.chaptersRo?.map((chapter, index) => (
-                          <div key={index} className="space-y-2">
-                            <label className="text-sm font-medium">{`${language === 'en' ? 'Chapter' : 'Capitolul'} ${index + 1} (${language === 'en' ? 'Romanian' : 'Română'})`}</label>
-                            <Textarea
-                              rows={5}
-                              value={chapter}
-                              onChange={(e) => {
-                                const updatedChapters = [...(editingArticle.chaptersRo || [])];
-                                updatedChapters[index] = e.target.value;
-                                setEditingArticle({...editingArticle, chaptersRo: updatedChapters});
-                              }}
-                            />
-                          </div>
-                        ))}
-                      </div>
-                    </>
-                  )}
-                </div>
-              )}
-              <DialogFooter>
-                <Button onClick={handleUpdateArticle} className="w-full rounded-full bg-accent hover:bg-accent/90">
-                  {t("admin.articles.update")}
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
 
           {/* Mobile: Card layout */}
           <div className="block md:hidden space-y-3">
