@@ -194,7 +194,10 @@ const MapPage: React.FC = () => {
                     background: 'radial-gradient(ellipse at 50% 40%, rgba(var(--line-rgb), 0.06), transparent 60%), var(--ink-2)',
                     border: '1px solid var(--line)',
                     borderRadius: 4,
-                    padding: 32,
+                    // Extra bottom padding so the scale bar and "100 KM"
+                    // label sit clear of Romania's southern coastline on
+                    // narrow viewports where the map is most compressed.
+                    padding: '24px 24px 56px',
                     aspectRatio: '4/3',
                   }}
                 >
@@ -367,7 +370,7 @@ const MapPage: React.FC = () => {
                 </div>
 
                 {/* Legend strip */}
-                <div className="flex flex-wrap items-center gap-6 mt-6 font-ui text-[11px] uppercase" style={{ letterSpacing: '0.15em', color: 'var(--text-mute)' }}>
+                <div className="flex flex-wrap items-center gap-6 mt-10 font-ui text-[11px] uppercase" style={{ letterSpacing: '0.15em', color: 'var(--text-mute)' }}>
                   <span className="flex items-center gap-2">
                     <span className="rounded-full" style={{ width: 8, height: 8, background: 'var(--gold)' }} />
                     {language === 'en' ? 'Story pinned' : 'Poveste fixată'}
