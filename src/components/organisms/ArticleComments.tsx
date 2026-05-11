@@ -35,6 +35,11 @@ export const ArticleComments: React.FC<Props> = ({ articleId }) => {
 
   const mountedRef = useRef(true);
   const currentArticleIdRef = useRef(articleId);
+  // Read language via a ref inside the load effect so toggling locale
+  // doesn't refetch the comment list. The only thing language affects
+  // here is the error-message copy, which is set at error time.
+  const languageRef = useRef(language);
+  useEffect(() => { languageRef.current = language; }, [language]);
   const COOLDOWN_KEY = `rostory_last_comment_${articleId}`;
 
   useEffect(() => {
@@ -62,7 +67,7 @@ export const ArticleComments: React.FC<Props> = ({ articleId }) => {
         if (cancelled || isAbortError(error)) return;
         console.error("Error loading comments:", error);
         setLoadError(
-          language === "en"
+          languageRef.current === "en"
             ? "Failed to load comments. Please try again."
             : "Comentariile nu au putut fi încărcate. Încearcă din nou."
         );
@@ -71,7 +76,7 @@ export const ArticleComments: React.FC<Props> = ({ articleId }) => {
     return () => {
       cancelled = true;
     };
-  }, [articleId, language]);
+  }, [articleId]);
 
   const reloadComments = async (): Promise<boolean> => {
     try {

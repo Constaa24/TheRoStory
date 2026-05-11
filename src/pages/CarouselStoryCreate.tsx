@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Category, MediaCaption } from "@/lib/supabase";
-import { fetchCategories, uploadUserFile, createArticle, updateArticle, deleteStorageFile, fetchAnyArticle, ARTICLE_LIMITS } from "@/lib/supabase";
+import { fetchCategories, uploadUserFile, createArticle, updateArticle, deleteStorageFile, fetchAnyArticle, extractStoragePath, ARTICLE_LIMITS } from "@/lib/supabase";
 
 type GalleryItem = { id: string; url: string; storagePath: string | null };
 import { useLanguage } from "@/hooks/use-language";
@@ -78,7 +78,13 @@ const CarouselStoryCreate: React.FC = () => {
           setLocation(article.location || '');
           setIsPublished(!!article.isPublished);
           const urls = article.mediaUrls || (article.mediaUrl ? [article.mediaUrl] : []);
-          setItems(urls.map(url => ({ id: crypto.randomUUID(), url, storagePath: null })));
+          // Backfill storage paths so removing a pre-existing image during
+          // edit actually cleans up the file in storage instead of orphaning it.
+          setItems(urls.map(url => ({
+            id: crypto.randomUUID(),
+            url,
+            storagePath: extractStoragePath(url, 'articles'),
+          })));
           setMediaCaptions(article.mediaCaptions && article.mediaCaptions.length === urls.length
             ? article.mediaCaptions
             : urls.map(() => ({ en: '', ro: '' })));

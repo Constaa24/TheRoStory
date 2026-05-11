@@ -136,8 +136,8 @@ const Categories: React.FC = () => {
                       </div>
 
                       <div className="mb-6 relative overflow-hidden transition-transform group-hover:translate-y-[-2px]" style={{ aspectRatio: '16/9' }}>
-                        <img 
-                          src={getCategoryImage((category as any).slug || name.toLowerCase(), i)} 
+                        <img
+                          src={getCategoryImage(category.slug || name.toLowerCase(), i)}
                           alt={name}
                           className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
                         />

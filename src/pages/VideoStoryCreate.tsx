@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Category } from "@/lib/supabase";
-import { fetchCategories, uploadUserFile, createArticle, updateArticle, deleteStorageFile, fetchAnyArticle } from "@/lib/supabase";
+import { fetchCategories, uploadUserFile, createArticle, updateArticle, deleteStorageFile, fetchAnyArticle, extractStoragePath } from "@/lib/supabase";
 import { ARTICLE_LIMITS } from "@/lib/supabase";
 import { useLanguage } from "@/hooks/use-language";
 import { useAuth } from "@/hooks/use-auth";
@@ -81,6 +81,11 @@ const VideoStoryCreate: React.FC = () => {
           setLocation(article.location || '');
           setVideoUrl(article.mediaUrl || '');
           setPosterUrl(article.posterUrl || '');
+          // Backfill storage paths from URLs so a replacement upload during
+          // edit can clean up the previous file. Without this, the original
+          // media stayed orphaned in storage.
+          setVideoStoragePath(article.mediaUrl ? extractStoragePath(article.mediaUrl, 'articles') : null);
+          setPosterStoragePath(article.posterUrl ? extractStoragePath(article.posterUrl, 'articles') : null);
           setIsPublished(!!article.isPublished);
         }
       } catch (err) {
