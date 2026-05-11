@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Article, Category, getLocalized, parseChapters, fetchCategories, fetchPublicContent } from "@/lib/supabase";
 import { useLanguage } from "@/hooks/use-language";
 import { useFavorites } from "@/hooks/use-favorites";
-import { ArrowLeft, Heart, Share2, Printer, Play, Pause, Maximize2 } from "lucide-react";
+import { ArrowLeft, Heart, Share2, Printer, Play, Pause, Maximize2, Volume2, VolumeX } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ArticleComments } from "@/components/organisms/ArticleComments";
 
@@ -543,9 +543,13 @@ const VideoFilm: React.FC<{ article: Article; category?: Category; views?: numbe
   const content = getLocalized(article, 'content', language);
   const dek = content.split(/\n+/).filter(Boolean)[0] || '';
   const videoRef = useRef<HTMLVideoElement>(null);
+  const progressBarRef = useRef<HTMLDivElement>(null);
   const [playing, setPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
+  const [volume, setVolume] = useState(1);
+  const [muted, setMuted] = useState(false);
+  const [showVolume, setShowVolume] = useState(false);
 
   const formatTime = (s: number) => {
     if (!isFinite(s)) return '0:00';
@@ -585,6 +589,32 @@ const VideoFilm: React.FC<{ article: Article; category?: Category; views?: numbe
     if (v.requestFullscreen) v.requestFullscreen();
   };
 
+  const handleSeek = (e: React.MouseEvent<HTMLDivElement>) => {
+    const bar = progressBarRef.current;
+    const v = videoRef.current;
+    if (!bar || !v || !duration) return;
+    const rect = bar.getBoundingClientRect();
+    const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    v.currentTime = pct * duration;
+  };
+
+  const toggleMute = () => {
+    const v = videoRef.current;
+    if (!v) return;
+    v.muted = !v.muted;
+    setMuted(v.muted);
+  };
+
+  const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const v = videoRef.current;
+    if (!v) return;
+    const val = parseFloat(e.target.value);
+    v.volume = val;
+    setVolume(val);
+    if (val === 0) { v.muted = true; setMuted(true); }
+    else if (v.muted) { v.muted = false; setMuted(false); }
+  };
+
   const progressPct = duration > 0 ? (currentTime / duration) * 100 : 0;
 
   return (
@@ -609,8 +639,9 @@ const VideoFilm: React.FC<{ article: Article; category?: Category; views?: numbe
                     ref={videoRef}
                     src={article.mediaUrl}
                     poster={article.posterUrl}
-                    className="absolute inset-0 w-full h-full object-cover"
+                    className="absolute inset-0 w-full h-full object-cover cursor-pointer"
                     playsInline
+                    onClick={togglePlay}
                   />
                   {!playing && (
                     <div className="play" onClick={togglePlay}>
@@ -635,8 +666,49 @@ const VideoFilm: React.FC<{ article: Article; category?: Category; views?: numbe
                     <div className="font-ui text-[11px]" style={{ letterSpacing: '0.18em', color: 'var(--parchment)' }}>
                       {formatTime(currentTime)} / {formatTime(duration)}
                     </div>
-                    <div className="flex-1 h-0.5 rounded-full relative" style={{ background: 'rgba(255,255,255,0.2)' }}>
+                    <div
+                      ref={progressBarRef}
+                      className="flex-1 h-1.5 rounded-full relative cursor-pointer group"
+                      style={{ background: 'rgba(255,255,255,0.2)' }}
+                      onClick={handleSeek}
+                    >
                       <div className="absolute left-0 top-0 bottom-0 rounded-full transition-[width] duration-100" style={{ width: progressPct + '%', background: 'var(--gold)' }} />
+                      <div
+                        className="absolute top-1/2 -translate-y-1/2 w-3 h-3 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                        style={{ left: `calc(${progressPct}% - 6px)`, background: 'var(--gold)', boxShadow: '0 0 4px rgba(0,0,0,0.4)' }}
+                      />
+                    </div>
+                    {/* Volume */}
+                    <div
+                      className="relative"
+                      onMouseEnter={() => setShowVolume(true)}
+                      onMouseLeave={() => setShowVolume(false)}
+                    >
+                      <button
+                        onClick={toggleMute}
+                        className="w-9 h-9 grid place-items-center cursor-pointer"
+                        style={{ background: 'transparent', border: 0, color: 'var(--parchment)' }}
+                        aria-label={muted ? 'Unmute' : 'Mute'}
+                      >
+                        {muted || volume === 0 ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+                      </button>
+                      {showVolume && (
+                        <div
+                          className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-3 rounded-lg"
+                          style={{ background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.1)' }}
+                        >
+                          <input
+                            type="range"
+                            min="0"
+                            max="1"
+                            step="0.05"
+                            value={muted ? 0 : volume}
+                            onChange={handleVolumeChange}
+                            className="volume-slider"
+                            style={{ writingMode: 'vertical-lr', direction: 'rtl', width: 4, height: 80, accentColor: 'var(--gold)', cursor: 'pointer' }}
+                          />
+                        </div>
+                      )}
                     </div>
                     <button
                       onClick={fullscreen}
