@@ -14,7 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ArrowLeft, Loader2, Save, X, Plus, ArrowUp, ArrowDown, Star } from "lucide-react";
+import { ArrowLeft, Loader2, Save, X, Plus, ArrowUp, ArrowDown, Star, Image as ImageIcon } from "lucide-react";
 import { toast } from "sonner";
 import { isAbortError } from "@/lib/utils";
 import { COUNTIES } from "@/lib/constants";
@@ -32,6 +32,7 @@ const CarouselStoryCreate: React.FC = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [isPublished, setIsPublished] = useState(false);
   const imageInputRef = useRef<HTMLInputElement>(null);
+  const posterInputRef = useRef<HTMLInputElement>(null);
 
   // Form states
   const [titleEn, setTitleEn] = useState("");
@@ -42,6 +43,8 @@ const CarouselStoryCreate: React.FC = () => {
   const [location, setLocation] = useState("");
   const [items, setItems] = useState<GalleryItem[]>([]);
   const [mediaCaptions, setMediaCaptions] = useState<MediaCaption[]>([]);
+  const [posterUrl, setPosterUrl] = useState("");
+  const [posterStoragePath, setPosterStoragePath] = useState<string | null>(null);
   const isFull = items.length >= ARTICLE_LIMITS.MEDIA_URLS_MAX;
 
   const isDirty =
@@ -51,7 +54,8 @@ const CarouselStoryCreate: React.FC = () => {
     descriptionRo.trim() !== "" ||
     categoryId !== "" ||
     location !== "" ||
-    items.length > 0;
+    items.length > 0 ||
+    posterUrl !== "";
 
   useUnsavedChangesWarning(isDirty && !isSaving);
 
@@ -77,6 +81,8 @@ const CarouselStoryCreate: React.FC = () => {
           setCategoryId(article.categoryId || '');
           setLocation(article.location || '');
           setIsPublished(!!article.isPublished);
+          setPosterUrl(article.posterUrl || '');
+          setPosterStoragePath(article.posterUrl ? extractStoragePath(article.posterUrl, 'articles') : null);
           const urls = article.mediaUrls || (article.mediaUrl ? [article.mediaUrl] : []);
           // Backfill storage paths so removing a pre-existing image during
           // edit actually cleans up the file in storage instead of orphaning it.
@@ -134,6 +140,42 @@ const CarouselStoryCreate: React.FC = () => {
       setIsUploading(false);
       if (event.target) event.target.value = "";
     }
+  };
+
+  const handlePosterUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    if (!user?.id) {
+      toast.error(language === 'en' ? "Not authenticated" : "Neautentificat");
+      event.target.value = "";
+      return;
+    }
+    setIsUploading(true);
+    try {
+      if (posterStoragePath) await deleteStorageFile('articles', posterStoragePath);
+      const { publicUrl, storagePath } = await uploadUserFile(file, {
+        bucket: 'articles',
+        kind: 'image',
+        userId: user.id,
+        subfolder: 'stories/posters',
+      });
+      setPosterUrl(publicUrl);
+      setPosterStoragePath(storagePath);
+      toast.success(language === 'en' ? "Poster uploaded" : "Poster încărcat");
+    } catch (error) {
+      console.error("Error uploading poster:", error);
+      const message = error instanceof Error ? error.message : (language === 'en' ? "Error uploading poster" : "Eroare la încărcarea posterului");
+      toast.error(message);
+    } finally {
+      setIsUploading(false);
+      if (event.target) event.target.value = "";
+    }
+  };
+
+  const removePoster = () => {
+    if (posterStoragePath) void deleteStorageFile('articles', posterStoragePath);
+    setPosterUrl('');
+    setPosterStoragePath(null);
   };
 
   const removeImage = (index: number) => {
@@ -195,6 +237,7 @@ const CarouselStoryCreate: React.FC = () => {
         mediaUrl: mediaUrls[0],
         mediaUrls,
         mediaCaptions: hasAnyCaption ? mediaCaptions : undefined,
+        posterUrl: posterUrl || null,
       };
 
       if (isEditing && editingId) {
@@ -357,6 +400,61 @@ const CarouselStoryCreate: React.FC = () => {
 
             {/* RIGHT — frames */}
             <div className="flex flex-col gap-6">
+              {/* Poster (cover) — shown as the article thumbnail in listings and
+                  as the hero on the article page. Optional: falls back to the
+                  first frame for older essays without a dedicated poster. */}
+              <FormBlock title={language === 'en' ? 'Poster (cover)' : 'Poster (copertă)'}>
+                <p className="font-ui text-[11px] uppercase mb-2" style={{ letterSpacing: '0.15em', color: 'var(--text-mute)' }}>
+                  {language === 'en'
+                    ? 'Used as the article thumbnail and hero image — does not appear in the gallery itself. Falls back to the first frame if left empty.'
+                    : 'Folosită ca miniatură și ca imagine principală a articolului — nu apare în galerie. Dacă rămâne goală, se folosește primul cadru.'}
+                </p>
+
+                {posterUrl && (
+                  <div className="ph relative mb-3" data-tone="warm" style={{ aspectRatio: '16/9' }}>
+                    <img src={posterUrl} alt="" className="absolute inset-0 w-full h-full object-cover" />
+                    <button
+                      type="button"
+                      onClick={removePoster}
+                      className="absolute top-2 right-2 grid w-8 h-8 place-items-center rounded-full"
+                      style={{ background: 'var(--overlay-dark)', border: '1px solid var(--oxblood-2)', color: 'var(--oxblood-2)' }}
+                      aria-label={language === 'en' ? 'Remove poster' : 'Elimină posterul'}
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                )}
+
+                <Field label={language === 'en' ? 'Poster URL' : 'URL Poster'}>
+                  <div className="flex gap-2">
+                    <input
+                      type="url"
+                      placeholder="https://..."
+                      value={posterUrl}
+                      onChange={(e) => setPosterUrl(e.target.value)}
+                      style={{ flex: 1 }}
+                    />
+                    <input
+                      type="file"
+                      ref={posterInputRef}
+                      onChange={handlePosterUpload}
+                      accept="image/*"
+                      className="hidden"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => posterInputRef.current?.click()}
+                      disabled={isUploading}
+                      className="grid w-12 h-12 place-items-center rounded-sm cursor-pointer transition-colors hover:text-gold shrink-0"
+                      style={{ border: '1px solid var(--line)', background: 'var(--ink-2)', color: 'var(--text)' }}
+                      title={language === 'en' ? 'Upload poster' : 'Încarcă poster'}
+                    >
+                      {isUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <ImageIcon className="w-4 h-4" />}
+                    </button>
+                  </div>
+                </Field>
+              </FormBlock>
+
               <div className="flex items-end justify-between mb-1">
                 <div>
                   <div className="eyebrow mb-2">{language === 'en' ? 'Frames' : 'Cadre'}</div>

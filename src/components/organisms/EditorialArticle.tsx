@@ -166,7 +166,9 @@ export const EditorialArticle: React.FC<Props> = ({ article, views }) => {
               {related.map(r => {
                 const cat = categories.find(c => c.id === r.categoryId);
                 const tone = toneFor(r.id);
-                const cover = r.mediaUrl || r.posterUrl || r.mediaUrls?.[0];
+                const cover = r.type === 'carousel'
+                  ? (r.posterUrl || r.mediaUrls?.[0] || r.mediaUrl)
+                  : (r.posterUrl || r.mediaUrl || r.mediaUrls?.[0]);
                 return (
                   <a key={r.id} href={`/article/${r.id}`} onClick={(e) => { e.preventDefault(); navigate(`/article/${r.id}`); }} className="block group" style={{ color: 'inherit', textDecoration: 'none' }}>
                     <div className="ph relative" data-tone={tone} data-label={placeLabel(r)} style={{ aspectRatio: '3/4' }}>
@@ -381,14 +383,19 @@ const PhotoEssay: React.FC<{ article: Article; category?: Category; views?: numb
 
   return (
     <article>
-      {/* Cinematic title — full bleed */}
+      {/* Cinematic title — full bleed. Prefer the explicit poster (uploaded
+          separately as the article's cover); fall back to the first frame for
+          essays that pre-date the poster field. */}
       <section className="relative overflow-hidden" style={{ height: '100vh', minHeight: 720, borderBottom: '1px solid var(--line-soft)' }}>
         <div className="absolute inset-0">
-          {article.mediaUrl ? (
-            <img src={article.mediaUrl} alt={title} className="w-full h-full object-cover" />
-          ) : (
-            <div className="ph w-full h-full" data-tone={tone} data-label={placeLabel(article)} style={{ border: 0 }} />
-          )}
+          {(() => {
+            const hero = article.posterUrl || article.mediaUrl;
+            return hero ? (
+              <img src={hero} alt={title} className="w-full h-full object-cover" />
+            ) : (
+              <div className="ph w-full h-full" data-tone={tone} data-label={placeLabel(article)} style={{ border: 0 }} />
+            );
+          })()}
           <div className="absolute inset-0" style={{ background: 'var(--scrim-cinematic)' }} />
         </div>
 

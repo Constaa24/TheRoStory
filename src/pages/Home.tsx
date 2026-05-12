@@ -54,7 +54,7 @@ const StoryCard = React.memo<StoryCardProps>(({ article, category, language, siz
   const cover = article.type === 'video'
     ? article.posterUrl
     : article.type === 'carousel'
-      ? article.mediaUrls?.[0] || article.mediaUrl
+      ? article.posterUrl || article.mediaUrls?.[0] || article.mediaUrl
       : article.mediaUrl;
   const hasMedia = !!cover || (article.type === 'video' && !!article.mediaUrl);
 
@@ -391,8 +391,8 @@ const Home: React.FC = () => {
               <div className="grid grid-cols-1 lg:grid-cols-[1.6fr_1fr] gap-14 items-stretch">
                 <a href="#" onClick={(e) => { e.preventDefault(); handleOpenArticle(featured); }} className="block" style={{ color: 'inherit', textDecoration: 'none' }}>
                   <div className="ph relative" data-tone={toneFor(featured.id)} data-label={placeLabel(featured)} style={{ aspectRatio: '5/6' }}>
-                    {(featured.mediaUrl || featured.posterUrl) && (
-                      <img src={featured.mediaUrl || featured.posterUrl} alt={getLocalized(featured, 'title', language)} className="absolute inset-0 w-full h-full object-cover" loading="lazy" />
+                    {(featured.posterUrl || featured.mediaUrl) && (
+                      <img src={featured.posterUrl || featured.mediaUrl} alt={getLocalized(featured, 'title', language)} className="absolute inset-0 w-full h-full object-cover" loading="lazy" />
                     )}
                     <div className="absolute left-6 top-6">
                       <span className="pill" style={{ background: 'var(--overlay-deep)' }}>{language === 'en' ? 'Lead story' : 'Articolul principal'}</span>

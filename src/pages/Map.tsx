@@ -451,9 +451,14 @@ const MapPage: React.FC = () => {
                             <div className="shrink-0 w-14 h-14 overflow-hidden" style={{ border: '1px solid var(--line)' }}>
                               {art.type === 'video'
                                 ? <StoryThumbnail posterUrl={art.posterUrl} className="w-full h-full object-cover" />
-                                : art.mediaUrl
-                                  ? <img src={art.mediaUrl} alt="" className="w-full h-full object-cover" loading="lazy" />
-                                  : <div className="w-full h-full ph" data-tone="warm" />}
+                                : (() => {
+                                    const cover = art.type === 'carousel'
+                                      ? (art.posterUrl || art.mediaUrls?.[0] || art.mediaUrl)
+                                      : art.mediaUrl;
+                                    return cover
+                                      ? <img src={cover} alt="" className="w-full h-full object-cover" loading="lazy" />
+                                      : <div className="w-full h-full ph" data-tone="warm" />;
+                                  })()}
                             </div>
                             <div className="flex-1 min-w-0">
                               <div className="font-ui text-[10px] uppercase mb-1" style={{ letterSpacing: '0.18em', color: 'var(--gold)' }}>

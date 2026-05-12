@@ -557,7 +557,7 @@ const Profile: React.FC = () => {
                       <div className="flex h-full">
                         <div className="w-1/3 aspect-square overflow-hidden relative">
                           <img
-                            src={(article.type === 'video' ? article.posterUrl : article.type === 'carousel' ? article.mediaUrls?.[0] || article.mediaUrl : article.mediaUrl) || "https://images.unsplash.com/photo-1701118737005-005fc66703be?q=80&w=400"}
+                            src={(article.type === 'video' ? article.posterUrl : article.type === 'carousel' ? article.posterUrl || article.mediaUrls?.[0] || article.mediaUrl : article.mediaUrl) || "https://images.unsplash.com/photo-1701118737005-005fc66703be?q=80&w=400"}
                             alt={getLocalized(article, "title", language)}
                             className="w-full h-full object-cover grayscale-[0.2] group-hover:grayscale-0 transition-all duration-500"
                             loading="lazy"

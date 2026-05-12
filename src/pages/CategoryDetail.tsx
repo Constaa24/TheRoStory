@@ -152,7 +152,7 @@ const CategoryDetail: React.FC = () => {
                 const cover = article.type === 'video'
                   ? article.posterUrl
                   : article.type === 'carousel'
-                    ? article.mediaUrls?.[0] || article.mediaUrl
+                    ? article.posterUrl || article.mediaUrls?.[0] || article.mediaUrl
                     : article.mediaUrl;
                 const fav = isFavorited(article.id);
                 return (

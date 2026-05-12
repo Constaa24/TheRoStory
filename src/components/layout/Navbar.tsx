@@ -500,7 +500,7 @@ const NavSearchOverlay: React.FC<{ onClose: () => void; language: 'en' | 'ro' }>
                   const thumb = article.type === 'video'
                     ? article.posterUrl
                     : article.type === 'carousel'
-                      ? article.mediaUrls?.[0] ?? article.mediaUrl
+                      ? article.posterUrl ?? article.mediaUrls?.[0] ?? article.mediaUrl
                       : article.mediaUrl;
                   return (
                     <button
