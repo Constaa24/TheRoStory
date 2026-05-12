@@ -377,7 +377,7 @@ const PhotoEssay: React.FC<{ article: Article; category?: Category; views?: numb
       url,
       caption: (captions[i]?.[language] || captionTexts[i] || '').trim(),
       tone: TONES[i % TONES.length],
-      aspect: i % 3 === 0 ? '21/10' : i % 3 === 1 ? '16/9' : '4/3',
+      aspect: i % 3 === 0 ? '16/9' : i % 3 === 1 ? '16/9' : '4/3',
     }));
   }, [article, content, language]);
 
