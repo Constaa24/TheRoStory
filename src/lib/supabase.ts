@@ -137,10 +137,11 @@ export const getLocalized = (obj: Record<string, unknown>, field: string, lang: 
 export const CHAPTER_DELIMITER = "|||CHAPTER|||";
 
 export const parseChapters = (content: string): string[] => {
-  if (!content) return ["", "", "", "", ""];
-  const chapters = content.split(CHAPTER_DELIMITER);
-  while (chapters.length < 5) chapters.push("");
-  return chapters.slice(0, 5);
+  if (!content) return [""];
+  // No cap here — the chapter ceiling is enforced by the editor
+  // (MAX_CHAPTERS in TextStoryCreate). Capping here silently dropped
+  // chapters 6–10 from the round-trip even though the DB had them.
+  return content.split(CHAPTER_DELIMITER);
 };
 
 // ---- Data Fetching ----
