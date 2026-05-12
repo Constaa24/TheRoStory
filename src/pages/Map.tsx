@@ -10,6 +10,7 @@ import { StoryThumbnail } from "@/components/ui/story-thumbnail";
 import { X, MapPin, ChevronRight, Maximize2, Minimize2, RotateCcw, ArrowLeft } from "lucide-react";
 import { cn, isAbortError } from "@/lib/utils";
 import { PageHead } from "@/components/layout/PageHead";
+import { getArticleKindLabel } from "@/components/organisms/EditorialArticle";
 
 // Choropleth tiers — counties get progressively warmer as story density grows.
 // Mapped to direct gold/oxblood opacities to fit the editorial palette.
@@ -462,7 +463,7 @@ const MapPage: React.FC = () => {
                             </div>
                             <div className="flex-1 min-w-0">
                               <div className="font-ui text-[10px] uppercase mb-1" style={{ letterSpacing: '0.18em', color: 'var(--gold)' }}>
-                                {art.type === 'video' ? (language === 'en' ? 'Film' : 'Film') : art.type === 'carousel' ? (language === 'en' ? 'Photo essay' : 'Eseu foto') : (language === 'en' ? 'Long read' : 'Lectură')}
+                                {getArticleKindLabel(art, language)}
                               </div>
                               <div className="font-display italic text-[17px] leading-tight line-clamp-2" style={{ color: 'var(--parchment)' }}>
                                 {getLocalized(art, 'title', language)}

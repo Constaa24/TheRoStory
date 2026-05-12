@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Category, CHAPTER_DELIMITER, ARTICLE_LIMITS, parseChapters } from "@/lib/supabase";
+import { Category, CHAPTER_DELIMITER, ARTICLE_LIMITS, parseChapters, ArticleSubtype } from "@/lib/supabase";
 import { fetchCategories, uploadUserFile, createArticle, updateArticle, fetchAnyArticle } from "@/lib/supabase";
 
 const PER_CHAPTER_MAX = 5000;
@@ -52,6 +52,7 @@ const TextStoryCreate: React.FC = () => {
   const [mediaUrl, setMediaUrl] = useState("");
   const [chaptersEn, setChaptersEn] = useState<string[]>([""]);
   const [chaptersRo, setChaptersRo] = useState<string[]>([""]);
+  const [subtype, setSubtype] = useState<ArticleSubtype>("essay");
   const [publishImmediately, setPublishImmediately] = useState(false);
   const [showErrors, setShowErrors] = useState(false);
 
@@ -86,6 +87,7 @@ const TextStoryCreate: React.FC = () => {
           setCategoryId(article.categoryId || '');
           setLocation(article.location || '');
           setMediaUrl(article.mediaUrl || '');
+          setSubtype((article.subtype as ArticleSubtype | null) || 'essay');
           setPublishImmediately(!!article.isPublished);
           const trimTrailing = (arr: string[]): string[] => {
             const out = [...arr];
@@ -189,6 +191,7 @@ const TextStoryCreate: React.FC = () => {
 
       const payload = {
         type: 'text' as const,
+        subtype,
         titleEn,
         titleRo,
         contentEn: filledEn.join(CHAPTER_DELIMITER),
@@ -331,6 +334,25 @@ const TextStoryCreate: React.FC = () => {
                       ))}
                     </SelectContent>
                   </Select>
+                </Field>
+                <Field label={language === 'en' ? 'Format' : 'Format'}>
+                  <Select value={subtype} onValueChange={(v) => setSubtype(v as ArticleSubtype)}>
+                    <SelectTrigger className="rounded-sm border-line bg-[color:var(--ink-2)]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="essay">{language === 'en' ? 'Long read (essay)' : 'Lectură lungă (eseu)'}</SelectItem>
+                      <SelectItem value="poetry">{language === 'en' ? 'Poem' : 'Poem'}</SelectItem>
+                      <SelectItem value="short_story">{language === 'en' ? 'Short story' : 'Povestire'}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="font-ui text-[10px] uppercase mt-1.5" style={{ letterSpacing: '0.15em', color: 'var(--text-mute)' }}>
+                    {subtype === 'poetry'
+                      ? (language === 'en' ? 'Line breaks are preserved; no drop cap.' : 'Pauzele de rând sunt păstrate; fără literă inițială.')
+                      : subtype === 'short_story'
+                        ? (language === 'en' ? 'Prose layout without a drop cap.' : 'Aspect de proză, fără literă inițială.')
+                        : (language === 'en' ? 'Essay layout with a drop cap on the first chapter.' : 'Aspect de eseu, cu literă inițială în primul capitol.')}
+                  </p>
                 </Field>
               </FormBlock>
 

@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Article, Category, getLocalized, parseChapters, fetchCategories, fetchPublicContent } from "@/lib/supabase";
+import { Article, ArticleSubtype, Category, getLocalized, parseChapters, fetchCategories, fetchPublicContent } from "@/lib/supabase";
 import { useLanguage } from "@/hooks/use-language";
 import { useFavorites } from "@/hooks/use-favorites";
 import { ArrowLeft, Heart, Share2, Printer, Play, Pause, Maximize2, Volume2, VolumeX } from "lucide-react";
@@ -26,6 +26,19 @@ const readMinutes = (article: Article, language: 'en' | 'ro') => {
 };
 
 const placeLabel = (article: Article) => (article.location || '').toUpperCase();
+
+// Kind label is shown in the masthead pill, footer, and Map side panel. Text
+// articles can opt into a subtype (poetry / short story) that overrides the
+// default "Long read" copy. NULL subtype is treated as essay so legacy rows
+// keep their original wording.
+export const getArticleKindLabel = (article: Pick<Article, 'type' | 'subtype'>, language: 'en' | 'ro'): string => {
+  if (article.type === 'video') return language === 'en' ? 'Film' : 'Film';
+  if (article.type === 'carousel') return language === 'en' ? 'Photo essay' : 'Eseu foto';
+  const subtype: ArticleSubtype = (article.subtype as ArticleSubtype | null | undefined) || 'essay';
+  if (subtype === 'poetry') return language === 'en' ? 'Poem' : 'Poem';
+  if (subtype === 'short_story') return language === 'en' ? 'Short story' : 'Povestire';
+  return language === 'en' ? 'Long read' : 'Lectură lungă';
+};
 
 const formatDate = (iso: string, lang: 'en' | 'ro') => {
   try {
@@ -94,11 +107,7 @@ export const EditorialArticle: React.FC<Props> = ({ article, views }) => {
   const category = categories.find(c => c.id === article.categoryId);
   const fav = isFavorited(article.id);
 
-  const kindLabel = article.type === 'video'
-    ? (language === 'en' ? 'Film' : 'Film')
-    : article.type === 'carousel'
-      ? (language === 'en' ? 'Photo essay' : 'Eseu foto')
-      : (language === 'en' ? 'Long read' : 'Lectură lungă');
+  const kindLabel = getArticleKindLabel(article, language);
 
   return (
     <div className="screen-anim pb-20">
@@ -245,7 +254,7 @@ const Byline: React.FC<{ article: Article; views?: number }> = ({ article, views
   );
 };
 
-// ── Variant A: TEXT ARTICLE (long-form essay) ───────────────────────
+// ── Variant A: TEXT ARTICLE (long-form essay / poetry / short story) ──
 const TextArticle: React.FC<{ article: Article; category?: Category; views?: number }> = ({ article, category, views }) => {
   const { language } = useLanguage();
   const title = getLocalized(article, 'title', language);
@@ -253,10 +262,13 @@ const TextArticle: React.FC<{ article: Article; category?: Category; views?: num
   const chapters = useMemo(() => parseChapters(content).filter(Boolean), [content]);
   const tone = toneFor(article.id);
   const cover = article.mediaUrl;
+  const subtype: ArticleSubtype = (article.subtype as ArticleSubtype | null | undefined) || 'essay';
+  // Only essays get the drop cap; poetry and short stories open clean.
+  const allowDropcap = subtype === 'essay';
 
   return (
     <article>
-      <ArticleMasthead article={article} category={category} kindLabel={language === 'en' ? 'Long read' : 'Lectură lungă'} />
+      <ArticleMasthead article={article} category={category} kindLabel={getArticleKindLabel(article, language)} />
 
       {/* Title */}
       <section style={{ padding: '60px 0 40px' }}>
@@ -289,16 +301,19 @@ const TextArticle: React.FC<{ article: Article; category?: Category; views?: num
         </section>
       )}
 
-      {/* Body */}
+      {/* Body — poetry uses a narrower measure to feel more like a page. */}
       <section style={{ padding: '20px 0 60px' }}>
         <div className="ed-container">
-          <div className="max-w-[720px] mx-auto" style={{ fontSize: 20, lineHeight: 1.75, color: 'var(--text)' }}>
+          <div
+            className="mx-auto"
+            style={{ maxWidth: subtype === 'poetry' ? 560 : 720, fontSize: 20, lineHeight: 1.75, color: 'var(--text)' }}
+          >
             {chapters.length > 1 ? (
               chapters.map((chapter, i) => (
-                <ChapterBlock key={i} index={i} text={chapter} />
+                <ChapterBlock key={i} index={i} text={chapter} subtype={subtype} allowDropcap={allowDropcap} />
               ))
             ) : (
-              <BodyContent text={content} />
+              <BodyContent text={content} subtype={subtype} dropcap={allowDropcap} />
             )}
           </div>
         </div>
@@ -307,8 +322,7 @@ const TextArticle: React.FC<{ article: Article; category?: Category; views?: num
   );
 };
 
-const ChapterBlock: React.FC<{ index: number; text: string }> = ({ index, text }) => {
-  const { language } = useLanguage();
+const ChapterBlock: React.FC<{ index: number; text: string; subtype: ArticleSubtype; allowDropcap: boolean }> = ({ index, text, subtype, allowDropcap }) => {
   return (
     <>
       {index > 0 && (
@@ -316,16 +330,22 @@ const ChapterBlock: React.FC<{ index: number; text: string }> = ({ index, text }
           className="font-display italic font-medium"
           style={{ fontSize: 40, lineHeight: 1.1, marginTop: 64, marginBottom: 24, color: 'var(--parchment)', textWrap: 'balance' as React.CSSProperties['textWrap'] }}
         >
-          {language === 'en' ? `${romanNumeral(index + 1)}.` : `${romanNumeral(index + 1)}.`}
+          {`${romanNumeral(index + 1)}.`}
         </h2>
       )}
-      <BodyContent text={text} dropcap={index === 0} />
+      <BodyContent text={text} subtype={subtype} dropcap={allowDropcap && index === 0} />
     </>
   );
 };
 
-const BodyContent: React.FC<{ text: string; dropcap?: boolean }> = ({ text, dropcap }) => {
-  const paragraphs = text.split(/\n+/).map(p => p.trim()).filter(Boolean);
+// Poetry preserves line breaks within a stanza and splits stanzas only on
+// blank lines. Essays and short stories keep the original behaviour where
+// every newline is a paragraph boundary.
+const BodyContent: React.FC<{ text: string; subtype: ArticleSubtype; dropcap?: boolean }> = ({ text, subtype, dropcap }) => {
+  const isPoetry = subtype === 'poetry';
+  const paragraphs = (isPoetry ? text.split(/\n{2,}/) : text.split(/\n+/))
+    .map(p => (isPoetry ? p.replace(/^\n+|\n+$/g, '') : p.trim()))
+    .filter(Boolean);
   return (
     <>
       {paragraphs.map((p, i) => {
@@ -338,7 +358,15 @@ const BodyContent: React.FC<{ text: string; dropcap?: boolean }> = ({ text, drop
         }
         const cls = i === 0 && dropcap ? 'dropcap' : '';
         return (
-          <p key={i} className={cls} style={{ marginTop: i === 0 ? 0 : '1em', textWrap: 'pretty' as React.CSSProperties['textWrap'] }}>
+          <p
+            key={i}
+            className={cls}
+            style={{
+              marginTop: i === 0 ? 0 : '1em',
+              textWrap: 'pretty' as React.CSSProperties['textWrap'],
+              ...(isPoetry ? { whiteSpace: 'pre-line' as const } : null),
+            }}
+          >
             {p}
           </p>
         );

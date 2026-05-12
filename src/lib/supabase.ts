@@ -71,6 +71,10 @@ export type Category = {
 
 export type MediaCaption = { en: string; ro: string };
 
+// Subtype is a rendering hint for `text` articles only. NULL/undefined is
+// treated as 'essay' so existing rows render unchanged.
+export type ArticleSubtype = 'essay' | 'poetry' | 'short_story';
+
 export type Article = {
   id: string;
   titleEn: string;
@@ -83,6 +87,7 @@ export type Article = {
   userId: string;
   isPublished: boolean;
   type: 'text' | 'video' | 'carousel';
+  subtype?: ArticleSubtype | null;
   mediaUrls?: string[];
   mediaCaptions?: MediaCaption[];
   location?: string;
@@ -188,7 +193,7 @@ export const fetchArticleCategoryCounts = async (): Promise<Record<string, numbe
 export const fetchMapArticles = async (): Promise<Article[]> => {
   const { data, error } = await supabase
     .from('articles')
-    .select('id, title_en, title_ro, type, media_url, poster_url, location, category_id, user_id, is_published, created_at, content_en, content_ro')
+    .select('id, title_en, title_ro, type, subtype, media_url, poster_url, location, category_id, user_id, is_published, created_at, content_en, content_ro')
     .eq('is_published', true)
     .not('location', 'is', null)
     .order('created_at', { ascending: false })
@@ -243,6 +248,7 @@ export const fetchPublicContent = async (onlyPublished: boolean = true): Promise
  */
 export type NewArticleInput = {
   type: 'text' | 'video' | 'carousel';
+  subtype?: ArticleSubtype | null;
   titleEn: string;
   titleRo: string;
   contentEn: string;
@@ -324,6 +330,7 @@ export const createArticle = async (input: NewArticleInput): Promise<{ id: strin
     user_id: input.userId,
     is_published: input.isPublished,
     type: input.type,
+    subtype: input.type === 'text' ? (input.subtype ?? null) : null,
     created_at: new Date().toISOString(),
   };
 
@@ -378,6 +385,7 @@ export const updateArticle = async (input: UpdateArticleInput): Promise<void> =>
     poster_url: input.posterUrl ?? null,
     media_urls: input.mediaUrls ?? null,
     media_captions: input.mediaCaptions ?? null,
+    subtype: input.type === 'text' ? (input.subtype ?? null) : null,
     is_published: input.isPublished,
   };
 
