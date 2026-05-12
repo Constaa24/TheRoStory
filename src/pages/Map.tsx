@@ -189,20 +189,16 @@ const MapPage: React.FC = () => {
             <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-12 items-start">
               <div className="lg:sticky lg:top-24">
                 <div
-                  className="relative overflow-hidden"
+                  className="relative overflow-hidden p-3 sm:p-6 sm:pb-14"
                   style={{
                     background: 'radial-gradient(ellipse at 50% 40%, rgba(var(--line-rgb), 0.06), transparent 60%), var(--ink-2)',
                     border: '1px solid var(--line)',
                     borderRadius: 4,
-                    // Extra bottom padding so the scale bar and "100 KM"
-                    // label sit clear of Romania's southern coastline on
-                    // narrow viewports where the map is most compressed.
-                    padding: '24px 24px 56px',
                     aspectRatio: '4/3',
                   }}
                 >
-                  {/* Compass */}
-                  <div className="absolute top-6 right-7 flex flex-col items-center gap-1.5 font-ui text-[10px] uppercase" style={{ letterSpacing: '0.2em', color: 'var(--text-mute)' }}>
+                  {/* Compass — decorative, hidden on phones where it would overlap the map */}
+                  <div className="hidden sm:flex absolute top-6 right-7 flex-col items-center gap-1.5 font-ui text-[10px] uppercase" style={{ letterSpacing: '0.2em', color: 'var(--text-mute)' }}>
                     <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
                       <circle cx="16" cy="16" r="14" stroke="var(--line)" />
                       <path d="M16 4 L19 16 L16 28 L13 16 Z" fill="var(--gold)" opacity=".4" />
@@ -211,13 +207,13 @@ const MapPage: React.FC = () => {
                     <span>N</span>
                   </div>
 
-                  {/* Coords (decorative) */}
-                  <div className="absolute top-6 left-7 font-display italic text-[13px]" style={{ color: 'var(--text-mute)' }}>
+                  {/* Coords (decorative) — hidden on phones */}
+                  <div className="hidden sm:block absolute top-6 left-7 font-display italic text-[13px]" style={{ color: 'var(--text-mute)' }}>
                     44.4°N · 26.1°E
                   </div>
 
-                  {/* Zoom / reset controls */}
-                  <div className="absolute bottom-6 left-7 z-10 flex flex-col gap-2">
+                  {/* Zoom / reset controls — overlaid on tablet+, moved below the map on phones */}
+                  <div className="hidden sm:flex absolute bottom-6 left-7 z-10 flex-col gap-2">
                     <button
                       className="grid w-10 h-10 rounded-full place-items-center transition-colors"
                       style={{ border: '1px solid var(--line)', background: 'var(--ink)', color: 'var(--text)' }}
@@ -238,8 +234,8 @@ const MapPage: React.FC = () => {
                     </button>
                   </div>
 
-                  {/* Scale */}
-                  <div className="absolute bottom-6 right-7 font-ui text-[10px] uppercase" style={{ letterSpacing: '0.2em', color: 'var(--text-mute)' }}>
+                  {/* Scale — hidden on phones (shown below the map instead) */}
+                  <div className="hidden sm:block absolute bottom-6 right-7 font-ui text-[10px] uppercase" style={{ letterSpacing: '0.2em', color: 'var(--text-mute)' }}>
                     <div className="flex items-center gap-2">
                       <span style={{ width: 60, height: 1, background: 'var(--gold)', display: 'inline-block' }} />
                       <span>100 KM</span>
@@ -367,6 +363,34 @@ const MapPage: React.FC = () => {
                       })}
                     </svg>
                   </motion.div>
+                </div>
+
+                {/* Mobile control strip — phones only, replaces the overlaid zoom/scale */}
+                <div className="sm:hidden flex items-center justify-between mt-4">
+                  <div className="flex gap-2">
+                    <button
+                      className="grid w-10 h-10 rounded-full place-items-center transition-colors"
+                      style={{ border: '1px solid var(--line)', background: 'var(--ink)', color: 'var(--text)' }}
+                      onClick={() => setIsZoomed(!isZoomed)}
+                      title={isZoomed ? t("map.zoomOut") : t("map.zoomIn")}
+                      aria-label={isZoomed ? t("map.zoomOut") : t("map.zoomIn")}
+                    >
+                      {isZoomed ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+                    </button>
+                    <button
+                      className="grid w-10 h-10 rounded-full place-items-center transition-colors"
+                      style={{ border: '1px solid var(--line)', background: 'var(--ink)', color: 'var(--text)' }}
+                      onClick={() => { setSelectedLocation(null); setIsZoomed(false); }}
+                      title={t("map.reset")}
+                      aria-label={t("map.reset")}
+                    >
+                      <RotateCcw className="w-4 h-4" />
+                    </button>
+                  </div>
+                  <div className="font-ui text-[10px] uppercase flex items-center gap-2" style={{ letterSpacing: '0.2em', color: 'var(--text-mute)' }}>
+                    <span style={{ width: 40, height: 1, background: 'var(--gold)', display: 'inline-block' }} />
+                    <span>100 KM</span>
+                  </div>
                 </div>
 
                 {/* Legend strip */}

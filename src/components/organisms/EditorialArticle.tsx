@@ -546,12 +546,22 @@ const VideoFilm: React.FC<{ article: Article; category?: Category; views?: numbe
   const dek = content.split(/\n+/).filter(Boolean)[0] || '';
   const videoRef = useRef<HTMLVideoElement>(null);
   const progressBarRef = useRef<HTMLDivElement>(null);
+  const volumeContainerRef = useRef<HTMLDivElement>(null);
+  // Hover-close grace period: the popup sits a few px above the button, so
+  // the cursor briefly leaves the container while crossing the gap. Without
+  // a delay, mouseleave fires and the slider snaps shut before the user
+  // reaches it. The timer is canceled if mouseenter fires again (popup or
+  // button).
+  const hideTimerRef = useRef<number | null>(null);
   const [playing, setPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [volume, setVolume] = useState(1);
   const [muted, setMuted] = useState(false);
   const [showVolume, setShowVolume] = useState(false);
+  // Touch devices don't fire hover events, so the slider needs a tap to open
+  // and an outside-tap (or second tap) to close. Detect once and adapt.
+  const [isTouch, setIsTouch] = useState(false);
 
   const formatTime = (s: number) => {
     if (!isFinite(s)) return '0:00';
@@ -579,6 +589,28 @@ const VideoFilm: React.FC<{ article: Article; category?: Category; views?: numbe
     };
   }, [article.mediaUrl]);
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const mql = window.matchMedia('(hover: none)');
+    setIsTouch(mql.matches);
+    const onChange = (e: MediaQueryListEvent) => setIsTouch(e.matches);
+    mql.addEventListener('change', onChange);
+    return () => mql.removeEventListener('change', onChange);
+  }, []);
+
+  // On touch devices the slider opens on tap; close it when the user taps
+  // anywhere outside the volume cluster.
+  useEffect(() => {
+    if (!showVolume || !isTouch) return;
+    const onPointerDown = (e: PointerEvent) => {
+      if (!volumeContainerRef.current?.contains(e.target as Node)) {
+        setShowVolume(false);
+      }
+    };
+    document.addEventListener('pointerdown', onPointerDown);
+    return () => document.removeEventListener('pointerdown', onPointerDown);
+  }, [showVolume, isTouch]);
+
   const togglePlay = () => {
     const v = videoRef.current;
     if (!v) return;
@@ -588,8 +620,61 @@ const VideoFilm: React.FC<{ article: Article; category?: Category; views?: numbe
   const fullscreen = () => {
     const v = videoRef.current;
     if (!v) return;
-    if (v.requestFullscreen) v.requestFullscreen();
+    // iOS Safari doesn't expose the standard Fullscreen API on arbitrary
+    // elements; the video element ships its own `webkitEnterFullscreen`.
+    // Try the standard path first, then fall back through the vendor APIs.
+    const vAny = v as HTMLVideoElement & {
+      webkitRequestFullscreen?: () => void;
+      webkitEnterFullscreen?: () => void;
+    };
+    const enterIOS = () => {
+      if (typeof vAny.webkitEnterFullscreen === 'function') {
+        try { vAny.webkitEnterFullscreen(); } catch { /* ignore */ }
+      }
+    };
+    if (typeof v.requestFullscreen === 'function') {
+      v.requestFullscreen().catch(enterIOS);
+      return;
+    }
+    if (typeof vAny.webkitRequestFullscreen === 'function') {
+      vAny.webkitRequestFullscreen();
+      return;
+    }
+    enterIOS();
   };
+
+  const handleVolumeButtonClick = () => {
+    // Desktop keeps the quick mute-toggle on click (hover already exposes
+    // the slider). Touch has no hover, so tapping the button opens/closes
+    // the slider — that's how the user scales volume on mobile.
+    if (isTouch) {
+      setShowVolume(prev => !prev);
+    } else {
+      toggleMute();
+    }
+  };
+
+  const cancelVolumeHide = () => {
+    if (hideTimerRef.current !== null) {
+      window.clearTimeout(hideTimerRef.current);
+      hideTimerRef.current = null;
+    }
+  };
+
+  const handleVolumeMouseEnter = () => {
+    cancelVolumeHide();
+    setShowVolume(true);
+  };
+
+  const handleVolumeMouseLeave = () => {
+    cancelVolumeHide();
+    hideTimerRef.current = window.setTimeout(() => {
+      setShowVolume(false);
+      hideTimerRef.current = null;
+    }, 200);
+  };
+
+  useEffect(() => () => cancelVolumeHide(), []);
 
   const handleSeek = (e: React.MouseEvent<HTMLDivElement>) => {
     const bar = progressBarRef.current;
@@ -682,21 +767,23 @@ const VideoFilm: React.FC<{ article: Article; category?: Category; views?: numbe
                     </div>
                     {/* Volume */}
                     <div
+                      ref={volumeContainerRef}
                       className="relative"
-                      onMouseEnter={() => setShowVolume(true)}
-                      onMouseLeave={() => setShowVolume(false)}
+                      onMouseEnter={isTouch ? undefined : handleVolumeMouseEnter}
+                      onMouseLeave={isTouch ? undefined : handleVolumeMouseLeave}
                     >
                       <button
-                        onClick={toggleMute}
+                        onClick={handleVolumeButtonClick}
                         className="w-9 h-9 grid place-items-center cursor-pointer"
                         style={{ background: 'transparent', border: 0, color: 'var(--parchment)' }}
-                        aria-label={muted ? 'Unmute' : 'Mute'}
+                        aria-label={isTouch ? 'Volume' : (muted ? 'Unmute' : 'Mute')}
+                        aria-expanded={isTouch ? showVolume : undefined}
                       >
                         {muted || volume === 0 ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
                       </button>
                       {showVolume && (
                         <div
-                          className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-3 rounded-lg"
+                          className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-3 rounded-lg flex flex-col items-center gap-2"
                           style={{ background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.1)' }}
                         >
                           <input
@@ -708,7 +795,18 @@ const VideoFilm: React.FC<{ article: Article; category?: Category; views?: numbe
                             onChange={handleVolumeChange}
                             className="volume-slider"
                             style={{ writingMode: 'vertical-lr', direction: 'rtl', width: 4, height: 80, accentColor: 'var(--gold)', cursor: 'pointer' }}
+                            aria-label="Volume"
                           />
+                          {isTouch && (
+                            <button
+                              onClick={toggleMute}
+                              className="grid place-items-center cursor-pointer"
+                              style={{ background: 'transparent', border: 0, color: 'var(--parchment)', padding: 2 }}
+                              aria-label={muted ? 'Unmute' : 'Mute'}
+                            >
+                              {muted || volume === 0 ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
+                            </button>
+                          )}
                         </div>
                       )}
                     </div>
