@@ -63,16 +63,25 @@ const Terms = lazy(() => import("@/pages/Terms"));
 type FooterItem = { label: string; href: string };
 
 function FooterCol({ title, items }: { title: string; items: FooterItem[] }) {
+  const columns = [];
+  for (let i = 0; i < items.length; i += 5) {
+    columns.push(items.slice(i, i + 5));
+  }
+
   return (
     <div>
       <div className="eyebrow mb-4">{title}</div>
-      <ul className="list-none p-0 m-0 flex flex-col gap-3">
-        {items.map(i => (
-          <li key={i.label}>
-            <Link to={i.href} className="text-ink-dim hover:text-gold text-[15px] transition-colors">{i.label}</Link>
-          </li>
+      <div className="flex flex-wrap gap-x-12 gap-y-6">
+        {columns.map((col, idx) => (
+          <ul key={idx} className="list-none p-0 m-0 flex flex-col gap-3 min-w-[120px]">
+            {col.map(i => (
+              <li key={i.label}>
+                <Link to={i.href} className="text-ink-dim hover:text-gold text-[15px] transition-colors">{i.label}</Link>
+              </li>
+            ))}
+          </ul>
         ))}
-      </ul>
+      </div>
     </div>
   );
 }
