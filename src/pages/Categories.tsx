@@ -13,7 +13,8 @@ const CATEGORY_IMAGES: Record<string, string> = {
   "historical-figures": "/categories/cat_historical_figures_new.png",
   "traditions": "/categories/cat_2.png",
   "myths": "/categories/cat_1.png",
-  "nature": "/categories/cat_nature_new.png"
+  "nature": "/categories/cat_nature_new.png",
+  "art": "/categories/cat_art_new.png"
 };
 
 const getCategoryImage = (slug: string, index: number) => {
