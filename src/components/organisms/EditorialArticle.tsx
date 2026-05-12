@@ -263,8 +263,10 @@ const TextArticle: React.FC<{ article: Article; category?: Category; views?: num
   const tone = toneFor(article.id);
   const cover = article.mediaUrl;
   const subtype: ArticleSubtype = (article.subtype as ArticleSubtype | null | undefined) || 'essay';
-  // Only essays get the drop cap; poetry and short stories open clean.
-  const allowDropcap = subtype === 'essay';
+  // Essays and poems both lead each chapter with a styled first letter
+  // (different class per subtype — see BodyContent). Short stories open
+  // clean to keep the prose feel.
+  const allowDropcap = subtype === 'essay' || subtype === 'poetry';
 
   return (
     <article>
@@ -325,15 +327,24 @@ const TextArticle: React.FC<{ article: Article; category?: Category; views?: num
 const ChapterBlock: React.FC<{ index: number; text: string; subtype: ArticleSubtype; allowDropcap: boolean }> = ({ index, text, subtype, allowDropcap }) => {
   return (
     <>
-      {index > 0 && (
-        <h2
-          className="font-display italic font-medium"
-          style={{ fontSize: 40, lineHeight: 1.1, marginTop: 64, marginBottom: 24, color: 'var(--parchment)', textWrap: 'balance' as React.CSSProperties['textWrap'] }}
-        >
-          {`${romanNumeral(index + 1)}.`}
-        </h2>
-      )}
-      <BodyContent text={text} subtype={subtype} dropcap={allowDropcap && index === 0} />
+      {/* Every chapter — including the first — shows its Roman numeral so
+          the rhythm is consistent. The first chapter sits flush against the
+          lead image, while later chapters get a generous top margin to act
+          as a clear section break. */}
+      <h2
+        className="font-display italic font-medium"
+        style={{
+          fontSize: 40,
+          lineHeight: 1.1,
+          marginTop: index === 0 ? 0 : 64,
+          marginBottom: 24,
+          color: 'var(--parchment)',
+          textWrap: 'balance' as React.CSSProperties['textWrap'],
+        }}
+      >
+        {`${romanNumeral(index + 1)}.`}
+      </h2>
+      <BodyContent text={text} subtype={subtype} dropcap={allowDropcap} />
     </>
   );
 };
@@ -343,6 +354,9 @@ const ChapterBlock: React.FC<{ index: number; text: string; subtype: ArticleSubt
 // every newline is a paragraph boundary.
 const BodyContent: React.FC<{ text: string; subtype: ArticleSubtype; dropcap?: boolean }> = ({ text, subtype, dropcap }) => {
   const isPoetry = subtype === 'poetry';
+  // Essays get the floated drop cap; poems get a smaller versal-style
+  // initial that doesn't float (so it doesn't break poetic line wraps).
+  const initialClass = isPoetry ? 'poem-initial' : 'dropcap';
   const paragraphs = (isPoetry ? text.split(/\n{2,}/) : text.split(/\n+/))
     .map(p => (isPoetry ? p.replace(/^\n+|\n+$/g, '') : p.trim()))
     .filter(Boolean);
@@ -356,7 +370,7 @@ const BodyContent: React.FC<{ text: string; subtype: ArticleSubtype; dropcap?: b
             </blockquote>
           );
         }
-        const cls = i === 0 && dropcap ? 'dropcap' : '';
+        const cls = i === 0 && dropcap ? initialClass : '';
         return (
           <p
             key={i}

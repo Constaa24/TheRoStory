@@ -349,6 +349,21 @@
   color: var(--gold);
 }
 
+/* Poem versal — smaller, inline initial letter. We can't use a floated
+   drop cap here because poetry preserves single newlines (pre-line) and
+   a floated letter would wrap the second line under it instead of beside,
+   breaking the poem's intended line shape. */
+.poem-initial::first-letter {
+  font-family: var(--display);
+  font-style: italic;
+  font-weight: 500;
+  font-size: 1.8em;
+  line-height: 1;
+  color: var(--gold);
+  padding-right: 0.04em;
+  letter-spacing: -0.01em;
+}
+
 /* Pull quote — long-form articles */
 .pull {
   font-family: var(--display);
