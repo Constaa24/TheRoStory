@@ -4,34 +4,17 @@ import { useLanguage } from "@/hooks/use-language";
 import { useFavorites } from "@/hooks/use-favorites";
 import { ChevronRight, ChevronLeft, ArrowRight, Heart, Play, Images } from "lucide-react";
 import { cn, isAbortError } from "@/lib/utils";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { PageHead } from "@/components/layout/PageHead";
 import { SITE_NAME, SITE_URL } from "@/lib/constants";
+import { toneFor, readMinutes, placeLabel } from "@/lib/article-utils";
 
 const PAGE_SIZE = 9;
-
-// Match design tones to a stable per-article hash for visual variety in placeholders.
-const TONES = ["warm", "forest", "sky", "oxblood", "bone"] as const;
-const toneFor = (id: string) => TONES[Math.abs(hashCode(id)) % TONES.length];
-function hashCode(s: string) {
-  let h = 0;
-  for (let i = 0; i < s.length; i++) h = ((h << 5) - h) + s.charCodeAt(i);
-  return h | 0;
-}
 
 const typeLabel = (article: Article, language: 'en' | 'ro') => {
   if (article.type === 'video') return language === 'en' ? 'Film' : 'Film';
   if (article.type === 'carousel') return language === 'en' ? 'Photo essay' : 'Eseu foto';
   return language === 'en' ? 'Long read' : 'Lectură';
-};
-
-const placeLabel = (article: Article) => (article.location || '').toUpperCase();
-
-// Approximate read minutes from content length
-const readMinutes = (article: Article, language: 'en' | 'ro') => {
-  const text = getLocalized(article, 'content', language);
-  const words = text.split(/\s+/).filter(Boolean).length;
-  return Math.max(3, Math.round(words / 220));
 };
 
 interface StoryCardProps {
@@ -40,11 +23,10 @@ interface StoryCardProps {
   language: 'en' | 'ro';
   size?: 'lg' | 'wide' | 'md';
   isArticleFavorited: boolean;
-  onOpen: (article: Article) => void;
   onFavoriteToggle: (e: React.MouseEvent, articleId: string) => void;
 }
 
-const StoryCard = React.memo<StoryCardProps>(({ article, category, language, size = 'md', isArticleFavorited, onOpen, onFavoriteToggle }) => {
+const StoryCard = React.memo<StoryCardProps>(({ article, category, language, size = 'md', isArticleFavorited, onFavoriteToggle }) => {
   const dims = size === 'lg'
     ? { aspect: '4/5', titleSize: 38 }
     : size === 'wide'
@@ -59,9 +41,9 @@ const StoryCard = React.memo<StoryCardProps>(({ article, category, language, siz
   const hasMedia = !!cover || (article.type === 'video' && !!article.mediaUrl);
 
   return (
-    <a
-      href="#"
-      onClick={(e) => { e.preventDefault(); onOpen(article); }}
+    <Link
+      to={`/article/${article.id}`}
+      state={{ from: '/' }}
       className="block cursor-pointer group"
       style={{ color: 'inherit', textDecoration: 'none' }}
     >
@@ -149,7 +131,7 @@ const StoryCard = React.memo<StoryCardProps>(({ article, category, language, siz
           {getLocalized(article, 'content', language).length > 140 ? '…' : ''}
         </p>
       </div>
-    </a>
+    </Link>
   );
 });
 StoryCard.displayName = 'StoryCard';
@@ -185,8 +167,6 @@ const Home: React.FC = () => {
 
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
   const categoryMap = useMemo(() => new Map(categories.map((c) => [c.id, c])), [categories]);
-
-  const handleOpenArticle = useCallback((a: Article) => navigate(`/article/${a.id}`, { state: { from: '/' } }), [navigate]);
 
   const handleRandomStory = async () => {
     const a = await fetchRandomArticle();
@@ -389,7 +369,7 @@ const Home: React.FC = () => {
               />
 
               <div className="grid grid-cols-1 lg:grid-cols-[1.6fr_1fr] gap-14 items-stretch">
-                <a href="#" onClick={(e) => { e.preventDefault(); handleOpenArticle(featured); }} className="block" style={{ color: 'inherit', textDecoration: 'none' }}>
+                <Link to={`/article/${featured.id}`} state={{ from: '/' }} className="block" style={{ color: 'inherit', textDecoration: 'none' }}>
                   <div className="ph relative" data-tone={toneFor(featured.id)} data-label={placeLabel(featured)} style={{ aspectRatio: '5/6' }}>
                     {(featured.posterUrl || featured.mediaUrl) && (
                       <img src={featured.posterUrl || featured.mediaUrl} alt={getLocalized(featured, 'title', language)} className="absolute inset-0 w-full h-full object-cover" loading="lazy" />
@@ -413,7 +393,7 @@ const Home: React.FC = () => {
                       {getLocalized(featured, 'content', language).length > 220 ? '…' : ''}
                     </p>
                   </div>
-                </a>
+                </Link>
 
                 <div className="flex flex-col gap-12 justify-between">
                   {[second, third].filter(Boolean).map(s => (
@@ -424,7 +404,6 @@ const Home: React.FC = () => {
                       language={language}
                       size="wide"
                       isArticleFavorited={isFavorited(s!.id)}
-                      onOpen={handleOpenArticle}
                       onFavoriteToggle={handleFavoriteToggle}
                     />
                   ))}
@@ -513,7 +492,6 @@ const Home: React.FC = () => {
                       language={language}
                       size="md"
                       isArticleFavorited={isFavorited(article.id)}
-                      onOpen={handleOpenArticle}
                       onFavoriteToggle={handleFavoriteToggle}
                     />
                   ))}

@@ -22,7 +22,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { Article, getLocalized } from "@/lib/supabase";
-import { fetchUserFavorites, toggleFavorite, deleteOwnAccount, exportOwnData, supabase, deleteStorageFile, extractStoragePath } from "@/lib/supabase";
+import { fetchUserFavorites, toggleFavorite, deleteOwnAccount, exportOwnData, supabase, deleteStorageFile, extractStoragePath, uploadUserFile } from "@/lib/supabase";
 import { isAbortError } from "@/lib/utils";
 import { Camera, Loader2, Shield, Heart, ChevronRight, CheckCircle2, AlertCircle, Trash2, Download } from "lucide-react";
 import { motion } from "framer-motion";
@@ -197,42 +197,22 @@ const Profile: React.FC = () => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (!file.type.startsWith('image/')) {
-      toast.error(language === 'en' ? "Please select a valid image file" : "Te rugăm să selectezi un fișier imagine valid");
-      return;
-    }
-
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error(language === 'en' ? "Image must be under 5MB" : "Imaginea trebuie să fie sub 5MB");
-      return;
-    }
-
-    const ALLOWED_EXTENSIONS = ['jpg', 'jpeg', 'png', 'webp'];
-    const extension = (file.name.split('.').pop() || '').toLowerCase();
-    if (!ALLOWED_EXTENSIONS.includes(extension)) {
-      toast.error(language === 'en' ? "Only JPG, PNG, and WebP images are allowed" : "Doar imagini JPG, PNG și WebP sunt permise");
-      return;
-    }
-
     setIsUploading(true);
     // Capture the previous avatar's storage path so we can clean it up
     // after the new upload commits. Without this, every avatar change
     // leaves the old file behind in storage forever.
     const previousAvatarPath = extractStoragePath(avatarUrl, 'avatars');
     try {
-      const path = `${user.id}/${crypto.randomUUID()}.${extension}`;
-
-      // Upload to Supabase Storage
-      const { error: uploadError } = await supabase.storage
-        .from('avatars')
-        .upload(path, file, { upsert: true });
-
-      if (uploadError) throw uploadError;
-
-      // Get public URL
-      const { data: { publicUrl } } = supabase.storage
-        .from('avatars')
-        .getPublicUrl(path);
+      // uploadUserFile centralizes MIME prefix, extension allowlist, and
+      // size validation; it also writes under the user's RLS-scoped path.
+      // Avatars are capped at 5 MB here (the helper's default is 10 MB)
+      // because profile pictures should never need more than that.
+      const { publicUrl, storagePath } = await uploadUserFile(file, {
+        bucket: 'avatars',
+        kind: 'image',
+        userId: user.id,
+        maxBytes: 5 * 1024 * 1024,
+      });
 
       // Update profile — clean up uploaded file if this fails
       const { error: profileError } = await supabase
@@ -244,14 +224,13 @@ const Profile: React.FC = () => {
         .eq('id', user.id);
 
       if (profileError) {
-        // Fire-and-forget cleanup — don't await so profileError always propagates
-        supabase.storage.from('avatars').remove([path]).catch(() => {});
+        void deleteStorageFile('avatars', storagePath);
         throw profileError;
       }
 
       // The profile update succeeded — only now is it safe to remove the
       // previous avatar file. Best-effort; failures are non-fatal.
-      if (previousAvatarPath && previousAvatarPath !== path) {
+      if (previousAvatarPath && previousAvatarPath !== storagePath) {
         void deleteStorageFile('avatars', previousAvatarPath);
       }
 
@@ -261,8 +240,14 @@ const Profile: React.FC = () => {
       setAvatarUrl(publicUrl);
       toast.success(t("profile.success"));
     } catch (error) {
+      // uploadUserFile throws with a human-readable message for validation
+      // failures (too large, wrong type, wrong extension). Surface that
+      // when available so the user knows what to fix.
       console.error("Error uploading avatar:", error);
-      toast.error(t("profile.error"));
+      const message = error instanceof Error && error.message
+        ? error.message
+        : t("profile.error");
+      toast.error(message);
     } finally {
       if (isMountedRef.current) setIsUploading(false);
       // Reset the file input so the same file can be re-selected if the

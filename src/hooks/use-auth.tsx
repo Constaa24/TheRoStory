@@ -19,7 +19,6 @@ interface AuthContextType {
   isLoading: boolean;
   isAdmin: boolean;
   isWriter: boolean;
-  isReader: boolean;
   isEmailVerified: boolean;
   isRecoveryMode: boolean;
   login: () => void;
@@ -377,7 +376,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       isLoading,
       isAdmin: role === 'admin',
       isWriter: role === 'writer',
-      isReader: role === 'reader',
       isEmailVerified: !!user?.emailVerified,
       isRecoveryMode,
       login,

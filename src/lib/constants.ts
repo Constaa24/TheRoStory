@@ -9,3 +9,8 @@ export const COUNTIES = [
 // Site
 export const SITE_URL = "https://therostory.com";
 export const SITE_NAME = "The RoStory";
+
+// Sentinel for the "no location" option in county Selects. Radix Select
+// forbids empty string values on SelectItem, so we route through this
+// constant and map back to '' before persisting.
+export const LOCATION_NONE = "__none__";

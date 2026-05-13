@@ -129,11 +129,14 @@ export const ArticleComments: React.FC<Props> = ({ articleId }) => {
     }
     const trimmed = newComment.trim();
     if (!trimmed) return;
-    if (trimmed.length > 1000) {
+    // Aligned with the DB CHECK constraint (`comments_content_length` ≤ 2000
+    // in migration 20260507000000_audit_hardening.sql). Anything larger
+    // would be rejected server-side anyway — fail fast with a friendly toast.
+    if (trimmed.length > 2000) {
       toast.error(
         language === "en"
-          ? "Comment must be under 1000 characters"
-          : "Comentariul trebuie să aibă sub 1000 de caractere"
+          ? "Comment must be under 2000 characters"
+          : "Comentariul trebuie să aibă sub 2000 de caractere"
       );
       return;
     }
@@ -221,11 +224,11 @@ export const ArticleComments: React.FC<Props> = ({ articleId }) => {
     if (!user) return;
     const trimmed = editContent.trim();
     if (!trimmed) return;
-    if (trimmed.length > 1000) {
+    if (trimmed.length > 2000) {
       toast.error(
         language === "en"
-          ? "Comment must be under 1000 characters"
-          : "Comentariul trebuie să aibă sub 1000 de caractere"
+          ? "Comment must be under 2000 characters"
+          : "Comentariul trebuie să aibă sub 2000 de caractere"
       );
       return;
     }
@@ -307,14 +310,14 @@ export const ArticleComments: React.FC<Props> = ({ articleId }) => {
                   value={newComment}
                   onChange={(e) => setNewComment(e.target.value)}
                   className="bg-transparent border-line min-h-[100px] font-serif"
-                  maxLength={1000}
+                  maxLength={2000}
                 />
                 <div className="flex items-center justify-between mt-3">
                   <span
                     className="font-ui text-[11px]"
                     style={{ color: "var(--text-mute)", letterSpacing: "0.12em" }}
                   >
-                    {newComment.length}/1000
+                    {newComment.length}/2000
                   </span>
                   <Button
                     onClick={handlePost}
@@ -453,7 +456,7 @@ export const ArticleComments: React.FC<Props> = ({ articleId }) => {
                             value={editContent}
                             onChange={(e) => setEditContent(e.target.value)}
                             className="bg-transparent border-line min-h-[80px] font-serif"
-                            maxLength={1000}
+                            maxLength={2000}
                           />
                           <div className="flex items-center gap-2 justify-end">
                             <Button

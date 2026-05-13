@@ -190,17 +190,109 @@ export const fetchArticleCategoryCounts = async (): Promise<Record<string, numbe
  * renders (location, type, thumbnails, title) and only rows that have a
  * `location`. Replaces a full `fetchPublicContent()` round-trip that was
  * pulling up to 500 articles just to compute county counts.
+ *
+ * `content_en` / `content_ro` are intentionally NOT selected — the map side
+ * panel renders title + thumbnail only, and pulling content was wasting
+ * hundreds of KB per page load.
  */
 export const fetchMapArticles = async (): Promise<Article[]> => {
   const { data, error } = await supabase
     .from('articles')
-    .select('id, title_en, title_ro, type, subtype, media_url, poster_url, location, category_id, user_id, is_published, created_at, content_en, content_ro')
+    .select('id, title_en, title_ro, type, subtype, media_url, poster_url, media_urls, location, category_id, user_id, is_published, created_at')
     .eq('is_published', true)
     .not('location', 'is', null)
     .order('created_at', { ascending: false })
     .limit(2000);
   if (error) throw error;
   return toCamelCaseArray<Article>(data || []);
+};
+
+/**
+ * Slim columns used by listing surfaces (related-articles strip, future
+ * editor previews). Excludes `content_en` / `content_ro` so we don't pull
+ * ~10k chars per row when the consumer only renders title + cover.
+ */
+const ARTICLE_CARD_COLUMNS =
+  'id, title_en, title_ro, type, subtype, media_url, poster_url, media_urls, location, category_id, user_id, is_published, created_at';
+
+/**
+ * Fetches up to `limit` published articles related to the given one.
+ * Strategy: same-category first; if fewer than `limit` rows match, fill
+ * the remainder from other categories (most recent first). Replaces a
+ * full `fetchPublicContent()` round-trip (500 rows, full content) that
+ * fired on every article view.
+ */
+export const fetchRelatedArticles = async (
+  excludeId: string,
+  categoryId: string | null | undefined,
+  limit: number = 3
+): Promise<Article[]> => {
+  if (limit <= 0) return [];
+  try {
+    let sameCategory: Article[] = [];
+    if (categoryId) {
+      const { data, error } = await supabase
+        .from('articles')
+        .select(ARTICLE_CARD_COLUMNS)
+        .eq('is_published', true)
+        .eq('category_id', categoryId)
+        .neq('id', excludeId)
+        .order('created_at', { ascending: false })
+        .limit(limit);
+      if (error) throw error;
+      sameCategory = toCamelCaseArray<Article>(data || []);
+    }
+
+    const remaining = limit - sameCategory.length;
+    if (remaining <= 0) return sameCategory;
+
+    // Fill the remainder. Exclude the article itself and (if we have one)
+    // the category we already pulled from, so we don't risk dupes.
+    let supplementalQuery = supabase
+      .from('articles')
+      .select(ARTICLE_CARD_COLUMNS)
+      .eq('is_published', true)
+      .neq('id', excludeId)
+      .order('created_at', { ascending: false })
+      .limit(remaining);
+    if (categoryId) {
+      supplementalQuery = supplementalQuery.neq('category_id', categoryId);
+    }
+    const { data: supplementalData, error: supplementalError } = await supplementalQuery;
+    if (supplementalError) throw supplementalError;
+    return [...sameCategory, ...toCamelCaseArray<Article>(supplementalData || [])];
+  } catch (error) {
+    if (!isAbortError(error)) {
+      console.error('Error fetching related articles:', error);
+    }
+    return [];
+  }
+};
+
+/**
+ * Admin/writer dashboard fetcher. Skips the public-content cache (admins
+ * always want fresh data) and accepts an optional `ownerId` so writers
+ * fetch only their own rows server-side rather than pulling every
+ * published article and filtering client-side.
+ */
+export const fetchAdminArticles = async (
+  ownerId?: string
+): Promise<{ categories: Category[]; articles: Article[] }> => {
+  let articlesQuery = supabase.from('articles').select('*');
+  if (ownerId) articlesQuery = articlesQuery.eq('user_id', ownerId);
+
+  const [categoriesRes, articlesRes] = await Promise.all([
+    supabase.from('categories').select('*').order('name_en', { ascending: true }),
+    articlesQuery.order('created_at', { ascending: false }).limit(500),
+  ]);
+
+  if (categoriesRes.error) throw categoriesRes.error;
+  if (articlesRes.error) throw articlesRes.error;
+
+  return {
+    categories: toCamelCaseArray<Category>(categoriesRes.data || []),
+    articles: toCamelCaseArray<Article>(articlesRes.data || []),
+  };
 };
 
 export const fetchPublicContent = async (onlyPublished: boolean = true): Promise<{ categories: Category[]; articles: Article[] }> => {
@@ -729,22 +821,6 @@ export const fetchUserFavorites = async (userId: string): Promise<Article[]> => 
       throw error;
     }
     return [];
-  }
-};
-
-export const isArticleFavorited = async (userId: string, articleId: string): Promise<boolean> => {
-  try {
-    const { data, error } = await supabase
-      .from('favorites')
-      .select('id')
-      .eq('user_id', userId)
-      .eq('article_id', articleId)
-      .maybeSingle();
-    if (error) throw error;
-    return !!data;
-  } catch (error) {
-    console.error("Error checking favorite status in Supabase:", error);
-    throw error;
   }
 };
 

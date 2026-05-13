@@ -17,7 +17,7 @@ import {
 import { ArrowLeft, Loader2, Save, X, Plus, ArrowUp, ArrowDown, Star, Image as ImageIcon } from "lucide-react";
 import { toast } from "sonner";
 import { isAbortError } from "@/lib/utils";
-import { COUNTIES } from "@/lib/constants";
+import { COUNTIES, LOCATION_NONE } from "@/lib/constants";
 
 const CarouselStoryCreate: React.FC = () => {
   const { user, isAdmin } = useAuth();
@@ -337,11 +337,17 @@ const CarouselStoryCreate: React.FC = () => {
                   </Select>
                 </Field>
                 <Field label={t('location.label')}>
-                  <Select value={location} onValueChange={setLocation}>
+                  <Select
+                    value={location || LOCATION_NONE}
+                    onValueChange={(v) => setLocation(v === LOCATION_NONE ? "" : v)}
+                  >
                     <SelectTrigger className="rounded-sm border-line bg-[color:var(--ink-2)]">
                       <SelectValue placeholder={t('location.select')} />
                     </SelectTrigger>
                     <SelectContent>
+                      <SelectItem value={LOCATION_NONE}>
+                        {language === 'en' ? '— None —' : '— Niciuna —'}
+                      </SelectItem>
                       {COUNTIES.map(county => (
                         <SelectItem key={county} value={county}>{county}</SelectItem>
                       ))}

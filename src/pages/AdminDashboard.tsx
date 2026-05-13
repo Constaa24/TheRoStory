@@ -4,7 +4,7 @@ import {
   Article,
   AdminUserSummary,
   getLocalized,
-  fetchPublicContent,
+  fetchAdminArticles,
   invalidatePublicContentCache,
   fetchAllUsers,
   deleteUser as deleteUserFunc,
@@ -90,19 +90,19 @@ const AdminDashboard: React.FC = () => {
   // Indexed lookup so the article tables don't .find() per row.
   const categoriesById = useMemo(() => new Map(categories.map(c => [c.id, c])), [categories]);
 
-  // Fetch categories and articles when user/role changes
+  // Fetch categories and articles when user/role changes. Writers get an
+  // ownerId-scoped query so the DB only returns their own rows; admins
+  // get everything. Public-content cache is invalidated first so other
+  // pages don't keep serving stale lists after admin edits.
   useEffect(() => {
     if (!user || (!isAdmin && !isWriter)) return;
     let cancelled = false;
     invalidatePublicContentCache();
-    fetchPublicContent(false)
+    fetchAdminArticles(isWriter && !isAdmin ? user.id : undefined)
       .then((data) => {
         if (cancelled) return;
         setCategories(data.categories);
-        const filteredArticles = isWriter
-          ? data.articles.filter((a: Article) => a.userId === user?.id)
-          : data.articles;
-        setArticles(filteredArticles);
+        setArticles(data.articles);
       })
       .catch((error) => {
         if (!isAbortError(error)) console.error("Error fetching content:", error);
@@ -149,12 +149,9 @@ const AdminDashboard: React.FC = () => {
   const fetchData = async () => {
     invalidatePublicContentCache();
     try {
-      const data = await fetchPublicContent(false);
+      const data = await fetchAdminArticles(isWriter && !isAdmin ? user?.id : undefined);
       setCategories(data.categories);
-      const filteredArticles = isWriter
-        ? data.articles.filter((a: Article) => a.userId === user?.id)
-        : data.articles;
-      setArticles(filteredArticles);
+      setArticles(data.articles);
     } catch (error) {
       if (!isAbortError(error)) console.error("Error fetching data:", error);
     }
@@ -311,7 +308,7 @@ const AdminDashboard: React.FC = () => {
         <Lock className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
         <h1 className="text-2xl font-serif italic mb-2">{t("admin.access.restricted")}</h1>
         <p className="text-muted-foreground">{t("admin.access.noPermission")}</p>
-        <Button className="mt-6 rounded-full" onClick={() => window.location.href = "/"}>{t("admin.access.backHome")}</Button>
+        <Button className="mt-6 rounded-full" onClick={() => navigate("/")}>{t("admin.access.backHome")}</Button>
       </div>
     );
   }

@@ -8,19 +8,7 @@ import { StoryThumbnail } from "@/components/ui/story-thumbnail";
 import { cn, isAbortError } from "@/lib/utils";
 import { PageHead } from "@/components/layout/PageHead";
 import { SITE_URL } from "@/lib/constants";
-
-const TONES = ["warm", "forest", "sky", "oxblood", "bone"] as const;
-const toneFor = (id: string) => {
-  let h = 0;
-  for (let i = 0; i < id.length; i++) h = ((h << 5) - h) + id.charCodeAt(i);
-  return TONES[Math.abs(h) % TONES.length];
-};
-
-const readMinutes = (article: Article, language: 'en' | 'ro') => {
-  const text = getLocalized(article, 'content', language);
-  const words = text.split(/\s+/).filter(Boolean).length;
-  return Math.max(3, Math.round(words / 220));
-};
+import { toneFor, readMinutes } from "@/lib/article-utils";
 
 const CategoryDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -30,8 +18,6 @@ const CategoryDetail: React.FC = () => {
   const [category, setCategory] = useState<Category | null>(null);
   const [articles, setArticles] = useState<Article[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-
-  const openArticle = (a: Article) => navigate(`/article/${a.id}`, { state: { from: `/category/${id}`, category: id } });
 
   useEffect(() => {
     if (!id) { navigate("/categories"); return; }
@@ -156,10 +142,10 @@ const CategoryDetail: React.FC = () => {
                     : article.mediaUrl;
                 const fav = isFavorited(article.id);
                 return (
-                  <a
+                  <Link
                     key={article.id}
-                    href="#"
-                    onClick={(e) => { e.preventDefault(); openArticle(article); }}
+                    to={`/article/${article.id}`}
+                    state={{ from: `/category/${id}`, category: id }}
                     className="block cursor-pointer group"
                     style={{ color: 'inherit', textDecoration: 'none' }}
                   >
@@ -214,7 +200,7 @@ const CategoryDetail: React.FC = () => {
                         {getLocalized(article, 'content', language).slice(0, 130)}…
                       </p>
                     </div>
-                  </a>
+                  </Link>
                 );
               })}
             </div>

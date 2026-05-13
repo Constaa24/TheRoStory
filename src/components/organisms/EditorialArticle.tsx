@@ -1,31 +1,17 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { Article, ArticleSubtype, Category, getLocalized, parseChapters, fetchCategories, fetchPublicContent } from "@/lib/supabase";
+import { Link, useNavigate } from "react-router-dom";
+import { Article, ArticleSubtype, Category, getLocalized, parseChapters, fetchCategories, fetchRelatedArticles } from "@/lib/supabase";
 import { useLanguage } from "@/hooks/use-language";
 import { useFavorites } from "@/hooks/use-favorites";
 import { ArrowLeft, Heart, Share2, Printer, Play, Pause, Maximize2, Volume2, VolumeX } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ArticleComments } from "@/components/organisms/ArticleComments";
+import { TONES, toneFor, readMinutes, placeLabel } from "@/lib/article-utils";
 
 interface Props {
   article: Article;
   views?: number;
 }
-
-const TONES = ["warm", "forest", "sky", "oxblood", "bone"] as const;
-const toneFor = (id: string) => {
-  let h = 0;
-  for (let i = 0; i < id.length; i++) h = ((h << 5) - h) + id.charCodeAt(i);
-  return TONES[Math.abs(h) % TONES.length];
-};
-
-const readMinutes = (article: Article, language: 'en' | 'ro') => {
-  const text = getLocalized(article, 'content', language);
-  const words = text.split(/\s+/).filter(Boolean).length;
-  return Math.max(3, Math.round(words / 220));
-};
-
-const placeLabel = (article: Article) => (article.location || '').toUpperCase();
 
 // Kind label is shown in the masthead pill, footer, and Map side panel. Text
 // articles can opt into a subtype (poetry / short story) that overrides the
@@ -66,42 +52,16 @@ export const EditorialArticle: React.FC<Props> = ({ article, views }) => {
   }, [article.id]);
 
   useEffect(() => {
-    fetchCategories().then(setCategories).catch(() => {});
-    // Related-articles selection: same-category first (up to 3); if fewer
-    // than 3 match, fill the remainder with a stable shuffle of other
-    // published articles so we always show three thumbnails.
-    fetchPublicContent()
-      .then(({ articles }) => {
-        const sameCategory = articles
-          .filter(a => a.id !== article.id && a.categoryId === article.categoryId)
-          .slice(0, 3);
-        if (sameCategory.length >= 3) {
-          setRelated(sameCategory);
-          return;
-        }
-        const pool = articles.filter(
-          a => a.id !== article.id && a.categoryId !== article.categoryId
-        );
-        // Deterministic shuffle keyed off article.id so the list is stable
-        // across renders (Mulberry32 seeded from a hash of article.id).
-        let seed = 0;
-        for (let i = 0; i < article.id.length; i++) {
-          seed = ((seed << 5) - seed + article.id.charCodeAt(i)) | 0;
-        }
-        const rand = () => {
-          seed = (seed + 0x6d2b79f5) | 0;
-          let t = seed;
-          t = Math.imul(t ^ (t >>> 15), t | 1);
-          t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-          return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-        };
-        for (let i = pool.length - 1; i > 0; i--) {
-          const j = Math.floor(rand() * (i + 1));
-          [pool[i], pool[j]] = [pool[j], pool[i]];
-        }
-        setRelated([...sameCategory, ...pool.slice(0, 3 - sameCategory.length)]);
-      })
+    let cancelled = false;
+    fetchCategories().then((cats) => { if (!cancelled) setCategories(cats); }).catch(() => {});
+    // Pull only `id, title, type, cover columns` for up to 3 related
+    // articles — same-category first, supplemented by recent stories from
+    // other categories if fewer than 3 match. Replaces a 500-row full-
+    // content fetch that fired on every article view.
+    fetchRelatedArticles(article.id, article.categoryId, 3)
+      .then((rows) => { if (!cancelled) setRelated(rows); })
       .catch(() => {});
+    return () => { cancelled = true; };
   }, [article.id, article.categoryId]);
 
   const category = categories.find(c => c.id === article.categoryId);
@@ -179,7 +139,7 @@ export const EditorialArticle: React.FC<Props> = ({ article, views }) => {
                   ? (r.posterUrl || r.mediaUrls?.[0] || r.mediaUrl)
                   : (r.posterUrl || r.mediaUrl || r.mediaUrls?.[0]);
                 return (
-                  <a key={r.id} href={`/article/${r.id}`} onClick={(e) => { e.preventDefault(); navigate(`/article/${r.id}`); }} className="block group" style={{ color: 'inherit', textDecoration: 'none' }}>
+                  <Link key={r.id} to={`/article/${r.id}`} className="block group" style={{ color: 'inherit', textDecoration: 'none' }}>
                     <div className="ph relative" data-tone={tone} data-label={placeLabel(r)} style={{ aspectRatio: '3/4' }}>
                       {cover && <img src={cover} alt="" className="absolute inset-0 w-full h-full object-cover" loading="lazy" />}
                     </div>
@@ -191,7 +151,7 @@ export const EditorialArticle: React.FC<Props> = ({ article, views }) => {
                         {getLocalized(r, 'title', language)}
                       </h3>
                     </div>
-                  </a>
+                  </Link>
                 );
               })}
             </div>

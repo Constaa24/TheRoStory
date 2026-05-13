@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Category, CHAPTER_DELIMITER, ARTICLE_LIMITS, parseChapters, ArticleSubtype } from "@/lib/supabase";
-import { fetchCategories, uploadUserFile, createArticle, updateArticle, fetchAnyArticle } from "@/lib/supabase";
+import { fetchCategories, uploadUserFile, createArticle, updateArticle, fetchAnyArticle, deleteStorageFile, extractStoragePath } from "@/lib/supabase";
 
 const PER_CHAPTER_MAX = 5000;
 import { useLanguage } from "@/hooks/use-language";
@@ -25,7 +25,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { isAbortError } from "@/lib/utils";
-import { COUNTIES } from "@/lib/constants";
+import { COUNTIES, LOCATION_NONE } from "@/lib/constants";
 
 const MIN_CHAPTERS = 1;
 const MAX_CHAPTERS = 10;
@@ -50,6 +50,11 @@ const TextStoryCreate: React.FC = () => {
   const [categoryId, setCategoryId] = useState("");
   const [location, setLocation] = useState("");
   const [mediaUrl, setMediaUrl] = useState("");
+  // Tracks the in-bucket path for the cover image so we can clean it up
+  // when the user replaces or clears the cover. Set both on load (from
+  // an existing article) and after upload. NULL means "we don't own this
+  // file" — typed URLs are left alone on replace.
+  const [mediaStoragePath, setMediaStoragePath] = useState<string | null>(null);
   const [chaptersEn, setChaptersEn] = useState<string[]>([""]);
   const [chaptersRo, setChaptersRo] = useState<string[]>([""]);
   const [subtype, setSubtype] = useState<ArticleSubtype>("essay");
@@ -87,6 +92,9 @@ const TextStoryCreate: React.FC = () => {
           setCategoryId(article.categoryId || '');
           setLocation(article.location || '');
           setMediaUrl(article.mediaUrl || '');
+          // Backfill storage path so replacing the cover during edit
+          // actually cleans up the original file in storage.
+          setMediaStoragePath(article.mediaUrl ? extractStoragePath(article.mediaUrl, 'articles') : null);
           setSubtype((article.subtype as ArticleSubtype | null) || 'essay');
           setPublishImmediately(!!article.isPublished);
           const trimTrailing = (arr: string[]): string[] => {
@@ -123,12 +131,21 @@ const TextStoryCreate: React.FC = () => {
     }
     setIsUploading(true);
     try {
-      const { publicUrl } = await uploadUserFile(file, {
+      // Best-effort cleanup of the previous upload so replacing the cover
+      // doesn't leave the old file orphaned in the bucket. We only delete
+      // when we have a tracked path — typed URLs (paste box) aren't ours
+      // to remove.
+      const previousPath = mediaStoragePath;
+      const { publicUrl, storagePath } = await uploadUserFile(file, {
         bucket: "articles",
         kind: "image",
         userId: user.id,
       });
       setMediaUrl(publicUrl);
+      setMediaStoragePath(storagePath);
+      if (previousPath && previousPath !== storagePath) {
+        void deleteStorageFile('articles', previousPath);
+      }
       toast.success(language === "en" ? "Image uploaded" : "Imagine încărcată");
     } catch (error) {
       console.error("Error uploading image:", error);
@@ -138,6 +155,12 @@ const TextStoryCreate: React.FC = () => {
       setIsUploading(false);
       if (event.target) event.target.value = "";
     }
+  };
+
+  const handleRemoveCover = () => {
+    if (mediaStoragePath) void deleteStorageFile('articles', mediaStoragePath);
+    setMediaUrl('');
+    setMediaStoragePath(null);
   };
 
   const updateChapter = (lang: "en" | "ro", index: number, value: string) => {
@@ -324,11 +347,17 @@ const TextStoryCreate: React.FC = () => {
                   </Select>
                 </Field>
                 <Field label={t('location.label')}>
-                  <Select value={location} onValueChange={setLocation}>
+                  <Select
+                    value={location || LOCATION_NONE}
+                    onValueChange={(v) => setLocation(v === LOCATION_NONE ? "" : v)}
+                  >
                     <SelectTrigger className="rounded-sm border-line bg-[color:var(--ink-2)]">
                       <SelectValue placeholder={t('location.select')} />
                     </SelectTrigger>
                     <SelectContent>
+                      <SelectItem value={LOCATION_NONE}>
+                        {language === 'en' ? '— None —' : '— Niciuna —'}
+                      </SelectItem>
                       {COUNTIES.map(county => (
                         <SelectItem key={county} value={county}>{county}</SelectItem>
                       ))}
@@ -362,7 +391,7 @@ const TextStoryCreate: React.FC = () => {
                     <img src={mediaUrl} alt="" className="absolute inset-0 w-full h-full object-cover" />
                     <button
                       type="button"
-                      onClick={() => setMediaUrl('')}
+                      onClick={handleRemoveCover}
                       className="absolute top-2 right-2 grid w-8 h-8 place-items-center rounded-full transition-colors"
                       style={{ background: 'var(--overlay-dark)', border: '1px solid var(--oxblood-2)', color: 'var(--oxblood-2)' }}
                       aria-label={language === 'en' ? 'Remove cover image' : 'Elimină imaginea'}
@@ -410,7 +439,14 @@ const TextStoryCreate: React.FC = () => {
                     type="url"
                     placeholder="https://..."
                     value={mediaUrl}
-                    onChange={(e) => setMediaUrl(e.target.value)}
+                    onChange={(e) => {
+                      // Manual URL paste means the user is taking ownership of
+                      // a URL we didn't upload. Forget any tracked storage
+                      // path so we don't accidentally delete an unrelated
+                      // file later.
+                      setMediaUrl(e.target.value);
+                      setMediaStoragePath(null);
+                    }}
                     maxLength={ARTICLE_LIMITS.MEDIA_URL_MAX}
                   />
                 </Field>
