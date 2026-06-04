@@ -166,6 +166,20 @@ const AdminDashboard: React.FC = () => {
       toast.error(t("admin.categories.slugHint"));
       return;
     }
+    // Mirror the DB CHECK constraints (categories_name_*/slug_length <= 100)
+    // so an over-long value fails fast with a clear message instead of a
+    // generic server error.
+    const CATEGORY_MAX = 100;
+    if (
+      newCategory.nameEn.trim().length > CATEGORY_MAX ||
+      newCategory.nameRo.trim().length > CATEGORY_MAX ||
+      newCategory.slug.length > CATEGORY_MAX
+    ) {
+      toast.error(language === 'en'
+        ? `Name and slug must each be under ${CATEGORY_MAX} characters`
+        : `Numele și slug-ul trebuie să aibă fiecare sub ${CATEGORY_MAX} de caractere`);
+      return;
+    }
     try {
       const id = `cat_${crypto.randomUUID()}`;
       const { error } = await supabase.from('categories').insert({

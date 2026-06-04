@@ -146,27 +146,25 @@ export const parseChapters = (content: string): string[] => {
 
 // ---- Data Fetching ----
 
-// Simple in-memory cache for public content
-const publicContentCache: {
-  published: { data: { categories: Category[]; articles: Article[] }; time: number } | null;
-  all: { data: { categories: Category[]; articles: Article[] }; time: number } | null;
-} = { published: null, all: null };
-
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
-/** Invalidate the public content cache (call after admin creates/edits/deletes content). */
-export const invalidatePublicContentCache = () => {
-  publicContentCache.published = null;
-  publicContentCache.all = null;
-  _categoryCountsCache = null;
-};
+// Lightweight cache for the categories list. The footer mounts on every
+// navigation and used to fire a fresh categories query each time; this caps
+// it to one query per TTL window. Populated by fetchCategories().
+let _categoriesCache: { data: Category[]; time: number } | null = null;
 
 // Lightweight cache for category article counts (category_id column only)
 let _categoryCountsCache: { data: Record<string, number>; time: number } | null = null;
 
+/** Invalidate cached public content (call after admin creates/edits/deletes content). */
+export const invalidatePublicContentCache = () => {
+  _categoriesCache = null;
+  _categoryCountsCache = null;
+};
+
 /**
  * Fetches only the category_id column for all published articles and returns
- * a map of categoryId → count. Much lighter than fetchPublicContent().
+ * a map of categoryId → count. Much lighter than fetching full articles.
  */
 export const fetchArticleCategoryCounts = async (): Promise<Record<string, number>> => {
   if (_categoryCountsCache && Date.now() - _categoryCountsCache.time < CACHE_TTL) {
@@ -188,7 +186,7 @@ export const fetchArticleCategoryCounts = async (): Promise<Record<string, numbe
 /**
  * Targeted fetcher for the map view. Pulls only the columns the map actually
  * renders (location, type, thumbnails, title) and only rows that have a
- * `location`. Replaces a full `fetchPublicContent()` round-trip that was
+ * `location`. Replaces a full all-articles round-trip that was
  * pulling up to 500 articles just to compute county counts.
  *
  * `content_en` / `content_ro` are intentionally NOT selected — the map side
@@ -219,7 +217,7 @@ const ARTICLE_CARD_COLUMNS =
  * Fetches up to `limit` published articles related to the given one.
  * Strategy: same-category first; if fewer than `limit` rows match, fill
  * the remainder from other categories (most recent first). Replaces a
- * full `fetchPublicContent()` round-trip (500 rows, full content) that
+ * full all-articles round-trip (500 rows, full content) that
  * fired on every article view.
  */
 export const fetchRelatedArticles = async (
@@ -293,44 +291,6 @@ export const fetchAdminArticles = async (
     categories: toCamelCaseArray<Category>(categoriesRes.data || []),
     articles: toCamelCaseArray<Article>(articlesRes.data || []),
   };
-};
-
-export const fetchPublicContent = async (onlyPublished: boolean = true): Promise<{ categories: Category[]; articles: Article[] }> => {
-  const cacheKey = onlyPublished ? 'published' : 'all';
-  const cached = publicContentCache[cacheKey];
-  if (cached && Date.now() - cached.time < CACHE_TTL) {
-    return cached.data;
-  }
-
-  try {
-    let articlesQuery = supabase.from('articles').select('*');
-
-    if (onlyPublished) {
-      articlesQuery = articlesQuery.eq('is_published', true);
-    }
-
-    const catsPromise = supabase.from('categories').select('*').order('name_en', { ascending: true });
-    const artsPromise = articlesQuery.order('created_at', { ascending: false }).limit(500);
-
-    const [categoriesRes, articlesRes] = await Promise.all([catsPromise, artsPromise]);
-
-    if (categoriesRes.error) throw categoriesRes.error;
-    if (articlesRes.error) throw articlesRes.error;
-
-    const result = {
-      categories: toCamelCaseArray<Category>(categoriesRes.data || []),
-      articles: toCamelCaseArray<Article>(articlesRes.data || [])
-    };
-
-    publicContentCache[cacheKey] = { data: result, time: Date.now() };
-    return result;
-  } catch (error) {
-    if (!isAbortError(error)) {
-      console.error("Error fetching data from Supabase:", error);
-      throw error;
-    }
-    return { categories: [], articles: [] };
-  }
 };
 
 /**
@@ -489,14 +449,11 @@ export const updateArticle = async (input: UpdateArticleInput): Promise<void> =>
 };
 
 export const fetchCategories = async (): Promise<Category[]> => {
-  // Reuse the cache that fetchPublicContent already populates — the footer
-  // mounts on every navigation and used to fire a fresh categories query
-  // each time even though the home/categories pages had just fetched the
-  // same rows seconds earlier. Either cache key works for categories since
-  // the categories list is the same regardless of published-only filtering.
-  const cached = publicContentCache.published ?? publicContentCache.all;
-  if (cached && Date.now() - cached.time < CACHE_TTL) {
-    return cached.data.categories;
+  // The footer mounts on every navigation and used to fire a fresh categories
+  // query each time even though the home/categories pages had just fetched the
+  // same rows seconds earlier. Serve from a short-lived cache instead.
+  if (_categoriesCache && Date.now() - _categoriesCache.time < CACHE_TTL) {
+    return _categoriesCache.data;
   }
 
   const { data, error } = await supabase
@@ -504,7 +461,9 @@ export const fetchCategories = async (): Promise<Category[]> => {
     .select('*')
     .order('name_en', { ascending: true });
   if (error) throw error;
-  return toCamelCaseArray<Category>(data || []);
+  const categories = toCamelCaseArray<Category>(data || []);
+  _categoriesCache = { data: categories, time: Date.now() };
+  return categories;
 };
 
 /**
@@ -716,21 +675,6 @@ export const updateComment = async (commentId: string, userId: string, content: 
   } catch (error) {
     console.error("Error updating comment:", error);
     return false;
-  }
-};
-
-export const fetchArticleViews = async (articleId: string): Promise<number> => {
-  try {
-    const { data, error } = await supabase
-      .from('article_views')
-      .select('view_count')
-      .eq('article_id', articleId)
-      .maybeSingle();
-    if (error) throw error;
-    return data?.view_count || 0;
-  } catch (error) {
-    console.warn('Failed to fetch article views:', error);
-    return 0;
   }
 };
 

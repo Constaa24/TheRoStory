@@ -10,6 +10,22 @@ function escapeHtml(input: string) {
     .replaceAll("'", "&#039;");
 }
 
+// Replace control chars (notably CR/LF) in name/subject so a crafted value
+// can't smuggle extra lines into the email Subject header. Resend builds
+// headers server-side from JSON so this isn't exploitable today, but it's
+// cheap defense-in-depth. Not applied to the message body, which legitimately
+// contains newlines.
+function stripControlChars(input: string): string {
+  let out = "";
+  for (const ch of input) {
+    const code = ch.codePointAt(0) ?? 0;
+    // C0 control chars (incl. CR/LF/Tab) and DEL -> space, so words don't run
+    // together. Done by codepoint to keep this source free of control bytes.
+    out += code < 0x20 || code === 0x7f ? " " : ch;
+  }
+  return out.trim();
+}
+
 type RateLimitStore = Map<string, number[]>;
 
 function getRateLimitStore(): RateLimitStore {
@@ -40,16 +56,31 @@ function getClientIp(req: Request): string {
   return "unknown";
 }
 
+const RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000; // 10 minutes
+const RATE_LIMIT_MAX = 5;
+// Cap the number of tracked keys so a long-lived edge instance can't grow the
+// map unbounded under a flood of distinct IPs. Once past the threshold we drop
+// keys whose timestamps are all older than the window (they'd reset anyway).
+const RATE_LIMIT_SWEEP_THRESHOLD = 5000;
+
+function sweepRateLimitStore(store: RateLimitStore, now: number): void {
+  if (store.size < RATE_LIMIT_SWEEP_THRESHOLD) return;
+  for (const [key, timestamps] of store) {
+    if (timestamps.every((ts) => now - ts >= RATE_LIMIT_WINDOW_MS)) {
+      store.delete(key);
+    }
+  }
+}
+
 function isRateLimited(req: Request): boolean {
   const store = getRateLimitStore();
   const key = `ip:${getClientIp(req)}`;
   const now = Date.now();
-  const windowMs = 10 * 60 * 1000; // 10 minutes
-  const maxRequests = 5;
-  const recent = (store.get(key) || []).filter((ts) => now - ts < windowMs);
+  sweepRateLimitStore(store, now);
+  const recent = (store.get(key) || []).filter((ts) => now - ts < RATE_LIMIT_WINDOW_MS);
   recent.push(now);
   store.set(key, recent);
-  return recent.length > maxRequests;
+  return recent.length > RATE_LIMIT_MAX;
 }
 
 Deno.serve(async (req) => {
@@ -89,9 +120,9 @@ Deno.serve(async (req) => {
       });
     }
 
-    const safeName = String(name || "").trim();
+    const safeName = stripControlChars(String(name || ""));
     const safeEmail = String(email || "").trim();
-    const safeSubject = String(subject || "").trim().slice(0, 200);
+    const safeSubject = stripControlChars(String(subject || "")).slice(0, 200);
     const safeMessage = String(message || "").trim();
 
     if (!safeName || !safeEmail || !safeMessage) {

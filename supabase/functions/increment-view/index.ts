@@ -38,11 +38,25 @@ function getClientIp(req: Request): string {
 
 const RATE_LIMIT_WINDOW_MS = 60_000;
 const RATE_LIMIT_MAX_PER_WINDOW = 30;
+// Cap tracked keys so a long-lived edge instance can't grow the map unbounded
+// under a flood of distinct ip:article pairs. Once past the threshold we drop
+// keys whose timestamps are all older than the window (they'd reset anyway).
+const RATE_LIMIT_SWEEP_THRESHOLD = 5000;
+
+function sweepRateLimitStore(store: RateLimitStore, now: number): void {
+  if (store.size < RATE_LIMIT_SWEEP_THRESHOLD) return;
+  for (const [key, timestamps] of store) {
+    if (timestamps.every((ts) => now - ts >= RATE_LIMIT_WINDOW_MS)) {
+      store.delete(key);
+    }
+  }
+}
 
 function isRateLimited(ip: string, articleId: string): boolean {
   const store = getRateLimitStore();
   const key = `${ip}:${articleId}`;
   const now = Date.now();
+  sweepRateLimitStore(store, now);
   const recent = (store.get(key) || []).filter((ts) => now - ts < RATE_LIMIT_WINDOW_MS);
   recent.push(now);
   store.set(key, recent);

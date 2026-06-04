@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useLanguage } from "@/hooks/use-language";
-import { useSearchParams, Navigate, useNavigate } from "react-router-dom";
+import { useSearchParams, Navigate, useNavigate, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -24,6 +24,7 @@ import { toast } from "sonner";
 import { Article, getLocalized } from "@/lib/supabase";
 import { fetchUserFavorites, toggleFavorite, deleteOwnAccount, exportOwnData, supabase, deleteStorageFile, extractStoragePath, uploadUserFile } from "@/lib/supabase";
 import { isAbortError } from "@/lib/utils";
+import { toneFor } from "@/lib/article-utils";
 import { Camera, Loader2, Shield, Heart, ChevronRight, CheckCircle2, AlertCircle, Trash2, Download } from "lucide-react";
 import { motion } from "framer-motion";
 import { PageHead } from "@/components/layout/PageHead";
@@ -541,12 +542,23 @@ const Profile: React.FC = () => {
                       </div>
                       <div className="flex h-full">
                         <div className="w-1/3 aspect-square overflow-hidden relative">
-                          <img
-                            src={(article.type === 'video' ? article.posterUrl : article.type === 'carousel' ? article.posterUrl || article.mediaUrls?.[0] || article.mediaUrl : article.mediaUrl) || "https://images.unsplash.com/photo-1701118737005-005fc66703be?q=80&w=400"}
-                            alt={getLocalized(article, "title", language)}
-                            className="w-full h-full object-cover grayscale-[0.2] group-hover:grayscale-0 transition-all duration-500"
-                            loading="lazy"
-                          />
+                          {(() => {
+                            const cover = article.type === 'video'
+                              ? article.posterUrl
+                              : article.type === 'carousel'
+                                ? (article.posterUrl || article.mediaUrls?.[0] || article.mediaUrl)
+                                : article.mediaUrl;
+                            return cover ? (
+                              <img
+                                src={cover}
+                                alt={getLocalized(article, "title", language)}
+                                className="w-full h-full object-cover grayscale-[0.2] group-hover:grayscale-0 transition-all duration-500"
+                                loading="lazy"
+                              />
+                            ) : (
+                              <div className="ph w-full h-full" data-tone={toneFor(article.id)} />
+                            );
+                          })()}
                         </div>
                         <div className="flex-1 p-4 flex flex-col justify-between">
                           <div className="space-y-1">
@@ -585,7 +597,7 @@ const Profile: React.FC = () => {
                     : "Nu ai salvat încă nicio poveste la favorite."}
                 </p>
                 <Button variant="outline" className="rounded-full font-serif italic" asChild>
-                  <a href="/categories">{language === 'en' ? 'Explore Stories' : 'Explorează Poveștile'}</a>
+                  <Link to="/categories">{language === 'en' ? 'Explore Stories' : 'Explorează Poveștile'}</Link>
                 </Button>
               </Card>
             )}
