@@ -614,7 +614,17 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   }, [language]);
 
   const t = (key: string) => {
-    return translations[language][key as keyof typeof translations["en"]] || '';
+    const k = key as keyof typeof translations["en"];
+    // Fall back to English when a key is missing in the active language so a
+    // gap in one dictionary shows readable text instead of a blank.
+    const value = translations[language][k] ?? translations.en[k];
+    if (value === undefined) {
+      if (import.meta.env.DEV) {
+        console.warn(`[i18n] Missing translation key: "${key}"`);
+      }
+      return '';
+    }
+    return value;
   };
 
   return (

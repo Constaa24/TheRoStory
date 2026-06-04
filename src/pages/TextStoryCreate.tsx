@@ -2,8 +2,6 @@ import React, { useState, useRef, useEffect, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Category, CHAPTER_DELIMITER, ARTICLE_LIMITS, parseChapters, ArticleSubtype } from "@/lib/supabase";
 import { fetchCategories, uploadUserFile, createArticle, updateArticle, fetchAnyArticle, deleteStorageFile, extractStoragePath } from "@/lib/supabase";
-
-const PER_CHAPTER_MAX = 5000;
 import { useLanguage } from "@/hooks/use-language";
 import { useAuth } from "@/hooks/use-auth";
 import { useUnsavedChangesWarning } from "@/hooks/use-unsaved-changes";
@@ -29,6 +27,13 @@ import { COUNTIES, LOCATION_NONE } from "@/lib/constants";
 
 const MIN_CHAPTERS = 1;
 const MAX_CHAPTERS = 10;
+// Per-chapter cap, derived so the delimiter-joined content can never exceed
+// ARTICLE_LIMITS.CONTENT_MAX (which the DB enforces via a CHECK constraint).
+// Joining N chapters inserts (N-1) delimiters, so reserve that headroom up
+// front rather than letting MAX_CHAPTERS * 5000 + delimiters overshoot 50k.
+const PER_CHAPTER_MAX = Math.floor(
+  (ARTICLE_LIMITS.CONTENT_MAX - (MAX_CHAPTERS - 1) * CHAPTER_DELIMITER.length) / MAX_CHAPTERS
+);
 
 const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'];
 
@@ -44,6 +49,16 @@ const TextStoryCreate: React.FC = () => {
   const [isUploading, setIsUploading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Set true on a successful save so the unmount cleanup doesn't delete media
+  // the saved article now references.
+  const savedRef = useRef(false);
+  // Storage paths uploaded during THIS session — orphans if the user leaves
+  // without saving. Never holds an opened article's pre-existing media.
+  const sessionUploadsRef = useRef<Set<string>>(new Set());
+  // Serialized form state at load time; isDirty compares against it so an
+  // unchanged edit page doesn't trigger the "unsaved changes" prompt.
+  const initialSnapshotRef = useRef<string | null>(null);
 
   const [titleEn, setTitleEn] = useState("");
   const [titleRo, setTitleRo] = useState("");
@@ -61,14 +76,8 @@ const TextStoryCreate: React.FC = () => {
   const [publishImmediately, setPublishImmediately] = useState(false);
   const [showErrors, setShowErrors] = useState(false);
 
-  const isDirty =
-    titleEn.trim() !== "" ||
-    titleRo.trim() !== "" ||
-    categoryId !== "" ||
-    location !== "" ||
-    mediaUrl !== "" ||
-    chaptersEn.some(c => c.trim() !== "") ||
-    chaptersRo.some(c => c.trim() !== "");
+  const formSnapshot = JSON.stringify({ titleEn, titleRo, categoryId, location, mediaUrl, subtype, chaptersEn, chaptersRo });
+  const isDirty = initialSnapshotRef.current !== null && formSnapshot !== initialSnapshotRef.current;
 
   useUnsavedChangesWarning(isDirty && !isSaving);
 
@@ -109,6 +118,21 @@ const TextStoryCreate: React.FC = () => {
           while (ro.length < len) ro.push('');
           setChaptersEn(en);
           setChaptersRo(ro);
+          initialSnapshotRef.current = JSON.stringify({
+            titleEn: article.titleEn || '',
+            titleRo: article.titleRo || '',
+            categoryId: article.categoryId || '',
+            location: article.location || '',
+            mediaUrl: article.mediaUrl || '',
+            subtype: (article.subtype as ArticleSubtype | null) || 'essay',
+            chaptersEn: en,
+            chaptersRo: ro,
+          });
+        } else {
+          initialSnapshotRef.current = JSON.stringify({
+            titleEn: '', titleRo: '', categoryId: '', location: '', mediaUrl: '',
+            subtype: 'essay', chaptersEn: [''], chaptersRo: [''],
+          });
         }
       } catch (err) {
         if (!isAbortError(err)) console.error("Error loading text data:", err);
@@ -120,6 +144,16 @@ const TextStoryCreate: React.FC = () => {
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editingId]);
+
+  // Clean up files uploaded this session if the user leaves without saving.
+  // savedRef gates it so a successful save (which navigates away) keeps its
+  // media. Only session uploads are tracked, never pre-existing article media.
+  useEffect(() => () => {
+    if (savedRef.current) return;
+    for (const path of sessionUploadsRef.current) {
+      void deleteStorageFile('articles', path);
+    }
+  }, []);
 
   const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -143,7 +177,9 @@ const TextStoryCreate: React.FC = () => {
       });
       setMediaUrl(publicUrl);
       setMediaStoragePath(storagePath);
+      sessionUploadsRef.current.add(storagePath);
       if (previousPath && previousPath !== storagePath) {
+        sessionUploadsRef.current.delete(previousPath);
         void deleteStorageFile('articles', previousPath);
       }
       toast.success(language === "en" ? "Image uploaded" : "Imagine încărcată");
@@ -158,7 +194,10 @@ const TextStoryCreate: React.FC = () => {
   };
 
   const handleRemoveCover = () => {
-    if (mediaStoragePath) void deleteStorageFile('articles', mediaStoragePath);
+    if (mediaStoragePath) {
+      sessionUploadsRef.current.delete(mediaStoragePath);
+      void deleteStorageFile('articles', mediaStoragePath);
+    }
     setMediaUrl('');
     setMediaStoragePath(null);
   };
@@ -231,6 +270,7 @@ const TextStoryCreate: React.FC = () => {
         await createArticle({ ...payload, userId: user.id, isPublished: isAdmin ? publishImmediately : false });
         toast.success(language === "en" ? "Story created!" : "Povestea a fost creată!");
       }
+      savedRef.current = true;
       navigate("/admin");
     } catch (error) {
       if (!isAbortError(error)) console.error("Error saving text story:", error);

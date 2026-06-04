@@ -34,6 +34,16 @@ const CarouselStoryCreate: React.FC = () => {
   const imageInputRef = useRef<HTMLInputElement>(null);
   const posterInputRef = useRef<HTMLInputElement>(null);
 
+  // Set true on a successful save so the unmount cleanup doesn't delete media
+  // the saved article now references.
+  const savedRef = useRef(false);
+  // Storage paths uploaded during THIS session — orphans if the user leaves
+  // without saving. Never holds an opened article's pre-existing media.
+  const sessionUploadsRef = useRef<Set<string>>(new Set());
+  // Serialized form state at load time; isDirty compares against it so an
+  // unchanged edit page doesn't trigger the "unsaved changes" prompt.
+  const initialSnapshotRef = useRef<string | null>(null);
+
   // Form states
   const [titleEn, setTitleEn] = useState("");
   const [titleRo, setTitleRo] = useState("");
@@ -47,15 +57,8 @@ const CarouselStoryCreate: React.FC = () => {
   const [posterStoragePath, setPosterStoragePath] = useState<string | null>(null);
   const isFull = items.length >= ARTICLE_LIMITS.MEDIA_URLS_MAX;
 
-  const isDirty =
-    titleEn.trim() !== "" ||
-    titleRo.trim() !== "" ||
-    descriptionEn.trim() !== "" ||
-    descriptionRo.trim() !== "" ||
-    categoryId !== "" ||
-    location !== "" ||
-    items.length > 0 ||
-    posterUrl !== "";
+  const formSnapshot = JSON.stringify({ titleEn, titleRo, descriptionEn, descriptionRo, categoryId, location, posterUrl, items: items.map(i => i.url), mediaCaptions });
+  const isDirty = initialSnapshotRef.current !== null && formSnapshot !== initialSnapshotRef.current;
 
   useUnsavedChangesWarning(isDirty && !isSaving);
 
@@ -91,9 +94,26 @@ const CarouselStoryCreate: React.FC = () => {
             url,
             storagePath: extractStoragePath(url, 'articles'),
           })));
-          setMediaCaptions(article.mediaCaptions && article.mediaCaptions.length === urls.length
+          const loadedCaptions = article.mediaCaptions && article.mediaCaptions.length === urls.length
             ? article.mediaCaptions
-            : urls.map(() => ({ en: '', ro: '' })));
+            : urls.map(() => ({ en: '', ro: '' }));
+          setMediaCaptions(loadedCaptions);
+          initialSnapshotRef.current = JSON.stringify({
+            titleEn: article.titleEn || '',
+            titleRo: article.titleRo || '',
+            descriptionEn: article.contentEn || '',
+            descriptionRo: article.contentRo || '',
+            categoryId: article.categoryId || '',
+            location: article.location || '',
+            posterUrl: article.posterUrl || '',
+            items: urls,
+            mediaCaptions: loadedCaptions,
+          });
+        } else {
+          initialSnapshotRef.current = JSON.stringify({
+            titleEn: '', titleRo: '', descriptionEn: '', descriptionRo: '',
+            categoryId: '', location: '', posterUrl: '', items: [], mediaCaptions: [],
+          });
         }
       } catch (err) {
         if (!isAbortError(err)) console.error('Error loading carousel data:', err);
@@ -105,6 +125,16 @@ const CarouselStoryCreate: React.FC = () => {
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editingId]);
+
+  // Clean up files uploaded this session if the user leaves without saving.
+  // savedRef gates it so a successful save (which navigates away) keeps its
+  // media. Only session uploads are tracked, never pre-existing article media.
+  useEffect(() => () => {
+    if (savedRef.current) return;
+    for (const path of sessionUploadsRef.current) {
+      void deleteStorageFile('articles', path);
+    }
+  }, []);
 
   const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -131,6 +161,7 @@ const CarouselStoryCreate: React.FC = () => {
       });
       setItems(prev => [...prev, { id: crypto.randomUUID(), url: publicUrl, storagePath }]);
       setMediaCaptions(prev => [...prev, { en: "", ro: "" }]);
+      sessionUploadsRef.current.add(storagePath);
       toast.success(language === 'en' ? "Image uploaded" : "Imagine încărcată");
     } catch (error) {
       console.error("Error uploading image:", error);
@@ -152,7 +183,10 @@ const CarouselStoryCreate: React.FC = () => {
     }
     setIsUploading(true);
     try {
-      if (posterStoragePath) await deleteStorageFile('articles', posterStoragePath);
+      if (posterStoragePath) {
+        sessionUploadsRef.current.delete(posterStoragePath);
+        await deleteStorageFile('articles', posterStoragePath);
+      }
       const { publicUrl, storagePath } = await uploadUserFile(file, {
         bucket: 'articles',
         kind: 'image',
@@ -161,6 +195,7 @@ const CarouselStoryCreate: React.FC = () => {
       });
       setPosterUrl(publicUrl);
       setPosterStoragePath(storagePath);
+      sessionUploadsRef.current.add(storagePath);
       toast.success(language === 'en' ? "Poster uploaded" : "Poster încărcat");
     } catch (error) {
       console.error("Error uploading poster:", error);
@@ -173,7 +208,10 @@ const CarouselStoryCreate: React.FC = () => {
   };
 
   const removePoster = () => {
-    if (posterStoragePath) void deleteStorageFile('articles', posterStoragePath);
+    if (posterStoragePath) {
+      sessionUploadsRef.current.delete(posterStoragePath);
+      void deleteStorageFile('articles', posterStoragePath);
+    }
     setPosterUrl('');
     setPosterStoragePath(null);
   };
@@ -182,7 +220,10 @@ const CarouselStoryCreate: React.FC = () => {
     const removed = items[index];
     setItems(prev => prev.filter((_, i) => i !== index));
     setMediaCaptions(prev => prev.filter((_, i) => i !== index));
-    if (removed?.storagePath) void deleteStorageFile('articles', removed.storagePath);
+    if (removed?.storagePath) {
+      sessionUploadsRef.current.delete(removed.storagePath);
+      void deleteStorageFile('articles', removed.storagePath);
+    }
   };
 
   const moveImage = (from: number, to: number) => {
@@ -247,6 +288,7 @@ const CarouselStoryCreate: React.FC = () => {
         await createArticle({ ...payload, userId: user.id, isPublished: isAdmin });
         toast.success(language === 'en' ? "Photo essay created!" : "Eseul a fost creat!");
       }
+      savedRef.current = true;
       navigate("/admin");
     } catch (error) {
       console.error("Error saving carousel story:", error);
