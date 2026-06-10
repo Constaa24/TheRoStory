@@ -6,7 +6,7 @@ import { useFavorites } from "@/hooks/use-favorites";
 import { ArrowLeft, Heart, Share2, Printer, Play, Pause, Maximize2, Volume2, VolumeX } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ArticleComments } from "@/components/organisms/ArticleComments";
-import { TONES, toneFor, readMinutes, placeLabel } from "@/lib/article-utils";
+import { TONES, toneFor, readMinutes, placeLabel, articleCoverUrl } from "@/lib/article-utils";
 
 interface Props {
   article: Article;
@@ -81,7 +81,10 @@ export const EditorialArticle: React.FC<Props> = ({ article, views }) => {
       <section style={{ padding: '60px 0', borderTop: '1px solid var(--line-soft)' }}>
         <div className="ed-container max-w-[760px] mx-auto flex flex-wrap justify-between items-center gap-6">
           <div className="font-ui text-[11px] uppercase" style={{ letterSpacing: '0.18em', color: 'var(--text-mute)' }}>
-            {kindLabel} · {readMinutes(article, language)} {language === 'en' ? 'min read' : 'min citire'}
+            {kindLabel}
+            {/* readMinutes is word-count based — for films the content is a
+                short synopsis, so the number is meaningless. */}
+            {article.type !== 'video' && <> · {readMinutes(article, language)} {language === 'en' ? 'min read' : 'min citire'}</>}
           </div>
           <div className="flex gap-2">
             <button
@@ -135,9 +138,7 @@ export const EditorialArticle: React.FC<Props> = ({ article, views }) => {
               {related.map(r => {
                 const cat = categories.find(c => c.id === r.categoryId);
                 const tone = toneFor(r.id);
-                const cover = r.type === 'carousel'
-                  ? (r.posterUrl || r.mediaUrls?.[0] || r.mediaUrl)
-                  : (r.posterUrl || r.mediaUrl || r.mediaUrls?.[0]);
+                const cover = articleCoverUrl(r);
                 return (
                   <Link key={r.id} to={`/article/${r.id}`} className="block group" style={{ color: 'inherit', textDecoration: 'none' }}>
                     <div className="ph relative" data-tone={tone} data-label={placeLabel(r)} style={{ aspectRatio: '3/4' }}>
@@ -873,11 +874,15 @@ const VideoFilm: React.FC<{ article: Article; category?: Category; views?: numbe
                     {formatDate(article.createdAt, language)}
                   </div>
                 </div>
-                <div className="px-6 py-4" style={{ borderBottom: '1px solid var(--line-soft)' }}>
-                  <div className="font-display italic" style={{ fontSize: 19, color: 'var(--parchment)' }}>
-                    {readMinutes(article, language)} {language === 'en' ? 'min film' : 'min film'}
+                {/* Real runtime from the player metadata — the old word-count
+                    readMinutes() always claimed ~3 min regardless of the film. */}
+                {duration > 0 && (
+                  <div className="px-6 py-4" style={{ borderBottom: '1px solid var(--line-soft)' }}>
+                    <div className="font-display italic" style={{ fontSize: 19, color: 'var(--parchment)' }}>
+                      {formatTime(duration)} {language === 'en' ? 'min film' : 'min film'}
+                    </div>
                   </div>
-                </div>
+                )}
                 {views !== undefined && views > 0 && (
                   <div className="px-6 py-4" style={{ borderBottom: '1px solid var(--line-soft)' }}>
                     <div className="font-display italic" style={{ fontSize: 19, color: 'var(--parchment)' }}>

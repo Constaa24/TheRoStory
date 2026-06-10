@@ -490,9 +490,11 @@ export const searchArticles = async (query: string, limit = 6): Promise<Article[
   if (!query.trim()) return [];
   const q = escapePostgrestLikeTerm(query.trim());
   if (!q.trim()) return [];
+  // Card columns only — the search overlay renders title + category +
+  // thumbnail, so pulling both full content columns per hit was waste.
   const { data, error } = await supabase
     .from('articles')
-    .select('*')
+    .select(ARTICLE_CARD_COLUMNS)
     .eq('is_published', true)
     .or(
       `title_en.ilike.%${q}%,title_ro.ilike.%${q}%,content_en.ilike.%${q}%,content_ro.ilike.%${q}%,location.ilike.%${q}%`

@@ -5,6 +5,7 @@ import { fetchPublicArticle, incrementView } from "@/lib/supabase";
 import { useLanguage } from "@/hooks/use-language";
 import { EditorialArticle } from "@/components/organisms/EditorialArticle";
 import { logError } from "@/lib/utils";
+import { articleCoverUrl, articleExcerpt } from "@/lib/article-utils";
 import { SITE_NAME, SITE_URL } from "@/lib/constants";
 
 const ArticleDetailPage: React.FC = () => {
@@ -31,6 +32,10 @@ const ArticleDetailPage: React.FC = () => {
         if (article) {
           setArticle(article);
           setViews(views);
+          // Count the view only once we know the article exists and is
+          // published — firing earlier counted drafts and produced noise
+          // for nonexistent ids. (The RPC also guards server-side now.)
+          incrementView(id);
         } else {
           navigate(fromPath, { replace: true });
         }
@@ -42,8 +47,6 @@ const ArticleDetailPage: React.FC = () => {
         if (!cancelled) setIsLoading(false);
       }
     })();
-
-    incrementView(id);
 
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -62,12 +65,10 @@ const ArticleDetailPage: React.FC = () => {
   if (!article) return null;
 
   const title = getLocalized(article, "title", language);
-  const description = getLocalized(article, "content", language).substring(0, 160);
-  const imageUrl =
-    article.posterUrl ||
-    article.mediaUrl ||
-    article.mediaUrls?.[0] ||
-    `${SITE_URL}/og-image.jpg`;
+  // articleExcerpt strips the |||CHAPTER||| delimiter — substring() leaked
+  // it into the meta description of multi-chapter stories.
+  const description = articleExcerpt(article, language, 160);
+  const imageUrl = articleCoverUrl(article) || `${SITE_URL}/og-image.jpg`;
   const articleUrl = `${SITE_URL}/article/${article.id}`;
 
   const jsonLd = {

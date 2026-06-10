@@ -1,11 +1,27 @@
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useLanguage } from "@/hooks/use-language";
 import { toggleFavorite, supabase } from "@/lib/supabase";
 import { isAbortError } from "@/lib/utils";
 import { toast } from "sonner";
 
-export function useFavorites() {
+interface FavoritesContextType {
+  userFavorites: string[];
+  handleFavoriteToggle: (e: React.MouseEvent, articleId: string) => Promise<boolean | null | undefined>;
+  isFavorited: (articleId: string) => boolean;
+  fetchFavorites: () => Promise<void>;
+}
+
+const FavoritesContext = createContext<FavoritesContextType | undefined>(undefined);
+
+/**
+ * Single source of truth for the current user's favorited article ids.
+ * Previously every component calling useFavorites() (Home, CategoryDetail,
+ * EditorialArticle, …) held its own copy and fired its own favorites query
+ * on mount; the provider fetches once per user session and keeps every
+ * heart icon in sync.
+ */
+export const FavoritesProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, login } = useAuth();
   const { language } = useLanguage();
   const [userFavorites, setUserFavorites] = useState<string[]>([]);
@@ -74,7 +90,22 @@ export function useFavorites() {
     }
   }, [user, language, login]);
 
-  const isFavorited = (articleId: string) => userFavorites.includes(articleId);
+  const isFavorited = useCallback(
+    (articleId: string) => userFavorites.includes(articleId),
+    [userFavorites]
+  );
 
-  return { userFavorites, handleFavoriteToggle, isFavorited, fetchFavorites };
+  return (
+    <FavoritesContext.Provider value={{ userFavorites, handleFavoriteToggle, isFavorited, fetchFavorites }}>
+      {children}
+    </FavoritesContext.Provider>
+  );
+};
+
+export function useFavorites() {
+  const context = useContext(FavoritesContext);
+  if (context === undefined) {
+    throw new Error("useFavorites must be used within a FavoritesProvider");
+  }
+  return context;
 }

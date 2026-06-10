@@ -32,5 +32,8 @@ export function getCorsHeaders(req: Request): Record<string, string> {
     "Access-Control-Allow-Origin": allowedOrigin,
     "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
     "Access-Control-Allow-Methods": "POST, OPTIONS",
+    // The allowed origin is computed per request, so any cache between us
+    // and the client must key on the Origin header.
+    "Vary": "Origin",
   };
 }

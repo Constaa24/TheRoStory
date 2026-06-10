@@ -40,9 +40,27 @@ const CarouselStoryCreate: React.FC = () => {
   // Storage paths uploaded during THIS session — orphans if the user leaves
   // without saving. Never holds an opened article's pre-existing media.
   const sessionUploadsRef = useRef<Set<string>>(new Set());
+  // Pre-existing article media the user removed/replaced this session. These
+  // files are still referenced by the saved article, so deleting them
+  // immediately would break the article if the user cancels — they're only
+  // deleted after a successful save.
+  const pendingDeletesRef = useRef<Set<string>>(new Set());
   // Serialized form state at load time; isDirty compares against it so an
   // unchanged edit page doesn't trigger the "unsaved changes" prompt.
   const initialSnapshotRef = useRef<string | null>(null);
+
+  // Removes a file the form no longer references. Session uploads are ours
+  // and unsaved, so they can be deleted right away; pre-existing article
+  // media is deferred until the save commits (see pendingDeletesRef).
+  const discardStoredFile = (path: string | null) => {
+    if (!path) return;
+    if (sessionUploadsRef.current.has(path)) {
+      sessionUploadsRef.current.delete(path);
+      void deleteStorageFile('articles', path);
+    } else {
+      pendingDeletesRef.current.add(path);
+    }
+  };
 
   // Form states
   const [titleEn, setTitleEn] = useState("");
@@ -74,6 +92,13 @@ const CarouselStoryCreate: React.FC = () => {
           if (cancelled) return;
           if (!article || article.type !== 'carousel') {
             toast.error(language === 'en' ? 'Article not found' : 'Articol negăsit');
+            navigate('/admin', { replace: true });
+            return;
+          }
+          // Writers can only edit their own work — RLS rejects the save
+          // anyway, but failing here avoids a dead-end form.
+          if (!isAdmin && article.userId !== user?.id) {
+            toast.error(language === 'en' ? 'You can only edit your own stories' : 'Poți edita doar propriile povești');
             navigate('/admin', { replace: true });
             return;
           }
@@ -183,16 +208,17 @@ const CarouselStoryCreate: React.FC = () => {
     }
     setIsUploading(true);
     try {
-      if (posterStoragePath) {
-        sessionUploadsRef.current.delete(posterStoragePath);
-        await deleteStorageFile('articles', posterStoragePath);
-      }
+      const previousPosterPath = posterStoragePath;
       const { publicUrl, storagePath } = await uploadUserFile(file, {
         bucket: 'articles',
         kind: 'image',
         userId: user.id,
         subfolder: 'stories/posters',
       });
+      // Discard the replaced poster only after the new upload succeeded.
+      if (previousPosterPath !== storagePath) {
+        discardStoredFile(previousPosterPath);
+      }
       setPosterUrl(publicUrl);
       setPosterStoragePath(storagePath);
       sessionUploadsRef.current.add(storagePath);
@@ -208,10 +234,7 @@ const CarouselStoryCreate: React.FC = () => {
   };
 
   const removePoster = () => {
-    if (posterStoragePath) {
-      sessionUploadsRef.current.delete(posterStoragePath);
-      void deleteStorageFile('articles', posterStoragePath);
-    }
+    discardStoredFile(posterStoragePath);
     setPosterUrl('');
     setPosterStoragePath(null);
   };
@@ -220,10 +243,7 @@ const CarouselStoryCreate: React.FC = () => {
     const removed = items[index];
     setItems(prev => prev.filter((_, i) => i !== index));
     setMediaCaptions(prev => prev.filter((_, i) => i !== index));
-    if (removed?.storagePath) {
-      sessionUploadsRef.current.delete(removed.storagePath);
-      void deleteStorageFile('articles', removed.storagePath);
-    }
+    discardStoredFile(removed?.storagePath ?? null);
   };
 
   const moveImage = (from: number, to: number) => {
@@ -281,14 +301,23 @@ const CarouselStoryCreate: React.FC = () => {
         posterUrl: posterUrl || null,
       };
 
+      // The visibility checkbox is admin-only; writers pass their story's
+      // loaded state through and the DB trigger
+      // (enforce_article_publish_rights) pins it server-side regardless.
       if (isEditing && editingId) {
         await updateArticle({ ...payload, id: editingId, isPublished });
         toast.success(language === 'en' ? "Photo essay updated!" : "Eseul a fost actualizat!");
       } else {
-        await createArticle({ ...payload, userId: user.id, isPublished: isAdmin });
+        await createArticle({ ...payload, userId: user.id, isPublished: isAdmin && isPublished });
         toast.success(language === 'en' ? "Photo essay created!" : "Eseul a fost creat!");
       }
       savedRef.current = true;
+      // The save committed — the article no longer references media the
+      // user removed/replaced this session, so it's safe to delete now.
+      for (const path of pendingDeletesRef.current) {
+        void deleteStorageFile('articles', path);
+      }
+      pendingDeletesRef.current.clear();
       navigate("/admin");
     } catch (error) {
       console.error("Error saving carousel story:", error);
@@ -398,7 +427,7 @@ const CarouselStoryCreate: React.FC = () => {
                 </Field>
               </FormBlock>
 
-              {isEditing && isAdmin && (
+              {isAdmin && (
                 <FormBlock title={language === 'en' ? 'Visibility' : 'Vizibilitate'}>
                   <label className="flex items-start gap-3 cursor-pointer select-none" style={{ marginBottom: 0 }}>
                     <input
@@ -409,10 +438,14 @@ const CarouselStoryCreate: React.FC = () => {
                     />
                     <span style={{ flex: 1, marginBottom: 0, textTransform: 'none', letterSpacing: 'normal' }}>
                       <span className="font-display italic block" style={{ color: 'var(--parchment)', fontSize: 17 }}>
-                        {language === 'en' ? 'Published' : 'Publicat'}
+                        {isEditing
+                          ? (language === 'en' ? 'Published' : 'Publicat')
+                          : (language === 'en' ? 'Publish immediately' : 'Publică imediat')}
                       </span>
                       <span className="font-ui text-[11px] uppercase mt-1 block" style={{ letterSpacing: '0.15em', color: 'var(--text-mute)' }}>
-                        {language === 'en' ? 'Toggle off to revert to draft.' : 'Dezactivează pentru a reveni la ciornă.'}
+                        {isEditing
+                          ? (language === 'en' ? 'Toggle off to revert to draft.' : 'Dezactivează pentru a reveni la ciornă.')
+                          : (language === 'en' ? 'Otherwise saved as a draft only you can see.' : 'Altfel se salvează ca ciornă, vizibilă doar pentru tine.')}
                       </span>
                     </span>
                   </label>
@@ -479,7 +512,14 @@ const CarouselStoryCreate: React.FC = () => {
                       type="url"
                       placeholder="https://..."
                       value={posterUrl}
-                      onChange={(e) => setPosterUrl(e.target.value)}
+                      onChange={(e) => {
+                        // Manual URL paste means the user is taking ownership
+                        // of a URL we didn't upload. Forget any tracked
+                        // storage path so we don't delete an unrelated file
+                        // later (mirrors the cover-URL field in TextStoryCreate).
+                        setPosterUrl(e.target.value);
+                        setPosterStoragePath(null);
+                      }}
                       style={{ flex: 1 }}
                     />
                     <input
@@ -739,7 +779,9 @@ const CarouselStoryCreate: React.FC = () => {
                 <Save className="w-3.5 h-3.5" />
                 {isEditing
                   ? (language === 'en' ? 'Save changes' : 'Salvează modificările')
-                  : (language === 'en' ? 'Publish photo essay' : 'Publică eseul')}
+                  : (isAdmin && isPublished
+                      ? (language === 'en' ? 'Publish photo essay' : 'Publică eseul')
+                      : (language === 'en' ? 'Save as draft' : 'Salvează ca ciornă'))}
               </>
             )}
           </button>

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useLanguage } from "@/hooks/use-language";
-import { useNavigate, useSearchParams, useLocation } from "react-router-dom";
+import { useNavigate, useSearchParams, useLocation, Navigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -206,6 +206,13 @@ const Auth: React.FC = () => {
       setIsLoading(false);
     }
   };
+
+  // Already signed in and not in a recovery/verification flow — the
+  // login/signup forms are meaningless, so send the user home. (Recovery
+  // sessions render the reset-password view, which must stay reachable.)
+  if (user && view === "auth" && !isVerificationSent && !isRecoveryMode) {
+    return <Navigate to="/" replace />;
+  }
 
   if (isVerificationSent) {
     const handleResend = async () => {

@@ -9,6 +9,8 @@ import {
   fetchAllUsers,
   deleteUser as deleteUserFunc,
   updateUserRole as updateUserRoleFunc,
+  deleteStorageFile,
+  extractStoragePath,
 } from "@/lib/supabase";
 import { supabase } from "@/lib/supabase";
 import { useLanguage } from "@/hooks/use-language";
@@ -219,8 +221,25 @@ const AdminDashboard: React.FC = () => {
 
   const performDeleteArticle = async (id: string) => {
     try {
+      // Collect the article's storage paths BEFORE deleting the row, so we
+      // can clean up the bucket afterwards. Without this every deleted
+      // article orphaned its cover/poster/gallery/video files forever.
+      const article = articles.find(a => a.id === id);
+      const storagePaths = article
+        ? [article.mediaUrl, article.posterUrl, ...(article.mediaUrls ?? [])]
+            .map(url => (url ? extractStoragePath(url, 'articles') : null))
+            .filter((p): p is string => !!p)
+        : [];
+
       const { error } = await supabase.from('articles').delete().eq('id', id);
       if (error) throw error;
+
+      // Best-effort: deleteStorageFile swallows failures, and admins can
+      // remove other users' files via the storage RLS admin override.
+      for (const path of storagePaths) {
+        void deleteStorageFile('articles', path);
+      }
+
       fetchData();
       toast.success(t("admin.articles.deleted"));
     } catch {
@@ -872,15 +891,17 @@ const AdminDashboard: React.FC = () => {
                 <TableBody>
                   {allUsers.map((u) => (
                     <TableRow key={u.id}>
-                      <TableCell className="font-medium flex items-center gap-2">
-                        <div className="h-8 w-8 rounded-full bg-accent/20 flex items-center justify-center overflow-hidden">
-                          {u.avatarUrl ? (
-                            <img src={u.avatarUrl} alt={u.displayName} className="h-full w-full object-cover" loading="lazy" />
-                          ) : (
-                            <span className="text-xs">{u.displayName?.charAt(0) || u.email.charAt(0)}</span>
-                          )}
+                      <TableCell className="font-medium">
+                        <div className="flex items-center gap-2">
+                          <div className="h-8 w-8 rounded-full bg-accent/20 flex items-center justify-center overflow-hidden">
+                            {u.avatarUrl ? (
+                              <img src={u.avatarUrl} alt={u.displayName} className="h-full w-full object-cover" loading="lazy" />
+                            ) : (
+                              <span className="text-xs">{u.displayName?.charAt(0) || u.email.charAt(0)}</span>
+                            )}
+                          </div>
+                          {u.displayName || t("admin.users.anonymous")}
                         </div>
-                        {u.displayName || t("admin.users.anonymous")}
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">

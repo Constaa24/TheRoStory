@@ -8,9 +8,10 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import { useTheme } from "next-themes";
 import { Article, Category, searchArticles, fetchCategories, getLocalized } from "@/lib/supabase";
+import { articleCoverUrl } from "@/lib/article-utils";
 
 export const Navbar: React.FC = () => {
-  const { user, login, logout, isAdmin, isWriter } = useAuth();
+  const { user, login, logout, isAdmin, isWriter, signInWithGoogle } = useAuth();
   const { language, setLanguage, t } = useLanguage();
   const { theme, setTheme } = useTheme();
   const location = useLocation();
@@ -83,7 +84,7 @@ export const Navbar: React.FC = () => {
         {/* Desktop nav */}
         <nav className="hidden lg:flex items-center gap-1">
           {navLinks.map(link => {
-            const active = location.pathname === link.path || (link.path === '/' && location.pathname === '/');
+            const active = location.pathname === link.path;
             return (
               <Link
                 key={link.path}
@@ -267,7 +268,12 @@ export const Navbar: React.FC = () => {
                       <span style={{ flex: 1, height: 1, background: 'var(--line)' }} />
                     </div>
                     <button
-                      onClick={() => { setProfileOpen(false); login(); }}
+                      onClick={() => {
+                        // Actually start the Google OAuth flow — this used to
+                        // just navigate to /auth, despite the label.
+                        setProfileOpen(false);
+                        void signInWithGoogle();
+                      }}
                       className="w-full flex items-center justify-center gap-2.5 py-3 cursor-pointer transition-colors"
                       style={{ border: '1px solid var(--line)', background: 'transparent', color: 'var(--text)', borderRadius: 4, fontFamily: 'var(--ui)', fontSize: 12, letterSpacing: '0.1em' }}
                       onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--hover-subtle)')}
@@ -497,11 +503,7 @@ const NavSearchOverlay: React.FC<{ onClose: () => void; language: 'en' | 'ro' }>
               ) : results.length > 0 ? (
                 results.map((article) => {
                   const cat = categories.find((c) => c.id === article.categoryId);
-                  const thumb = article.type === 'video'
-                    ? article.posterUrl
-                    : article.type === 'carousel'
-                      ? article.posterUrl ?? article.mediaUrls?.[0] ?? article.mediaUrl
-                      : article.mediaUrl;
+                  const thumb = articleCoverUrl(article);
                   return (
                     <button
                       key={article.id}

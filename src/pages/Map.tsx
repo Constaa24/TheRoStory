@@ -10,6 +10,7 @@ import { StoryThumbnail } from "@/components/ui/story-thumbnail";
 import { X, MapPin, ChevronRight, Maximize2, Minimize2, RotateCcw, ArrowLeft } from "lucide-react";
 import { cn, isAbortError } from "@/lib/utils";
 import { PageHead } from "@/components/layout/PageHead";
+import { articleCoverUrl } from "@/lib/article-utils";
 import { getArticleKindLabel } from "@/components/organisms/EditorialArticle";
 
 // Choropleth tiers — counties get progressively warmer as story density grows.
@@ -453,9 +454,7 @@ const MapPage: React.FC = () => {
                               {art.type === 'video'
                                 ? <StoryThumbnail posterUrl={art.posterUrl} className="w-full h-full object-cover" />
                                 : (() => {
-                                    const cover = art.type === 'carousel'
-                                      ? (art.posterUrl || art.mediaUrls?.[0] || art.mediaUrl)
-                                      : art.mediaUrl;
+                                    const cover = articleCoverUrl(art);
                                     return cover
                                       ? <img src={cover} alt="" className="w-full h-full object-cover" loading="lazy" />
                                       : <div className="w-full h-full ph" data-tone="warm" />;

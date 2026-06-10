@@ -56,9 +56,27 @@ const TextStoryCreate: React.FC = () => {
   // Storage paths uploaded during THIS session — orphans if the user leaves
   // without saving. Never holds an opened article's pre-existing media.
   const sessionUploadsRef = useRef<Set<string>>(new Set());
+  // Pre-existing article media the user removed/replaced this session. These
+  // files are still referenced by the saved article, so deleting them
+  // immediately would break the article if the user cancels — they're only
+  // deleted after a successful save.
+  const pendingDeletesRef = useRef<Set<string>>(new Set());
   // Serialized form state at load time; isDirty compares against it so an
   // unchanged edit page doesn't trigger the "unsaved changes" prompt.
   const initialSnapshotRef = useRef<string | null>(null);
+
+  // Removes a file the form no longer references. Session uploads are ours
+  // and unsaved, so they can be deleted right away; pre-existing article
+  // media is deferred until the save commits (see pendingDeletesRef).
+  const discardStoredFile = (path: string | null) => {
+    if (!path) return;
+    if (sessionUploadsRef.current.has(path)) {
+      sessionUploadsRef.current.delete(path);
+      void deleteStorageFile('articles', path);
+    } else {
+      pendingDeletesRef.current.add(path);
+    }
+  };
 
   const [titleEn, setTitleEn] = useState("");
   const [titleRo, setTitleRo] = useState("");
@@ -93,6 +111,13 @@ const TextStoryCreate: React.FC = () => {
           if (cancelled) return;
           if (!article || article.type !== 'text') {
             toast.error(language === 'en' ? 'Article not found' : 'Articol negăsit');
+            navigate('/admin', { replace: true });
+            return;
+          }
+          // Writers can only edit their own work — RLS rejects the save
+          // anyway, but failing here avoids a dead-end form.
+          if (!isAdmin && article.userId !== user?.id) {
+            toast.error(language === 'en' ? 'You can only edit your own stories' : 'Poți edita doar propriile povești');
             navigate('/admin', { replace: true });
             return;
           }
@@ -165,10 +190,11 @@ const TextStoryCreate: React.FC = () => {
     }
     setIsUploading(true);
     try {
-      // Best-effort cleanup of the previous upload so replacing the cover
-      // doesn't leave the old file orphaned in the bucket. We only delete
-      // when we have a tracked path — typed URLs (paste box) aren't ours
-      // to remove.
+      // Cleanup of the file being replaced so it doesn't orphan in the
+      // bucket. Session uploads are removed right away; the article's
+      // pre-existing cover is only deleted after a successful save (the
+      // saved article still references it until then). Typed URLs (paste
+      // box) have no tracked path and aren't ours to remove.
       const previousPath = mediaStoragePath;
       const { publicUrl, storagePath } = await uploadUserFile(file, {
         bucket: "articles",
@@ -179,8 +205,7 @@ const TextStoryCreate: React.FC = () => {
       setMediaStoragePath(storagePath);
       sessionUploadsRef.current.add(storagePath);
       if (previousPath && previousPath !== storagePath) {
-        sessionUploadsRef.current.delete(previousPath);
-        void deleteStorageFile('articles', previousPath);
+        discardStoredFile(previousPath);
       }
       toast.success(language === "en" ? "Image uploaded" : "Imagine încărcată");
     } catch (error) {
@@ -194,10 +219,7 @@ const TextStoryCreate: React.FC = () => {
   };
 
   const handleRemoveCover = () => {
-    if (mediaStoragePath) {
-      sessionUploadsRef.current.delete(mediaStoragePath);
-      void deleteStorageFile('articles', mediaStoragePath);
-    }
+    discardStoredFile(mediaStoragePath);
     setMediaUrl('');
     setMediaStoragePath(null);
   };
@@ -263,14 +285,25 @@ const TextStoryCreate: React.FC = () => {
         mediaUrl: mediaUrl || null,
       };
 
+      // publishImmediately is loaded from the article and only togglable by
+      // admins, so writers pass their story's current state through — the
+      // DB trigger (enforce_article_publish_rights) pins it server-side
+      // regardless. Previously writer saves forced false, silently
+      // unpublishing their published stories.
       if (isEditing && editingId) {
-        await updateArticle({ ...payload, id: editingId, isPublished: isAdmin ? publishImmediately : false });
+        await updateArticle({ ...payload, id: editingId, isPublished: publishImmediately });
         toast.success(language === "en" ? "Story updated!" : "Povestea a fost actualizată!");
       } else {
-        await createArticle({ ...payload, userId: user.id, isPublished: isAdmin ? publishImmediately : false });
+        await createArticle({ ...payload, userId: user.id, isPublished: isAdmin && publishImmediately });
         toast.success(language === "en" ? "Story created!" : "Povestea a fost creată!");
       }
       savedRef.current = true;
+      // The save committed — the article no longer references media the
+      // user removed/replaced this session, so it's safe to delete now.
+      for (const path of pendingDeletesRef.current) {
+        void deleteStorageFile('articles', path);
+      }
+      pendingDeletesRef.current.clear();
       navigate("/admin");
     } catch (error) {
       if (!isAbortError(error)) console.error("Error saving text story:", error);

@@ -100,9 +100,7 @@ export default defineConfig({
           // Heavy or feature-scoped libraries get their own chunks so the
           // landing page doesn't pay for them up-front.
           if (id.includes('d3-') || id.includes('topojson-client')) return 'map';
-          if (id.includes('embla-carousel')) return 'carousel';
           if (id.includes('framer-motion')) return 'motion';
-          if (id.includes('@dnd-kit')) return 'dnd';
           if (id.includes('lucide-react')) return 'icons';
           if (id.includes('@radix-ui')) return 'radix';
 

@@ -41,9 +41,27 @@ const VideoStoryCreate: React.FC = () => {
   // Storage paths uploaded during THIS session — orphans if the user leaves
   // without saving. Never holds an opened article's pre-existing media.
   const sessionUploadsRef = useRef<Set<string>>(new Set());
+  // Pre-existing article media the user removed/replaced this session. These
+  // files are still referenced by the saved article, so deleting them
+  // immediately would break the article if the user cancels — they're only
+  // deleted after a successful save.
+  const pendingDeletesRef = useRef<Set<string>>(new Set());
   // Serialized form state at load time; isDirty compares against it so an
   // unchanged edit page doesn't trigger the "unsaved changes" prompt.
   const initialSnapshotRef = useRef<string | null>(null);
+
+  // Removes a file the form no longer references. Session uploads are ours
+  // and unsaved, so they can be deleted right away; pre-existing article
+  // media is deferred until the save commits (see pendingDeletesRef).
+  const discardStoredFile = (path: string | null) => {
+    if (!path) return;
+    if (sessionUploadsRef.current.has(path)) {
+      sessionUploadsRef.current.delete(path);
+      void deleteStorageFile('articles', path);
+    } else {
+      pendingDeletesRef.current.add(path);
+    }
+  };
 
   const [titleEn, setTitleEn] = useState("");
   const [titleRo, setTitleRo] = useState("");
@@ -73,6 +91,13 @@ const VideoStoryCreate: React.FC = () => {
           if (cancelled) return;
           if (!article || article.type !== 'video') {
             toast.error(language === 'en' ? 'Article not found' : 'Articol negăsit');
+            navigate('/admin', { replace: true });
+            return;
+          }
+          // Writers can only edit their own work — RLS rejects the save
+          // anyway, but failing here avoids a dead-end form.
+          if (!isAdmin && article.userId !== user?.id) {
+            toast.error(language === 'en' ? 'You can only edit your own stories' : 'Poți edita doar propriile povești');
             navigate('/admin', { replace: true });
             return;
           }
@@ -139,18 +164,12 @@ const VideoStoryCreate: React.FC = () => {
 
     setIsUploading(true);
     try {
-      if (videoStoragePath) {
-        sessionUploadsRef.current.delete(videoStoragePath);
-        await deleteStorageFile('articles', videoStoragePath);
-      }
-      if (posterStoragePath) {
-        sessionUploadsRef.current.delete(posterStoragePath);
-        await deleteStorageFile('articles', posterStoragePath);
-      }
-      setVideoUrl("");
-      setPosterUrl("");
-      setVideoStoragePath(null);
-      setPosterStoragePath(null);
+      // Upload the replacement FIRST. The previous flow deleted the current
+      // video/poster from storage before the new upload even started — a
+      // failed upload (or a later cancel) left the published article
+      // pointing at deleted files.
+      const previousVideoPath = videoStoragePath;
+      const previousPosterPath = posterStoragePath;
 
       const { publicUrl, storagePath } = await uploadUserFile(file, {
         bucket: 'articles',
@@ -159,8 +178,16 @@ const VideoStoryCreate: React.FC = () => {
         subfolder: 'stories/videos',
         maxBytes: 500 * 1024 * 1024,
       });
+
+      // Only now discard the replaced files (session uploads immediately,
+      // the article's pre-existing media after a successful save).
+      discardStoredFile(previousVideoPath);
+      discardStoredFile(previousPosterPath);
+
       setVideoUrl(publicUrl);
       setVideoStoragePath(storagePath);
+      setPosterUrl("");
+      setPosterStoragePath(null);
       sessionUploadsRef.current.add(storagePath);
       toast.success(language === 'en' ? "Video uploaded" : "Video încărcat");
 
@@ -202,16 +229,17 @@ const VideoStoryCreate: React.FC = () => {
     }
     setIsUploading(true);
     try {
-      if (posterStoragePath) {
-        sessionUploadsRef.current.delete(posterStoragePath);
-        await deleteStorageFile('articles', posterStoragePath);
-      }
+      const previousPosterPath = posterStoragePath;
       const { publicUrl, storagePath } = await uploadUserFile(file, {
         bucket: 'articles',
         kind: 'image',
         userId: user.id,
         subfolder: 'stories/posters',
       });
+      // Discard the replaced poster only after the new upload succeeded.
+      if (previousPosterPath !== storagePath) {
+        discardStoredFile(previousPosterPath);
+      }
       setPosterUrl(publicUrl);
       setPosterStoragePath(storagePath);
       sessionUploadsRef.current.add(storagePath);
@@ -244,14 +272,23 @@ const VideoStoryCreate: React.FC = () => {
         mediaUrl: videoUrl,
         posterUrl: posterUrl || null,
       };
+      // The visibility checkbox is admin-only; writers pass their story's
+      // loaded state through and the DB trigger
+      // (enforce_article_publish_rights) pins it server-side regardless.
       if (isEditing && editingId) {
         await updateArticle({ ...payload, id: editingId, isPublished });
         toast.success(language === 'en' ? "Film updated!" : "Filmul a fost actualizat!");
       } else {
-        await createArticle({ ...payload, userId: user.id, isPublished: isAdmin });
+        await createArticle({ ...payload, userId: user.id, isPublished: isAdmin && isPublished });
         toast.success(language === 'en' ? "Film created!" : "Filmul a fost creat!");
       }
       savedRef.current = true;
+      // The save committed — the article no longer references media the
+      // user removed/replaced this session, so it's safe to delete now.
+      for (const path of pendingDeletesRef.current) {
+        void deleteStorageFile('articles', path);
+      }
+      pendingDeletesRef.current.clear();
       navigate("/admin");
     } catch (error) {
       console.error("Error saving video story:", error);
@@ -359,7 +396,7 @@ const VideoStoryCreate: React.FC = () => {
                 </Field>
               </FormBlock>
 
-              {isEditing && isAdmin && (
+              {isAdmin && (
                 <FormBlock title={language === 'en' ? 'Visibility' : 'Vizibilitate'}>
                   <label className="flex items-start gap-3 cursor-pointer select-none" style={{ marginBottom: 0 }}>
                     <input
@@ -370,10 +407,14 @@ const VideoStoryCreate: React.FC = () => {
                     />
                     <span style={{ flex: 1, marginBottom: 0, textTransform: 'none', letterSpacing: 'normal' }}>
                       <span className="font-display italic block" style={{ color: 'var(--parchment)', fontSize: 17 }}>
-                        {language === 'en' ? 'Published' : 'Publicat'}
+                        {isEditing
+                          ? (language === 'en' ? 'Published' : 'Publicat')
+                          : (language === 'en' ? 'Publish immediately' : 'Publică imediat')}
                       </span>
                       <span className="font-ui text-[11px] uppercase mt-1 block" style={{ letterSpacing: '0.15em', color: 'var(--text-mute)' }}>
-                        {language === 'en' ? 'Toggle off to revert to draft.' : 'Dezactivează pentru a reveni la ciornă.'}
+                        {isEditing
+                          ? (language === 'en' ? 'Toggle off to revert to draft.' : 'Dezactivează pentru a reveni la ciornă.')
+                          : (language === 'en' ? 'Otherwise saved as a draft only you can see.' : 'Altfel se salvează ca ciornă, vizibilă doar pentru tine.')}
                       </span>
                     </span>
                   </label>
@@ -444,14 +485,8 @@ const VideoStoryCreate: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => {
-                        if (videoStoragePath) {
-                          sessionUploadsRef.current.delete(videoStoragePath);
-                          void deleteStorageFile('articles', videoStoragePath);
-                        }
-                        if (posterStoragePath) {
-                          sessionUploadsRef.current.delete(posterStoragePath);
-                          void deleteStorageFile('articles', posterStoragePath);
-                        }
+                        discardStoredFile(videoStoragePath);
+                        discardStoredFile(posterStoragePath);
                         setVideoUrl('');
                         setPosterUrl('');
                         setVideoStoragePath(null);
@@ -513,10 +548,7 @@ const VideoStoryCreate: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => {
-                        if (posterStoragePath) {
-                          sessionUploadsRef.current.delete(posterStoragePath);
-                          void deleteStorageFile('articles', posterStoragePath);
-                        }
+                        discardStoredFile(posterStoragePath);
                         setPosterUrl('');
                         setPosterStoragePath(null);
                       }}
@@ -535,7 +567,14 @@ const VideoStoryCreate: React.FC = () => {
                       type="url"
                       placeholder="https://..."
                       value={posterUrl}
-                      onChange={(e) => setPosterUrl(e.target.value)}
+                      onChange={(e) => {
+                        // Manual URL paste means the user is taking ownership
+                        // of a URL we didn't upload. Forget any tracked
+                        // storage path so we don't delete an unrelated file
+                        // later (mirrors the cover-URL field in TextStoryCreate).
+                        setPosterUrl(e.target.value);
+                        setPosterStoragePath(null);
+                      }}
                       style={{ flex: 1 }}
                     />
                     <input
@@ -610,7 +649,9 @@ const VideoStoryCreate: React.FC = () => {
                 <Save className="w-3.5 h-3.5" />
                 {isEditing
                   ? (language === 'en' ? 'Save changes' : 'Salvează modificările')
-                  : (language === 'en' ? 'Publish film' : 'Publică filmul')}
+                  : (isAdmin && isPublished
+                      ? (language === 'en' ? 'Publish film' : 'Publică filmul')
+                      : (language === 'en' ? 'Save as draft' : 'Salvează ca ciornă'))}
               </>
             )}
           </button>

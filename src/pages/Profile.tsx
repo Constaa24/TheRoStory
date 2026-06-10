@@ -24,7 +24,7 @@ import { toast } from "sonner";
 import { Article, getLocalized } from "@/lib/supabase";
 import { fetchUserFavorites, toggleFavorite, deleteOwnAccount, exportOwnData, supabase, deleteStorageFile, extractStoragePath, uploadUserFile } from "@/lib/supabase";
 import { isAbortError } from "@/lib/utils";
-import { toneFor } from "@/lib/article-utils";
+import { toneFor, articleExcerpt, articleCoverUrl } from "@/lib/article-utils";
 import { Camera, Loader2, Shield, Heart, ChevronRight, CheckCircle2, AlertCircle, Trash2, Download } from "lucide-react";
 import { motion } from "framer-motion";
 import { PageHead } from "@/components/layout/PageHead";
@@ -543,11 +543,7 @@ const Profile: React.FC = () => {
                       <div className="flex h-full">
                         <div className="w-1/3 aspect-square overflow-hidden relative">
                           {(() => {
-                            const cover = article.type === 'video'
-                              ? article.posterUrl
-                              : article.type === 'carousel'
-                                ? (article.posterUrl || article.mediaUrls?.[0] || article.mediaUrl)
-                                : article.mediaUrl;
+                            const cover = articleCoverUrl(article);
                             return cover ? (
                               <img
                                 src={cover}
@@ -566,7 +562,7 @@ const Profile: React.FC = () => {
                               {getLocalized(article, "title", language)}
                             </h3>
                             <p className="text-xs text-muted-foreground line-clamp-2 italic font-serif">
-                              {getLocalized(article, "content", language).substring(0, 80)}...
+                              {articleExcerpt(article, language, 80)}
                             </p>
                           </div>
                           <div className="flex items-center justify-between pt-2">

@@ -11,6 +11,16 @@ import {
 import { isAbortError } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { Send, MessageSquare, Pencil, Trash2, Check, X } from "lucide-react";
 
@@ -32,6 +42,9 @@ export const ArticleComments: React.FC<Props> = ({ articleId }) => {
   const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
   const [editContent, setEditContent] = useState("");
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
+  // One mis-tap on the trash icon used to delete permanently — route the
+  // action through a confirmation dialog instead.
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
   const mountedRef = useRef(true);
   const currentArticleIdRef = useRef(articleId);
@@ -426,7 +439,7 @@ export const ArticleComments: React.FC<Props> = ({ articleId }) => {
                                 <Pencil className="h-3.5 w-3.5" />
                               </button>
                               <button
-                                onClick={() => handleDelete(comment.id)}
+                                onClick={() => setConfirmDeleteId(comment.id)}
                                 disabled={isDeleting === comment.id}
                                 aria-label={language === "en" ? "Delete" : "Șterge"}
                                 className="p-1 rounded-full transition-colors disabled:opacity-50"
@@ -521,6 +534,39 @@ export const ArticleComments: React.FC<Props> = ({ articleId }) => {
               </div>
             )}
           </div>
+
+          <AlertDialog
+            open={confirmDeleteId !== null}
+            onOpenChange={(open) => { if (!open) setConfirmDeleteId(null); }}
+          >
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>
+                  {language === "en" ? "Delete this comment?" : "Ștergi acest comentariu?"}
+                </AlertDialogTitle>
+                <AlertDialogDescription>
+                  {language === "en"
+                    ? "This will permanently remove your comment. This action cannot be undone."
+                    : "Aceasta va elimina permanent comentariul tău. Acțiunea nu poate fi anulată."}
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>
+                  {language === "en" ? "Cancel" : "Anulează"}
+                </AlertDialogCancel>
+                <AlertDialogAction
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  onClick={() => {
+                    const id = confirmDeleteId;
+                    setConfirmDeleteId(null);
+                    if (id) void handleDelete(id);
+                  }}
+                >
+                  {language === "en" ? "Delete" : "Șterge"}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </div>
       </div>
     </section>

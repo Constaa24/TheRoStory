@@ -4,6 +4,7 @@ import { BrowserRouter } from "react-router-dom";
 import App from "./App";
 import "./index.css";
 import { AuthProvider } from "./hooks/use-auth";
+import { FavoritesProvider } from "./hooks/use-favorites";
 import { LanguageProvider } from "./hooks/use-language";
 import { Toaster } from "@/components/ui/sonner";
 
@@ -21,8 +22,10 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
     <BrowserRouter>
       <LanguageProvider>
         <AuthProvider>
-          <App />
-          <Toaster />
+          <FavoritesProvider>
+            <App />
+            <Toaster />
+          </FavoritesProvider>
         </AuthProvider>
       </LanguageProvider>
     </BrowserRouter>

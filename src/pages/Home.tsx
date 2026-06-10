@@ -7,7 +7,7 @@ import { cn, isAbortError } from "@/lib/utils";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { PageHead } from "@/components/layout/PageHead";
 import { SITE_NAME, SITE_URL } from "@/lib/constants";
-import { toneFor, readMinutes, placeLabel } from "@/lib/article-utils";
+import { toneFor, readMinutes, placeLabel, articleExcerpt, articleCoverUrl } from "@/lib/article-utils";
 
 const PAGE_SIZE = 9;
 
@@ -33,12 +33,7 @@ const StoryCard = React.memo<StoryCardProps>(({ article, category, language, siz
       ? { aspect: '16/10', titleSize: 28 }
       : { aspect: '3/4', titleSize: 22 };
   const tone = toneFor(article.id);
-  const cover = article.type === 'video'
-    ? article.posterUrl
-    : article.type === 'carousel'
-      ? article.posterUrl || article.mediaUrls?.[0] || article.mediaUrl
-      : article.mediaUrl;
-  const hasMedia = !!cover || (article.type === 'video' && !!article.mediaUrl);
+  const cover = articleCoverUrl(article);
 
   return (
     <Link
@@ -53,7 +48,7 @@ const StoryCard = React.memo<StoryCardProps>(({ article, category, language, siz
         data-label={placeLabel(article) || (category ? getLocalized(category, 'name', language).toUpperCase() : '')}
         style={{ aspectRatio: dims.aspect }}
       >
-        {hasMedia && cover && (
+        {cover && (
           <img
             src={cover}
             alt={getLocalized(article, 'title', language)}
@@ -62,7 +57,7 @@ const StoryCard = React.memo<StoryCardProps>(({ article, category, language, siz
             style={{ filter: 'grayscale(0.15) contrast(1.05)' }}
           />
         )}
-        {hasMedia && cover && (
+        {cover && (
           <div className="absolute inset-0 pointer-events-none" style={{ background: 'var(--scrim-card)' }} />
         )}
         {article.type === 'video' && (
@@ -117,8 +112,14 @@ const StoryCard = React.memo<StoryCardProps>(({ article, category, language, siz
           {category && <span style={{ color: 'var(--gold)' }}>{getLocalized(category, 'name', language)}</span>}
           {category && <span>·</span>}
           <span>{typeLabel(article, language)}</span>
-          <span>·</span>
-          <span>{readMinutes(article, language)} {language === 'en' ? 'min read' : 'min citire'}</span>
+          {/* readMinutes is word-count based — meaningless for films, where
+              the content is just a synopsis. */}
+          {article.type !== 'video' && (
+            <>
+              <span>·</span>
+              <span>{readMinutes(article, language)} {language === 'en' ? 'min read' : 'min citire'}</span>
+            </>
+          )}
         </div>
         <h3
           className="font-display italic font-medium m-0 mt-3 mb-2"
@@ -127,8 +128,7 @@ const StoryCard = React.memo<StoryCardProps>(({ article, category, language, siz
           {getLocalized(article, 'title', language)}
         </h3>
         <p className="text-ink-dim m-0" style={{ fontSize: 16 }}>
-          {getLocalized(article, 'content', language).replace(/[#*_>`|-]/g, ' ').split('\n').filter(Boolean)[0]?.slice(0, 140)}
-          {getLocalized(article, 'content', language).length > 140 ? '…' : ''}
+          {articleExcerpt(article, language, 140)}
         </p>
       </div>
     </Link>
@@ -237,7 +237,9 @@ const Home: React.FC = () => {
   const featured = showFeatured ? articles[0] : undefined;
   const second = showFeatured ? articles[1] : undefined;
   const third = showFeatured ? articles[2] : undefined;
-  const latest = articles;
+  // Articles shown in the featured spread are excluded from the grid below
+  // so page 1 doesn't render the same three stories twice.
+  const latest = showFeatured ? articles.slice(3) : articles;
 
   const tickerItems = language === 'en'
     ? ['Dacia · Wallachia · Moldavia', '1859 — The Small Union', 'Transilvania · Bucovina · Dobrogea', 'Folktales of the Carpathians', 'Wooden churches of Maramureș', 'Salt mines beneath the Apuseni']
@@ -371,8 +373,11 @@ const Home: React.FC = () => {
               <div className="grid grid-cols-1 lg:grid-cols-[1.6fr_1fr] gap-14 items-stretch">
                 <Link to={`/article/${featured.id}`} state={{ from: '/' }} className="block" style={{ color: 'inherit', textDecoration: 'none' }}>
                   <div className="ph relative" data-tone={toneFor(featured.id)} data-label={placeLabel(featured)} style={{ aspectRatio: '5/6' }}>
-                    {(featured.posterUrl || featured.mediaUrl) && (
-                      <img src={featured.posterUrl || featured.mediaUrl} alt={getLocalized(featured, 'title', language)} className="absolute inset-0 w-full h-full object-cover" loading="lazy" />
+                    {/* articleCoverUrl never returns the raw video file for
+                        films — posterUrl || mediaUrl rendered a broken <img>
+                        when a video had no poster. */}
+                    {articleCoverUrl(featured) && (
+                      <img src={articleCoverUrl(featured)} alt={getLocalized(featured, 'title', language)} className="absolute inset-0 w-full h-full object-cover" loading="lazy" />
                     )}
                     <div className="absolute left-6 top-6">
                       <span className="pill" style={{ background: 'var(--overlay-deep)' }}>{language === 'en' ? 'Lead story' : 'Articolul principal'}</span>
@@ -380,7 +385,8 @@ const Home: React.FC = () => {
                   </div>
                   <div className="pt-7">
                     <div className="eyebrow">
-                      {categoryMap.get(featured.categoryId) ? getLocalized(categoryMap.get(featured.categoryId)!, 'name', language) : ''} · {readMinutes(featured, language)} {language === 'en' ? 'min read' : 'min citire'}
+                      {categoryMap.get(featured.categoryId) ? getLocalized(categoryMap.get(featured.categoryId)!, 'name', language) : ''}
+                      {featured.type !== 'video' && <> · {readMinutes(featured, language)} {language === 'en' ? 'min read' : 'min citire'}</>}
                     </div>
                     <h3
                       className="font-display italic font-medium m-0 mb-3.5 mt-5"
@@ -389,8 +395,7 @@ const Home: React.FC = () => {
                       {getLocalized(featured, 'title', language)}
                     </h3>
                     <p className="text-ink-dim m-0 max-w-[620px]" style={{ fontSize: 19, lineHeight: 1.55 }}>
-                      {getLocalized(featured, 'content', language).split('\n').filter(Boolean)[0]?.slice(0, 220)}
-                      {getLocalized(featured, 'content', language).length > 220 ? '…' : ''}
+                      {articleExcerpt(featured, language, 220)}
                     </p>
                   </div>
                 </Link>
@@ -481,21 +486,23 @@ const Home: React.FC = () => {
                   <div key={i} style={{ aspectRatio: '3/4', border: '1px solid var(--line)', background: 'var(--ink-2)' }} className="animate-pulse" />
                 ))}
               </div>
-            ) : (latest.length > 0 ? (
+            ) : (articles.length > 0 ? (
               <>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-12 gap-y-10 md:gap-y-[72px]">
-                  {latest.map(article => (
-                    <StoryCard
-                      key={article.id}
-                      article={article}
-                      category={categoryMap.get(article.categoryId)}
-                      language={language}
-                      size="md"
-                      isArticleFavorited={isFavorited(article.id)}
-                      onFavoriteToggle={handleFavoriteToggle}
-                    />
-                  ))}
-                </div>
+                {latest.length > 0 && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-12 gap-y-10 md:gap-y-[72px]">
+                    {latest.map(article => (
+                      <StoryCard
+                        key={article.id}
+                        article={article}
+                        category={categoryMap.get(article.categoryId)}
+                        language={language}
+                        size="md"
+                        isArticleFavorited={isFavorited(article.id)}
+                        onFavoriteToggle={handleFavoriteToggle}
+                      />
+                    ))}
+                  </div>
+                )}
 
                 {totalPages > 1 && (
                   <div className="flex items-center justify-center gap-6 pt-12 mt-4">

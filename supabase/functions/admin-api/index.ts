@@ -33,26 +33,39 @@ const userStoragePrefixes = (userId: string): { bucket: string; prefix: string }
 // Best-effort recursive cleanup of all files a user owns. Errors are
 // logged but not thrown — orphan storage is an annoyance, not a reason
 // to block the auth row delete (which is the legally-required action).
+//
+// list() caps at 1000 entries per call, so we loop: each iteration
+// removes the batch it listed, then re-lists from the top until the
+// prefix is empty. A hard iteration cap guards against an infinite
+// loop if remove() keeps failing.
 async function deleteUserStorage(adminClient: SupabaseClient, userId: string): Promise<void> {
+  const LIST_PAGE = 1000
+  const MAX_BATCHES = 50
+
   for (const { bucket, prefix } of userStoragePrefixes(userId)) {
     try {
-      const { data: files, error: listError } = await adminClient.storage
-        .from(bucket)
-        .list(prefix, { limit: 1000 })
-      if (listError) {
-        console.warn(`deleteUserStorage list ${bucket}/${prefix} failed`, listError.message)
-        continue
-      }
-      if (!files || files.length === 0) continue
+      for (let batch = 0; batch < MAX_BATCHES; batch++) {
+        const { data: files, error: listError } = await adminClient.storage
+          .from(bucket)
+          .list(prefix, { limit: LIST_PAGE })
+        if (listError) {
+          console.warn(`deleteUserStorage list ${bucket}/${prefix} failed`, listError.message)
+          break
+        }
+        if (!files || files.length === 0) break
 
-      const paths = files
-        .filter((f) => f && f.name && !f.name.endsWith('/'))
-        .map((f) => `${prefix}/${f.name}`)
-      if (paths.length === 0) continue
+        const paths = files
+          .filter((f) => f && f.name && !f.name.endsWith('/'))
+          .map((f) => `${prefix}/${f.name}`)
+        if (paths.length === 0) break
 
-      const { error: removeError } = await adminClient.storage.from(bucket).remove(paths)
-      if (removeError) {
-        console.warn(`deleteUserStorage remove ${bucket}/${prefix} failed`, removeError.message)
+        const { error: removeError } = await adminClient.storage.from(bucket).remove(paths)
+        if (removeError) {
+          console.warn(`deleteUserStorage remove ${bucket}/${prefix} failed`, removeError.message)
+          break
+        }
+        // Fewer entries than the page size means the prefix is drained.
+        if (files.length < LIST_PAGE) break
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)
@@ -75,8 +88,10 @@ Deno.serve(async (req) => {
   }
 
   // Belt-and-suspenders: getCorsHeaders already maps disallowed origins to
-  // the canonical prod origin so the browser blocks the response. This
-  // also rejects scripted clients that ignore CORS entirely.
+  // the canonical prod origin so the browser blocks the response. This also
+  // rejects scripted clients that *send* a disallowed Origin header; clients
+  // that omit Origin entirely pass through, which is fine here because every
+  // action below still requires a valid JWT.
   const origin = req.headers.get('Origin')
   if (origin && !isAllowedOrigin(origin)) {
     return new Response(JSON.stringify({ error: 'Origin not allowed' }), {
