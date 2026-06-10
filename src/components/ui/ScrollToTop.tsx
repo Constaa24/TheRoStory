@@ -50,9 +50,6 @@ export const ScrollToTop: React.FC = () => {
             aria-label="Scroll to top"
           >
             <ChevronUp className="h-6 w-6 group-hover:-translate-y-1 transition-transform" />
-            
-            {/* Subtle parchment-like background overlay */}
-            <div className="absolute inset-0 rounded-full opacity-10 pointer-events-none bg-[url('https://www.transparenttextures.com/patterns/beige-paper.png')]" />
           </Button>
         </motion.div>
       )}

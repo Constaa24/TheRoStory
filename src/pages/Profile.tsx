@@ -347,6 +347,7 @@ const Profile: React.FC = () => {
                     onChange={(e) => setDisplayName(e.target.value)}
                     placeholder={t("profile.displayName")}
                     className="bg-background/50"
+                    maxLength={100}
                   />
                 </div>
 

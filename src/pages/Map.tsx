@@ -504,9 +504,12 @@ const MapPage: React.FC = () => {
                         onMouseLeave={() => setHoverCounty(null)}
                         className="flex justify-between items-center py-4 cursor-pointer text-left"
                         style={{
+                          // `border: 0` must come first — the shorthand resets
+                          // all four borders, so listing it after borderBottom
+                          // erased the row separator.
+                          border: 0,
                           borderBottom: i < allLocationsByCount.length - 1 ? '1px solid var(--line-soft)' : 'none',
                           background: 'transparent',
-                          border: 0,
                         }}
                       >
                         <span
