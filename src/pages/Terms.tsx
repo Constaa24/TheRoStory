@@ -5,7 +5,7 @@ import { PageHead } from "@/components/layout/PageHead";
 const Terms: React.FC = () => {
   const { language } = useLanguage();
 
-  const lastUpdated = "2026-04-26";
+  const lastUpdated = "2026-06-13";
 
   const content = {
     en: {
@@ -20,6 +20,10 @@ const Terms: React.FC = () => {
         {
           heading: "Your account",
           body: "You're responsible for keeping your account credentials safe. You agree to provide accurate registration information and not to impersonate other people. You must be at least 13 years old to create an account.",
+        },
+        {
+          heading: "Email communications",
+          body: "If you subscribe to our newsletter, you consent to receiving periodic emails from The RoStory (roughly once a month). Subscription is optional, free, and uses double opt-in — it only takes effect once you click the confirmation link we email you. You can unsubscribe at any time using the link in any newsletter or by writing to support@therostory.com. Separately, if you hold an account we may send essential transactional emails (such as email verification or password resets); these are not promotional and cannot be opted out of while the account exists.",
         },
         {
           heading: "Your content",
@@ -71,6 +75,10 @@ const Terms: React.FC = () => {
         {
           heading: "Contul tău",
           body: "Ești responsabil pentru păstrarea în siguranță a datelor de autentificare. Ești de acord să furnizezi informații exacte de înregistrare și să nu te dai drept altă persoană. Trebuie să ai cel puțin 13 ani pentru a crea un cont.",
+        },
+        {
+          heading: "Comunicări prin email",
+          body: "Dacă te abonezi la buletinul nostru, ești de acord să primești emailuri periodice de la The RoStory (aproximativ o dată pe lună). Abonarea este opțională, gratuită și folosește dubla confirmare — devine activă doar după ce apeși pe linkul de confirmare pe care ți-l trimitem. Te poți dezabona oricând folosind linkul din orice buletin sau scriind la support@therostory.com. Separat, dacă ai un cont, îți putem trimite emailuri tranzacționale esențiale (precum verificarea adresei sau resetarea parolei); acestea nu sunt promoționale și nu pot fi dezactivate cât timp contul există.",
         },
         {
           heading: "Conținutul tău",

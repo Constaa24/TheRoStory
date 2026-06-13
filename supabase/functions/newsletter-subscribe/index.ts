@@ -26,6 +26,11 @@ const RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000; // 10 minutes
 const RATE_LIMIT_MAX = 5;
 const RATE_LIMIT_SWEEP_THRESHOLD = 5000;
 
+// Minimum gap between confirmation emails to the same pending address.
+// Independent of the per-IP limit: bounds confirmation-email volume per
+// target inbox even across rotating IPs.
+const RESEND_COOLDOWN_MS = 2 * 60 * 1000; // 2 minutes
+
 function sweepRateLimitStore(store: RateLimitStore, now: number): void {
   if (store.size < RATE_LIMIT_SWEEP_THRESHOLD) return;
   for (const [key, timestamps] of store) {
@@ -122,7 +127,7 @@ Deno.serve(async (req) => {
 
     const { data: existing, error: lookupError } = await admin
       .from("newsletter_subscribers")
-      .select("id, status")
+      .select("id, status, confirm_sent_at")
       .eq("email", safeEmail)
       .maybeSingle();
     if (lookupError) throw lookupError;
@@ -133,25 +138,37 @@ Deno.serve(async (req) => {
       return json(200, { ok: true }, corsHeaders);
     }
 
-    // New, still pending, or previously unsubscribed: (re)issue a token
-    // and (re)send the confirmation email.
+    // Pending with a confirmation sent very recently → don't re-send. Stops
+    // this endpoint from being used to bomb an arbitrary address with
+    // confirmation emails (double opt-in abuse), and stops a user spamming
+    // their own inbox. The earlier link stays valid; we just return a
+    // generic OK without issuing a new email.
+    if (
+      existing?.status === "pending" &&
+      existing.confirm_sent_at &&
+      Date.now() - new Date(existing.confirm_sent_at).getTime() < RESEND_COOLDOWN_MS
+    ) {
+      return json(200, { ok: true }, corsHeaders);
+    }
+
+    // New, stale-pending, or previously unsubscribed: (re)issue a token and
+    // (re)send the confirmation email. upsert on the unique `email` is atomic
+    // at the DB level, so two concurrent first-time requests for the same
+    // address can't collide on the unique constraint (the previous
+    // lookup-then-insert raced and surfaced a 500 to the loser).
     const confirmToken = crypto.randomUUID();
-    if (existing) {
-      const { error } = await admin
-        .from("newsletter_subscribers")
-        .update({
+    const { error: upsertError } = await admin
+      .from("newsletter_subscribers")
+      .upsert(
+        {
+          email: safeEmail,
           status: "pending",
           confirm_token: confirmToken,
           confirm_sent_at: new Date().toISOString(),
-        })
-        .eq("id", existing.id);
-      if (error) throw error;
-    } else {
-      const { error } = await admin
-        .from("newsletter_subscribers")
-        .insert({ email: safeEmail, confirm_token: confirmToken });
-      if (error) throw error;
-    }
+        },
+        { onConflict: "email" }
+      );
+    if (upsertError) throw upsertError;
 
     const confirmUrl = `${SITE_URL}/newsletter/confirm?token=${confirmToken}`;
     const resendResp = await fetch("https://api.resend.com/emails", {

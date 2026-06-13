@@ -14,6 +14,42 @@ const json = (body: unknown, corsHeaders: Record<string, string>) =>
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
+// Adds (or re-subscribes) a contact in Resend. Contacts are top-level in
+// Resend's current model (Audiences were deprecated in favor of Segments).
+// POST creates a new contact; if it already exists (a returning subscriber),
+// fall back to PATCH-by-email to flip them back to subscribed. Returns false
+// only when both calls fail, so the caller can leave the subscriber pending
+// and let them retry rather than confirming someone Resend never received.
+async function syncContactToResend(apiKey: string, email: string): Promise<boolean> {
+  const headers = {
+    Authorization: `Bearer ${apiKey}`,
+    "Content-Type": "application/json",
+  };
+  const post = await fetch("https://api.resend.com/contacts", {
+    method: "POST",
+    headers,
+    body: JSON.stringify({ email, unsubscribed: false }),
+  });
+  if (post.ok) return true;
+
+  const patch = await fetch(
+    `https://api.resend.com/contacts/${encodeURIComponent(email)}`,
+    {
+      method: "PATCH",
+      headers,
+      body: JSON.stringify({ unsubscribed: false }),
+    }
+  );
+  if (patch.ok) return true;
+
+  console.error(
+    "newsletter-confirm: failed to sync contact to Resend",
+    post.status, await post.text().catch(() => ""),
+    patch.status, await patch.text().catch(() => "")
+  );
+  return false;
+}
+
 Deno.serve(async (req) => {
   const corsHeaders = getCorsHeaders(req);
 
@@ -60,45 +96,20 @@ Deno.serve(async (req) => {
       return json({ ok: false, error: "expired" }, corsHeaders);
     }
 
+    // Sync to Resend BEFORE marking confirmed in our DB. If it fails, leave
+    // the row pending so the user (or a retry of the link, within its 7-day
+    // TTL) can try again — far better than a confirmed-in-DB subscriber who
+    // silently never reaches Resend and so never receives a broadcast.
+    const synced = await syncContactToResend(RESEND_API_KEY, row.email);
+    if (!synced) {
+      return json({ ok: false, error: "server" }, corsHeaders);
+    }
+
     const { error: updateError } = await admin
       .from("newsletter_subscribers")
       .update({ status: "confirmed", confirmed_at: new Date().toISOString() })
       .eq("id", row.id);
     if (updateError) throw updateError;
-
-    // New Resend model: Contacts are top-level (Audiences were deprecated in
-    // favor of Segments, and contacts no longer live under an audience UUID).
-    // Create the contact directly; if it already exists (a returning
-    // subscriber), POST returns an error, so fall back to PATCH-by-email to
-    // flip them back to subscribed. Failures here are logged but don't fail
-    // the confirmation — the Supabase table is the source of truth and the
-    // contact can be re-synced by hand from the table.
-    const resendHeaders = {
-      Authorization: `Bearer ${RESEND_API_KEY}`,
-      "Content-Type": "application/json",
-    };
-    const post = await fetch("https://api.resend.com/contacts", {
-      method: "POST",
-      headers: resendHeaders,
-      body: JSON.stringify({ email: row.email, unsubscribed: false }),
-    });
-    if (!post.ok) {
-      const patch = await fetch(
-        `https://api.resend.com/contacts/${encodeURIComponent(row.email)}`,
-        {
-          method: "PATCH",
-          headers: resendHeaders,
-          body: JSON.stringify({ unsubscribed: false }),
-        }
-      );
-      if (!patch.ok) {
-        console.error(
-          "newsletter-confirm: failed to sync contact to Resend",
-          post.status, await post.text().catch(() => ""),
-          patch.status, await patch.text().catch(() => "")
-        );
-      }
-    }
 
     return json({ ok: true }, corsHeaders);
   } catch (error) {
