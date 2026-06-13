@@ -98,7 +98,7 @@ const Profile: React.FC = () => {
     setFavorites(prev => prev.filter(a => a.id !== articleId));
 
     try {
-      const added = await toggleFavorite(user.id, articleId);
+      const added = await toggleFavorite(articleId);
       if (added) {
         // We optimistically removed it but the toggle actually re-added it
         // (stale server state, etc). Refresh from source. Use the raw

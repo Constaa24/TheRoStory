@@ -73,7 +73,7 @@ export const FavoritesProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     togglingRef.current.add(articleId);
 
     try {
-      const added = await toggleFavorite(user.id, articleId);
+      const added = await toggleFavorite(articleId);
       if (added) {
         setUserFavorites(prev => [...prev, articleId]);
         toast.success(language === 'en' ? "Added to favorites" : "Adăugat la favorite");

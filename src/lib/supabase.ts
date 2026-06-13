@@ -706,37 +706,19 @@ export const incrementView = async (articleId: string): Promise<boolean> => {
   }
 };
 
-export const toggleFavorite = async (userId: string, articleId: string) => {
-  // Atomic toggle: try INSERT first; if a row already exists we'd violate
-  // the (user_id, article_id) UNIQUE constraint, so DELETE instead. The
-  // previous SELECT-then-INSERT/DELETE was a TOCTOU race — two near-
-  // simultaneous calls could both see "not favorited" and both attempt
-  // INSERT. The useFavorites hook guards against UI double-clicks, but
-  // any direct API caller (or future callsite without the guard) hit
-  // the race.
-  try {
-    const { error: insertError } = await supabase
-      .from('favorites')
-      .insert({ user_id: userId, article_id: articleId });
-
-    if (!insertError) return true; // Added
-
-    // 23505 = unique_violation. Anything else is a real error.
-    const isUniqueViolation =
-      (insertError as { code?: string })?.code === '23505';
-    if (!isUniqueViolation) throw insertError;
-
-    const { error: deleteError } = await supabase
-      .from('favorites')
-      .delete()
-      .eq('user_id', userId)
-      .eq('article_id', articleId);
-    if (deleteError) throw deleteError;
-    return false; // Removed
-  } catch (error) {
+export const toggleFavorite = async (articleId: string): Promise<boolean> => {
+  // Single atomic RPC (public.toggle_favorite). Returns true if the favorite
+  // was added, false if it was removed. The function derives the user from
+  // auth.uid() server-side, runs under the caller's RLS, and does the
+  // delete/insert in one transaction — so there's no TOCTOU race and, unlike
+  // the previous INSERT-first approach, no 409 Conflict logged in the console
+  // on every un-favorite.
+  const { data, error } = await supabase.rpc('toggle_favorite', { p_article_id: articleId });
+  if (error) {
     console.error("Error toggling favorite in Supabase:", error);
     throw error;
   }
+  return data === true;
 };
 
 export const fetchUserFavorites = async (userId: string): Promise<Article[]> => {
