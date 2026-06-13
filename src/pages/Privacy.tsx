@@ -5,7 +5,7 @@ import { PageHead } from "@/components/layout/PageHead";
 const Privacy: React.FC = () => {
   const { language } = useLanguage();
 
-  const lastUpdated = "2026-04-26";
+  const lastUpdated = "2026-06-13";
 
   const content = {
     en: {
@@ -20,6 +20,10 @@ const Privacy: React.FC = () => {
         {
           heading: "What we collect",
           body: "When you create an account, we store your email address, a display name, and an optional avatar image you upload. When you read articles, we store an anonymous view count per article. When you favorite an article, we store the link between your user ID and that article. When you post a comment, we store its text, the time you posted it, and the user ID it belongs to.",
+        },
+        {
+          heading: "Newsletter",
+          body: "If you subscribe to our newsletter, we store your email address and the date you confirmed it. Subscription is double opt-in — nothing is sent until you click the confirmation link in the email we send you. We use your address solely to send the newsletter (roughly once a month), delivered via Resend. Every issue contains a one-click unsubscribe link. To have your address erased from our records entirely, email support@therostory.com.",
         },
         {
           heading: "What we do not collect",
@@ -63,6 +67,10 @@ const Privacy: React.FC = () => {
         {
           heading: "Ce colectăm",
           body: "Când îți creezi cont, stocăm adresa ta de email, un nume afișat și o imagine de profil opțională pe care o încarci. Când citești articole, stocăm un număr anonim de vizualizări per articol. Când adaugi un articol la favorite, stocăm legătura dintre ID-ul tău și acel articol. Când postezi un comentariu, stocăm textul, ora postării și ID-ul utilizatorului căruia îi aparține.",
+        },
+        {
+          heading: "Buletin informativ",
+          body: "Dacă te abonezi la buletinul nostru, stocăm adresa ta de email și data la care ai confirmat-o. Abonarea se face prin dublă confirmare — nu trimitem nimic până nu apeși pe linkul de confirmare din emailul pe care ți-l trimitem. Folosim adresa ta exclusiv pentru a trimite buletinul (aproximativ o dată pe lună), livrat prin Resend. Fiecare ediție conține un link de dezabonare cu un singur clic. Pentru a-ți șterge complet adresa din evidențele noastre, scrie la support@therostory.com.",
         },
         {
           heading: "Ce nu colectăm",

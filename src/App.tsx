@@ -59,6 +59,7 @@ const Profile = lazy(() => import("@/pages/Profile"));
 const AuthCallback = lazy(() => import("@/pages/AuthCallback"));
 const Privacy = lazy(() => import("@/pages/Privacy"));
 const Terms = lazy(() => import("@/pages/Terms"));
+const NewsletterConfirm = lazy(() => import("@/pages/NewsletterConfirm"));
 
 type FooterItem = { label: string; href: string };
 
@@ -250,6 +251,7 @@ const App: React.FC = () => {
               <Route path="/contact-us" element={<ContactUs />} />
               <Route path="/privacy" element={<Privacy />} />
               <Route path="/terms" element={<Terms />} />
+              <Route path="/newsletter/confirm" element={<NewsletterConfirm />} />
               <Route path="/profile" element={<Profile />} />
               <Route path="/article/:id" element={<ArticleDetail />} />
               <Route

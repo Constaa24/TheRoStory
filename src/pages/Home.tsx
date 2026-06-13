@@ -1,9 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Category, Article, getLocalized, fetchCategories, fetchArticlesPage, fetchRandomArticle } from "@/lib/supabase";
+import { Category, Article, getLocalized, fetchCategories, fetchArticlesPage, fetchRandomArticle, supabase } from "@/lib/supabase";
 import { useLanguage } from "@/hooks/use-language";
 import { useFavorites } from "@/hooks/use-favorites";
 import { ChevronRight, ChevronLeft, ArrowRight, Heart, Play, Images } from "lucide-react";
 import { cn, isAbortError } from "@/lib/utils";
+import { toast } from "sonner";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { PageHead } from "@/components/layout/PageHead";
 import { SITE_NAME, SITE_URL } from "@/lib/constants";
@@ -135,6 +136,84 @@ const StoryCard = React.memo<StoryCardProps>(({ article, category, language, siz
   );
 });
 StoryCard.displayName = 'StoryCard';
+
+const NewsletterForm: React.FC<{ language: 'en' | 'ro' }> = ({ language }) => {
+  const [email, setEmail] = useState("");
+  const [website, setWebsite] = useState(""); // honeypot — humans never see it
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [cooldown, setCooldown] = useState(0);
+
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    const id = window.setTimeout(() => setCooldown((s) => s - 1), 1000);
+    return () => window.clearTimeout(id);
+  }, [cooldown]);
+
+  const onSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmed = email.trim();
+    if (!trimmed || isSubmitting || cooldown > 0) return;
+    setIsSubmitting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('newsletter-subscribe', {
+        body: { email: trimmed, website, language },
+      });
+      if (error || !data?.ok) throw error ?? new Error('Subscribe failed');
+      toast.success(language === 'en'
+        ? 'Almost there — check your inbox to confirm.'
+        : 'Aproape gata — verifică-ți inboxul pentru confirmare.');
+      setEmail("");
+      setCooldown(30);
+    } catch (err) {
+      if (!isAbortError(err)) console.error('Newsletter subscribe failed:', err);
+      toast.error(language === 'en'
+        ? 'Could not subscribe right now. Please try again later.'
+        : 'Abonarea nu a funcționat. Te rugăm să încerci mai târziu.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <form
+      className="flex gap-2 ed-form w-full"
+      style={{ flex: '1 1 260px', maxWidth: 520 }}
+      onSubmit={onSubmit}
+    >
+      <div className="sr-only" aria-hidden="true">
+        <label htmlFor="nl-website">Website</label>
+        <input
+          id="nl-website"
+          tabIndex={-1}
+          autoComplete="off"
+          value={website}
+          onChange={(e) => setWebsite(e.target.value)}
+        />
+      </div>
+      <input
+        type="email"
+        required
+        maxLength={254}
+        value={email}
+        onChange={(e) => setEmail(e.target.value)}
+        placeholder={language === 'en' ? 'your@email.com' : 'email@tau.ro'}
+        style={{ flex: 1, background: 'transparent', borderRadius: 999, padding: '16px 22px' }}
+      />
+      <button
+        type="submit"
+        className="btn-ed"
+        disabled={isSubmitting || cooldown > 0}
+        style={{ opacity: isSubmitting || cooldown > 0 ? 0.6 : 1 }}
+      >
+        {isSubmitting
+          ? (language === 'en' ? 'Sending…' : 'Se trimite…')
+          : cooldown > 0
+            ? (language === 'en' ? `Wait ${cooldown}s` : `Așteaptă ${cooldown}s`)
+            : (language === 'en' ? 'Subscribe' : 'Abonează-te')}
+      </button>
+    </form>
+  );
+};
 
 const Home: React.FC = () => {
   const { language, t } = useLanguage();
@@ -562,18 +641,7 @@ const Home: React.FC = () => {
                   {language === 'en' ? 'Field notes, photographs, and the occasional recipe. Free.' : 'Note de teren, fotografii și, ocazional, o rețetă. Gratuit.'}
                 </p>
               </div>
-              <form
-                className="flex gap-2 ed-form w-full"
-                style={{ flex: '1 1 260px', maxWidth: 520 }}
-                onSubmit={(e) => e.preventDefault()}
-              >
-                <input
-                  type="email"
-                  placeholder={language === 'en' ? 'your@email.com' : 'email@tau.ro'}
-                  style={{ flex: 1, background: 'transparent', borderRadius: 999, padding: '16px 22px' }}
-                />
-                <button type="submit" className="btn-ed">{language === 'en' ? 'Subscribe' : 'Abonează-te'}</button>
-              </form>
+              <NewsletterForm language={language} />
             </div>
           </div>
         </section>
