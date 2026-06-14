@@ -247,10 +247,19 @@ const MapPage: React.FC = () => {
                   {/* Paper grid pattern definition */}
                   <motion.div
                     className="w-full h-full"
+                    // Pan is expressed as a percentage of the element's OWN
+                    // rendered size, not the viewBox units. centroid lx/ly are
+                    // in the 0–800 × 0–600 viewBox space; framer-motion applies
+                    // x/y as CSS pixels, so a raw `-(lx - 400) * scale` only
+                    // lined up when the map happened to render at 800px wide and
+                    // overshot toward the corners everywhere else (badly on
+                    // mobile, where the container is ~350px). As a percentage it
+                    // resolves against the actual rendered box and is correct at
+                    // any size. (At 800px wide this equals the old value.)
                     animate={{
                       scale: isZoomed ? ZOOM_SCALE : 1,
-                      x: isZoomed && selectedPath ? -(selectedPath.lx - MAP_VIEW_W / 2) * ZOOM_SCALE : 0,
-                      y: isZoomed && selectedPath ? -(selectedPath.ly - MAP_VIEW_H / 2) * ZOOM_SCALE : 0,
+                      x: isZoomed && selectedPath ? `${-ZOOM_SCALE * (selectedPath.lx / MAP_VIEW_W - 0.5) * 100}%` : "0%",
+                      y: isZoomed && selectedPath ? `${-ZOOM_SCALE * (selectedPath.ly / MAP_VIEW_H - 0.5) * 100}%` : "0%",
                     }}
                     transition={{ type: "spring", stiffness: 80, damping: 15 }}
                     onAnimationStart={() => setIsAnimating(true)}
@@ -313,7 +322,12 @@ const MapPage: React.FC = () => {
                               strokeWidth={isSelected ? 1.6 : 0.6}
                               strokeLinejoin="round"
                               strokeLinecap="round"
-                              style={{ transition: 'all .25s' }}
+                              // Only the properties that actually change on
+                              // hover/select. `all` made the browser watch
+                              // every property (incl. transform) on all 42
+                              // paths during the zoom — wasted work that added
+                              // to the hitch.
+                              style={{ transition: 'fill-opacity .25s, stroke .25s, stroke-width .25s' }}
                             />
 
                             {/* County label — only visible on hover/select */}
