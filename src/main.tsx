@@ -1,6 +1,7 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
+import { MotionConfig } from "framer-motion";
 import App from "./App";
 import "./index.css";
 import { AuthProvider } from "./hooks/use-auth";
@@ -23,8 +24,13 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
       <LanguageProvider>
         <AuthProvider>
           <FavoritesProvider>
-            <App />
-            <Toaster />
+            {/* reducedMotion="user" makes framer-motion honor the OS
+                prefers-reduced-motion setting (map zoom, page transitions
+                jump to their end state instead of animating). */}
+            <MotionConfig reducedMotion="user">
+              <App />
+              <Toaster />
+            </MotionConfig>
           </FavoritesProvider>
         </AuthProvider>
       </LanguageProvider>

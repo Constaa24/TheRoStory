@@ -336,7 +336,7 @@ const Home: React.FC = () => {
         {/* CINEMATIC HERO */}
         <section
           className="relative overflow-hidden"
-          style={{ minHeight: 'min(calc(100vh - 76px), 760px)', borderBottom: '1px solid var(--line-soft)' }}
+          style={{ minHeight: 'min(calc(100dvh - 76px), 760px)', borderBottom: '1px solid var(--line-soft)' }}
         >
           <div className="absolute inset-0">
             <picture>

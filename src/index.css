@@ -204,6 +204,35 @@
    Editorial design utilities — shared across pages
    ============================================================ */
 
+/* Keyboard focus rings. Defined OUTSIDE @layer so they win over the layered
+   `outline: none` on inputs and Tailwind's `outline-none` utility. :focus-visible
+   only matches keyboard focus (and text-field focus), so mouse clicks on buttons
+   stay ring-free while keyboard users get a clear gold indicator. */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible,
+[role="button"]:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+/* Respect the OS "reduce motion" setting: neutralize CSS animations/transitions
+   (ticker, page fades, etc.). Framer-motion animations are handled separately
+   via <MotionConfig reducedMotion="user"> in main.tsx. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .ticker-track { animation: none !important; }
+}
+
 /* Container & gutters */
 .ed-container { max-width: var(--container); margin: 0 auto; padding: 0 var(--gutter); }
 

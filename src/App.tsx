@@ -201,7 +201,7 @@ const App: React.FC = () => {
         <ScrollToTopOnRoute />
         <PaperOverlay />
         {user && !isEmailVerified && !hideAppChrome && (
-          <div className="bg-accent text-[color:var(--ink)] py-2 px-4 flex items-center justify-center gap-4 text-sm font-display italic sticky top-0 z-[60] shadow-md">
+          <div className="bg-accent text-[color:var(--ink)] py-2 px-4 flex items-center justify-center gap-4 text-sm font-display italic shadow-md">
             <div className="flex items-center gap-2">
               <AlertCircle className="h-4 w-4" />
               <span>

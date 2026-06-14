@@ -389,7 +389,7 @@ const PhotoEssay: React.FC<{ article: Article; category?: Category; views?: numb
       {/* Cinematic title — full bleed. Prefer the explicit poster (uploaded
           separately as the article's cover); fall back to the first frame for
           essays that pre-date the poster field. */}
-      <section className="relative overflow-hidden" style={{ height: '100vh', minHeight: 720, borderBottom: '1px solid var(--line-soft)' }}>
+      <section className="relative overflow-hidden" style={{ height: '100dvh', minHeight: 720, borderBottom: '1px solid var(--line-soft)' }}>
         <div className="absolute inset-0">
           {(() => {
             const hero = article.posterUrl || article.mediaUrl;
@@ -686,13 +686,34 @@ const VideoFilm: React.FC<{ article: Article; category?: Category; views?: numbe
 
   useEffect(() => () => cancelVolumeHide(), []);
 
-  const handleSeek = (e: React.MouseEvent<HTMLDivElement>) => {
+  // Progress-bar scrubbing. Pointer events + pointer capture let the user
+  // click AND drag the playhead, and keep tracking even when the cursor
+  // leaves the (thin) bar. touch-action:none on the bar stops the page from
+  // scrolling mid-drag on touch devices.
+  const scrubbingRef = useRef(false);
+
+  const seekToClientX = (clientX: number) => {
     const bar = progressBarRef.current;
     const v = videoRef.current;
     if (!bar || !v || !duration) return;
     const rect = bar.getBoundingClientRect();
-    const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-    v.currentTime = pct * duration;
+    const pct = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+    const t = pct * duration;
+    v.currentTime = t;
+    setCurrentTime(t); // immediate feedback; don't wait for the timeupdate event
+  };
+
+  const handleScrubStart = (e: React.PointerEvent<HTMLDivElement>) => {
+    scrubbingRef.current = true;
+    try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* ignore */ }
+    seekToClientX(e.clientX);
+  };
+  const handleScrubMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (scrubbingRef.current) seekToClientX(e.clientX);
+  };
+  const handleScrubEnd = (e: React.PointerEvent<HTMLDivElement>) => {
+    scrubbingRef.current = false;
+    try { e.currentTarget.releasePointerCapture(e.pointerId); } catch { /* ignore */ }
   };
 
   const toggleMute = () => {
@@ -766,8 +787,24 @@ const VideoFilm: React.FC<{ article: Article; category?: Category; views?: numbe
                     <div
                       ref={progressBarRef}
                       className="flex-1 h-1.5 rounded-full relative cursor-pointer group"
-                      style={{ background: 'rgba(255,255,255,0.2)' }}
-                      onClick={handleSeek}
+                      style={{ background: 'rgba(255,255,255,0.2)', touchAction: 'none' }}
+                      onPointerDown={handleScrubStart}
+                      onPointerMove={handleScrubMove}
+                      onPointerUp={handleScrubEnd}
+                      onPointerCancel={handleScrubEnd}
+                      role="slider"
+                      aria-label="Seek"
+                      aria-valuemin={0}
+                      aria-valuemax={Math.round(duration) || 0}
+                      aria-valuenow={Math.round(currentTime) || 0}
+                      tabIndex={0}
+                      onKeyDown={(e) => {
+                        const v = videoRef.current;
+                        if (!v || !duration) return;
+                        // Arrow keys nudge ±5s for keyboard users.
+                        if (e.key === 'ArrowRight') { e.preventDefault(); v.currentTime = Math.min(duration, v.currentTime + 5); setCurrentTime(v.currentTime); }
+                        else if (e.key === 'ArrowLeft') { e.preventDefault(); v.currentTime = Math.max(0, v.currentTime - 5); setCurrentTime(v.currentTime); }
+                      }}
                     >
                       <div className="absolute left-0 top-0 bottom-0 rounded-full transition-[width] duration-100" style={{ width: progressPct + '%', background: 'var(--gold)' }} />
                       <div
