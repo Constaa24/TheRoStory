@@ -599,6 +599,49 @@ const VideoFilm: React.FC<{ article: Article; category?: Category; views?: numbe
     };
   }, [article.mediaUrl]);
 
+  // Auto-hiding player chrome: while playing, the controls fade out after a
+  // few idle seconds and reappear on mouse movement, so they don't sit over
+  // the film. While paused they always stay visible.
+  const [controlsVisible, setControlsVisible] = useState(true);
+  const controlsTimerRef = useRef<number | null>(null);
+  const CONTROLS_IDLE_MS = 2800;
+
+  const clearControlsTimer = () => {
+    if (controlsTimerRef.current !== null) {
+      window.clearTimeout(controlsTimerRef.current);
+      controlsTimerRef.current = null;
+    }
+  };
+
+  // Show the chrome and, if playing, restart the idle countdown. `delay`
+  // lets mouseleave hide a touch quicker than an idle timeout.
+  const revealControls = (hideAfter: number = CONTROLS_IDLE_MS) => {
+    setControlsVisible(true);
+    clearControlsTimer();
+    if (playing) {
+      controlsTimerRef.current = window.setTimeout(() => {
+        setControlsVisible(false);
+        controlsTimerRef.current = null;
+      }, hideAfter);
+    }
+  };
+
+  // Pause → always show; play → start the idle countdown.
+  useEffect(() => {
+    if (!playing) {
+      clearControlsTimer();
+      setControlsVisible(true);
+      return;
+    }
+    clearControlsTimer();
+    controlsTimerRef.current = window.setTimeout(() => {
+      setControlsVisible(false);
+      controlsTimerRef.current = null;
+    }, CONTROLS_IDLE_MS);
+  }, [playing]);
+
+  useEffect(() => () => clearControlsTimer(), []);
+
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const mql = window.matchMedia('(hover: none)');
@@ -750,14 +793,20 @@ const VideoFilm: React.FC<{ article: Article; category?: Category; views?: numbe
               {title}
             </h1>
 
-            <div className="video-frame mt-8" style={{ aspectRatio: '16/9' }}>
+            <div
+              className="video-frame mt-8"
+              style={{ aspectRatio: '16/9' }}
+              onMouseMove={() => revealControls()}
+              onMouseLeave={() => revealControls(500)}
+            >
               {article.mediaUrl ? (
                 <>
                   <video
                     ref={videoRef}
                     src={article.mediaUrl}
                     poster={article.posterUrl}
-                    className="absolute inset-0 w-full h-full object-cover cursor-pointer"
+                    className="absolute inset-0 w-full h-full object-cover"
+                    style={{ cursor: controlsVisible ? 'pointer' : 'none' }}
                     playsInline
                     onClick={togglePlay}
                   />
@@ -768,10 +817,15 @@ const VideoFilm: React.FC<{ article: Article; category?: Category; views?: numbe
                       </div>
                     </div>
                   )}
-                  {/* Player chrome */}
+                  {/* Player chrome — fades out while playing + idle */}
                   <div
                     className="absolute left-0 right-0 bottom-0 px-6 py-5 flex items-center gap-4"
-                    style={{ background: 'linear-gradient(180deg, transparent, rgba(0,0,0,0.7))' }}
+                    style={{
+                      background: 'linear-gradient(180deg, transparent, rgba(0,0,0,0.7))',
+                      opacity: controlsVisible ? 1 : 0,
+                      pointerEvents: controlsVisible ? 'auto' : 'none',
+                      transition: 'opacity 0.3s ease',
+                    }}
                   >
                     <button
                       onClick={togglePlay}
