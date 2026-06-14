@@ -125,6 +125,20 @@ Deno.serve(async (req) => {
 
     const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 
+    // Opportunistic hygiene: drop never-confirmed rows whose token expired
+    // long ago (the confirm TTL is 7 days; we keep a generous 30-day buffer).
+    // Runs on subscribe so the table stays tidy without a separate cron job.
+    // Best-effort — a failure here must not block a real subscription.
+    {
+      const staleCutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+      const { error: cleanupError } = await admin
+        .from("newsletter_subscribers")
+        .delete()
+        .eq("status", "pending")
+        .lt("confirm_sent_at", staleCutoff);
+      if (cleanupError) console.warn("newsletter-subscribe stale cleanup failed:", cleanupError.message);
+    }
+
     const { data: existing, error: lookupError } = await admin
       .from("newsletter_subscribers")
       .select("id, status, confirm_sent_at")

@@ -817,7 +817,10 @@ const VideoFilm: React.FC<{ article: Article; category?: Category; views?: numbe
                       </div>
                     </div>
                   )}
-                  {/* Player chrome — fades out while playing + idle */}
+                  {/* Player chrome — fades out while playing + idle. onFocus/
+                      onBlur keep it visible while a keyboard user is tabbing
+                      through it (mousemove can't reveal it for them), then
+                      resume auto-hide once focus leaves. */}
                   <div
                     className="absolute left-0 right-0 bottom-0 px-6 py-5 flex items-center gap-4"
                     style={{
@@ -825,6 +828,10 @@ const VideoFilm: React.FC<{ article: Article; category?: Category; views?: numbe
                       opacity: controlsVisible ? 1 : 0,
                       pointerEvents: controlsVisible ? 'auto' : 'none',
                       transition: 'opacity 0.3s ease',
+                    }}
+                    onFocus={() => { setControlsVisible(true); clearControlsTimer(); }}
+                    onBlur={(e) => {
+                      if (!e.currentTarget.contains(e.relatedTarget as Node | null)) revealControls();
                     }}
                   >
                     <button

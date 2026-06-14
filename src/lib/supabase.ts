@@ -902,6 +902,7 @@ export type UserDataExport = {
   articles: Record<string, unknown>[];
   comments: Record<string, unknown>[];
   favorites: Record<string, unknown>[];
+  newsletter: Record<string, unknown> | null;
 };
 
 export const exportOwnData = async (): Promise<UserDataExport | null> => {

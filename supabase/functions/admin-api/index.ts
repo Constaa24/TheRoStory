@@ -74,6 +74,34 @@ async function deleteUserStorage(adminClient: SupabaseClient, userId: string): P
   }
 }
 
+// Remove a deleted account's newsletter subscription. The table is keyed by
+// email (no FK to auth.users), so account deletion doesn't cascade to it —
+// without this, a deleted user's address stays subscribed. Best-effort: also
+// deletes the Resend contact so broadcasts actually stop. Failures are logged,
+// never thrown — they must not block the account deletion itself.
+async function removeNewsletterSubscription(adminClient: SupabaseClient, email: string | null | undefined): Promise<void> {
+  const normalized = (email ?? '').trim().toLowerCase()
+  if (!normalized) return
+
+  try {
+    const { error } = await adminClient.from('newsletter_subscribers').delete().eq('email', normalized)
+    if (error) console.warn('removeNewsletterSubscription db delete failed', error.message)
+  } catch (err) {
+    console.warn('removeNewsletterSubscription db delete threw', err instanceof Error ? err.message : String(err))
+  }
+
+  const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY')
+  if (!RESEND_API_KEY) return
+  try {
+    await fetch(`https://api.resend.com/contacts/${encodeURIComponent(normalized)}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${RESEND_API_KEY}` },
+    })
+  } catch (err) {
+    console.warn('removeNewsletterSubscription resend delete failed', err instanceof Error ? err.message : String(err))
+  }
+}
+
 Deno.serve(async (req) => {
   const corsHeaders = getCorsHeaders(req)
 
@@ -149,6 +177,8 @@ Deno.serve(async (req) => {
       // The articles/comments rows themselves cascade via the FK
       // (migration 20260511000000), so we only need to handle storage.
       await deleteUserStorage(adminClient, user.id)
+      // Newsletter is keyed by email, not user_id, so it doesn't cascade.
+      await removeNewsletterSubscription(adminClient, user.email)
 
       const { error } = await adminClient.auth.admin.deleteUser(user.id)
       if (error) {
@@ -168,12 +198,18 @@ Deno.serve(async (req) => {
     // GDPR data export — returns all data we hold about the requesting user.
     if (action === 'exportOwnData') {
       try {
-        const [profileRes, articlesRes, commentsRes, favoritesRes, roleRes] = await Promise.all([
+        const normalizedEmail = (user.email ?? '').trim().toLowerCase()
+        const [profileRes, articlesRes, commentsRes, favoritesRes, roleRes, newsletterRes] = await Promise.all([
           adminClient.from('profiles').select('*').eq('id', user.id).maybeSingle(),
           adminClient.from('articles').select('*').eq('user_id', user.id),
           adminClient.from('comments').select('*').eq('user_id', user.id),
           adminClient.from('favorites').select('*').eq('user_id', user.id),
           adminClient.from('user_roles').select('role').eq('user_id', user.id).maybeSingle(),
+          normalizedEmail
+            ? adminClient.from('newsletter_subscribers')
+                .select('email, status, created_at, confirmed_at, unsubscribed_at')
+                .eq('email', normalizedEmail).maybeSingle()
+            : Promise.resolve({ data: null }),
         ])
 
         const exported = {
@@ -190,6 +226,7 @@ Deno.serve(async (req) => {
           articles: articlesRes.data ?? [],
           comments: commentsRes.data ?? [],
           favorites: favoritesRes.data ?? [],
+          newsletter: newsletterRes.data ?? null,
         }
 
         return new Response(JSON.stringify(exported), {
@@ -342,6 +379,14 @@ Deno.serve(async (req) => {
       // first so they don't orphan in the bucket. Articles/comments rows
       // cascade via the FK (migration 20260511000000).
       await deleteUserStorage(adminClient, id)
+      // Newsletter is keyed by email (no FK), so look up the target's email
+      // and remove their subscription too.
+      try {
+        const { data: target } = await adminClient.auth.admin.getUserById(id)
+        await removeNewsletterSubscription(adminClient, target?.user?.email)
+      } catch (err) {
+        console.warn('deleteUser newsletter cleanup failed', err instanceof Error ? err.message : String(err))
+      }
 
       const { error } = await adminClient.auth.admin.deleteUser(id)
       if (error) throw error
