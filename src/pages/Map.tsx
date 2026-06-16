@@ -111,12 +111,25 @@ const MapPage: React.FC = () => {
     }
   }, [selectedLocation]);
 
+  // Mobile: after a county is selected, gently bring the story panel into
+  // view without yanking the map off-screen. We let the zoom begin first
+  // (short delay), then smooth-scroll only enough to lift the panel's top
+  // into the lower part of the screen (~60% down), so the zoomed map stays
+  // visible above it. If the panel is already on screen, we don't scroll at
+  // all. (Desktop shows the panel in the sticky sidebar, so no scroll there.)
   useEffect(() => {
     if (!selectedLocation) return;
     if (typeof window === "undefined") return;
-    const isDesktop = window.matchMedia("(min-width: 1024px)").matches;
-    if (isDesktop) return;
-    const id = window.setTimeout(() => panelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 80);
+    if (window.matchMedia("(min-width: 1024px)").matches) return;
+    const id = window.setTimeout(() => {
+      const el = panelRef.current;
+      if (!el) return;
+      const top = el.getBoundingClientRect().top;
+      const anchor = window.innerHeight * 0.6;
+      if (top > anchor) {
+        window.scrollBy({ top: top - anchor, behavior: "smooth" });
+      }
+    }, 300);
     return () => window.clearTimeout(id);
   }, [selectedLocation]);
 
