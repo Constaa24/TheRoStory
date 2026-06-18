@@ -41,25 +41,67 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
   }
 }
 
+// After a deploy, content-hashed chunk filenames change and the old ones are
+// removed from the server. A tab still running the previous build (browser or
+// service-worker cache) then requests a chunk that 404s → Vercel's SPA rewrite
+// returns index.html → the dynamic import fails. lazyWithReload catches that
+// specific "stale chunk" failure once and reloads the page so the browser pulls
+// the fresh index.html + current chunks, instead of crashing into the error
+// boundary. A sessionStorage flag prevents a reload loop if the failure is real
+// (e.g. an actually-broken deploy) rather than a stale-asset mismatch.
+function lazyWithReload<T extends React.ComponentType<any>>(
+  factory: () => Promise<{ default: T }>
+) {
+  return lazy(async () => {
+    try {
+      return await factory();
+    } catch (error) {
+      const isChunkError =
+        error instanceof Error &&
+        /dynamically imported module|Failed to fetch|importing a module script|module script/i.test(error.message);
+      if (isChunkError) {
+        try {
+          const KEY = "rostory_chunk_reload_at";
+          const last = Number(sessionStorage.getItem(KEY) || 0);
+          // Only auto-reload if we haven't already tried within the last 10s.
+          // A stale-asset mismatch self-heals on the first reload; a genuinely
+          // broken deploy keeps failing, so the window guard lets it fall
+          // through to the error boundary instead of looping. The timestamp
+          // ages out, so a future deploy can heal again.
+          if (Date.now() - last > 10_000) {
+            sessionStorage.setItem(KEY, String(Date.now()));
+            window.location.reload();
+            // Never-resolving promise so nothing renders before the reload.
+            return await new Promise<{ default: T }>(() => {});
+          }
+        } catch {
+          /* sessionStorage unavailable — fall through to the error boundary */
+        }
+      }
+      throw error;
+    }
+  });
+}
+
 // Lazy load pages for better performance
-const Home = lazy(() => import("@/pages/Home"));
-const MapPage = lazy(() => import("@/pages/Map"));
-const Auth = lazy(() => import("@/pages/Auth"));
-const ArticleDetail = lazy(() => import("@/pages/ArticleDetail"));
-const AdminDashboard = lazy(() => import("@/pages/AdminDashboard"));
-const VideoStoryCreate = lazy(() => import("@/pages/VideoStoryCreate"));
-const CarouselStoryCreate = lazy(() => import("@/pages/CarouselStoryCreate"));
-const TextStoryCreate = lazy(() => import("@/pages/TextStoryCreate"));
-const Categories = lazy(() => import("@/pages/Categories"));
-const CategoryDetail = lazy(() => import("@/pages/CategoryDetail"));
-const Support = lazy(() => import("@/pages/Support"));
-const MyStory = lazy(() => import("@/pages/MyStory"));
-const ContactUs = lazy(() => import("@/pages/ContactUs"));
-const Profile = lazy(() => import("@/pages/Profile"));
-const AuthCallback = lazy(() => import("@/pages/AuthCallback"));
-const Privacy = lazy(() => import("@/pages/Privacy"));
-const Terms = lazy(() => import("@/pages/Terms"));
-const NewsletterConfirm = lazy(() => import("@/pages/NewsletterConfirm"));
+const Home = lazyWithReload(() => import("@/pages/Home"));
+const MapPage = lazyWithReload(() => import("@/pages/Map"));
+const Auth = lazyWithReload(() => import("@/pages/Auth"));
+const ArticleDetail = lazyWithReload(() => import("@/pages/ArticleDetail"));
+const AdminDashboard = lazyWithReload(() => import("@/pages/AdminDashboard"));
+const VideoStoryCreate = lazyWithReload(() => import("@/pages/VideoStoryCreate"));
+const CarouselStoryCreate = lazyWithReload(() => import("@/pages/CarouselStoryCreate"));
+const TextStoryCreate = lazyWithReload(() => import("@/pages/TextStoryCreate"));
+const Categories = lazyWithReload(() => import("@/pages/Categories"));
+const CategoryDetail = lazyWithReload(() => import("@/pages/CategoryDetail"));
+const Support = lazyWithReload(() => import("@/pages/Support"));
+const MyStory = lazyWithReload(() => import("@/pages/MyStory"));
+const ContactUs = lazyWithReload(() => import("@/pages/ContactUs"));
+const Profile = lazyWithReload(() => import("@/pages/Profile"));
+const AuthCallback = lazyWithReload(() => import("@/pages/AuthCallback"));
+const Privacy = lazyWithReload(() => import("@/pages/Privacy"));
+const Terms = lazyWithReload(() => import("@/pages/Terms"));
+const NewsletterConfirm = lazyWithReload(() => import("@/pages/NewsletterConfirm"));
 
 type FooterItem = { label: string; href: string };
 

@@ -14,6 +14,46 @@ const json = (body: unknown, corsHeaders: Record<string, string>) =>
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
+// In-memory per-IP rate limiter — same pattern as the other edge functions.
+// Tokens are unguessable UUIDs, so this is mainly to blunt brute-force/flood
+// attempts; legitimate users click the link once. Survives across requests on
+// a warm instance; a cold start resets the budget.
+type RateLimitStore = Map<string, number[]>;
+function getRateLimitStore(): RateLimitStore {
+  const g = globalThis as typeof globalThis & { __rostoryConfirmRateLimit?: RateLimitStore };
+  if (!g.__rostoryConfirmRateLimit) g.__rostoryConfirmRateLimit = new Map();
+  return g.__rostoryConfirmRateLimit;
+}
+function getClientIp(req: Request): string {
+  const realIp = req.headers.get("x-real-ip");
+  if (realIp) return realIp;
+  const forwarded = req.headers.get("x-forwarded-for");
+  if (forwarded) {
+    const parts = forwarded.split(",").map((p) => p.trim()).filter(Boolean);
+    return parts[0] || "unknown";
+  }
+  return "unknown";
+}
+const RATE_LIMIT_WINDOW_MS = 60_000; // 1 minute
+const RATE_LIMIT_MAX = 20; // far above any legitimate use; caps token brute-forcing
+const RATE_LIMIT_SWEEP_THRESHOLD = 5000;
+function sweepRateLimitStore(store: RateLimitStore, now: number): void {
+  if (store.size < RATE_LIMIT_SWEEP_THRESHOLD) return;
+  for (const [key, timestamps] of store) {
+    if (timestamps.every((ts) => now - ts >= RATE_LIMIT_WINDOW_MS)) store.delete(key);
+  }
+}
+function isRateLimited(req: Request): boolean {
+  const store = getRateLimitStore();
+  const key = `ip:${getClientIp(req)}`;
+  const now = Date.now();
+  sweepRateLimitStore(store, now);
+  const recent = (store.get(key) || []).filter((ts) => now - ts < RATE_LIMIT_WINDOW_MS);
+  recent.push(now);
+  store.set(key, recent);
+  return recent.length > RATE_LIMIT_MAX;
+}
+
 // Adds (or re-subscribes) a contact in Resend. Contacts are top-level in
 // Resend's current model (Audiences were deprecated in favor of Segments).
 // POST creates a new contact; if it already exists (a returning subscriber),
@@ -68,6 +108,13 @@ Deno.serve(async (req) => {
         status: 403,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    }
+
+    // Rate-limited → tell the user to try again shortly. 'server' maps to the
+    // confirm page's "something went wrong, try again in a few minutes" copy,
+    // which is the right message for a throttled (not invalid) request.
+    if (isRateLimited(req)) {
+      return json({ ok: false, error: "server" }, corsHeaders);
     }
 
     const body = await req.json().catch(() => ({} as Record<string, unknown>));
