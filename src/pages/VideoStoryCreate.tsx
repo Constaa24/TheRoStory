@@ -6,6 +6,7 @@ import { ARTICLE_LIMITS } from "@/lib/supabase";
 import { useLanguage } from "@/hooks/use-language";
 import { useAuth } from "@/hooks/use-auth";
 import { useUnsavedChangesWarning } from "@/hooks/use-unsaved-changes";
+import { UnsavedChangesDialog } from "@/components/ui/unsaved-changes-dialog";
 import {
   Select,
   SelectContent,
@@ -80,14 +81,13 @@ const VideoStoryCreate: React.FC = () => {
   useUnsavedChangesWarning(isDirty && !isSaving);
 
   // Confirm before leaving via the in-editor Back/Cancel buttons while there
-  // are unsaved changes. (beforeunload covers tab close/refresh; this covers
-  // the editor's own exits.)
+  // are unsaved changes, using the site's styled dialog. (beforeunload covers
+  // tab close/refresh; this covers the editor's own exits.)
+  const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
   const leaveToDashboard = () => {
     if (isDirty && !isSaving) {
-      const msg = language === 'en'
-        ? 'You have unsaved changes. Leave without saving?'
-        : 'Ai modificări nesalvate. Ieși fără să salvezi?';
-      if (!window.confirm(msg)) return;
+      setShowLeaveConfirm(true);
+      return;
     }
     navigate('/admin');
   };
@@ -322,6 +322,12 @@ const VideoStoryCreate: React.FC = () => {
 
   return (
     <div className="screen-anim pb-32">
+      <UnsavedChangesDialog
+        open={showLeaveConfirm}
+        onOpenChange={setShowLeaveConfirm}
+        onConfirm={() => navigate('/admin')}
+        language={language}
+      />
       {/* Page hero */}
       <section style={{ padding: '60px 0 32px', borderBottom: '1px solid var(--line-soft)' }}>
         <div className="ed-container">
