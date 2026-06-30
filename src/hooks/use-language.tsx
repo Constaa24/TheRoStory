@@ -187,7 +187,7 @@ const translations = {
     "auth.resendVerificationFailed": "Could not resend the verification email. Please try again.",
     "auth.emailNotConfirmedTitle": "Please verify your email",
     "auth.emailNotConfirmedDesc": "We need to confirm this email address before you can sign in.",
-    "auth.goHome": "Go to Home",
+    "auth.goHome": "Go to homepage",
     "auth.resetPassword": "Reset Password",
     "auth.resetPasswordDesc": "Enter your email to receive a reset link",
     "auth.sendLink": "Send Link",

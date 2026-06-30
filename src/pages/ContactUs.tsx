@@ -103,17 +103,16 @@ const ContactUs: React.FC = () => {
       {/* INFO CARDS */}
       <section style={{ padding: '60px 0 40px' }}>
         <div className="ed-container">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             {[
-              { eyebrow: language === 'en' ? 'Editorial' : 'Editorial', name: 'support@therostory.com', desc: language === 'en' ? 'Pitches, corrections, fact-checks.' : 'Propuneri, corecturi, verificări.' },
-              { eyebrow: language === 'en' ? 'Press & partnerships' : 'Presă și parteneriate', name: 'support@therostory.com', desc: language === 'en' ? 'Media, festivals, brand collaborations.' : 'Media, festivaluri, colaborări de brand.' },
+              { eyebrow: language === 'en' ? 'Email' : 'Email', name: 'support@therostory.com', desc: language === 'en' ? 'Pitches, corrections, press, partnerships.' : 'Propuneri, corecturi, presă, parteneriate.' },
               { eyebrow: language === 'en' ? 'Follow' : 'Urmărește', name: 'therostory.com', desc: language === 'en' ? 'Instagram, TikTok, YouTube.' : 'Instagram, TikTok, YouTube.' },
             ].map((c, i) => (
               <div key={i} style={{ borderTop: '1px solid var(--line)', paddingTop: 24 }}>
                 <div className="eyebrow mb-3.5">{c.eyebrow}</div>
                 <div className="font-display italic mb-3" style={{ fontSize: 26, color: 'var(--parchment)', lineHeight: 1.2, wordBreak: 'break-word' }}>{c.name}</div>
                 <p className="m-0" style={{ fontSize: 15, color: 'var(--text-dim)' }}>{c.desc}</p>
-                {i === 2 && <div className="mt-4"><SocialLinks iconSize="h-5 w-5" /></div>}
+                {i === 1 && <div className="mt-4"><SocialLinks iconSize="h-5 w-5" /></div>}
               </div>
             ))}
           </div>

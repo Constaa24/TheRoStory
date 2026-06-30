@@ -302,7 +302,7 @@ const Profile: React.FC = () => {
                 </Badge>
               </div>
               <CardTitle className="text-3xl font-display italic text-[color:var(--parchment)]">
-                {t("profile.title")}
+                {language === 'en' ? 'Account details' : 'Detalii cont'}
               </CardTitle>
               <CardDescription className="text-muted-foreground">
                 {t("profile.subtitle")}

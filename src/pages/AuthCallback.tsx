@@ -369,7 +369,7 @@ const AuthCallback: React.FC = () => {
                 className="w-full rounded-full h-12 font-serif italic"
                 onClick={() => navigate("/")}
               >
-                {language === "en" ? "Go to Home" : "Mergi la Acasă"}
+                {language === "en" ? "Go to homepage" : "Mergi la Acasă"}
               </Button>
             </CardContent>
           )}

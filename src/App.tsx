@@ -189,8 +189,8 @@ function EditorialFooter({ language }: { language: 'en' | 'ro' }) {
           <span>© {new Date().getFullYear()} The RoStory · {language === 'en' ? 'Made in Bucharest, with field notes from everywhere.' : 'Făcut în București, cu note de teren de pretutindeni.'}</span>
           <span className="font-display italic text-base text-ink-dim max-w-md">
             {language === 'en'
-              ? '"Storytelling is the essential human activity. The harder the situation, the more essential it is."'
-              : '„Povestirea este activitatea umană esențială. Cu cât situația este mai grea, cu atât devine mai esențială."'}
+              ? '“Storytelling is the essential human activity. The harder the situation, the more essential it is.”'
+              : '„Povestirea este activitatea umană esențială. Cu cât situația este mai grea, cu atât devine mai esențială.”'}
           </span>
         </div>
       </div>
