@@ -4,7 +4,8 @@ import {
   Article,
   AdminUserSummary,
   getLocalized,
-  fetchAdminArticles,
+  fetchAdminArticlesPage,
+  fetchCategories,
   invalidatePublicContentCache,
   fetchAllUsers,
   deleteUser as deleteUserFunc,
@@ -58,6 +59,7 @@ import { cn, isAbortError } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
 
 const USERS_PER_PAGE = 25;
+const ARTICLES_PER_PAGE = 20;
 
 const AdminDashboard: React.FC = () => {
   const { user, isAdmin, isWriter } = useAuth();
@@ -65,6 +67,9 @@ const AdminDashboard: React.FC = () => {
   const navigate = useNavigate();
   const [categories, setCategories] = useState<Category[]>([]);
   const [articles, setArticles] = useState<Article[]>([]);
+  const [articlesPage, setArticlesPage] = useState(1);
+  const [articlesTotal, setArticlesTotal] = useState(0);
+  const [articlesLoading, setArticlesLoading] = useState(true);
   const [allUsers, setAllUsers] = useState<AdminUserSummary[]>([]);
   const [usersLoadError, setUsersLoadError] = useState<string | null>(null);
   const [usersPage, setUsersPage] = useState(1);
@@ -92,28 +97,45 @@ const AdminDashboard: React.FC = () => {
   // Indexed lookup so the article tables don't .find() per row.
   const categoriesById = useMemo(() => new Map(categories.map(c => [c.id, c])), [categories]);
 
-  // Fetch categories and articles when user/role changes. Writers get an
-  // ownerId-scoped query so the DB only returns their own rows; admins
-  // get everything. Public-content cache is invalidated first so other
-  // pages don't keep serving stale lists after admin edits.
+  // Categories load once per user/role — they don't paginate and are reused
+  // by the category-management tab. Public-content cache is invalidated first
+  // so other pages don't keep serving stale lists after admin edits.
   useEffect(() => {
     if (!user || (!isAdmin && !isWriter)) return;
     let cancelled = false;
     invalidatePublicContentCache();
-    fetchAdminArticles(isWriter && !isAdmin ? user.id : undefined)
-      .then((data) => {
-        if (cancelled) return;
-        setCategories(data.categories);
-        setArticles(data.articles);
-      })
+    fetchCategories()
+      .then((cats) => { if (!cancelled) setCategories(cats); })
       .catch((error) => {
-        if (!isAbortError(error)) console.error("Error fetching content:", error);
+        if (!isAbortError(error)) console.error("Error fetching categories:", error);
       });
     return () => { cancelled = true; };
     // Tracking user.id rather than user prevents re-fetching when the user
     // object identity changes but the same user is still logged in.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id, isAdmin, isWriter]);
+
+  // Articles are fetched one page at a time (server-side range + exact count)
+  // so the dashboard scales past the old 500-row ceiling. Writers get an
+  // ownerId-scoped query so the DB only returns their own rows.
+  useEffect(() => {
+    if (!user || (!isAdmin && !isWriter)) return;
+    let cancelled = false;
+    setArticlesLoading(true);
+    fetchAdminArticlesPage(articlesPage, ARTICLES_PER_PAGE, isWriter && !isAdmin ? user.id : undefined)
+      .then(({ articles: rows, total }) => {
+        if (cancelled) return;
+        setArticles(rows);
+        setArticlesTotal(total);
+      })
+      .catch((error) => {
+        if (cancelled) return;
+        if (!isAbortError(error)) console.error("Error fetching content:", error);
+      })
+      .finally(() => { if (!cancelled) setArticlesLoading(false); });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, isAdmin, isWriter, articlesPage]);
 
   // Fetch users separately so pagination doesn't re-fetch content
   useEffect(() => {
@@ -151,9 +173,13 @@ const AdminDashboard: React.FC = () => {
   const fetchData = async () => {
     invalidatePublicContentCache();
     try {
-      const data = await fetchAdminArticles(isWriter && !isAdmin ? user?.id : undefined);
-      setCategories(data.categories);
-      setArticles(data.articles);
+      const [cats, page] = await Promise.all([
+        fetchCategories(),
+        fetchAdminArticlesPage(articlesPage, ARTICLES_PER_PAGE, isWriter && !isAdmin ? user?.id : undefined),
+      ]);
+      setCategories(cats);
+      setArticles(page.articles);
+      setArticlesTotal(page.total);
     } catch (error) {
       if (!isAbortError(error)) console.error("Error fetching data:", error);
     }
@@ -240,7 +266,14 @@ const AdminDashboard: React.FC = () => {
         void deleteStorageFile('articles', path);
       }
 
-      fetchData();
+      // If we just removed the last row on a non-first page, step back so the
+      // user doesn't land on an empty page; the page effect refetches. Else
+      // refetch the current page in place.
+      if (articles.length === 1 && articlesPage > 1) {
+        setArticlesPage((p) => Math.max(1, p - 1));
+      } else {
+        fetchData();
+      }
       toast.success(t("admin.articles.deleted"));
     } catch {
       toast.error(t("admin.articles.errDelete"));
@@ -334,6 +367,10 @@ const AdminDashboard: React.FC = () => {
 
   const usersRangeStart = allUsers.length === 0 ? 0 : (usersPage - 1) * USERS_PER_PAGE + 1;
   const usersRangeEnd = allUsers.length === 0 ? 0 : usersRangeStart + allUsers.length - 1;
+
+  const articlesTotalPages = Math.max(1, Math.ceil(articlesTotal / ARTICLES_PER_PAGE));
+  const articlesRangeStart = articles.length === 0 ? 0 : (articlesPage - 1) * ARTICLES_PER_PAGE + 1;
+  const articlesRangeEnd = articles.length === 0 ? 0 : articlesRangeStart + articles.length - 1;
 
   if (!isAdmin && !isWriter) {
     return (
@@ -603,7 +640,7 @@ const AdminDashboard: React.FC = () => {
                 </div>
               </Card>
             ))}
-            {articles.length === 0 && (
+            {!articlesLoading && articles.length === 0 && (
               <div className="text-center py-10 text-muted-foreground italic">{t("admin.articles.empty")}</div>
             )}
           </div>
@@ -675,7 +712,7 @@ const AdminDashboard: React.FC = () => {
                     </TableCell>
                   </TableRow>
                 ))}
-                {articles.length === 0 && (
+                {!articlesLoading && articles.length === 0 && (
                   <TableRow>
                     <TableCell colSpan={5} className="text-center py-10 text-muted-foreground italic">
                       {t("admin.articles.empty")}
@@ -685,6 +722,40 @@ const AdminDashboard: React.FC = () => {
               </TableBody>
             </Table>
           </Card>
+
+          {articlesTotal > ARTICLES_PER_PAGE && (
+            <div className="flex flex-col sm:flex-row justify-center sm:justify-between items-center gap-3 pt-2">
+              <span className="text-xs text-muted-foreground">
+                {t("admin.users.range")
+                  .replace("{start}", String(articlesRangeStart))
+                  .replace("{end}", String(articlesRangeEnd))
+                  .replace("{total}", String(articlesTotal))}
+              </span>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="rounded-full"
+                  disabled={articlesPage <= 1}
+                  onClick={() => setArticlesPage((p) => Math.max(1, p - 1))}
+                >
+                  {t("admin.users.previous")}
+                </Button>
+                <span className="text-xs text-muted-foreground px-1">
+                  {t("admin.users.pageOnly").replace("{page}", String(articlesPage))}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="rounded-full"
+                  disabled={articlesPage >= articlesTotalPages}
+                  onClick={() => setArticlesPage((p) => p + 1)}
+                >
+                  {t("admin.users.next")}
+                </Button>
+              </div>
+            </div>
+          )}
         </TabsContent>
 
         <TabsContent value="categories" className="space-y-6">

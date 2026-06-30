@@ -268,29 +268,36 @@ export const fetchRelatedArticles = async (
 };
 
 /**
- * Admin/writer dashboard fetcher. Skips the public-content cache (admins
- * always want fresh data) and accepts an optional `ownerId` so writers
- * fetch only their own rows server-side rather than pulling every
- * published article and filtering client-side.
+ * Paginated admin/writer dashboard fetcher for articles. Skips the
+ * public-content cache (admins always want fresh data) and accepts an
+ * optional `ownerId` so writers fetch only their own rows server-side.
+ *
+ * Returns the requested page plus the exact total so the dashboard can show
+ * Previous/Next controls and a result range — replacing the old all-at-once
+ * `.limit(500)` fetch, which silently hid stories beyond the 500th.
+ *
+ * Categories are fetched separately via `fetchCategories()`; they don't
+ * paginate and are reused by the category-management tab.
  */
-export const fetchAdminArticles = async (
+export const fetchAdminArticlesPage = async (
+  page: number,
+  pageSize: number,
   ownerId?: string
-): Promise<{ categories: Category[]; articles: Article[] }> => {
-  let articlesQuery = supabase.from('articles').select('*');
-  if (ownerId) articlesQuery = articlesQuery.eq('user_id', ownerId);
+): Promise<{ articles: Article[]; total: number }> => {
+  const safePage = Number.isFinite(page) ? Math.max(1, Math.floor(page)) : 1;
+  const safeSize = Number.isFinite(pageSize) ? Math.min(100, Math.max(1, Math.floor(pageSize))) : 20;
+  const start = (safePage - 1) * safeSize;
+  const end = start + safeSize - 1;
 
-  const [categoriesRes, articlesRes] = await Promise.all([
-    supabase.from('categories').select('*').order('name_en', { ascending: true }),
-    articlesQuery.order('created_at', { ascending: false }).limit(500),
-  ]);
+  let query = supabase
+    .from('articles')
+    .select('*', { count: 'exact' })
+    .order('created_at', { ascending: false });
+  if (ownerId) query = query.eq('user_id', ownerId);
 
-  if (categoriesRes.error) throw categoriesRes.error;
-  if (articlesRes.error) throw articlesRes.error;
-
-  return {
-    categories: toCamelCaseArray<Category>(categoriesRes.data || []),
-    articles: toCamelCaseArray<Article>(articlesRes.data || []),
-  };
+  const { data, error, count } = await query.range(start, end);
+  if (error) throw error;
+  return { articles: toCamelCaseArray<Article>(data || []), total: count ?? 0 };
 };
 
 /**
