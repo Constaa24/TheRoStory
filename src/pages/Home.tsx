@@ -276,6 +276,17 @@ const Home: React.FC = () => {
     }
   };
 
+  // Paging the grid swaps the content above the pager; bring the reader back to
+  // the top of the results instead of leaving them stranded at the controls.
+  const goToPage = (next: number) => {
+    setCurrentPage(next);
+    if (typeof window !== 'undefined') {
+      window.requestAnimationFrame(() => {
+        document.getElementById('explore')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
+    }
+  };
+
   useEffect(() => {
     fetchCategories().then(setCategories).catch(() => {});
   }, []);
@@ -606,7 +617,7 @@ const Home: React.FC = () => {
                   <div className="flex items-center justify-center gap-6 pt-12 mt-4">
                     <button
                       className="btn-ed btn-ed-ghost"
-                      onClick={() => setCurrentPage(p => p - 1)}
+                      onClick={() => goToPage(currentPage - 1)}
                       disabled={currentPage === 1}
                       style={{ opacity: currentPage === 1 ? 0.4 : 1 }}
                     >
@@ -618,7 +629,7 @@ const Home: React.FC = () => {
                     </span>
                     <button
                       className="btn-ed btn-ed-ghost"
-                      onClick={() => setCurrentPage(p => p + 1)}
+                      onClick={() => goToPage(currentPage + 1)}
                       disabled={currentPage === totalPages}
                       style={{ opacity: currentPage === totalPages ? 0.4 : 1 }}
                     >

@@ -5,7 +5,7 @@ import { useLanguage } from "@/hooks/use-language";
 import { useFavorites } from "@/hooks/use-favorites";
 import { ArrowLeft, Heart, Play, Images, ChevronRight, Loader2 } from "lucide-react";
 import { StoryThumbnail } from "@/components/ui/story-thumbnail";
-import { cn, isAbortError } from "@/lib/utils";
+import { cn, isAbortError, toJsonLd } from "@/lib/utils";
 import { PageHead } from "@/components/layout/PageHead";
 import { SITE_URL } from "@/lib/constants";
 import { toneFor, readMinutes, articleExcerpt, articleCoverUrl } from "@/lib/article-utils";
@@ -103,8 +103,8 @@ const CategoryDetail: React.FC = () => {
   return (
     <div className="screen-anim pb-20">
       <PageHead title={pageTitle} description={pageDescription} language={language}>
-        <script type="application/ld+json">{JSON.stringify(breadcrumbLd)}</script>
-        <script type="application/ld+json">{JSON.stringify(itemListLd)}</script>
+        <script type="application/ld+json">{toJsonLd(breadcrumbLd)}</script>
+        <script type="application/ld+json">{toJsonLd(itemListLd)}</script>
       </PageHead>
 
       <section style={{ padding: '60px 0 40px', borderBottom: '1px solid var(--line-soft)' }}>

@@ -26,7 +26,9 @@
 
     --text: #e9dfc8;
     --text-dim: #b9ad93;
-    --text-mute: #7e7560;
+    /* Lightened from #7e7560 (~4.3:1) to clear WCAG AA 4.5:1 on the dark
+       background for small meta labels. */
+    --text-mute: #8a8068;
 
     /* Type stack */
     --display: "Cormorant Garamond", "Cormorant", Georgia, serif;

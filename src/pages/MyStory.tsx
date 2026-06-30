@@ -119,7 +119,7 @@ const MyStory: React.FC = () => {
       <section style={{ padding: '80px 0' }}>
         <div className="ed-container">
           <div className="max-w-[760px] mx-auto">
-            <div className="eyebrow mb-4">{t.problemTitle}</div>
+            <div className="eyebrow mb-4">{language === 'en' ? 'The problem' : 'Problema'}</div>
             <h2 className="font-display italic font-medium m-0 mb-6" style={{ fontSize: 'clamp(32px, 3.4vw, 48px)', lineHeight: 1.15, color: 'var(--parchment)' }}>
               {t.problemTitle}
             </h2>
@@ -158,7 +158,7 @@ const MyStory: React.FC = () => {
       <section style={{ padding: '80px 0' }}>
         <div className="ed-container">
           <div className="max-w-[760px] mx-auto">
-            <div className="eyebrow mb-4">{t.visionTitle}</div>
+            <div className="eyebrow mb-4">{language === 'en' ? 'Looking ahead' : 'Privind înainte'}</div>
             <h2 className="font-display italic font-medium m-0 mb-6" style={{ fontSize: 'clamp(32px, 3.4vw, 48px)', lineHeight: 1.15, color: 'var(--parchment)' }}>
               {t.visionTitle}
             </h2>

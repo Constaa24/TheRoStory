@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Category, getLocalized, fetchCategories, fetchArticleCategoryCounts } from "@/lib/supabase";
 import { useLanguage } from "@/hooks/use-language";
-import { isAbortError } from "@/lib/utils";
+import { isAbortError, toJsonLd } from "@/lib/utils";
 import { PageHead } from "@/components/layout/PageHead";
 import { SITE_URL } from "@/lib/constants";
 
@@ -69,7 +69,7 @@ const Categories: React.FC = () => {
   return (
     <div className="screen-anim pb-20">
       <PageHead title={pageTitle} description={pageDescription} language={language}>
-        <script type="application/ld+json">{JSON.stringify(itemListLd)}</script>
+        <script type="application/ld+json">{toJsonLd(itemListLd)}</script>
       </PageHead>
 
       {/* PAGE HERO */}
@@ -140,6 +140,8 @@ const Categories: React.FC = () => {
                         <img
                           src={getCategoryImage(category.slug || name.toLowerCase(), i)}
                           alt={name}
+                          loading="lazy"
+                          decoding="async"
                           className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
                         />
                       </div>
