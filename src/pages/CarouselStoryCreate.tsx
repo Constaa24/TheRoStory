@@ -80,6 +80,19 @@ const CarouselStoryCreate: React.FC = () => {
 
   useUnsavedChangesWarning(isDirty && !isSaving);
 
+  // Confirm before leaving via the in-editor Back/Cancel buttons while there
+  // are unsaved changes. (beforeunload covers tab close/refresh; this covers
+  // the editor's own exits.)
+  const leaveToDashboard = () => {
+    if (isDirty && !isSaving) {
+      const msg = language === 'en'
+        ? 'You have unsaved changes. Leave without saving?'
+        : 'Ai modificări nesalvate. Ieși fără să salvezi?';
+      if (!window.confirm(msg)) return;
+    }
+    navigate('/admin');
+  };
+
   useEffect(() => {
     let cancelled = false;
     const loadAll = async () => {
@@ -344,7 +357,7 @@ const CarouselStoryCreate: React.FC = () => {
       <section style={{ padding: '60px 0 32px', borderBottom: '1px solid var(--line-soft)' }}>
         <div className="ed-container">
           <button
-            onClick={() => navigate('/admin')}
+            onClick={leaveToDashboard}
             className="flex items-center gap-2 mb-6 transition-colors hover:text-gold cursor-pointer"
             style={{ color: 'var(--text-dim)', background: 'transparent', border: 0, fontFamily: 'var(--ui)', fontSize: 11, letterSpacing: '0.18em', textTransform: 'uppercase' }}
           >
@@ -756,7 +769,7 @@ const CarouselStoryCreate: React.FC = () => {
       >
         <div className="ed-container py-4 flex items-center justify-end gap-3">
           <button
-            onClick={() => navigate('/admin')}
+            onClick={leaveToDashboard}
             disabled={isSaving}
             className="font-ui text-[11px] uppercase cursor-pointer transition-colors hover:text-gold"
             style={{ background: 'transparent', border: 0, color: 'var(--text-dim)', letterSpacing: '0.18em', padding: '10px 18px' }}
@@ -798,14 +811,27 @@ const FormBlock: React.FC<{ title: string; children: React.ReactNode }> = ({ tit
   </div>
 );
 
-const Field: React.FC<{ label: string; required?: boolean; compact?: boolean; children: React.ReactNode }> = ({ label, required, compact, children }) => (
-  <div className={compact ? '' : 'flex flex-col'}>
-    <label style={{ marginBottom: compact ? 4 : 8 }}>
-      {label}
-      {required && <span style={{ color: 'var(--oxblood-2)', marginLeft: 4 }}>*</span>}
-    </label>
-    {children}
-  </div>
-);
+const Field: React.FC<{ label: string; required?: boolean; compact?: boolean; children: React.ReactNode }> = ({ label, required, compact, children }) => {
+  const reactId = React.useId();
+  // Associate the <label> with its control. Native <input>/<textarea> children
+  // (string element type) get the id; Radix <Select> children are skipped so we
+  // never point htmlFor at an id that isn't rendered.
+  const isNative = React.isValidElement(children) && typeof children.type === "string";
+  const controlId = isNative
+    ? ((children as React.ReactElement<{ id?: string }>).props.id ?? reactId)
+    : undefined;
+  const child = isNative
+    ? React.cloneElement(children as React.ReactElement<{ id?: string }>, { id: controlId })
+    : children;
+  return (
+    <div className={compact ? '' : 'flex flex-col'}>
+      <label htmlFor={controlId} style={{ marginBottom: compact ? 4 : 8 }}>
+        {label}
+        {required && <span style={{ color: 'var(--oxblood-2)', marginLeft: 4 }}>*</span>}
+      </label>
+      {child}
+    </div>
+  );
+};
 
 export default CarouselStoryCreate;

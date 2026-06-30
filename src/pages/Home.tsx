@@ -3,7 +3,7 @@ import { Category, Article, getLocalized, fetchCategories, fetchArticlesPage, fe
 import { useLanguage } from "@/hooks/use-language";
 import { useFavorites } from "@/hooks/use-favorites";
 import { ChevronRight, ChevronLeft, ArrowRight, Heart, Play, Images } from "lucide-react";
-import { cn, isAbortError } from "@/lib/utils";
+import { cn, isAbortError, toJsonLd } from "@/lib/utils";
 import { toast } from "sonner";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { PageHead } from "@/components/layout/PageHead";
@@ -176,41 +176,55 @@ const NewsletterForm: React.FC<{ language: 'en' | 'ro' }> = ({ language }) => {
 
   return (
     <form
-      className="flex gap-2 ed-form w-full"
+      className="ed-form w-full"
       style={{ flex: '1 1 260px', maxWidth: 520 }}
       onSubmit={onSubmit}
     >
-      <div className="sr-only" aria-hidden="true">
-        <label htmlFor="nl-website">Website</label>
+      <div className="flex gap-2">
+        <div className="sr-only" aria-hidden="true">
+          <label htmlFor="nl-website">Website</label>
+          <input
+            id="nl-website"
+            tabIndex={-1}
+            autoComplete="off"
+            value={website}
+            onChange={(e) => setWebsite(e.target.value)}
+          />
+        </div>
+        <label htmlFor="nl-email" className="sr-only">
+          {language === 'en' ? 'Email address' : 'Adresă de email'}
+        </label>
         <input
-          id="nl-website"
-          tabIndex={-1}
-          autoComplete="off"
-          value={website}
-          onChange={(e) => setWebsite(e.target.value)}
+          id="nl-email"
+          type="email"
+          required
+          maxLength={254}
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder={language === 'en' ? 'your@email.com' : 'email@tau.ro'}
+          style={{ flex: 1, background: 'transparent', borderRadius: 999, padding: '16px 22px' }}
         />
+        <button
+          type="submit"
+          className="btn-ed"
+          disabled={isSubmitting || cooldown > 0}
+          style={{ opacity: isSubmitting || cooldown > 0 ? 0.6 : 1 }}
+        >
+          {isSubmitting
+            ? (language === 'en' ? 'Sending…' : 'Se trimite…')
+            : cooldown > 0
+              ? (language === 'en' ? `Wait ${cooldown}s` : `Așteaptă ${cooldown}s`)
+              : (language === 'en' ? 'Subscribe' : 'Abonează-te')}
+        </button>
       </div>
-      <input
-        type="email"
-        required
-        maxLength={254}
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-        placeholder={language === 'en' ? 'your@email.com' : 'email@tau.ro'}
-        style={{ flex: 1, background: 'transparent', borderRadius: 999, padding: '16px 22px' }}
-      />
-      <button
-        type="submit"
-        className="btn-ed"
-        disabled={isSubmitting || cooldown > 0}
-        style={{ opacity: isSubmitting || cooldown > 0 ? 0.6 : 1 }}
-      >
-        {isSubmitting
-          ? (language === 'en' ? 'Sending…' : 'Se trimite…')
-          : cooldown > 0
-            ? (language === 'en' ? `Wait ${cooldown}s` : `Așteaptă ${cooldown}s`)
-            : (language === 'en' ? 'Subscribe' : 'Abonează-te')}
-      </button>
+      <p className="font-ui text-[11px] mt-2 m-0" style={{ color: 'var(--text-mute)', lineHeight: 1.6 }}>
+        {language === 'en'
+          ? 'Double opt-in — confirm via email. Unsubscribe anytime. '
+          : 'Dublă confirmare prin email. Te poți dezabona oricând. '}
+        <Link to="/privacy" className="underline" style={{ color: 'var(--gold)' }}>
+          {language === 'en' ? 'Privacy' : 'Confidențialitate'}
+        </Link>.
+      </p>
     </form>
   );
 };
@@ -326,8 +340,13 @@ const Home: React.FC = () => {
 
   return (
     <>
-      <PageHead title={pageTitle} description={pageDescription} language={language}>
-        <script type="application/ld+json">{JSON.stringify(organizationLd)}</script>
+      <PageHead
+        title={pageTitle}
+        description={pageDescription}
+        language={language}
+        canonical={currentPage > 1 ? `${SITE_URL}/?page=${currentPage}` : `${SITE_URL}/`}
+      >
+        <script type="application/ld+json">{toJsonLd(organizationLd)}</script>
         {prevPageUrl && <link rel="prev" href={prevPageUrl} />}
         {nextPageUrl && <link rel="next" href={nextPageUrl} />}
       </PageHead>

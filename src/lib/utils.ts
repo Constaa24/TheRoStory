@@ -23,3 +23,15 @@ export function logError(context: string, error: unknown): void {
   if (isAbortError(error)) return;
   console.error(`[${context}]`, error);
 }
+
+/**
+ * Serializes a value for safe embedding inside a
+ * <script type="application/ld+json"> tag. Escapes `<` so a stray
+ * "</script>" or "<!--" in the data (e.g. an article title) can't terminate
+ * the script element. This is harmless in the current client-only render
+ * (React writes the JSON as a DOM text node) but protects us if the markup
+ * is ever server-rendered/prerendered.
+ */
+export function toJsonLd(data: unknown): string {
+  return JSON.stringify(data).replace(/</g, "\\u003c");
+}

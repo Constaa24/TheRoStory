@@ -15,7 +15,7 @@ const Privacy: React.FC = () => {
       sections: [
         {
           heading: "Who we are",
-          body: "The RoStory is a personal storytelling project run by a single individual based in Romania. This page explains what data the site collects when you use it, why, and how you can control it.",
+          body: "The RoStory is a personal storytelling project run by a single individual based in Romania. The person responsible for your data (the data controller) can be reached at support@therostory.com. This page explains what data the site collects when you use it, why, and how you can control it.",
         },
         {
           heading: "What we collect",
@@ -46,6 +46,18 @@ const Privacy: React.FC = () => {
           body: "You can edit your profile at any time from the Profile page. You can permanently delete your account and all associated content (your articles, comments, favorites) by clicking 'Delete account' on your profile. You can request a complete export of your data via the Profile page export button. If anything fails or you have questions, email support@therostory.com.",
         },
         {
+          heading: "Legal basis",
+          body: "We process your account data and content to provide the service you signed up for (performance of a contract). We send the newsletter only with your explicit consent, which you can withdraw at any time via the unsubscribe link or by emailing us. Anonymous view counts and basic abuse prevention rely on our legitimate interest in running and protecting the site.",
+        },
+        {
+          heading: "How long we keep your data",
+          body: "We keep your account data for as long as your account exists. When you delete your account, your profile, articles, comments, and favorites are removed immediately. Newsletter records are kept until you unsubscribe or ask us to erase them; unconfirmed sign-ups are deleted automatically after about 30 days. Contact-form emails remain in our mailbox and are deleted once the conversation is resolved.",
+        },
+        {
+          heading: "Your right to complain",
+          body: "If you believe we've mishandled your data, you can lodge a complaint with the Romanian National Supervisory Authority for Personal Data Processing (ANSPDCP — dataprotection.ro). We'd appreciate the chance to put things right first, so please email support@therostory.com.",
+        },
+        {
           heading: "Changes to this policy",
           body: "When this policy changes materially, the 'Last updated' date above is updated. We do not currently send notifications for policy changes.",
         },
@@ -62,7 +74,7 @@ const Privacy: React.FC = () => {
       sections: [
         {
           heading: "Cine suntem",
-          body: "The RoStory este un proiect personal de povestire condus de o singură persoană din România. Această pagină explică ce date colectează site-ul când îl folosești, de ce și cum le poți controla.",
+          body: "The RoStory este un proiect personal de povestire condus de o singură persoană din România. Persoana responsabilă de datele tale (operatorul de date) poate fi contactată la support@therostory.com. Această pagină explică ce date colectează site-ul când îl folosești, de ce și cum le poți controla.",
         },
         {
           heading: "Ce colectăm",
@@ -91,6 +103,18 @@ const Privacy: React.FC = () => {
         {
           heading: "Drepturile tale",
           body: "Îți poți edita profilul oricând din pagina de Profil. Îți poți șterge permanent contul și tot conținutul asociat (articolele, comentariile, favoritele) apăsând pe „Șterge contul” în pagina de profil. Poți solicita un export complet al datelor tale prin butonul de export din pagina de Profil. Dacă ceva nu funcționează sau ai întrebări, scrie la support@therostory.com.",
+        },
+        {
+          heading: "Temeiul legal",
+          body: "Prelucrăm datele contului și conținutul pentru a-ți oferi serviciul la care te-ai înscris (executarea unui contract). Trimitem buletinul informativ doar cu consimțământul tău explicit, pe care îl poți retrage oricând prin linkul de dezabonare sau scriindu-ne. Numărul anonim de vizualizări și prevenirea abuzurilor se bazează pe interesul nostru legitim de a opera și proteja site-ul.",
+        },
+        {
+          heading: "Cât timp păstrăm datele tale",
+          body: "Păstrăm datele contului tău atât timp cât contul există. Când îți ștergi contul, profilul, articolele, comentariile și favoritele sunt eliminate imediat. Înregistrările pentru buletin sunt păstrate până când te dezabonezi sau ne ceri ștergerea lor; abonările neconfirmate sunt șterse automat după aproximativ 30 de zile. Emailurile din formularul de contact rămân în căsuța noastră și sunt șterse după rezolvarea conversației.",
+        },
+        {
+          heading: "Dreptul de a depune o plângere",
+          body: "Dacă consideri că ți-am gestionat greșit datele, poți depune o plângere la Autoritatea Națională de Supraveghere a Prelucrării Datelor cu Caracter Personal (ANSPDCP — dataprotection.ro). Am aprecia însă ocazia de a îndrepta lucrurile mai întâi, așa că te rugăm să scrii la support@therostory.com.",
         },
         {
           heading: "Modificări ale acestei politici",

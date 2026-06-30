@@ -4,7 +4,7 @@ import { Article, getLocalized } from "@/lib/supabase";
 import { fetchPublicArticle, incrementView } from "@/lib/supabase";
 import { useLanguage } from "@/hooks/use-language";
 import { EditorialArticle } from "@/components/organisms/EditorialArticle";
-import { logError } from "@/lib/utils";
+import { logError, toJsonLd } from "@/lib/utils";
 import { articleCoverUrl, articleExcerpt } from "@/lib/article-utils";
 import { SITE_NAME, SITE_URL } from "@/lib/constants";
 
@@ -113,8 +113,8 @@ const ArticleDetailPage: React.FC = () => {
       <meta name="twitter:title" content={title} />
       <meta name="twitter:description" content={description} />
       <meta name="twitter:image" content={imageUrl} />
-      <script type="application/ld+json">{JSON.stringify(jsonLd)}</script>
-      <script type="application/ld+json">{JSON.stringify(breadcrumbLd)}</script>
+      <script type="application/ld+json">{toJsonLd(jsonLd)}</script>
+      <script type="application/ld+json">{toJsonLd(breadcrumbLd)}</script>
       <EditorialArticle article={article} views={views} />
     </>
   );

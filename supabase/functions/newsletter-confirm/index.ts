@@ -154,7 +154,14 @@ Deno.serve(async (req) => {
 
     const { error: updateError } = await admin
       .from("newsletter_subscribers")
-      .update({ status: "confirmed", confirmed_at: new Date().toISOString() })
+      .update({
+        status: "confirmed",
+        confirmed_at: new Date().toISOString(),
+        // Rotate the token so the just-used confirmation link can't be
+        // replayed. The column is NOT NULL, so we rotate to a fresh random
+        // value (never emailed → unusable) rather than clearing it.
+        confirm_token: crypto.randomUUID(),
+      })
       .eq("id", row.id);
     if (updateError) throw updateError;
 

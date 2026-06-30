@@ -1,4 +1,5 @@
 import React from "react";
+import { Link } from "react-router-dom";
 import { useLanguage } from "@/hooks/use-language";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -138,8 +139,9 @@ const ContactUs: React.FC = () => {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label>{language === 'en' ? 'Name' : 'Nume'}</label>
+                  <label htmlFor="contact-name">{language === 'en' ? 'Name' : 'Nume'}</label>
                   <input
+                    id="contact-name"
                     type="text"
                     placeholder={t('contact.namePlaceholder')}
                     {...form.register('name')}
@@ -150,8 +152,9 @@ const ContactUs: React.FC = () => {
                   )}
                 </div>
                 <div>
-                  <label>{language === 'en' ? 'Email' : 'Email'}</label>
+                  <label htmlFor="contact-email">{language === 'en' ? 'Email' : 'Email'}</label>
                   <input
+                    id="contact-email"
                     type="email"
                     placeholder={t('contact.emailPlaceholder')}
                     {...form.register('email')}
@@ -164,8 +167,8 @@ const ContactUs: React.FC = () => {
               </div>
 
               <div>
-                <label>{language === 'en' ? 'Subject' : 'Subiect'}</label>
-                <select {...form.register('subject')}>
+                <label htmlFor="contact-subject">{language === 'en' ? 'Subject' : 'Subiect'}</label>
+                <select id="contact-subject" {...form.register('subject')}>
                   <option value={language === 'en' ? 'Pitch a story' : 'Propune o poveste'}>{language === 'en' ? 'Pitch a story' : 'Propune o poveste'}</option>
                   <option value={language === 'en' ? 'Press request' : 'Cerere presă'}>{language === 'en' ? 'Press request' : 'Cerere presă'}</option>
                   <option value={language === 'en' ? 'Correction' : 'Corectură'}>{language === 'en' ? 'Correction' : 'Corectură'}</option>
@@ -174,8 +177,9 @@ const ContactUs: React.FC = () => {
               </div>
 
               <div>
-                <label>{language === 'en' ? 'Message' : 'Mesaj'}</label>
+                <label htmlFor="contact-message">{language === 'en' ? 'Message' : 'Mesaj'}</label>
                 <textarea
+                  id="contact-message"
                   rows={7}
                   placeholder={t('contact.messagePlaceholder')}
                   {...form.register('message')}
@@ -200,6 +204,15 @@ const ContactUs: React.FC = () => {
                   ? (language === 'en' ? `Wait ${cooldownRemaining}s` : `Așteaptă ${cooldownRemaining}s`)
                   : (language === 'en' ? 'Send the letter' : 'Trimite scrisoarea')}
               </button>
+
+              <p className="font-ui text-[11px] m-0" style={{ color: 'var(--text-mute)', lineHeight: 1.6 }}>
+                {language === 'en'
+                  ? 'We use your message and email only to reply. See our '
+                  : 'Folosim mesajul și adresa ta doar pentru a-ți răspunde. Vezi '}
+                <Link to="/privacy" className="underline" style={{ color: 'var(--gold)' }}>
+                  {language === 'en' ? 'Privacy Policy' : 'Politica de Confidențialitate'}
+                </Link>.
+              </p>
             </form>
 
             <aside>

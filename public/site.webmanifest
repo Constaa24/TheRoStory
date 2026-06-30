@@ -7,7 +7,7 @@
     { "src": "/android-chrome-512x512.png", "sizes": "512x512", "type": "image/png" }
   ],
   "theme_color": "#c9a96e",
-  "background_color": "#ffffff",
+  "background_color": "#0d0b08",
   "display": "standalone",
   "start_url": "/"
 }

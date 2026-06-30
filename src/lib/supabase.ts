@@ -1010,7 +1010,10 @@ const VIDEO_EXTENSIONS = ['mp4', 'webm', 'mov', 'm4v'] as const;
 const VIDEO_MIME_PREFIXES = ['video/'] as const;
 
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024; // 10 MB
-const MAX_VIDEO_BYTES = 200 * 1024 * 1024; // 200 MB
+// Matches the `articles` Supabase Storage bucket file-size limit (500 MB).
+// Keep these in sync: a client cap above the bucket limit lets a file pass
+// validation only to be rejected by Storage mid-upload.
+const MAX_VIDEO_BYTES = 500 * 1024 * 1024; // 500 MB
 
 export type UploadKind = 'image' | 'video';
 

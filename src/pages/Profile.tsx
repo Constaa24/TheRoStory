@@ -22,7 +22,8 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { Article, getLocalized } from "@/lib/supabase";
-import { fetchUserFavorites, toggleFavorite, deleteOwnAccount, exportOwnData, supabase, deleteStorageFile, extractStoragePath, uploadUserFile } from "@/lib/supabase";
+import { fetchUserFavorites, deleteOwnAccount, exportOwnData, supabase, deleteStorageFile, extractStoragePath, uploadUserFile } from "@/lib/supabase";
+import { useFavorites } from "@/hooks/use-favorites";
 import { isAbortError } from "@/lib/utils";
 import { toneFor, articleExcerpt, articleCoverUrl } from "@/lib/article-utils";
 import { Camera, Loader2, Shield, Heart, ChevronRight, CheckCircle2, AlertCircle, Trash2, Download } from "lucide-react";
@@ -31,6 +32,9 @@ import { PageHead } from "@/components/layout/PageHead";
 
 const Profile: React.FC = () => {
   const { user, role, refreshUser, logout } = useAuth();
+  // Shared favorites provider so toggling here also updates heart state on
+  // Home/CategoryDetail/article pages (they read the same source).
+  const { handleFavoriteToggle: toggleFavoriteShared } = useFavorites();
   const { language, t } = useLanguage();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -97,29 +101,27 @@ const Profile: React.FC = () => {
     const previousFavorites = favorites;
     setFavorites(prev => prev.filter(a => a.id !== articleId));
 
-    try {
-      const added = await toggleFavorite(articleId);
-      if (added) {
-        // We optimistically removed it but the toggle actually re-added it
-        // (stale server state, etc). Refresh from source. Use the raw
-        // fetcher rather than `loadFavorites()` so we can react to a
-        // refetch failure instead of letting it silently set
-        // favoritesLoadError and leave the optimistic removal as final.
-        try {
-          const fresh = await fetchUserFavorites(user.id);
-          setFavorites(fresh);
-        } catch {
-          setFavorites(previousFavorites);
-          toast.error(language === 'en' ? "Failed to update favorites" : "Eroare la actualizarea favoritelor");
-        }
-      } else {
-        toast.success(language === 'en' ? "Removed from favorites" : "Eliminat de la favorite");
-      }
-    } catch {
-      // Restore the optimistic removal so the UI reflects reality.
-      setFavorites(previousFavorites);
-      toast.error(language === 'en' ? "Failed to update favorites" : "Eroare la actualizarea favoritelor");
+    // Delegate to the shared provider so the heart state stays in sync across
+    // the app (and the success/error toast is shown there once). Returns
+    // true if the article ended up favorited, false if removed, null on error.
+    const added = await toggleFavoriteShared(e, articleId);
+
+    if (added === null || added === undefined) {
+      // Error (or not authenticated) — restore the optimistic removal.
+      if (isMountedRef.current) setFavorites(previousFavorites);
+      return;
     }
+
+    if (added) {
+      // It was unexpectedly re-added (stale state) — refresh from source.
+      try {
+        const fresh = await fetchUserFavorites(user.id);
+        if (isMountedRef.current) setFavorites(fresh);
+      } catch {
+        if (isMountedRef.current) setFavorites(previousFavorites);
+      }
+    }
+    // added === false → removed; the optimistic state is already correct.
   };
 
   const handleExportData = async () => {

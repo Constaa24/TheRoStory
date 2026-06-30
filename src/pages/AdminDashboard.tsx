@@ -694,22 +694,25 @@ const AdminDashboard: React.FC = () => {
               <h3 className="text-xl font-serif italic mb-6">{t("admin.categories.add")}</h3>
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <label className="text-xs font-bold uppercase text-muted-foreground">{t("admin.categories.nameEn")}</label>
+                  <label htmlFor="cat-name-en" className="text-xs font-bold uppercase text-muted-foreground">{t("admin.categories.nameEn")}</label>
                   <Input
+                    id="cat-name-en"
                     value={newCategory.nameEn}
                     onChange={(e) => setNewCategory({...newCategory, nameEn: e.target.value})}
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-xs font-bold uppercase text-muted-foreground">{t("admin.categories.nameRo")}</label>
+                  <label htmlFor="cat-name-ro" className="text-xs font-bold uppercase text-muted-foreground">{t("admin.categories.nameRo")}</label>
                   <Input
+                    id="cat-name-ro"
                     value={newCategory.nameRo}
                     onChange={(e) => setNewCategory({...newCategory, nameRo: e.target.value})}
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-xs font-bold uppercase text-muted-foreground">{t("admin.categories.slug")}</label>
+                  <label htmlFor="cat-slug" className="text-xs font-bold uppercase text-muted-foreground">{t("admin.categories.slug")}</label>
                   <Input
+                    id="cat-slug"
                     placeholder={t("admin.categories.slugPlaceholder")}
                     value={newCategory.slug}
                     onChange={(e) => setNewCategory({...newCategory, slug: e.target.value})}

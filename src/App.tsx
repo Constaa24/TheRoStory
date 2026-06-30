@@ -49,6 +49,7 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
 // the fresh index.html + current chunks, instead of crashing into the error
 // boundary. A sessionStorage flag prevents a reload loop if the failure is real
 // (e.g. an actually-broken deploy) rather than a stale-asset mismatch.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function lazyWithReload<T extends React.ComponentType<any>>(
   factory: () => Promise<{ default: T }>
 ) {
@@ -102,6 +103,7 @@ const AuthCallback = lazyWithReload(() => import("@/pages/AuthCallback"));
 const Privacy = lazyWithReload(() => import("@/pages/Privacy"));
 const Terms = lazyWithReload(() => import("@/pages/Terms"));
 const NewsletterConfirm = lazyWithReload(() => import("@/pages/NewsletterConfirm"));
+const NotFound = lazyWithReload(() => import("@/pages/NotFound"));
 
 type FooterItem = { label: string; href: string };
 
@@ -324,7 +326,7 @@ const App: React.FC = () => {
                 path="/admin/*"
                 element={canAccessAdmin ? <AdminDashboard /> : <Navigate to="/" replace />}
               />
-              <Route path="*" element={<Navigate to="/" replace />} />
+              <Route path="*" element={<NotFound />} />
             </Routes>
           </Suspense>
           </ErrorBoundary>

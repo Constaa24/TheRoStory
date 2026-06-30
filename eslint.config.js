@@ -17,7 +17,9 @@ export default tseslint.config(
       },
     },
     rules: {
-      "@typescript-eslint/no-explicit-any": "off",
+      // Surface `any` as a warning so it stays visible without failing the
+      // build. The codebase is effectively `any`-free; this keeps it that way.
+      "@typescript-eslint/no-explicit-any": "warn",
       "@typescript-eslint/no-unused-vars": ["warn", { argsIgnorePattern: "^_" }],
       "react-hooks/rules-of-hooks": "error",
       "react-hooks/exhaustive-deps": "warn",
@@ -34,6 +36,6 @@ export default tseslint.config(
     },
   },
   {
-    ignores: ["dist/", "node_modules/", "*.cjs", "counties_data.js"],
+    ignores: ["dist/", "node_modules/", "*.cjs", "**/counties_topo.js"],
   }
 );

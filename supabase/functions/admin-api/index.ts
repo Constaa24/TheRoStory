@@ -324,8 +324,10 @@ Deno.serve(async (req) => {
       const users = usersPageData?.users ?? []
       const userIds = users.map((u) => u.id)
 
-      let profiles: Array<Record<string, any>> = []
-      let roles: Array<Record<string, any>> = []
+      type ProfileRow = { id: string; display_name?: string | null; avatar_url?: string | null }
+      type RoleRow = { user_id: string; role?: string | null }
+      let profiles: ProfileRow[] = []
+      let roles: RoleRow[] = []
       if (userIds.length > 0) {
         const [{ data: profilesData, error: profilesError }, { data: rolesData, error: rolesError }] = await Promise.all([
           adminClient.from('profiles').select('*').in('id', userIds),
