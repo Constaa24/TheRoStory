@@ -20,8 +20,13 @@ export const Navbar: React.FC = () => {
   const [searchOpen, setSearchOpen] = React.useState(false);
   const mobileMenuRef = React.useRef<HTMLDivElement>(null);
   const profileRootRef = React.useRef<HTMLDivElement>(null);
+  const profileDropdownRef = React.useRef<HTMLDivElement>(null);
 
   useFocusTrap(mobileMenuRef, isMenuOpen);
+  // Trap focus in the profile dropdown while open and restore it to the
+  // trigger on close — keyboard users could previously tab straight past
+  // an open menu into the page underneath.
+  useFocusTrap(profileDropdownRef, profileOpen);
 
   React.useEffect(() => {
     if (!isMenuOpen) return;
@@ -29,6 +34,13 @@ export const Navbar: React.FC = () => {
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
   }, [isMenuOpen]);
+
+  React.useEffect(() => {
+    if (!profileOpen) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setProfileOpen(false); };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [profileOpen]);
 
   React.useEffect(() => {
     if (!profileOpen) return;
@@ -107,6 +119,7 @@ export const Navbar: React.FC = () => {
           <button
             onClick={() => setSearchOpen(s => !s)}
             aria-label={language === 'en' ? 'Search' : 'Caută'}
+            aria-expanded={searchOpen}
             className="grid w-10 h-10 rounded-full place-items-center transition-colors hover:text-gold"
             style={{ border: '1px solid var(--line)', background: 'transparent', color: 'var(--text)' }}
           >
@@ -149,6 +162,8 @@ export const Navbar: React.FC = () => {
             <button
               onClick={(e) => { e.stopPropagation(); setProfileOpen(o => !o); }}
               aria-label={language === 'en' ? 'Account' : 'Cont'}
+              aria-expanded={profileOpen}
+              aria-haspopup="true"
               className="grid place-items-center rounded-full transition-colors hover:text-gold"
               style={{
                 width: 40,
@@ -180,6 +195,7 @@ export const Navbar: React.FC = () => {
 
             {profileOpen && (
               <div
+                ref={profileDropdownRef}
                 className="absolute right-0 z-[60] screen-anim"
                 style={{
                   top: 'calc(100% + 12px)',

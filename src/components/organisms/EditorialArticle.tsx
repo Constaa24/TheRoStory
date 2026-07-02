@@ -89,6 +89,7 @@ export const EditorialArticle: React.FC<Props> = ({ article, views }) => {
           <div className="flex gap-2">
             <button
               onClick={(e) => handleFavoriteToggle(e, article.id)}
+              aria-pressed={fav}
               className="pill cursor-pointer"
               style={{ color: fav ? 'var(--gold)' : 'var(--text-dim)' }}
             >

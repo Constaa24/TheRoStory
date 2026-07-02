@@ -730,26 +730,19 @@ export const toggleFavorite = async (articleId: string): Promise<boolean> => {
 
 export const fetchUserFavorites = async (userId: string): Promise<Article[]> => {
   try {
+    // Single round-trip: embed the article through the favorites FK.
+    // `!inner` + the is_published filter hides favorites whose article was
+    // unpublished after the favorite was created — clicking such an entry
+    // would 404 via fetchPublicArticle. (Previously two sequential queries.)
     const { data, error } = await supabase
       .from('favorites')
-      .select('article_id')
-      .eq('user_id', userId);
-    
+      .select('articles!inner(*)')
+      .eq('user_id', userId)
+      .eq('articles.is_published', true);
+
     if (error) throw error;
-    if (!data || data.length === 0) return [];
-    
-    const articleIds = (data as { article_id: string }[]).map((f) => f.article_id);
-
-    // Hide favorites whose article was unpublished after the favorite was
-    // created — clicking such an entry would 404 via fetchPublicArticle.
-    const { data: articlesData, error: articlesError } = await supabase
-      .from('articles')
-      .select('*')
-      .eq('is_published', true)
-      .in('id', articleIds);
-
-    if (articlesError) throw articlesError;
-    return toCamelCaseArray<Article>(articlesData || []);
+    const rows = (data ?? []) as unknown as { articles: Record<string, unknown> }[];
+    return toCamelCaseArray<Article>(rows.map((r) => r.articles));
   } catch (error) {
     if (!isAbortError(error)) {
       console.error("Error fetching user favorites from Supabase:", error);
@@ -1016,6 +1009,48 @@ const IMAGE_MIME_PREFIXES = ['image/'] as const;
 const VIDEO_EXTENSIONS = ['mp4', 'webm', 'mov', 'm4v'] as const;
 const VIDEO_MIME_PREFIXES = ['video/'] as const;
 
+/**
+ * Best-effort magic-byte check that the file's *content* matches the kind we
+ * expect, not just its (user-controlled) extension and MIME type. Catches
+ * honest mistakes like a renamed .exe or a video renamed to .jpg before we
+ * spend bandwidth uploading it. Not a security boundary — the client is
+ * untrusted; RLS scopes the path and the buckets only ever serve bytes back.
+ *
+ * Deliberately permissive: unknown-but-plausible container layouts pass
+ * rather than blocking a legitimate upload.
+ */
+const matchesMagicBytes = async (file: File, kind: UploadKind): Promise<boolean> => {
+  let bytes: Uint8Array;
+  try {
+    bytes = new Uint8Array(await file.slice(0, 16).arrayBuffer());
+  } catch {
+    // Couldn't read the header (transient) — don't block the upload on it.
+    return true;
+  }
+  if (bytes.length < 12) return false;
+
+  const ascii = (start: number, end: number) =>
+    String.fromCharCode(...bytes.slice(start, end));
+  const boxType = ascii(4, 8);   // ISO-BMFF box type (mp4/mov/m4v/avif)
+  const brand = ascii(8, 12);    // ftyp major brand
+
+  const isIsoBmff = ['ftyp', 'moov', 'mdat', 'free', 'wide', 'skip'].includes(boxType);
+  const isAvifBrand = boxType === 'ftyp' && ['avif', 'avis'].includes(brand.toLowerCase());
+
+  if (kind === 'image') {
+    if (bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) return true;            // JPEG
+    if (bytes[0] === 0x89 && ascii(1, 4) === 'PNG') return true;                             // PNG
+    if (ascii(0, 4) === 'GIF8') return true;                                                 // GIF
+    if (ascii(0, 4) === 'RIFF' && ascii(8, 12) === 'WEBP') return true;                      // WebP
+    if (isAvifBrand) return true;                                                            // AVIF
+    return false;
+  }
+
+  // video: WebM (EBML) or an ISO base-media container that isn't an AVIF image.
+  if (bytes[0] === 0x1a && bytes[1] === 0x45 && bytes[2] === 0xdf && bytes[3] === 0xa3) return true; // WebM
+  return isIsoBmff && !isAvifBrand;                                                          // MP4/MOV/M4V
+};
+
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024; // 10 MB
 // Matches the `articles` Supabase Storage bucket file-size limit (500 MB).
 // Keep these in sync: a client cap above the bucket limit lets a file pass
@@ -1075,6 +1110,12 @@ export const uploadUserFile = async (
   const rawExtension = (file.name.split('.').pop() || '').toLowerCase();
   if (!(allowedExtensions as readonly string[]).includes(rawExtension)) {
     throw new Error('Unsupported file extension');
+  }
+
+  // Extension and MIME type both come from the client; also sniff the first
+  // bytes so a mislabeled file fails fast instead of uploading.
+  if (!(await matchesMagicBytes(file, kind))) {
+    throw new Error('File content does not match its type');
   }
 
   const id = crypto.randomUUID();

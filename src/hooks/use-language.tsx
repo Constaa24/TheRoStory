@@ -2,10 +2,16 @@ import React, { createContext, useContext, useState, useEffect } from "react";
 
 type Language = "en" | "ro";
 
+/**
+ * Union of every key in the EN dictionary. Typing t() against this catches
+ * typo'd keys at compile time instead of silently rendering '' at runtime.
+ */
+export type TranslationKey = keyof typeof translations["en"];
+
 interface LanguageContextType {
   language: Language;
   setLanguage: (lang: Language) => void;
-  t: (key: string) => string;
+  t: (key: TranslationKey) => string;
 }
 
 const translations = {
@@ -168,7 +174,8 @@ const translations = {
     "nav.dashboard": "Dashboard",
     "common.loading": "Loading...",
     "auth.welcomeBack": "Welcome back!",
-    "auth.loginFailed": "Login failed",
+    "auth.loginFailed": "Login failed. Please try again.",
+    "auth.invalidCredentials": "Invalid email or password.",
     "auth.accountCreatedVerify": "Account created! Please check your email to verify.",
     "auth.accountCreatedWelcome": "Account created! Welcome!",
     "auth.signupFailed": "Signup failed",
@@ -371,7 +378,8 @@ const translations = {
     "nav.dashboard": "Panou control",
     "common.loading": "Se încarcă...",
     "auth.welcomeBack": "Bine ai revenit!",
-    "auth.loginFailed": "Autentificare eșuată",
+    "auth.loginFailed": "Autentificare eșuată. Te rugăm să încerci din nou.",
+    "auth.invalidCredentials": "Email sau parolă incorecte.",
     "auth.accountCreatedVerify": "Cont creat! Verifică-ți email-ul pentru confirmare.",
     "auth.accountCreatedWelcome": "Cont creat! Bine ai venit!",
     "auth.signupFailed": "Înregistrare eșuată",
@@ -441,11 +449,11 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   }, [language]);
 
-  const t = (key: string) => {
-    const k = key as keyof typeof translations["en"];
+  const t = (key: TranslationKey) => {
     // Fall back to English when a key is missing in the active language so a
-    // gap in one dictionary shows readable text instead of a blank.
-    const value = translations[language][k] ?? translations.en[k];
+    // gap in one dictionary shows readable text instead of a blank. (Key
+    // validity itself is enforced at compile time via TranslationKey.)
+    const value = translations[language][key] ?? translations.en[key];
     if (value === undefined) {
       if (import.meta.env.DEV) {
         console.warn(`[i18n] Missing translation key: "${key}"`);

@@ -1,67 +1,18 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getCorsHeaders, isAllowedOrigin } from "../_shared/cors.ts";
+import { createRateLimiter, getClientIp } from "../_shared/rate-limit.ts";
 
-// In-memory rate limiter, keyed by `<ip>:<articleId>`. Same pattern as
-// contact-email — survives across requests within a single edge instance,
-// and a cold start resets the budget. That's acceptable here: the goal is
-// to stop scripted view-count inflation, not to be a bulletproof gate.
-type RateLimitStore = Map<string, number[]>;
-
-function getRateLimitStore(): RateLimitStore {
-  const globalScope = globalThis as typeof globalThis & {
-    __rostoryViewRateLimit?: RateLimitStore;
-  };
-  if (!globalScope.__rostoryViewRateLimit) {
-    globalScope.__rostoryViewRateLimit = new Map();
-  }
-  return globalScope.__rostoryViewRateLimit;
-}
-
-function getClientIp(req: Request): string {
-  // Trust only headers populated by the Supabase Edge proxy. cf-connecting-ip
-  // is client-controllable here (Supabase Edge isn't behind Cloudflare in a
-  // way that strips it), so honoring it would let an attacker rotate buckets
-  // by sending random values.
-  const realIp = req.headers.get("x-real-ip");
-  if (realIp) return realIp;
-  const forwarded = req.headers.get("x-forwarded-for");
-  if (forwarded) {
-    // The leftmost entry is the original client (RFC 7239). Subsequent
-    // entries are intermediate proxies. The Supabase ingress overwrites
-    // any client-supplied prefix before this code runs.
-    const parts = forwarded.split(",").map((p) => p.trim()).filter(Boolean);
-    return parts[0] || "unknown";
-  }
-  return "unknown";
-}
-
-const RATE_LIMIT_WINDOW_MS = 60_000;
-const RATE_LIMIT_MAX_PER_WINDOW = 30;
-// Cap tracked keys so a long-lived edge instance can't grow the map unbounded
-// under a flood of distinct ip:article pairs. Once past the threshold we drop
-// keys whose timestamps are all older than the window (they'd reset anyway).
-const RATE_LIMIT_SWEEP_THRESHOLD = 5000;
-
-function sweepRateLimitStore(store: RateLimitStore, now: number): void {
-  if (store.size < RATE_LIMIT_SWEEP_THRESHOLD) return;
-  for (const [key, timestamps] of store) {
-    if (timestamps.every((ts) => now - ts >= RATE_LIMIT_WINDOW_MS)) {
-      store.delete(key);
-    }
-  }
-}
-
-function isRateLimited(ip: string, articleId: string): boolean {
-  const store = getRateLimitStore();
-  const key = `${ip}:${articleId}`;
-  const now = Date.now();
-  sweepRateLimitStore(store, now);
-  const recent = (store.get(key) || []).filter((ts) => now - ts < RATE_LIMIT_WINDOW_MS);
-  recent.push(now);
-  store.set(key, recent);
-  return recent.length > RATE_LIMIT_MAX_PER_WINDOW;
-}
+// Rate limiter keyed by `<ip>:<articleId>` (shared implementation in
+// _shared/rate-limit.ts). The goal is to stop scripted view-count
+// inflation, not to be a bulletproof gate.
+const rateLimiter = createRateLimiter({
+  globalKey: "__rostoryViewRateLimit",
+  windowMs: 60_000,
+  max: 30,
+});
+const isRateLimited = (ip: string, articleId: string): boolean =>
+  rateLimiter.isRateLimited(`${ip}:${articleId}`);
 
 Deno.serve(async (req) => {
   const corsHeaders = getCorsHeaders(req);

@@ -36,13 +36,17 @@ const StoryCard = React.memo<StoryCardProps>(({ article, category, language, siz
   const tone = toneFor(article.id);
   const cover = articleCoverUrl(article);
 
+  // The favorite button is a *sibling* of the Link, absolutely positioned
+  // over the cover — a <button> nested inside an <a> is invalid HTML and
+  // confuses assistive tech.
   return (
-    <Link
-      to={`/article/${article.id}`}
-      state={{ from: '/' }}
-      className="block cursor-pointer group"
-      style={{ color: 'inherit', textDecoration: 'none' }}
-    >
+    <div className="relative group">
+      <Link
+        to={`/article/${article.id}`}
+        state={{ from: '/' }}
+        className="block cursor-pointer"
+        style={{ color: 'inherit', textDecoration: 'none' }}
+      >
       <div
         className="ph relative overflow-hidden"
         data-tone={tone}
@@ -93,19 +97,6 @@ const StoryCard = React.memo<StoryCardProps>(({ article, category, language, siz
             {article.mediaUrls.length}
           </div>
         )}
-        <button
-          onClick={(e) => { e.stopPropagation(); onFavoriteToggle(e, article.id); }}
-          aria-label="Favorite"
-          className="absolute top-4 right-4 w-9 h-9 grid place-items-center rounded-full transition-colors"
-          style={{
-            background: 'var(--overlay-medium)',
-            border: '1px solid var(--line)',
-            color: isArticleFavorited ? 'var(--oxblood-2)' : 'var(--text)',
-            backdropFilter: 'blur(6px)',
-          }}
-        >
-          <Heart className={cn('w-4 h-4', isArticleFavorited && 'fill-current')} />
-        </button>
       </div>
 
       <div className="pt-5">
@@ -132,7 +123,26 @@ const StoryCard = React.memo<StoryCardProps>(({ article, category, language, siz
           {articleExcerpt(article, language, 140)}
         </p>
       </div>
-    </Link>
+      </Link>
+      <button
+        onClick={(e) => onFavoriteToggle(e, article.id)}
+        aria-label={
+          isArticleFavorited
+            ? (language === 'en' ? 'Remove from favorites' : 'Elimină de la favorite')
+            : (language === 'en' ? 'Add to favorites' : 'Adaugă la favorite')
+        }
+        aria-pressed={isArticleFavorited}
+        className="absolute top-4 right-4 w-9 h-9 grid place-items-center rounded-full transition-colors"
+        style={{
+          background: 'var(--overlay-medium)',
+          border: '1px solid var(--line)',
+          color: isArticleFavorited ? 'var(--oxblood-2)' : 'var(--text)',
+          backdropFilter: 'blur(6px)',
+        }}
+      >
+        <Heart className={cn('w-4 h-4', isArticleFavorited && 'fill-current')} />
+      </button>
+    </div>
   );
 });
 StoryCard.displayName = 'StoryCard';
@@ -288,7 +298,13 @@ const Home: React.FC = () => {
   };
 
   useEffect(() => {
-    fetchCategories().then(setCategories).catch(() => {});
+    fetchCategories().then((cats) => {
+      setCategories(cats);
+      // The selected filter is restored from localStorage; if that category
+      // was deleted since the last visit, drop the filter instead of leaving
+      // the user on a permanent "no stories" view with no highlighted pill.
+      setSelectedCategory((prev) => (prev && !cats.some((c) => c.id === prev) ? null : prev));
+    }).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -330,9 +346,6 @@ const Home: React.FC = () => {
     ],
   };
 
-  const prevPageUrl = currentPage > 1 ? `${SITE_URL}/?page=${currentPage - 1}` : null;
-  const nextPageUrl = currentPage < totalPages ? `${SITE_URL}/?page=${currentPage + 1}` : null;
-
   // The magazine-style featured spread is editorial top picks — only meaningful
   // when viewing the full archive. When a category is selected, treat the
   // request as a filter and route every article into the explore grid so users
@@ -358,8 +371,6 @@ const Home: React.FC = () => {
         canonical={currentPage > 1 ? `${SITE_URL}/?page=${currentPage}` : `${SITE_URL}/`}
       >
         <script type="application/ld+json">{toJsonLd(organizationLd)}</script>
-        {prevPageUrl && <link rel="prev" href={prevPageUrl} />}
-        {nextPageUrl && <link rel="next" href={nextPageUrl} />}
       </PageHead>
 
       <div className="screen-anim">

@@ -92,7 +92,7 @@ const Auth: React.FC = () => {
       toast.success(t("auth.welcomeBack"));
       navigate("/");
     } catch (error) {
-      const message = error instanceof Error ? error.message : t("auth.loginFailed");
+      const message = error instanceof Error ? error.message : "";
       // Supabase rejects sign-in on unconfirmed accounts with this error.
       // Surface a recovery path instead of just a dead-end toast.
       const lower = message.toLowerCase();
@@ -101,7 +101,13 @@ const Auth: React.FC = () => {
         setIsVerificationSent(true);
         return;
       }
-      toast.error(message);
+      // Map to our own copy instead of surfacing the raw Supabase message,
+      // which can leak internals (rate-limit values, account state).
+      toast.error(
+        lower.includes("invalid login credentials")
+          ? t("auth.invalidCredentials")
+          : t("auth.loginFailed")
+      );
     } finally {
       setIsLoading(false);
     }

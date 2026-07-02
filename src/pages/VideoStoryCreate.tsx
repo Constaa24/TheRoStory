@@ -7,6 +7,7 @@ import { useLanguage } from "@/hooks/use-language";
 import { useAuth } from "@/hooks/use-auth";
 import { useUnsavedChangesWarning } from "@/hooks/use-unsaved-changes";
 import { UnsavedChangesDialog } from "@/components/ui/unsaved-changes-dialog";
+import { FormBlock, Field } from "@/components/ui/form-field";
 import {
   Select,
   SelectContent,
@@ -676,36 +677,6 @@ const VideoStoryCreate: React.FC = () => {
           </button>
         </div>
       </div>
-    </div>
-  );
-};
-
-const FormBlock: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => (
-  <div className="flex flex-col gap-4 p-6" style={{ border: '1px solid var(--line)', background: 'var(--overlay-panel-soft)' }}>
-    <div className="eyebrow">{title}</div>
-    {children}
-  </div>
-);
-
-const Field: React.FC<{ label: string; required?: boolean; compact?: boolean; children: React.ReactNode }> = ({ label, required, compact, children }) => {
-  const reactId = React.useId();
-  // Associate the <label> with its control. Native <input>/<textarea> children
-  // (string element type) get the id; Radix <Select> children are skipped so we
-  // never point htmlFor at an id that isn't rendered.
-  const isNative = React.isValidElement(children) && typeof children.type === "string";
-  const controlId = isNative
-    ? ((children as React.ReactElement<{ id?: string }>).props.id ?? reactId)
-    : undefined;
-  const child = isNative
-    ? React.cloneElement(children as React.ReactElement<{ id?: string }>, { id: controlId })
-    : children;
-  return (
-    <div className={compact ? '' : 'flex flex-col'}>
-      <label htmlFor={controlId} style={{ marginBottom: compact ? 4 : 8 }}>
-        {label}
-        {required && <span style={{ color: 'var(--oxblood-2)', marginLeft: 4 }}>*</span>}
-      </label>
-      {child}
     </div>
   );
 };

@@ -1,6 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getCorsHeaders, isAllowedOrigin } from "../_shared/cors.ts";
+import { createRateLimiter, getClientIp } from "../_shared/rate-limit.ts";
 
 const json = (body: unknown, corsHeaders: Record<string, string>) =>
   // Always HTTP 200: supabase.functions.invoke() treats non-2xx as a thrown
@@ -14,45 +15,17 @@ const json = (body: unknown, corsHeaders: Record<string, string>) =>
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
-// In-memory per-IP rate limiter — same pattern as the other edge functions.
+// Per-IP rate limiter (shared implementation in _shared/rate-limit.ts).
 // Tokens are unguessable UUIDs, so this is mainly to blunt brute-force/flood
-// attempts; legitimate users click the link once. Survives across requests on
-// a warm instance; a cold start resets the budget.
-type RateLimitStore = Map<string, number[]>;
-function getRateLimitStore(): RateLimitStore {
-  const g = globalThis as typeof globalThis & { __rostoryConfirmRateLimit?: RateLimitStore };
-  if (!g.__rostoryConfirmRateLimit) g.__rostoryConfirmRateLimit = new Map();
-  return g.__rostoryConfirmRateLimit;
-}
-function getClientIp(req: Request): string {
-  const realIp = req.headers.get("x-real-ip");
-  if (realIp) return realIp;
-  const forwarded = req.headers.get("x-forwarded-for");
-  if (forwarded) {
-    const parts = forwarded.split(",").map((p) => p.trim()).filter(Boolean);
-    return parts[0] || "unknown";
-  }
-  return "unknown";
-}
-const RATE_LIMIT_WINDOW_MS = 60_000; // 1 minute
-const RATE_LIMIT_MAX = 20; // far above any legitimate use; caps token brute-forcing
-const RATE_LIMIT_SWEEP_THRESHOLD = 5000;
-function sweepRateLimitStore(store: RateLimitStore, now: number): void {
-  if (store.size < RATE_LIMIT_SWEEP_THRESHOLD) return;
-  for (const [key, timestamps] of store) {
-    if (timestamps.every((ts) => now - ts >= RATE_LIMIT_WINDOW_MS)) store.delete(key);
-  }
-}
-function isRateLimited(req: Request): boolean {
-  const store = getRateLimitStore();
-  const key = `ip:${getClientIp(req)}`;
-  const now = Date.now();
-  sweepRateLimitStore(store, now);
-  const recent = (store.get(key) || []).filter((ts) => now - ts < RATE_LIMIT_WINDOW_MS);
-  recent.push(now);
-  store.set(key, recent);
-  return recent.length > RATE_LIMIT_MAX;
-}
+// attempts; legitimate users click the link once. 20/min is far above any
+// legitimate use and caps token brute-forcing.
+const rateLimiter = createRateLimiter({
+  globalKey: "__rostoryConfirmRateLimit",
+  windowMs: 60_000,
+  max: 20,
+});
+const isRateLimited = (req: Request): boolean =>
+  rateLimiter.isRateLimited(`ip:${getClientIp(req)}`);
 
 // Adds (or re-subscribes) a contact in Resend. Contacts are top-level in
 // Resend's current model (Audiences were deprecated in favor of Segments).
@@ -157,6 +130,9 @@ Deno.serve(async (req) => {
       .update({
         status: "confirmed",
         confirmed_at: new Date().toISOString(),
+        // A confirmed subscriber is no longer unsubscribed — clear any stale
+        // timestamp from a previous unsubscribe so the row carries one state.
+        unsubscribed_at: null,
         // Rotate the token so the just-used confirmation link can't be
         // replayed. The column is NOT NULL, so we rotate to a fresh random
         // value (never emailed → unusable) rather than clearing it.

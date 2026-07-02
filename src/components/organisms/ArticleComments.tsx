@@ -429,7 +429,10 @@ export const ArticleComments: React.FC<Props> = ({ articleId }) => {
                         </span>
                         <div className="flex items-center gap-2">
                           {isOwn && !isEditing && (
-                            <div className="flex items-center gap-1 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+                            // focus-within keeps the actions visible while a
+                            // keyboard user tabs onto them — group-hover alone
+                            // left focused-but-invisible buttons.
+                            <div className="flex items-center gap-1 md:opacity-0 md:group-hover:opacity-100 md:focus-within:opacity-100 transition-opacity">
                               <button
                                 onClick={() => handleStartEdit(comment)}
                                 aria-label={language === "en" ? "Edit" : "Editează"}

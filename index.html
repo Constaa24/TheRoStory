@@ -9,29 +9,38 @@
     <link rel="manifest" href="/site.webmanifest" />
     <meta name="theme-color" content="#c9a96e" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>The RoStory | Visual Storytelling about Romania</title>
-    <meta name="description" content="Discover Romania through captivating visual stories — culture, history, traditions, and hidden gems from every corner of the country." />
+    <!--
+      Static SEO tags below are a fallback for crawlers that don't execute
+      JavaScript (social preview bots, curl). Every routed page renders its
+      own title/description/OG tags via PageHead (React 19 head hoisting),
+      so main.tsx removes everything marked data-static-seo at boot —
+      otherwise JS-rendering crawlers (Googlebot) would see duplicates and,
+      worse, conflicting signals. Never add a static canonical here: a
+      canonical pointing at "/" served on every route tells Google that all
+      pages are the homepage.
+    -->
+    <title data-static-seo>The RoStory | Visual Storytelling about Romania</title>
+    <meta data-static-seo name="description" content="Discover Romania through captivating visual stories — culture, history, traditions, and hidden gems from every corner of the country." />
     <meta name="author" content="The RoStory" />
-    <link rel="canonical" href="https://therostory.com/" />
 
     <!-- Open Graph -->
-    <meta property="og:type" content="website" />
-    <meta property="og:title" content="The RoStory | Visual Storytelling about Romania" />
-    <meta property="og:description" content="Discover Romania through captivating visual stories — culture, history, traditions, and hidden gems from every corner of the country." />
-    <meta property="og:url" content="https://therostory.com/" />
-    <meta property="og:site_name" content="The RoStory" />
-    <meta property="og:image" content="https://therostory.com/og-image.jpg" />
-    <meta property="og:image:width" content="1200" />
-    <meta property="og:image:height" content="630" />
-    <meta property="og:image:alt" content="The RoStory — Visual storytelling about Romania" />
-    <meta property="og:locale" content="en_US" />
-    <meta property="og:locale:alternate" content="ro_RO" />
+    <meta data-static-seo property="og:type" content="website" />
+    <meta data-static-seo property="og:title" content="The RoStory | Visual Storytelling about Romania" />
+    <meta data-static-seo property="og:description" content="Discover Romania through captivating visual stories — culture, history, traditions, and hidden gems from every corner of the country." />
+    <meta data-static-seo property="og:url" content="https://therostory.com/" />
+    <meta data-static-seo property="og:site_name" content="The RoStory" />
+    <meta data-static-seo property="og:image" content="https://therostory.com/og-image.jpg" />
+    <meta data-static-seo property="og:image:width" content="1200" />
+    <meta data-static-seo property="og:image:height" content="630" />
+    <meta data-static-seo property="og:image:alt" content="The RoStory — Visual storytelling about Romania" />
+    <meta data-static-seo property="og:locale" content="en_US" />
+    <meta data-static-seo property="og:locale:alternate" content="ro_RO" />
 
     <!-- Twitter Card -->
-    <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="The RoStory | Visual Storytelling about Romania" />
-    <meta name="twitter:description" content="Discover Romania through captivating visual stories — culture, history, traditions, and hidden gems." />
-    <meta name="twitter:image" content="https://therostory.com/og-image.jpg" />
+    <meta data-static-seo name="twitter:card" content="summary_large_image" />
+    <meta data-static-seo name="twitter:title" content="The RoStory | Visual Storytelling about Romania" />
+    <meta data-static-seo name="twitter:description" content="Discover Romania through captivating visual stories — culture, history, traditions, and hidden gems." />
+    <meta data-static-seo name="twitter:image" content="https://therostory.com/og-image.jpg" />
   </head>
   <body>
     <noscript>

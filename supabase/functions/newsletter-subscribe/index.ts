@@ -1,53 +1,21 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getCorsHeaders, isAllowedOrigin } from "../_shared/cors.ts";
+import { createRateLimiter, getClientIp } from "../_shared/rate-limit.ts";
 
-// In-memory per-IP rate limiter — same pattern as contact-email.
-type RateLimitStore = Map<string, number[]>;
-
-function getRateLimitStore(): RateLimitStore {
-  const g = globalThis as typeof globalThis & { __rostoryNewsletterRateLimit?: RateLimitStore };
-  if (!g.__rostoryNewsletterRateLimit) g.__rostoryNewsletterRateLimit = new Map();
-  return g.__rostoryNewsletterRateLimit;
-}
-
-function getClientIp(req: Request): string {
-  const realIp = req.headers.get("x-real-ip");
-  if (realIp) return realIp;
-  const forwarded = req.headers.get("x-forwarded-for");
-  if (forwarded) {
-    const parts = forwarded.split(",").map((p) => p.trim()).filter(Boolean);
-    return parts[0] || "unknown";
-  }
-  return "unknown";
-}
-
-const RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000; // 10 minutes
-const RATE_LIMIT_MAX = 5;
-const RATE_LIMIT_SWEEP_THRESHOLD = 5000;
+// Per-IP rate limiter (shared implementation in _shared/rate-limit.ts).
+const rateLimiter = createRateLimiter({
+  globalKey: "__rostoryNewsletterRateLimit",
+  windowMs: 10 * 60 * 1000, // 10 minutes
+  max: 5,
+});
+const isRateLimited = (req: Request): boolean =>
+  rateLimiter.isRateLimited(`ip:${getClientIp(req)}`);
 
 // Minimum gap between confirmation emails to the same pending address.
 // Independent of the per-IP limit: bounds confirmation-email volume per
 // target inbox even across rotating IPs.
 const RESEND_COOLDOWN_MS = 2 * 60 * 1000; // 2 minutes
-
-function sweepRateLimitStore(store: RateLimitStore, now: number): void {
-  if (store.size < RATE_LIMIT_SWEEP_THRESHOLD) return;
-  for (const [key, timestamps] of store) {
-    if (timestamps.every((ts) => now - ts >= RATE_LIMIT_WINDOW_MS)) store.delete(key);
-  }
-}
-
-function isRateLimited(req: Request): boolean {
-  const store = getRateLimitStore();
-  const key = `ip:${getClientIp(req)}`;
-  const now = Date.now();
-  sweepRateLimitStore(store, now);
-  const recent = (store.get(key) || []).filter((ts) => now - ts < RATE_LIMIT_WINDOW_MS);
-  recent.push(now);
-  store.set(key, recent);
-  return recent.length > RATE_LIMIT_MAX;
-}
 
 const json = (status: number, body: unknown, corsHeaders: Record<string, string>) =>
   new Response(JSON.stringify(body), {
@@ -179,6 +147,9 @@ Deno.serve(async (req) => {
           status: "pending",
           confirm_token: confirmToken,
           confirm_sent_at: new Date().toISOString(),
+          // A returning subscriber restarts the lifecycle — clear the stale
+          // unsubscribe timestamp so the row doesn't carry both states.
+          unsubscribed_at: null,
         },
         { onConflict: "email" }
       );

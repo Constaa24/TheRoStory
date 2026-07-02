@@ -166,11 +166,14 @@ const CategoryDetail: React.FC = () => {
                 const cover = articleCoverUrl(article);
                 const fav = isFavorited(article.id);
                 return (
+                  // Favorite button is a sibling of the Link (nested
+                  // interactive elements are invalid HTML), absolutely
+                  // positioned over the cover.
+                  <div key={article.id} className="relative group">
                   <Link
-                    key={article.id}
                     to={`/article/${article.id}`}
                     state={{ from: `/category/${id}`, category: id }}
-                    className="block cursor-pointer group"
+                    className="block cursor-pointer"
                     style={{ color: 'inherit', textDecoration: 'none' }}
                   >
                     <div
@@ -199,14 +202,6 @@ const CategoryDetail: React.FC = () => {
                           <Images className="w-2.5 h-2.5" /> {article.mediaUrls.length}
                         </div>
                       )}
-                      <button
-                        onClick={(e) => { e.stopPropagation(); handleFavoriteToggle(e, article.id); }}
-                        aria-label="Favorite"
-                        className="absolute top-4 right-4 w-9 h-9 grid place-items-center rounded-full transition-colors"
-                        style={{ background: 'var(--overlay-medium)', border: '1px solid var(--line)', color: fav ? 'var(--oxblood-2)' : 'var(--text)', backdropFilter: 'blur(6px)' }}
-                      >
-                        <Heart className={cn('w-4 h-4', fav && 'fill-current')} />
-                      </button>
                     </div>
                     <div className="pt-5">
                       <div className="flex items-center gap-3.5 font-ui text-[11px] uppercase" style={{ letterSpacing: '0.18em', color: 'var(--text-mute)' }}>
@@ -229,6 +224,18 @@ const CategoryDetail: React.FC = () => {
                       </p>
                     </div>
                   </Link>
+                  <button
+                    onClick={(e) => handleFavoriteToggle(e, article.id)}
+                    aria-label={fav
+                      ? (language === 'en' ? 'Remove from favorites' : 'Elimină de la favorite')
+                      : (language === 'en' ? 'Add to favorites' : 'Adaugă la favorite')}
+                    aria-pressed={fav}
+                    className="absolute top-4 right-4 w-9 h-9 grid place-items-center rounded-full transition-colors"
+                    style={{ background: 'var(--overlay-medium)', border: '1px solid var(--line)', color: fav ? 'var(--oxblood-2)' : 'var(--text)', backdropFilter: 'blur(6px)' }}
+                  >
+                    <Heart className={cn('w-4 h-4', fav && 'fill-current')} />
+                  </button>
+                  </div>
                 );
               })}
             </div>

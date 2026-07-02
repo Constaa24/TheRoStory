@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { getCorsHeaders, isAllowedOrigin } from "../_shared/cors.ts";
+import { createRateLimiter, getClientIp } from "../_shared/rate-limit.ts";
 
 function escapeHtml(input: string) {
   return input
@@ -26,62 +27,14 @@ function stripControlChars(input: string): string {
   return out.trim();
 }
 
-type RateLimitStore = Map<string, number[]>;
-
-function getRateLimitStore(): RateLimitStore {
-  const globalScope = globalThis as typeof globalThis & { __rostoryContactRateLimit?: RateLimitStore };
-  if (!globalScope.__rostoryContactRateLimit) {
-    globalScope.__rostoryContactRateLimit = new Map();
-  }
-  return globalScope.__rostoryContactRateLimit;
-}
-
-function getClientIp(req: Request): string {
-  // Supabase Edge sits behind its own proxy, which sets x-real-ip /
-  // x-forwarded-for from the actual client. Headers like cf-connecting-ip
-  // are NOT trustworthy here — a client can send any value and we'd bucket
-  // them into a fresh rate-limit slot. Only trust headers the platform
-  // populates.
-  const realIp = req.headers.get("x-real-ip");
-  if (realIp) return realIp;
-  const forwarded = req.headers.get("x-forwarded-for");
-  if (forwarded) {
-    // The leftmost entry is the original client (RFC 7239). Subsequent
-    // entries are intermediate proxies. We trust the platform's XFF
-    // population; client-supplied prefixes would have been overwritten
-    // by the Supabase ingress proxy.
-    const parts = forwarded.split(",").map((p) => p.trim()).filter(Boolean);
-    return parts[0] || "unknown";
-  }
-  return "unknown";
-}
-
-const RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000; // 10 minutes
-const RATE_LIMIT_MAX = 5;
-// Cap the number of tracked keys so a long-lived edge instance can't grow the
-// map unbounded under a flood of distinct IPs. Once past the threshold we drop
-// keys whose timestamps are all older than the window (they'd reset anyway).
-const RATE_LIMIT_SWEEP_THRESHOLD = 5000;
-
-function sweepRateLimitStore(store: RateLimitStore, now: number): void {
-  if (store.size < RATE_LIMIT_SWEEP_THRESHOLD) return;
-  for (const [key, timestamps] of store) {
-    if (timestamps.every((ts) => now - ts >= RATE_LIMIT_WINDOW_MS)) {
-      store.delete(key);
-    }
-  }
-}
-
-function isRateLimited(req: Request): boolean {
-  const store = getRateLimitStore();
-  const key = `ip:${getClientIp(req)}`;
-  const now = Date.now();
-  sweepRateLimitStore(store, now);
-  const recent = (store.get(key) || []).filter((ts) => now - ts < RATE_LIMIT_WINDOW_MS);
-  recent.push(now);
-  store.set(key, recent);
-  return recent.length > RATE_LIMIT_MAX;
-}
+// Per-IP rate limiter (shared implementation in _shared/rate-limit.ts).
+const rateLimiter = createRateLimiter({
+  globalKey: "__rostoryContactRateLimit",
+  windowMs: 10 * 60 * 1000, // 10 minutes
+  max: 5,
+});
+const isRateLimited = (req: Request): boolean =>
+  rateLimiter.isRateLimited(`ip:${getClientIp(req)}`);
 
 Deno.serve(async (req) => {
   const corsHeaders = getCorsHeaders(req);

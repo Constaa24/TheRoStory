@@ -601,6 +601,11 @@ const AdminDashboard: React.FC = () => {
 
           {/* Mobile: Card layout */}
           <div className="block md:hidden space-y-3">
+            {articlesLoading && articles.length === 0 && (
+              [1, 2, 3].map((i) => (
+                <Card key={i} className="p-4 border-none shadow-sm bg-secondary/10 animate-pulse h-20" />
+              ))
+            )}
             {articles.map((art) => (
               <Card key={art.id} className="p-4 border-none shadow-sm bg-secondary/10">
                 <div className="flex items-start justify-between gap-3">
@@ -712,6 +717,13 @@ const AdminDashboard: React.FC = () => {
                     </TableCell>
                   </TableRow>
                 ))}
+                {articlesLoading && articles.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-center py-10">
+                      <Loader2 className="h-5 w-5 animate-spin mx-auto text-muted-foreground" />
+                    </TableCell>
+                  </TableRow>
+                )}
                 {!articlesLoading && articles.length === 0 && (
                   <TableRow>
                     <TableCell colSpan={5} className="text-center py-10 text-muted-foreground italic">
@@ -758,6 +770,10 @@ const AdminDashboard: React.FC = () => {
           )}
         </TabsContent>
 
+        {/* Gated like the users tab — writers never see the trigger, but the
+            content shouldn't render for them either (RLS blocks the writes
+            server-side regardless). */}
+        {isAdmin && (
         <TabsContent value="categories" className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-8">
             {/* Category Form */}
@@ -853,6 +869,7 @@ const AdminDashboard: React.FC = () => {
             </div>
           </div>
         </TabsContent>
+        )}
 
         {isAdmin && (
           <TabsContent value="users" className="space-y-6">

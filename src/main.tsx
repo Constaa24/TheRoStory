@@ -18,6 +18,12 @@ window.addEventListener("unhandledrejection", (event) => {
   }
 });
 
+// index.html ships fallback SEO tags for crawlers that don't run JavaScript.
+// Every routed page renders its own via PageHead, so drop the static ones
+// before React mounts — leaving them in produces duplicate (and for OG/
+// description, conflicting) signals for JS-rendering crawlers like Googlebot.
+document.head.querySelectorAll("[data-static-seo]").forEach((el) => el.remove());
+
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <BrowserRouter>

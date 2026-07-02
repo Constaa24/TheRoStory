@@ -1,6 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2"
 import { getCorsHeaders, isAllowedOrigin } from "../_shared/cors.ts"
+import { createRateLimiter, getClientIp } from "../_shared/rate-limit.ts"
 
 // Module-scoped service-role client. Env vars don't change between
 // invocations on the same instance, so creating it once per cold start
@@ -19,45 +20,17 @@ function getAdminClient(): SupabaseClient {
   return cachedAdminClient
 }
 
-// In-memory per-IP rate limiter — same pattern as the other edge functions.
+// Per-IP rate limiter (shared implementation in _shared/rate-limit.ts).
 // Defense-in-depth on top of the JWT/admin-role checks: caps how fast any one
 // IP can hit the endpoint (e.g. an authenticated user spamming exportOwnData).
-// Survives across requests on a warm instance; a cold start resets the budget.
-type RateLimitStore = Map<string, number[]>
-function getRateLimitStore(): RateLimitStore {
-  const g = globalThis as typeof globalThis & { __rostoryAdminRateLimit?: RateLimitStore }
-  if (!g.__rostoryAdminRateLimit) g.__rostoryAdminRateLimit = new Map()
-  return g.__rostoryAdminRateLimit
-}
-function getClientIp(req: Request): string {
-  const realIp = req.headers.get('x-real-ip')
-  if (realIp) return realIp
-  const forwarded = req.headers.get('x-forwarded-for')
-  if (forwarded) {
-    const parts = forwarded.split(',').map((p) => p.trim()).filter(Boolean)
-    return parts[0] || 'unknown'
-  }
-  return 'unknown'
-}
-const RATE_LIMIT_WINDOW_MS = 60_000 // 1 minute
-const RATE_LIMIT_MAX = 60 // generous for legitimate admin paging/role edits
-const RATE_LIMIT_SWEEP_THRESHOLD = 5000
-function sweepRateLimitStore(store: RateLimitStore, now: number): void {
-  if (store.size < RATE_LIMIT_SWEEP_THRESHOLD) return
-  for (const [key, timestamps] of store) {
-    if (timestamps.every((ts) => now - ts >= RATE_LIMIT_WINDOW_MS)) store.delete(key)
-  }
-}
-function isRateLimited(req: Request): boolean {
-  const store = getRateLimitStore()
-  const key = `ip:${getClientIp(req)}`
-  const now = Date.now()
-  sweepRateLimitStore(store, now)
-  const recent = (store.get(key) || []).filter((ts) => now - ts < RATE_LIMIT_WINDOW_MS)
-  recent.push(now)
-  store.set(key, recent)
-  return recent.length > RATE_LIMIT_MAX
-}
+// 60/min is generous for legitimate admin paging/role edits.
+const rateLimiter = createRateLimiter({
+  globalKey: '__rostoryAdminRateLimit',
+  windowMs: 60_000,
+  max: 60,
+})
+const isRateLimited = (req: Request): boolean =>
+  rateLimiter.isRateLimited(`ip:${getClientIp(req)}`)
 
 // Storage paths owned by a user — these are the prefixes that uploadUserFile
 // writes under. Keep this list in sync with the `subfolder:` values in
