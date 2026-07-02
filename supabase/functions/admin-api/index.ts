@@ -2,6 +2,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2"
 import { getCorsHeaders, isAllowedOrigin } from "../_shared/cors.ts"
 import { createRateLimiter, getClientIp } from "../_shared/rate-limit.ts"
+import { jsonResponse } from "../_shared/http.ts"
 
 // Module-scoped service-role client. Env vars don't change between
 // invocations on the same instance, so creating it once per cold start
@@ -122,10 +123,7 @@ Deno.serve(async (req) => {
     return new Response('ok', { headers: corsHeaders })
   }
   if (req.method !== 'POST') {
-    return new Response(JSON.stringify({ error: 'Method not allowed' }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 405,
-    })
+    return jsonResponse(405, { error: 'Method not allowed' }, corsHeaders)
   }
 
   // Belt-and-suspenders: getCorsHeaders already maps disallowed origins to
@@ -135,40 +133,25 @@ Deno.serve(async (req) => {
   // action below still requires a valid JWT.
   const origin = req.headers.get('Origin')
   if (origin && !isAllowedOrigin(origin)) {
-    return new Response(JSON.stringify({ error: 'Origin not allowed' }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 403,
-    })
+    return jsonResponse(403, { error: 'Origin not allowed' }, corsHeaders)
   }
 
   if (isRateLimited(req)) {
-    return new Response(JSON.stringify({ error: 'Too many requests. Please try again later.' }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json', 'Retry-After': '60' },
-      status: 429,
-    })
+    return jsonResponse(429, { error: 'Too many requests. Please try again later.' }, corsHeaders, { 'Retry-After': '60' })
   }
 
   try {
     if (!SUPABASE_URL || !SERVICE_ROLE_KEY || !ANON_KEY) {
-      return new Response(JSON.stringify({ error: 'Server not configured' }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 500,
-      })
+      return jsonResponse(500, { error: 'Server not configured' }, corsHeaders)
     }
 
     // All actions require authentication - verify Authorization header first
     const authHeader = req.headers.get('Authorization')
     if (!authHeader) {
-      return new Response(JSON.stringify({ error: 'Missing authorization header' }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 401,
-      })
+      return jsonResponse(401, { error: 'Missing authorization header' }, corsHeaders)
     }
     if (!authHeader.startsWith('Bearer ')) {
-      return new Response(JSON.stringify({ error: 'Invalid authorization header format' }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 401,
-      })
+      return jsonResponse(401, { error: 'Invalid authorization header format' }, corsHeaders)
     }
 
     const adminClient = getAdminClient()
@@ -181,10 +164,7 @@ Deno.serve(async (req) => {
     const { data: { user }, error: userError } = await userClient.auth.getUser()
     if (userError || !user) {
       console.warn('admin-api auth.getUser failed', userError?.message)
-      return new Response(JSON.stringify({ error: 'Invalid or expired token' }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 401,
-      })
+      return jsonResponse(401, { error: 'Invalid or expired token' }, corsHeaders)
     }
 
     const body = await req.json()
@@ -203,16 +183,10 @@ Deno.serve(async (req) => {
       const { error } = await adminClient.auth.admin.deleteUser(user.id)
       if (error) {
         console.error('deleteOwnAccount failed', error.message)
-        return new Response(JSON.stringify({ error: 'Failed to delete account' }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 500,
-        })
+        return jsonResponse(500, { error: 'Failed to delete account' }, corsHeaders)
       }
 
-      return new Response(JSON.stringify({ success: true }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200,
-      })
+      return jsonResponse(200, { success: true }, corsHeaders)
     }
 
     // GDPR data export — returns all data we hold about the requesting user.
@@ -249,17 +223,11 @@ Deno.serve(async (req) => {
           newsletter: newsletterRes.data ?? null,
         }
 
-        return new Response(JSON.stringify(exported), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 200,
-        })
+        return jsonResponse(200, exported, corsHeaders)
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error)
         console.error('exportOwnData failed', message)
-        return new Response(JSON.stringify({ error: 'Failed to export data' }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 500,
-        })
+        return jsonResponse(500, { error: 'Failed to export data' }, corsHeaders)
       }
     }
 
@@ -272,17 +240,11 @@ Deno.serve(async (req) => {
 
     if (roleError) {
       console.error('admin-api role lookup failed', roleError.message)
-      return new Response(JSON.stringify({ error: 'Failed to verify admin role' }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 500,
-      })
+      return jsonResponse(500, { error: 'Failed to verify admin role' }, corsHeaders)
     }
 
     if (!roleData || roleData.role !== 'admin') {
-      return new Response(JSON.stringify({ error: 'Admin access required' }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 403,
-      })
+      return jsonResponse(403, { error: 'Admin access required' }, corsHeaders)
     }
 
     // Admin-only actions below
@@ -332,41 +294,29 @@ Deno.serve(async (req) => {
         ? true
         : (typeof total === 'number' ? page * perPage < total : users.length === perPage)
 
-      return new Response(JSON.stringify({
+      return jsonResponse(200, {
         users: usersWithDetails,
         page,
         perPage,
         total,
         hasMore,
-      }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200,
-      })
+      }, corsHeaders)
     }
 
     if (action === 'updateUserRole') {
       const { userId, role } = body
       if (!userId || !role) {
-        return new Response(JSON.stringify({ error: 'Missing userId or role' }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 400,
-        })
+        return jsonResponse(400, { error: 'Missing userId or role' }, corsHeaders)
       }
       if (!['admin', 'writer', 'reader'].includes(role)) {
-        return new Response(JSON.stringify({ error: 'Invalid role' }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 400,
-        })
+        return jsonResponse(400, { error: 'Invalid role' }, corsHeaders)
       }
 
       // Prevent admins from demoting themselves — protects against the
       // sole-admin lockout scenario where the only admin accidentally
       // leaves the system with no admin.
       if (userId === user.id && role !== 'admin') {
-        return new Response(JSON.stringify({ error: 'Admins cannot demote themselves' }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 400,
-        })
+        return jsonResponse(400, { error: 'Admins cannot demote themselves' }, corsHeaders)
       }
 
       const { error } = await adminClient
@@ -375,26 +325,17 @@ Deno.serve(async (req) => {
 
       if (error) throw error
 
-      return new Response(JSON.stringify({ success: true }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200,
-      })
+      return jsonResponse(200, { success: true }, corsHeaders)
     }
 
     if (action === 'deleteUser') {
       const { id } = body
       if (!id) {
-        return new Response(JSON.stringify({ error: 'Missing user id' }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 400,
-        })
+        return jsonResponse(400, { error: 'Missing user id' }, corsHeaders)
       }
 
       if (id === user.id) {
-        return new Response(JSON.stringify({ error: 'Cannot delete your own account' }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 400,
-        })
+        return jsonResponse(400, { error: 'Cannot delete your own account' }, corsHeaders)
       }
 
       // Storage objects don't cascade with auth.users — clean them up
@@ -413,23 +354,14 @@ Deno.serve(async (req) => {
       const { error } = await adminClient.auth.admin.deleteUser(id)
       if (error) throw error
 
-      return new Response(JSON.stringify({ success: true }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200,
-      })
+      return jsonResponse(200, { success: true }, corsHeaders)
     }
 
-    return new Response(JSON.stringify({ error: 'Unknown action' }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 400,
-    })
+    return jsonResponse(400, { error: 'Unknown action' }, corsHeaders)
 
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     console.error('admin-api error:', message)
-    return new Response(JSON.stringify({ error: 'An internal error occurred' }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 500,
-    })
+    return jsonResponse(500, { error: 'An internal error occurred' }, corsHeaders)
   }
 })

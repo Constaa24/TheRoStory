@@ -9,7 +9,6 @@ interface FavoritesContextType {
   userFavorites: string[];
   handleFavoriteToggle: (e: React.MouseEvent, articleId: string) => Promise<boolean | null | undefined>;
   isFavorited: (articleId: string) => boolean;
-  fetchFavorites: () => Promise<void>;
 }
 
 const FavoritesContext = createContext<FavoritesContextType | undefined>(undefined);
@@ -96,7 +95,7 @@ export const FavoritesProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   );
 
   return (
-    <FavoritesContext.Provider value={{ userFavorites, handleFavoriteToggle, isFavorited, fetchFavorites }}>
+    <FavoritesContext.Provider value={{ userFavorites, handleFavoriteToggle, isFavorited }}>
       {children}
     </FavoritesContext.Provider>
   );

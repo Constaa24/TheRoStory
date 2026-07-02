@@ -1,5 +1,44 @@
-import type { Article } from "@/lib/supabase";
+import type { Article, ArticleSubtype } from "@/lib/supabase";
 import { getLocalized, CHAPTER_DELIMITER } from "@/lib/supabase";
+
+/**
+ * Human label for an article's kind, shown on cards, the article masthead,
+ * and the Map side panel. Text articles can opt into a subtype (poetry /
+ * short story) that overrides the default "Long read" copy. NULL subtype is
+ * treated as essay so legacy rows keep their original wording.
+ */
+export const getArticleKindLabel = (
+  article: Pick<Article, 'type' | 'subtype'>,
+  language: 'en' | 'ro'
+): string => {
+  if (article.type === 'video') return language === 'en' ? 'Film' : 'Film';
+  if (article.type === 'carousel') return language === 'en' ? 'Photo essay' : 'Eseu foto';
+  const subtype: ArticleSubtype = (article.subtype as ArticleSubtype | null | undefined) || 'essay';
+  if (subtype === 'poetry') return language === 'en' ? 'Poem' : 'Poem';
+  if (subtype === 'short_story') return language === 'en' ? 'Short story' : 'Povestire';
+  return language === 'en' ? 'Long read' : 'Lectură lungă';
+};
+
+/**
+ * Locale-aware date for bylines and comment timestamps. `monthStyle`
+ * distinguishes the article byline ("14 March 2026") from the tighter
+ * comment stamp ("14 Mar 2026").
+ */
+export const formatArticleDate = (
+  iso: string,
+  lang: 'en' | 'ro',
+  monthStyle: 'long' | 'short' = 'long'
+): string => {
+  try {
+    return new Date(iso).toLocaleDateString(lang === 'en' ? 'en-GB' : 'ro-RO', {
+      day: 'numeric',
+      month: monthStyle,
+      year: 'numeric',
+    });
+  } catch {
+    return '';
+  }
+};
 
 export const TONES = ["warm", "forest", "sky", "oxblood", "bone"] as const;
 export type Tone = typeof TONES[number];

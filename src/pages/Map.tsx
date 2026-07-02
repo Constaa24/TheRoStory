@@ -10,8 +10,7 @@ import { StoryThumbnail } from "@/components/ui/story-thumbnail";
 import { X, MapPin, ChevronRight, Maximize2, Minimize2, RotateCcw, ArrowLeft } from "lucide-react";
 import { cn, isAbortError } from "@/lib/utils";
 import { PageHead } from "@/components/layout/PageHead";
-import { articleCoverUrl } from "@/lib/article-utils";
-import { getArticleKindLabel } from "@/components/organisms/EditorialArticle";
+import { articleCoverUrl, getArticleKindLabel } from "@/lib/article-utils";
 
 // Choropleth tiers — counties get progressively warmer as story density grows.
 // Mapped to direct gold/oxblood opacities to fit the editorial palette.

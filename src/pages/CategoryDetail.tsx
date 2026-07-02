@@ -3,12 +3,11 @@ import { useParams, useNavigate, Link } from "react-router-dom";
 import { Category, Article, getLocalized, supabase, toCamelCase, fetchArticlesPage } from "@/lib/supabase";
 import { useLanguage } from "@/hooks/use-language";
 import { useFavorites } from "@/hooks/use-favorites";
-import { ArrowLeft, Heart, Play, Images, ChevronRight, Loader2 } from "lucide-react";
-import { StoryThumbnail } from "@/components/ui/story-thumbnail";
-import { cn, isAbortError, toJsonLd } from "@/lib/utils";
+import { ArrowLeft, ChevronRight, Loader2 } from "lucide-react";
+import { isAbortError, toJsonLd } from "@/lib/utils";
 import { PageHead } from "@/components/layout/PageHead";
+import { StoryCard } from "@/components/ui/story-card";
 import { SITE_URL } from "@/lib/constants";
-import { toneFor, readMinutes, articleExcerpt, articleCoverUrl } from "@/lib/article-utils";
 
 // Fetched in pages so a large category doesn't pull hundreds of full-content
 // rows (previously: up to 500 articles × both 50k-char content columns in
@@ -161,83 +160,18 @@ const CategoryDetail: React.FC = () => {
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-12 gap-y-[72px]">
-              {articles.map(article => {
-                const tone = toneFor(article.id);
-                const cover = articleCoverUrl(article);
-                const fav = isFavorited(article.id);
-                return (
-                  // Favorite button is a sibling of the Link (nested
-                  // interactive elements are invalid HTML), absolutely
-                  // positioned over the cover.
-                  <div key={article.id} className="relative group">
-                  <Link
-                    to={`/article/${article.id}`}
-                    state={{ from: `/category/${id}`, category: id }}
-                    className="block cursor-pointer"
-                    style={{ color: 'inherit', textDecoration: 'none' }}
-                  >
-                    <div
-                      className="ph relative overflow-hidden"
-                      data-tone={tone}
-                      data-label={article.location?.toUpperCase() || categoryName.toUpperCase()}
-                      style={{ aspectRatio: '3/4' }}
-                    >
-                      {cover && (
-                        <>
-                          {article.type === 'video' ? (
-                            <StoryThumbnail posterUrl={article.posterUrl} alt={getLocalized(article, 'title', language)} className="absolute inset-0 w-full h-full object-cover" />
-                          ) : (
-                            <img src={cover} alt={getLocalized(article, 'title', language)} className="absolute inset-0 w-full h-full object-cover" loading="lazy" />
-                          )}
-                          <div className="absolute inset-0 pointer-events-none" style={{ background: 'var(--scrim-card)' }} />
-                        </>
-                      )}
-                      {article.type === 'video' && (
-                        <div className="absolute top-4 left-4 flex items-center gap-1.5 px-2.5 py-1" style={{ background: 'var(--overlay-dark)', border: '1px solid var(--gold)', color: 'var(--gold)', fontFamily: 'var(--ui)', fontSize: 10, letterSpacing: '0.18em' }}>
-                          <Play className="w-2.5 h-2.5" fill="currentColor" /> FILM
-                        </div>
-                      )}
-                      {article.type === 'carousel' && article.mediaUrls && (
-                        <div className="absolute top-4 left-4 flex items-center gap-1.5 px-2.5 py-1" style={{ background: 'var(--overlay-dark)', border: '1px solid var(--gold)', color: 'var(--gold)', fontFamily: 'var(--ui)', fontSize: 10, letterSpacing: '0.18em' }}>
-                          <Images className="w-2.5 h-2.5" /> {article.mediaUrls.length}
-                        </div>
-                      )}
-                    </div>
-                    <div className="pt-5">
-                      <div className="flex items-center gap-3.5 font-ui text-[11px] uppercase" style={{ letterSpacing: '0.18em', color: 'var(--text-mute)' }}>
-                        <span style={{ color: 'var(--gold)' }}>{categoryName}</span>
-                        {article.type !== 'video' && (
-                          <>
-                            <span>·</span>
-                            <span>{readMinutes(article, language)} {language === 'en' ? 'min read' : 'min citire'}</span>
-                          </>
-                        )}
-                      </div>
-                      <h3
-                        className="font-display italic font-medium m-0 mt-3 mb-2"
-                        style={{ fontSize: 22, lineHeight: 1.1, color: 'var(--text)', textWrap: 'balance' as React.CSSProperties['textWrap'] }}
-                      >
-                        {getLocalized(article, 'title', language)}
-                      </h3>
-                      <p className="text-ink-dim m-0" style={{ fontSize: 15 }}>
-                        {articleExcerpt(article, language, 130)}
-                      </p>
-                    </div>
-                  </Link>
-                  <button
-                    onClick={(e) => handleFavoriteToggle(e, article.id)}
-                    aria-label={fav
-                      ? (language === 'en' ? 'Remove from favorites' : 'Elimină de la favorite')
-                      : (language === 'en' ? 'Add to favorites' : 'Adaugă la favorite')}
-                    aria-pressed={fav}
-                    className="absolute top-4 right-4 w-9 h-9 grid place-items-center rounded-full transition-colors"
-                    style={{ background: 'var(--overlay-medium)', border: '1px solid var(--line)', color: fav ? 'var(--oxblood-2)' : 'var(--text)', backdropFilter: 'blur(6px)' }}
-                  >
-                    <Heart className={cn('w-4 h-4', fav && 'fill-current')} />
-                  </button>
-                  </div>
-                );
-              })}
+              {articles.map(article => (
+                <StoryCard
+                  key={article.id}
+                  article={article}
+                  category={category}
+                  language={language}
+                  size="md"
+                  linkState={{ from: `/category/${id}`, category: id }}
+                  isArticleFavorited={isFavorited(article.id)}
+                  onFavoriteToggle={handleFavoriteToggle}
+                />
+              ))}
             </div>
           )}
 

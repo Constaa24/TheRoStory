@@ -6,31 +6,12 @@ import { useFavorites } from "@/hooks/use-favorites";
 import { ArrowLeft, Heart, Share2, Printer, Play, Pause, Maximize2, Volume2, VolumeX } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ArticleComments } from "@/components/organisms/ArticleComments";
-import { TONES, toneFor, readMinutes, placeLabel, articleCoverUrl } from "@/lib/article-utils";
+import { TONES, toneFor, readMinutes, placeLabel, articleCoverUrl, getArticleKindLabel, formatArticleDate } from "@/lib/article-utils";
 
 interface Props {
   article: Article;
   views?: number;
 }
-
-// Kind label is shown in the masthead pill, footer, and Map side panel. Text
-// articles can opt into a subtype (poetry / short story) that overrides the
-// default "Long read" copy. NULL subtype is treated as essay so legacy rows
-// keep their original wording.
-export const getArticleKindLabel = (article: Pick<Article, 'type' | 'subtype'>, language: 'en' | 'ro'): string => {
-  if (article.type === 'video') return language === 'en' ? 'Film' : 'Film';
-  if (article.type === 'carousel') return language === 'en' ? 'Photo essay' : 'Eseu foto';
-  const subtype: ArticleSubtype = (article.subtype as ArticleSubtype | null | undefined) || 'essay';
-  if (subtype === 'poetry') return language === 'en' ? 'Poem' : 'Poem';
-  if (subtype === 'short_story') return language === 'en' ? 'Short story' : 'Povestire';
-  return language === 'en' ? 'Long read' : 'Lectură lungă';
-};
-
-const formatDate = (iso: string, lang: 'en' | 'ro') => {
-  try {
-    return new Date(iso).toLocaleDateString(lang === 'en' ? 'en-GB' : 'ro-RO', { day: 'numeric', month: 'long', year: 'numeric' });
-  } catch { return ''; }
-};
 
 export const EditorialArticle: React.FC<Props> = ({ article, views }) => {
   const { language } = useLanguage();
@@ -205,7 +186,7 @@ const Byline: React.FC<{ article: Article; views?: number }> = ({ article, views
         </div>
         <div className="flex flex-col items-start md:items-end gap-3 md:text-right">
           <div className="font-ui text-[11px] uppercase" style={{ letterSpacing: '0.18em', color: 'var(--text-mute)' }}>
-            {formatDate(article.createdAt, language)} · {readMinutes(article, language)} {language === 'en' ? 'min read' : 'min citire'}
+            {formatArticleDate(article.createdAt, language)} · {readMinutes(article, language)} {language === 'en' ? 'min read' : 'min citire'}
             {views !== undefined && views > 0 && (
               <> · {views.toLocaleString()} {language === 'en' ? 'views' : 'vizualizări'}</>
             )}
@@ -469,7 +450,7 @@ const PhotoEssay: React.FC<{ article: Article; category?: Category; views?: numb
               </div>
               <div className="rule" />
               <div className="font-ui text-[11px] uppercase" style={{ letterSpacing: '0.15em', color: 'var(--text-mute)' }}>
-                {formatDate(article.createdAt, language)}
+                {formatArticleDate(article.createdAt, language)}
               </div>
             </div>
           </div>
@@ -968,7 +949,7 @@ const VideoFilm: React.FC<{ article: Article; category?: Category; views?: numbe
                     {article.location || (language === 'en' ? 'On location' : 'În locație')}
                   </div>
                   <div className="font-ui text-[11px] uppercase mt-1" style={{ letterSpacing: '0.15em', color: 'var(--text-mute)' }}>
-                    {formatDate(article.createdAt, language)}
+                    {formatArticleDate(article.createdAt, language)}
                   </div>
                 </div>
                 {/* Real runtime from the player metadata — the old word-count

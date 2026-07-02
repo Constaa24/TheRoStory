@@ -9,6 +9,7 @@ import {
   updateComment,
 } from "@/lib/supabase";
 import { isAbortError } from "@/lib/utils";
+import { formatArticleDate } from "@/lib/article-utils";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -459,10 +460,7 @@ export const ArticleComments: React.FC<Props> = ({ articleId }) => {
                               color: "var(--text-mute)",
                             }}
                           >
-                            {new Date(comment.createdAt).toLocaleDateString(
-                              language === "en" ? "en-GB" : "ro-RO",
-                              { day: "numeric", month: "short", year: "numeric" }
-                            )}
+                            {formatArticleDate(comment.createdAt, language, "short")}
                           </span>
                         </div>
                       </div>

@@ -39,7 +39,7 @@ const REVERSE_MAP: Record<string, string> = Object.fromEntries(
   Object.entries(COLUMN_MAP).map(([k, v]) => [v, k])
 );
 
-export function toSnakeCase(obj: Record<string, unknown>): Record<string, unknown> {
+function toSnakeCase(obj: Record<string, unknown>): Record<string, unknown> {
   const result: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(obj)) {
     result[COLUMN_MAP[key] || key] = value;
@@ -93,9 +93,6 @@ export type Article = {
   location?: string;
   createdAt: string;
   updatedAt?: string;
-  // UI-only fields for chapter editing (not stored in DB)
-  chaptersEn?: string[];
-  chaptersRo?: string[];
 };
 
 export type Comment = {
@@ -605,7 +602,7 @@ export const fetchPublicArticle = async (id: string): Promise<{ article: Article
   }
 };
 
-export const COMMENTS_PAGE_SIZE = 25;
+const COMMENTS_PAGE_SIZE = 25;
 
 /**
  * Fetches comments for an article in pages of `COMMENTS_PAGE_SIZE`.

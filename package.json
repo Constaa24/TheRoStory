@@ -12,7 +12,8 @@
     "preview": "vite preview",
     "lint:js": "eslint .",
     "lint:types": "tsc --noEmit",
-    "lint": "npm run lint:types && npm run lint:js"
+    "lint:css": "stylelint \"src/**/*.css\"",
+    "lint": "npm run lint:types && npm run lint:js && npm run lint:css"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

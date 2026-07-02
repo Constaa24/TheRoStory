@@ -2,6 +2,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getCorsHeaders, isAllowedOrigin } from "../_shared/cors.ts";
 import { createRateLimiter, getClientIp } from "../_shared/rate-limit.ts";
+import { jsonResponse as json } from "../_shared/http.ts";
 
 // Per-IP rate limiter (shared implementation in _shared/rate-limit.ts).
 const rateLimiter = createRateLimiter({
@@ -16,12 +17,6 @@ const isRateLimited = (req: Request): boolean =>
 // Independent of the per-IP limit: bounds confirmation-email volume per
 // target inbox even across rotating IPs.
 const RESEND_COOLDOWN_MS = 2 * 60 * 1000; // 2 minutes
-
-const json = (status: number, body: unknown, corsHeaders: Record<string, string>) =>
-  new Response(JSON.stringify(body), {
-    status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
-  });
 
 const SITE_URL = "https://therostory.com";
 

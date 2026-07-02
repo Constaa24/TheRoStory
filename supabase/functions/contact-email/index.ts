@@ -1,6 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { getCorsHeaders, isAllowedOrigin } from "../_shared/cors.ts";
 import { createRateLimiter, getClientIp } from "../_shared/rate-limit.ts";
+import { jsonResponse } from "../_shared/http.ts";
 
 function escapeHtml(input: string) {
   return input
@@ -41,36 +42,24 @@ Deno.serve(async (req) => {
 
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") {
-    return new Response(JSON.stringify({ ok: false, error: "Method not allowed" }), {
-      status: 405,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return jsonResponse(405, { ok: false, error: "Method not allowed" }, corsHeaders);
   }
 
   try {
     const origin = req.headers.get("Origin");
     if (origin && !isAllowedOrigin(origin)) {
-      return new Response(JSON.stringify({ ok: false, error: "Origin not allowed" }), {
-        status: 403,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return jsonResponse(403, { ok: false, error: "Origin not allowed" }, corsHeaders);
     }
 
     if (isRateLimited(req)) {
-      return new Response(JSON.stringify({ ok: false, error: "Too many requests. Please try again later." }), {
-        status: 429,
-        headers: { ...corsHeaders, "Content-Type": "application/json", "Retry-After": "600" },
-      });
+      return jsonResponse(429, { ok: false, error: "Too many requests. Please try again later." }, corsHeaders, { "Retry-After": "600" });
     }
 
     const { name, email, message, website, subject } = await req.json();
 
     // Honeypot field for basic bot filtering
     if (String(website || "").trim()) {
-      return new Response(JSON.stringify({ ok: false, error: "Invalid request" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return jsonResponse(400, { ok: false, error: "Invalid request" }, corsHeaders);
     }
 
     const safeName = stripControlChars(String(name || ""));
@@ -79,40 +68,25 @@ Deno.serve(async (req) => {
     const safeMessage = String(message || "").trim();
 
     if (!safeName || !safeEmail || !safeMessage) {
-      return new Response(JSON.stringify({ ok: false, error: "Missing fields" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return jsonResponse(400, { ok: false, error: "Missing fields" }, corsHeaders);
     }
 
     if (safeName.length > 200) {
-      return new Response(JSON.stringify({ ok: false, error: "Name is too long" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return jsonResponse(400, { ok: false, error: "Name is too long" }, corsHeaders);
     }
 
     // RFC 5321 caps email at 254 chars.
     if (safeEmail.length > 254) {
-      return new Response(JSON.stringify({ ok: false, error: "Email is too long" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return jsonResponse(400, { ok: false, error: "Email is too long" }, corsHeaders);
     }
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(safeEmail)) {
-      return new Response(JSON.stringify({ ok: false, error: "Invalid email format" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return jsonResponse(400, { ok: false, error: "Invalid email format" }, corsHeaders);
     }
 
     if (safeMessage.length < 10 || safeMessage.length > 5000) {
-      return new Response(JSON.stringify({ ok: false, error: "Message must be between 10 and 5000 characters" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return jsonResponse(400, { ok: false, error: "Message must be between 10 and 5000 characters" }, corsHeaders);
     }
 
     const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
@@ -120,10 +94,7 @@ Deno.serve(async (req) => {
     const CONTACT_FROM_EMAIL = Deno.env.get("CONTACT_FROM_EMAIL");
 
     if (!RESEND_API_KEY || !CONTACT_TO_EMAIL || !CONTACT_FROM_EMAIL) {
-      return new Response(JSON.stringify({ ok: false, error: "Server not configured" }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return jsonResponse(500, { ok: false, error: "Server not configured" }, corsHeaders);
     }
 
     const emailSubject = safeSubject
@@ -159,22 +130,13 @@ Deno.serve(async (req) => {
 
     if (!resendResp.ok) {
       console.error("Resend API error:", resendResp.status, await resendResp.text());
-      return new Response(JSON.stringify({ ok: false, error: "Failed to send message. Please try again later." }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return jsonResponse(500, { ok: false, error: "Failed to send message. Please try again later." }, corsHeaders);
     }
 
-    return new Response(JSON.stringify({ ok: true }), {
-      status: 200,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return jsonResponse(200, { ok: true }, corsHeaders);
   } catch (error) {
     const messageText = error instanceof Error ? error.message : String(error);
     console.error("contact-email error:", messageText);
-    return new Response(JSON.stringify({ ok: false, error: "Server error" }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return jsonResponse(500, { ok: false, error: "Server error" }, corsHeaders);
   }
 });

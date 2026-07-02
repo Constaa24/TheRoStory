@@ -2,15 +2,13 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getCorsHeaders, isAllowedOrigin } from "../_shared/cors.ts";
 import { createRateLimiter, getClientIp } from "../_shared/rate-limit.ts";
+import { jsonResponse } from "../_shared/http.ts";
 
 const json = (body: unknown, corsHeaders: Record<string, string>) =>
   // Always HTTP 200: supabase.functions.invoke() treats non-2xx as a thrown
   // error whose body is awkward to read client-side. The ok/error fields in
   // the payload carry the real outcome ("invalid" | "expired" | "server").
-  new Response(JSON.stringify(body), {
-    status: 200,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
-  });
+  jsonResponse(200, body, corsHeaders);
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
@@ -68,19 +66,13 @@ Deno.serve(async (req) => {
 
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") {
-    return new Response(JSON.stringify({ ok: false, error: "invalid" }), {
-      status: 405,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return jsonResponse(405, { ok: false, error: "invalid" }, corsHeaders);
   }
 
   try {
     const origin = req.headers.get("Origin");
     if (origin && !isAllowedOrigin(origin)) {
-      return new Response(JSON.stringify({ ok: false, error: "invalid" }), {
-        status: 403,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return jsonResponse(403, { ok: false, error: "invalid" }, corsHeaders);
     }
 
     // Rate-limited → tell the user to try again shortly. 'server' maps to the

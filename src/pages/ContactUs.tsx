@@ -1,6 +1,7 @@
 import React from "react";
 import { Link } from "react-router-dom";
 import { useLanguage } from "@/hooks/use-language";
+import { useCooldown } from "@/hooks/use-cooldown";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -23,13 +24,7 @@ const COOLDOWN_SECONDS = 30;
 const ContactUs: React.FC = () => {
   const { t, language } = useLanguage();
   const [isSubmitting, setIsSubmitting] = React.useState(false);
-  const [cooldownRemaining, setCooldownRemaining] = React.useState(0);
-
-  React.useEffect(() => {
-    if (cooldownRemaining <= 0) return;
-    const id = window.setTimeout(() => setCooldownRemaining(s => s - 1), 1000);
-    return () => window.clearTimeout(id);
-  }, [cooldownRemaining]);
+  const { remaining: cooldownRemaining, start: setCooldownRemaining } = useCooldown();
 
   const contactSchema = React.useMemo(() => z.object({
     name: z.string().min(2, { message: t("contact.validation.name") }),
