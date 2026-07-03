@@ -50,12 +50,16 @@ Browse stories organized by thematic categories with article counts and filterin
 | `/` | Hero landing page with filterable article grid and random story discovery |
 | `/map` | Interactive county map with story counts and zoom-in panels |
 | `/categories` | Category browser with story counts |
+| `/category/:id` | Stories within a single category |
 | `/article/:id` | Full article viewer with parchment-style design |
 | `/my-story` | About page explaining the creator's mission |
 | `/support` | Donation page for supporting the project |
 | `/contact-us` | Contact form powered by Resend |
-| `/profile` | User profile management |
+| `/profile` | User profile management and favorites |
 | `/auth` | Sign in, sign up, and password recovery |
+| `/reset-password` | Password reset (recovery-link landing) |
+| `/newsletter/confirm` | Newsletter double opt-in confirmation |
+| `/privacy`, `/terms` | Privacy policy and terms of use |
 | `/admin/*` | Admin dashboard for content and user management |
 
 ## Getting Started
@@ -78,14 +82,10 @@ npm run build
 
 ```bash
 npm run dev          # Start Vite dev server
-npm run build        # Production build
+npm run build        # Production build (regenerates public/sitemap.xml first)
 npm run preview      # Preview production build
-npm run lint         # Run all linting (ESLint, Stylelint, CSS variable check)
+npm run lint         # Run all linting (TypeScript, ESLint, Stylelint)
+npm run lint:types   # TypeScript typecheck only
 npm run lint:js      # ESLint only
 npm run lint:css     # Stylelint only
-npm run check:css-vars  # Validate CSS variables between Tailwind config and CSS
 ```
-
-## CSS Variable Detection
-
-The project includes a custom script that cross-references CSS variables between `tailwind.config.cjs` and `src/index.css` to prevent runtime styling issues where Tailwind classes reference undefined variables.

@@ -53,6 +53,12 @@ module.exports = {
   			md: 'calc(var(--radius) - 2px)',
   			sm: 'calc(var(--radius) - 4px)'
   		},
+  		boxShadow: {
+  			// Soft editorial card/button shadow (AdminDashboard cards,
+  			// ScrollToTop). Was referenced as `shadow-elegant` for a long
+  			// time without a definition — Tailwind silently generated nothing.
+  			elegant: '0 8px 30px rgba(0, 0, 0, 0.25)'
+  		},
   		fontFamily: {
   			sans: [
   				'Manrope',
@@ -83,20 +89,11 @@ module.exports = {
   				'Menlo',
   				'monospace'
   			]
-  		},
-  		animation: {
-  			'fade-in': 'fade-in 0.5s ease-out'
-  		},
-  		keyframes: {
-  			'fade-in': {
-  				'0%': {
-  					opacity: '0'
-  				},
-  				'100%': {
-  					opacity: '1'
-  				}
-  			}
   		}
+  		// No custom animation/keyframes here: `.animate-fade-in` is defined
+  		// in index.css (fade-in-soft), which won the cascade over the old
+  		// Tailwind-generated duplicate anyway. tailwindcss-animate provides
+  		// the `animate-in` utilities used elsewhere.
   	}
   },
   plugins: [require("tailwindcss-animate")],

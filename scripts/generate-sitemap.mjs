@@ -12,6 +12,27 @@ const projectRoot = path.resolve(__dirname, "..");
 const SITE_URL = "https://therostory.com";
 const OUTPUT = path.join(projectRoot, "public", "sitemap.xml");
 
+// Plain `node` doesn't load .env (Vite only loads it for the app build), so a
+// local `npm run build` used to overwrite public/sitemap.xml with the
+// static-only fallback. Read .env ourselves when the vars aren't already in
+// the environment. On Vercel the vars come from the dashboard and this no-ops;
+// a missing .env is also fine (the script degrades to a static-only sitemap).
+async function loadDotEnvIfNeeded() {
+  if (process.env.VITE_SUPABASE_URL && process.env.VITE_SUPABASE_ANON_KEY) return;
+  try {
+    const envFile = await fs.readFile(path.join(projectRoot, ".env"), "utf-8");
+    for (const line of envFile.split(/\r?\n/)) {
+      const match = line.match(/^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*?)\s*$/);
+      if (!match) continue;
+      const [, name, rawValue] = match;
+      if (name in process.env) continue; // real env always wins
+      process.env[name] = rawValue.replace(/^["']|["']$/g, "");
+    }
+  } catch {
+    // No .env present — nothing to load.
+  }
+}
+
 const STATIC_ROUTES = [
   { path: "/", changefreq: "daily", priority: "1.0" },
   { path: "/categories", changefreq: "daily", priority: "0.9" },
@@ -79,6 +100,7 @@ async function fetchPublishedArticles(supabaseUrl, anonKey) {
 }
 
 async function main() {
+  await loadDotEnvIfNeeded();
   const supabaseUrl = process.env.VITE_SUPABASE_URL;
   const anonKey = process.env.VITE_SUPABASE_ANON_KEY;
 

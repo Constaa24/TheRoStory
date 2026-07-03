@@ -14,6 +14,10 @@ import { toneFor, readMinutes, placeLabel, articleExcerpt, articleCoverUrl } fro
 
 const PAGE_SIZE = 9;
 
+// Hoisted so StoryCard's React.memo can actually skip re-renders — an inline
+// `{{ from: '/' }}` literal would be a new object identity every render.
+const HOME_LINK_STATE = { from: '/' };
+
 const NewsletterForm: React.FC<{ language: 'en' | 'ro' }> = ({ language }) => {
   const [email, setEmail] = useState("");
   const [website, setWebsite] = useState(""); // honeypot — humans never see it
@@ -389,7 +393,7 @@ const Home: React.FC = () => {
                       category={categoryMap.get(s!.categoryId)}
                       language={language}
                       size="wide"
-                      linkState={{ from: '/' }}
+                      linkState={HOME_LINK_STATE}
                       isArticleFavorited={isFavorited(s!.id)}
                       onFavoriteToggle={handleFavoriteToggle}
                     />
@@ -479,7 +483,7 @@ const Home: React.FC = () => {
                         category={categoryMap.get(article.categoryId)}
                         language={language}
                         size="md"
-                        linkState={{ from: '/' }}
+                        linkState={HOME_LINK_STATE}
                         isArticleFavorited={isFavorited(article.id)}
                         onFavoriteToggle={handleFavoriteToggle}
                       />

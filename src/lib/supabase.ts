@@ -1032,20 +1032,24 @@ const matchesMagicBytes = async (file: File, kind: UploadKind): Promise<boolean>
   const brand = ascii(8, 12);    // ftyp major brand
 
   const isIsoBmff = ['ftyp', 'moov', 'mdat', 'free', 'wide', 'skip'].includes(boxType);
-  const isAvifBrand = boxType === 'ftyp' && ['avif', 'avis'].includes(brand.toLowerCase());
+  // avif/avis are the canonical AVIF brands; some encoders emit the generic
+  // HEIF brands mif1/msf1 as the major brand with avif only in the (unread)
+  // compatible-brands list — accept those too so valid files aren't rejected.
+  const isHeifImageBrand =
+    boxType === 'ftyp' && ['avif', 'avis', 'mif1', 'msf1'].includes(brand.toLowerCase());
 
   if (kind === 'image') {
     if (bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) return true;            // JPEG
     if (bytes[0] === 0x89 && ascii(1, 4) === 'PNG') return true;                             // PNG
     if (ascii(0, 4) === 'GIF8') return true;                                                 // GIF
     if (ascii(0, 4) === 'RIFF' && ascii(8, 12) === 'WEBP') return true;                      // WebP
-    if (isAvifBrand) return true;                                                            // AVIF
+    if (isHeifImageBrand) return true;                                                       // AVIF/HEIF
     return false;
   }
 
-  // video: WebM (EBML) or an ISO base-media container that isn't an AVIF image.
+  // video: WebM (EBML) or an ISO base-media container that isn't a HEIF image.
   if (bytes[0] === 0x1a && bytes[1] === 0x45 && bytes[2] === 0xdf && bytes[3] === 0xa3) return true; // WebM
-  return isIsoBmff && !isAvifBrand;                                                          // MP4/MOV/M4V
+  return isIsoBmff && !isHeifImageBrand;                                                     // MP4/MOV/M4V
 };
 
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024; // 10 MB

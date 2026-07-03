@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { Category, Article, getLocalized, supabase, toCamelCase, fetchArticlesPage } from "@/lib/supabase";
 import { useLanguage } from "@/hooks/use-language";
@@ -24,6 +24,10 @@ const CategoryDetail: React.FC = () => {
   const [totalCount, setTotalCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
+
+  // Stable identity so StoryCard's React.memo can skip re-renders — an
+  // inline object literal would defeat the shallow prop comparison.
+  const cardLinkState = useMemo(() => ({ from: `/category/${id}`, category: id }), [id]);
 
   useEffect(() => {
     if (!id) { navigate("/categories"); return; }
@@ -167,7 +171,7 @@ const CategoryDetail: React.FC = () => {
                   category={category}
                   language={language}
                   size="md"
-                  linkState={{ from: `/category/${id}`, category: id }}
+                  linkState={cardLinkState}
                   isArticleFavorited={isFavorited(article.id)}
                   onFavoriteToggle={handleFavoriteToggle}
                 />

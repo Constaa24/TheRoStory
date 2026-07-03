@@ -7,6 +7,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useUnsavedChangesWarning } from "@/hooks/use-unsaved-changes";
 import { UnsavedChangesDialog } from "@/components/ui/unsaved-changes-dialog";
 import { FormBlock, Field } from "@/components/ui/form-field";
+import { PageHead } from "@/components/layout/PageHead";
 import {
   Select,
   SelectContent,
@@ -328,9 +329,24 @@ const TextStoryCreate: React.FC = () => {
     }
   };
 
+  // Editor routes have no <title> otherwise (the static index.html fallback
+  // is stripped at boot). noindex mirrors robots.txt's /admin block.
+  const pageHead = (
+    <PageHead
+      title={isEditing
+        ? (language === 'en' ? 'Edit long read' : 'Editează lectura')
+        : (language === 'en' ? 'Write a long read' : 'Scrie o lectură lungă')}
+      description={language === 'en' ? 'Editorial dashboard — story editor.' : 'Panou editorial — editor de povești.'}
+      language={language}
+    >
+      <meta name="robots" content="noindex, nofollow" />
+    </PageHead>
+  );
+
   if (isLoading) {
     return (
       <div className="flex h-screen items-center justify-center">
+        {pageHead}
         <Loader2 className="h-8 w-8 animate-spin" style={{ color: 'var(--gold)' }} />
       </div>
     );
@@ -338,6 +354,7 @@ const TextStoryCreate: React.FC = () => {
 
   return (
     <div className="screen-anim pb-32">
+      {pageHead}
       <UnsavedChangesDialog
         open={showLeaveConfirm}
         onOpenChange={setShowLeaveConfirm}

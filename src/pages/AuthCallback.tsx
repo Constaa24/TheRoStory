@@ -16,6 +16,7 @@ import { useLanguage } from "@/hooks/use-language";
 import { CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { PageHead } from "@/components/layout/PageHead";
 import { motion } from "framer-motion";
 
 const AuthCallback: React.FC = () => {
@@ -299,6 +300,15 @@ const AuthCallback: React.FC = () => {
 
   return (
     <div className="container mx-auto px-4 py-20 flex justify-center items-center min-h-[70vh]">
+      <PageHead
+        title={language === "en" ? "Signing in" : "Autentificare"}
+        description={language === "en"
+          ? "Completing your RoStory sign-in."
+          : "Se finalizează autentificarea RoStory."}
+        language={language}
+      >
+        <meta name="robots" content="noindex, nofollow" />
+      </PageHead>
       <motion.div
         initial={{ opacity: 0, scale: 0.9 }}
         animate={{ opacity: 1, scale: 1 }}

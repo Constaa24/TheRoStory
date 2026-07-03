@@ -422,15 +422,6 @@ select:focus-visible,
 }
 .ticker:hover .ticker-track { animation-play-state: paused; }
 
-/* Map-related */
-.map-pin { transition: transform 0.2s; transform-origin: center; cursor: pointer; }
-.map-pin:hover { transform: scale(1.4); }
-.map-pin.active { animation: pulse 1.6s ease-in-out infinite; }
-@keyframes pulse {
-  0%, 100% { transform: scale(1); }
-  50%      { transform: scale(1.25); }
-}
-
 /* Video player chrome (article video variant) */
 .video-frame {
   position: relative;
@@ -502,18 +493,9 @@ select:focus-visible,
 .font-serif-ed { font-family: var(--serif); }
 .font-ui { font-family: var(--ui); }
 .text-gold { color: var(--gold); }
-.text-parchment { color: var(--parchment); }
-.text-ink-text { color: var(--text); }
 .text-ink-dim { color: var(--text-dim); }
 .text-ink-mute { color: var(--text-mute); }
-.bg-ink { background-color: var(--ink); }
-.bg-ink-2 { background-color: var(--ink-2); }
-.bg-ink-3 { background-color: var(--ink-3); }
 .border-line { border-color: var(--line); }
-
-/* Hide scrollbar */
-.h-scroll { overflow-x: auto; scrollbar-width: none; }
-.h-scroll::-webkit-scrollbar { display: none; }
 
 .animate-fade-in {
   animation: fade-in-soft 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;

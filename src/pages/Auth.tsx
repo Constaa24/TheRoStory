@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { PageHead } from "@/components/layout/PageHead";
 import { toast } from "sonner";
 import { Loader2, Mail, Lock, User, Eye, EyeOff } from "lucide-react";
 import { motion } from "framer-motion";
@@ -32,7 +33,7 @@ const Auth: React.FC = () => {
     isRecoveryMode,
     exitRecoveryMode,
   } = useAuth();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams] = useSearchParams();
@@ -213,6 +214,19 @@ const Auth: React.FC = () => {
     }
   };
 
+  // Rendered in every branch below — without it these routes have no
+  // <title> at all (the static index.html fallback is stripped at boot).
+  // noindex: robots.txt already disallows /auth, this is belt-and-suspenders.
+  const pageHead = (
+    <PageHead
+      title={view === "reset-password" ? t("auth.resetPassword") : t("auth.loginTab")}
+      description={t("auth.continueJourney")}
+      language={language}
+    >
+      <meta name="robots" content="noindex, nofollow" />
+    </PageHead>
+  );
+
   // Already signed in and not in a recovery/verification flow — the
   // login/signup forms are meaningless, so send the user home. (Recovery
   // sessions render the reset-password view, which must stay reachable.)
@@ -243,6 +257,7 @@ const Auth: React.FC = () => {
 
     return (
       <div className="ed-container py-20 flex justify-center items-center min-h-[70vh]">
+        {pageHead}
         <motion.div
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
@@ -298,6 +313,7 @@ const Auth: React.FC = () => {
   if (view === "forgot-password") {
     return (
       <div className="ed-container py-20 flex justify-center items-center min-h-[80vh]">
+        {pageHead}
         <motion.div 
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
@@ -354,6 +370,7 @@ const Auth: React.FC = () => {
     if (!isResetMode && !user) {
       return (
         <div className="ed-container py-20 flex justify-center items-center min-h-[80vh]">
+        {pageHead}
           <motion.div 
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
@@ -401,6 +418,7 @@ const Auth: React.FC = () => {
 
     return (
       <div className="ed-container py-20 flex justify-center items-center min-h-[80vh]">
+        {pageHead}
         <motion.div 
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
@@ -466,7 +484,8 @@ const Auth: React.FC = () => {
 
   return (
     <div className="ed-container py-20 flex justify-center items-center min-h-[80vh]">
-      <motion.div 
+      {pageHead}
+      <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         className="max-w-md w-full"

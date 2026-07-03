@@ -54,6 +54,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Plus, Trash2, Edit, Check, X, Loader2, Lock, Users, FileText, Tag, ShieldCheck, CheckCircle2, XCircle, Video, BookText, Images } from "lucide-react";
+import { PageHead } from "@/components/layout/PageHead";
 import { toast } from "sonner";
 import { cn, isAbortError } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
@@ -372,9 +373,22 @@ const AdminDashboard: React.FC = () => {
   const articlesRangeStart = articles.length === 0 ? 0 : (articlesPage - 1) * ARTICLES_PER_PAGE + 1;
   const articlesRangeEnd = articles.length === 0 ? 0 : articlesRangeStart + articles.length - 1;
 
+  // Without this the dashboard has no <title> at all (the static index.html
+  // fallback is stripped at boot). noindex mirrors robots.txt's /admin block.
+  const pageHead = (
+    <PageHead
+      title={t("admin.title")}
+      description={t("admin.permissions.subheading")}
+      language={language}
+    >
+      <meta name="robots" content="noindex, nofollow" />
+    </PageHead>
+  );
+
   if (!isAdmin && !isWriter) {
     return (
       <div className="container mx-auto px-4 py-24 text-center">
+        {pageHead}
         <Lock className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
         <h1 className="text-2xl font-serif italic mb-2">{t("admin.access.restricted")}</h1>
         <p className="text-muted-foreground">{t("admin.access.noPermission")}</p>
@@ -385,6 +399,7 @@ const AdminDashboard: React.FC = () => {
 
   return (
     <div className="container mx-auto px-3 sm:px-4 pt-28 pb-8 sm:pt-32 sm:pb-12 max-w-6xl animate-fade-in">
+      {pageHead}
       <header className="mb-8 sm:mb-12 space-y-4">
         <h1 className="text-2xl sm:text-4xl font-serif font-black text-primary italic">
           {t("admin.title")}
