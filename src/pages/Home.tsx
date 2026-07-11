@@ -275,9 +275,9 @@ const Home: React.FC = () => {
                 {language === 'en' ? 'An archive of the Romanian imagination' : 'O arhivă a imaginației românești'}
               </div>
               <div className="text-right font-ui text-[11px] uppercase shrink-0 whitespace-nowrap" style={{ letterSpacing: '0.18em', color: 'rgba(255, 255, 255, 0.7)' }}>
-                <div>{language === 'en' ? 'Issue No. 14' : 'Numărul 14'}</div>
+                <div>{language === 'en' ? 'Stories' : 'Povești'}</div>
                 <div className="mt-1.5" style={{ color: '#f0e3c2', textShadow: '0 1px 3px rgba(0,0,0,0.8)' }}>
-                  {language === 'en' ? 'Spring · 2026' : 'Primăvara · 2026'}
+                  {language === 'en' ? 'Online · 2026' : 'Online · 2026'}
                 </div>
               </div>
             </div>
