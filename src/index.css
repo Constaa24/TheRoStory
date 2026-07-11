@@ -1,4 +1,7 @@
-@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500;1,600;1,700&family=Newsreader:ital,opsz,wght@0,6..72,300;0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,300;1,6..72,400;1,6..72,500&family=Manrope:wght@300;400;500;600;700&display=swap');
+/* Google Fonts are loaded from index.html (preconnect + <link>) so the
+   request starts in parallel with this stylesheet instead of behind it.
+   Keep the font list there in sync with the --display/--serif/--ui stack
+   below. */
 
 @tailwind base;
 @tailwind components;

@@ -358,7 +358,7 @@ const AdminDashboard: React.FC = () => {
       const success = await updateUserRoleFunc(userId, newRole);
       if (!success) throw new Error("Failed to update role");
       
-      setAllUsers(allUsers.map(u => u.id === userId ? { ...u, role: newRole as AdminUserSummary['role'] } : u));
+      setAllUsers(prev => prev.map(u => u.id === userId ? { ...u, role: newRole as AdminUserSummary['role'] } : u));
       toast.success(t("admin.users.roleUpdated"));
     } catch (error) {
       console.error("Error updating role:", error);

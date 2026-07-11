@@ -2,53 +2,74 @@ import React from "react";
 import { Link } from "react-router-dom";
 import { useLanguage } from "@/hooks/use-language";
 import { useCooldown } from "@/hooks/use-cooldown";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import * as z from "zod";
 import { sendContactMessage } from "@/lib/supabase";
 import { toast } from "sonner";
 import { Send } from "lucide-react";
 import { SocialLinks } from "@/components/ui/social-links";
 import { PageHead } from "@/components/layout/PageHead";
 
-type ContactFormValues = {
-  name: string;
-  email: string;
-  subject: string;
-  message: string;
-  website?: string;
-};
-
 const COOLDOWN_SECONDS = 30;
+
+// Mirrors the edge function's email check (contact-email/index.ts).
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+// Language-independent subject keys — the localized label is resolved at
+// send time, so switching language mid-form can't strand the <select> on a
+// value that no longer matches any option.
+const SUBJECTS = [
+  { key: "pitch", en: "Pitch a story", ro: "Propune o poveste" },
+  { key: "press", en: "Press request", ro: "Cerere presă" },
+  { key: "correction", en: "Correction", ro: "Corectură" },
+  { key: "general", en: "General", ro: "General" },
+] as const;
+
+type SubjectKey = (typeof SUBJECTS)[number]["key"];
+type FieldErrors = { name?: string; email?: string; message?: string };
 
 const ContactUs: React.FC = () => {
   const { t, language } = useLanguage();
+  const [name, setName] = React.useState("");
+  const [email, setEmail] = React.useState("");
+  const [subject, setSubject] = React.useState<SubjectKey>("pitch");
+  const [message, setMessage] = React.useState("");
+  const [website, setWebsite] = React.useState(""); // honeypot — humans never see it
+  const [errors, setErrors] = React.useState<FieldErrors>({});
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const { remaining: cooldownRemaining, start: setCooldownRemaining } = useCooldown();
 
-  const contactSchema = React.useMemo(() => z.object({
-    name: z.string().min(2, { message: t("contact.validation.name") }),
-    email: z.string().email({ message: t("contact.validation.email") }),
-    subject: z.string().min(1),
-    message: z.string().min(10, { message: t("contact.validation.message") }).max(5000),
-    website: z.string().optional(),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }), [language]);
+  // Same rules the previous zod schema enforced; the message length also
+  // matches the edge function's 10–5000 bounds.
+  const validate = (): FieldErrors => {
+    const errs: FieldErrors = {};
+    if (name.trim().length < 2) errs.name = t("contact.validation.name");
+    if (!EMAIL_RE.test(email.trim())) errs.email = t("contact.validation.email");
+    const trimmed = message.trim();
+    if (trimmed.length < 10 || trimmed.length > 5000) errs.message = t("contact.validation.message");
+    return errs;
+  };
 
-  const resolver = React.useMemo(() => zodResolver(contactSchema), [contactSchema]);
+  const clearError = (field: keyof FieldErrors) =>
+    setErrors((prev) => (prev[field] ? { ...prev, [field]: undefined } : prev));
 
-  const form = useForm<ContactFormValues>({
-    resolver,
-    defaultValues: { name: "", email: "", subject: language === 'en' ? 'Pitch a story' : 'Propune o poveste', message: "", website: "" },
-  });
+  const onSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const errs = validate();
+    setErrors(errs);
+    if (errs.name || errs.email || errs.message) return;
+    if (isSubmitting || cooldownRemaining > 0) return;
 
-  const onSubmit = async (data: ContactFormValues) => {
     setIsSubmitting(true);
     try {
-      const result = await sendContactMessage(data.name, data.email, data.message, data.website || "", data.subject);
+      const subjectLabel = SUBJECTS.find((s) => s.key === subject)?.[language] ?? subject;
+      const result = await sendContactMessage(name.trim(), email.trim(), message.trim(), website, subjectLabel);
       if (result.ok) {
         toast.success(t("contact.success"));
-        form.reset();
+        setName("");
+        setEmail("");
+        setSubject("pitch");
+        setMessage("");
+        setWebsite("");
+        setErrors({});
         setCooldownRemaining(COOLDOWN_SECONDS);
       } else {
         if (result.status === 429) {
@@ -118,7 +139,7 @@ const ContactUs: React.FC = () => {
       <section style={{ padding: '60px 0 100px' }}>
         <div className="ed-container">
           <div className="grid grid-cols-1 md:grid-cols-[1.2fr_1fr] gap-20 items-start">
-            <form onSubmit={form.handleSubmit(onSubmit)} className="ed-form flex flex-col gap-6">
+            <form onSubmit={onSubmit} className="ed-form flex flex-col gap-6">
               <h3
                 className="font-display italic font-medium m-0"
                 style={{ fontSize: 'clamp(28px, 3vw, 40px)', lineHeight: 1.1, color: 'var(--parchment)' }}
@@ -128,7 +149,13 @@ const ContactUs: React.FC = () => {
 
               <div className="sr-only" aria-hidden="true">
                 <label htmlFor="website">Website</label>
-                <input id="website" tabIndex={-1} autoComplete="off" {...form.register('website')} />
+                <input
+                  id="website"
+                  tabIndex={-1}
+                  autoComplete="off"
+                  value={website}
+                  onChange={(e) => setWebsite(e.target.value)}
+                />
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -138,11 +165,13 @@ const ContactUs: React.FC = () => {
                     id="contact-name"
                     type="text"
                     placeholder={t('contact.namePlaceholder')}
-                    {...form.register('name')}
-                    style={form.formState.errors.name ? { borderColor: 'var(--oxblood-2)' } : undefined}
+                    value={name}
+                    onChange={(e) => { setName(e.target.value); clearError('name'); }}
+                    maxLength={200}
+                    style={errors.name ? { borderColor: 'var(--oxblood-2)' } : undefined}
                   />
-                  {form.formState.errors.name && (
-                    <p className="font-ui text-xs mt-1" style={{ color: 'var(--oxblood-2)' }}>{form.formState.errors.name.message}</p>
+                  {errors.name && (
+                    <p className="font-ui text-xs mt-1" style={{ color: 'var(--oxblood-2)' }}>{errors.name}</p>
                   )}
                 </div>
                 <div>
@@ -151,22 +180,27 @@ const ContactUs: React.FC = () => {
                     id="contact-email"
                     type="email"
                     placeholder={t('contact.emailPlaceholder')}
-                    {...form.register('email')}
-                    style={form.formState.errors.email ? { borderColor: 'var(--oxblood-2)' } : undefined}
+                    value={email}
+                    onChange={(e) => { setEmail(e.target.value); clearError('email'); }}
+                    maxLength={254}
+                    style={errors.email ? { borderColor: 'var(--oxblood-2)' } : undefined}
                   />
-                  {form.formState.errors.email && (
-                    <p className="font-ui text-xs mt-1" style={{ color: 'var(--oxblood-2)' }}>{form.formState.errors.email.message}</p>
+                  {errors.email && (
+                    <p className="font-ui text-xs mt-1" style={{ color: 'var(--oxblood-2)' }}>{errors.email}</p>
                   )}
                 </div>
               </div>
 
               <div>
                 <label htmlFor="contact-subject">{language === 'en' ? 'Subject' : 'Subiect'}</label>
-                <select id="contact-subject" {...form.register('subject')}>
-                  <option value={language === 'en' ? 'Pitch a story' : 'Propune o poveste'}>{language === 'en' ? 'Pitch a story' : 'Propune o poveste'}</option>
-                  <option value={language === 'en' ? 'Press request' : 'Cerere presă'}>{language === 'en' ? 'Press request' : 'Cerere presă'}</option>
-                  <option value={language === 'en' ? 'Correction' : 'Corectură'}>{language === 'en' ? 'Correction' : 'Corectură'}</option>
-                  <option value={language === 'en' ? 'General' : 'General'}>{language === 'en' ? 'General' : 'General'}</option>
+                <select
+                  id="contact-subject"
+                  value={subject}
+                  onChange={(e) => setSubject(e.target.value as SubjectKey)}
+                >
+                  {SUBJECTS.map((s) => (
+                    <option key={s.key} value={s.key}>{s[language]}</option>
+                  ))}
                 </select>
               </div>
 
@@ -176,11 +210,13 @@ const ContactUs: React.FC = () => {
                   id="contact-message"
                   rows={7}
                   placeholder={t('contact.messagePlaceholder')}
-                  {...form.register('message')}
-                  style={form.formState.errors.message ? { borderColor: 'var(--oxblood-2)', resize: 'vertical' } : { resize: 'vertical' }}
+                  value={message}
+                  onChange={(e) => { setMessage(e.target.value); clearError('message'); }}
+                  maxLength={5000}
+                  style={errors.message ? { borderColor: 'var(--oxblood-2)', resize: 'vertical' } : { resize: 'vertical' }}
                 />
-                {form.formState.errors.message && (
-                  <p className="font-ui text-xs mt-1" style={{ color: 'var(--oxblood-2)' }}>{form.formState.errors.message.message}</p>
+                {errors.message && (
+                  <p className="font-ui text-xs mt-1" style={{ color: 'var(--oxblood-2)' }}>{errors.message}</p>
                 )}
               </div>
 

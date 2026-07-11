@@ -957,7 +957,7 @@ const VideoFilm: React.FC<{ article: Article; category?: Category; views?: numbe
                 {duration > 0 && (
                   <div className="px-6 py-4" style={{ borderBottom: '1px solid var(--line-soft)' }}>
                     <div className="font-display italic" style={{ fontSize: 19, color: 'var(--parchment)' }}>
-                      {formatTime(duration)} {language === 'en' ? 'min film' : 'min film'}
+                      {formatTime(duration)} {language === 'en' ? 'runtime' : 'durată'}
                     </div>
                   </div>
                 )}

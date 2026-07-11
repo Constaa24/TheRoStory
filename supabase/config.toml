@@ -412,3 +412,11 @@ enabled = true
 # function applies its own per-IP rate limit instead of relying on JWT.
 verify_jwt = false
 entrypoint = "./functions/increment-view/index.ts"
+
+[functions.newsletter-webhook]
+enabled = true
+# Called by Resend's webhook infrastructure, not by browsers — there is no
+# Supabase JWT on the request. Authentication is the Svix signature check
+# inside the function (RESEND_WEBHOOK_SECRET).
+verify_jwt = false
+entrypoint = "./functions/newsletter-webhook/index.ts"

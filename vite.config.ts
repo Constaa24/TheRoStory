@@ -123,7 +123,10 @@ export default defineConfig({
   server: {
     port: 3000,
     strictPort: true,
+    // Bind all interfaces so LAN devices can reach the dev server by IP.
+    // Vite's default allowedHosts (localhost + literal IPs) stays active,
+    // which keeps the DNS-rebinding host check: a hostile site can't reach
+    // the dev server through an attacker-controlled hostname.
     host: true,
-    allowedHosts: true,
   }
 });

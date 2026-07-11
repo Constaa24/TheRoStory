@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/use-auth";
 import { useLanguage } from "@/hooks/use-language";
 import { useFocusTrap } from "@/hooks/use-focus-trap";
-import { User, Menu, X, Shield, Heart, Search, Sun, Moon, Loader2 } from "lucide-react";
+import { User, Menu, X, Search, Sun, Moon, Loader2 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import { useTheme } from "next-themes";
@@ -242,10 +242,10 @@ export const Navbar: React.FC = () => {
                       </div>
                     </div>
                     <div className="py-2">
-                      <ProfileRow num={1} to="/profile" icon={<User className="w-4 h-4" />} label={t('nav.profile')} sub={language === 'en' ? 'Account & settings' : 'Cont și setări'} onNav={() => setProfileOpen(false)} />
-                      <ProfileRow num={2} to="/profile?tab=favorites" icon={<Heart className="w-4 h-4" />} label={t('nav.favorites')} sub={language === 'en' ? 'Saved stories' : 'Povești salvate'} onNav={() => setProfileOpen(false)} />
+                      <ProfileRow num={1} to="/profile" label={t('nav.profile')} sub={language === 'en' ? 'Account & settings' : 'Cont și setări'} onNav={() => setProfileOpen(false)} />
+                      <ProfileRow num={2} to="/profile?tab=favorites" label={t('nav.favorites')} sub={language === 'en' ? 'Saved stories' : 'Povești salvate'} onNav={() => setProfileOpen(false)} />
                       {showDashboard && (
-                        <ProfileRow num={3} to="/admin" icon={<Shield className="w-4 h-4" />} label={isAdmin ? t('nav.admin') : t('nav.dashboard')} sub={language === 'en' ? 'Editorial dashboard' : 'Panou editorial'} onNav={() => setProfileOpen(false)} />
+                        <ProfileRow num={3} to="/admin" label={isAdmin ? t('nav.admin') : t('nav.dashboard')} sub={language === 'en' ? 'Editorial dashboard' : 'Panou editorial'} onNav={() => setProfileOpen(false)} />
                       )}
                     </div>
                     <div style={{ borderTop: '1px solid var(--line-soft)' }}>
@@ -571,7 +571,7 @@ const NavSearchOverlay: React.FC<{ onClose: () => void; language: 'en' | 'ro' }>
   );
 };
 
-const ProfileRow: React.FC<{ num: number; to: string; icon: React.ReactNode; label: string; sub?: string; onNav: () => void }> = ({ num, to, icon, label, sub, onNav }) => (
+const ProfileRow: React.FC<{ num: number; to: string; label: string; sub?: string; onNav: () => void }> = ({ num, to, label, sub, onNav }) => (
   <Link
     to={to}
     onClick={onNav}
@@ -591,6 +591,5 @@ const ProfileRow: React.FC<{ num: number; to: string; icon: React.ReactNode; lab
       {sub && <span className="block font-ui text-[10px] tracking-[0.15em] uppercase mt-1" style={{ color: 'var(--text-mute)' }}>{sub}</span>}
     </span>
     <span style={{ color: 'var(--text-mute)' }}>›</span>
-    <span className="sr-only">{icon}</span>
   </Link>
 );
