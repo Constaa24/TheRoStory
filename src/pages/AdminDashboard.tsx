@@ -57,6 +57,10 @@ import { Plus, Trash2, Edit, Check, X, Loader2, Lock, Users, FileText, Tag, Shie
 import { PageHead } from "@/components/layout/PageHead";
 import { toast } from "sonner";
 import { cn, isAbortError } from "@/lib/utils";
+// The dashboard used raw toLocaleDateString(), which follows the browser's
+// locale and so ignored the app's EN/RO toggle — the only surface in the app
+// that did. formatArticleDate is what every reader-facing view already uses.
+import { formatArticleDate } from "@/lib/article-utils";
 import { useNavigate } from "react-router-dom";
 
 const USERS_PER_PAGE = 25;
@@ -640,7 +644,7 @@ const AdminDashboard: React.FC = () => {
                         {art.isPublished ? t("admin.articles.published") : t("admin.articles.draft")}
                       </span>
                       <span className="text-xs text-muted-foreground">
-                        {new Date(art.createdAt).toLocaleDateString()}
+                        {formatArticleDate(art.createdAt, language, "short")}
                       </span>
                     </div>
                   </div>
@@ -698,7 +702,7 @@ const AdminDashboard: React.FC = () => {
                       </span>
                     </TableCell>
                     <TableCell className="text-muted-foreground text-sm">
-                      {new Date(art.createdAt).toLocaleDateString()}
+                      {formatArticleDate(art.createdAt, language, "short")}
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
@@ -965,7 +969,7 @@ const AdminDashboard: React.FC = () => {
                           </SelectContent>
                         </Select>
                         <span className="text-xs text-muted-foreground">
-                          {u.createdAt ? new Date(u.createdAt).toLocaleDateString() : 'N/A'}
+                          {u.createdAt ? formatArticleDate(u.createdAt, language, "short") : '—'}
                         </span>
                       </div>
                     </div>
@@ -1046,7 +1050,7 @@ const AdminDashboard: React.FC = () => {
                         </Select>
                       </TableCell>
                       <TableCell className="text-muted-foreground text-sm">
-                        {u.createdAt ? new Date(u.createdAt).toLocaleDateString() : 'N/A'}
+                        {u.createdAt ? formatArticleDate(u.createdAt, language, "short") : '—'}
                       </TableCell>
                       <TableCell className="text-right">
                         <Button 

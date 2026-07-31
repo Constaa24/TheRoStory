@@ -150,9 +150,19 @@ max_indexes = 5
 enabled = true
 # The base URL of your website. Used as an allow-list for redirects and for constructing URLs used
 # in emails.
-site_url = "http://127.0.0.1:3000"
+site_url = "http://localhost:3000"
 # A list of *exact* URLs that auth providers are permitted to redirect to post authentication.
-additional_redirect_urls = ["https://127.0.0.1:3000"]
+# The app always builds its redirect as `${window.location.origin}/auth/callback`
+# (see use-auth.tsx), and the Vite dev server binds both localhost and the
+# loopback IP on port 3000 — so both spellings of the callback need to be
+# listed or local sign-in fails with "redirect_to not allowed". The previous
+# value was a bare https:// origin, which matched neither.
+additional_redirect_urls = [
+  "http://localhost:3000/auth/callback",
+  "http://127.0.0.1:3000/auth/callback",
+  "http://localhost:3000/reset-password",
+  "http://127.0.0.1:3000/reset-password",
+]
 # How long tokens are valid for, in seconds. Defaults to 3600 (1 hour), maximum 604,800 (1 week).
 jwt_expiry = 3600
 # JWT issuer URL. If not set, defaults to the local API URL (http://127.0.0.1:<port>/auth/v1).
@@ -412,6 +422,24 @@ enabled = true
 # function applies its own per-IP rate limit instead of relying on JWT.
 verify_jwt = false
 entrypoint = "./functions/increment-view/index.ts"
+
+[functions.newsletter-subscribe]
+enabled = true
+# Called by anonymous visitors from the site's newsletter form. The Supabase
+# JS client sends the anon key as the bearer token, so verify_jwt stays on:
+# it costs nothing here and blocks unauthenticated calls that skip the SDK.
+# Abuse control is the function's own per-IP limiter plus the double opt-in
+# resend cooldown.
+verify_jwt = true
+entrypoint = "./functions/newsletter-subscribe/index.ts"
+
+[functions.newsletter-confirm]
+enabled = true
+# Same shape as newsletter-subscribe: reached from /newsletter/confirm in the
+# browser via the JS client, so the anon key is always present. The real gate
+# is the unguessable UUID confirm token and its 7-day TTL.
+verify_jwt = true
+entrypoint = "./functions/newsletter-confirm/index.ts"
 
 [functions.newsletter-webhook]
 enabled = true

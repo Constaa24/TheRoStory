@@ -7,13 +7,18 @@ import { User, Menu, X, Search, Sun, Moon, Loader2 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import { useTheme } from "next-themes";
-import { Article, Category, searchArticles, fetchCategories, getLocalized } from "@/lib/supabase";
+import { Article, Category, searchArticles, fetchCategories, getLocalized, SEARCH_MIN_LENGTH } from "@/lib/supabase";
 import { articleCoverUrl } from "@/lib/article-utils";
 
 export const Navbar: React.FC = () => {
   const { user, login, logout, isAdmin, isWriter, signInWithGoogle } = useAuth();
   const { language, setLanguage, t } = useLanguage();
-  const { theme, setTheme } = useTheme();
+  // resolvedTheme, not theme: next-themes has enableSystem on by default, so
+  // `theme` can be the literal "system" while the page renders light. Reading
+  // `theme` then made isDark true on a light page — the toggle showed the
+  // wrong icon and its first click ("set light") was a no-op, leaving it
+  // stuck. resolvedTheme is always the concrete "light" | "dark" in effect.
+  const { resolvedTheme, setTheme } = useTheme();
   const location = useLocation();
   const [isMenuOpen, setIsMenuOpen] = React.useState(false);
   const [profileOpen, setProfileOpen] = React.useState(false);
@@ -54,7 +59,7 @@ export const Navbar: React.FC = () => {
   }, [profileOpen]);
 
   const showDashboard = isAdmin || isWriter;
-  const isDark = theme !== 'light';
+  const isDark = resolvedTheme !== 'light';
   const toggleTheme = () => setTheme(isDark ? 'light' : 'dark');
 
   const navLinks = [
@@ -394,6 +399,7 @@ export const Navbar: React.FC = () => {
 
 const NavSearchOverlay: React.FC<{ onClose: () => void; language: 'en' | 'ro' }> = ({ onClose, language }) => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [query, setQuery] = React.useState('');
   const [results, setResults] = React.useState<Article[]>([]);
   const [categories, setCategories] = React.useState<Category[]>([]);
@@ -421,8 +427,12 @@ const NavSearchOverlay: React.FC<{ onClose: () => void; language: 'en' | 'ro' }>
 
   React.useEffect(() => {
     const q = query.trim();
-    if (!q) {
+    // Below the trigram threshold we don't query at all — see
+    // SEARCH_MIN_LENGTH. Bail before the debounce so a one-letter query
+    // never reaches the network and the spinner never appears.
+    if (q.length < SEARCH_MIN_LENGTH) {
       setResults([]);
+      setFetchError(false);
       setIsSearching(false);
       window.clearTimeout(debounceRef.current);
       return;
@@ -449,10 +459,16 @@ const NavSearchOverlay: React.FC<{ onClose: () => void; language: 'en' | 'ro' }>
 
   const handleSelect = (article: Article) => {
     onClose();
-    navigate(`/article/${article.id}`);
+    // Carry the current location through so the article page's Back button
+    // returns the reader where they were. Without the state it fell back to
+    // "/" and silently dropped them on the homepage.
+    navigate(`/article/${article.id}`, {
+      state: { from: `${location.pathname}${location.search}` },
+    });
   };
 
   const showResults = query.trim().length > 0;
+  const isBelowMinLength = query.trim().length > 0 && query.trim().length < SEARCH_MIN_LENGTH;
 
   return (
     <div className="border-t" style={{ borderColor: 'var(--line-soft)', background: 'var(--overlay-nav)' }}>
@@ -507,7 +523,13 @@ const NavSearchOverlay: React.FC<{ onClose: () => void; language: 'en' | 'ro' }>
               className="overflow-hidden"
               style={{ border: '1px solid var(--line)', background: 'var(--ink-2)' }}
             >
-              {isSearching && results.length === 0 ? (
+              {isBelowMinLength ? (
+                <div className="px-4 py-5 text-center font-display italic" style={{ color: 'var(--text-dim)', fontSize: 14 }}>
+                  {language === 'en'
+                    ? `Keep typing — at least ${SEARCH_MIN_LENGTH} characters.`
+                    : `Continuă să scrii — cel puțin ${SEARCH_MIN_LENGTH} caractere.`}
+                </div>
+              ) : isSearching && results.length === 0 ? (
                 <div className="px-4 py-5 flex items-center justify-center gap-2 font-display italic" style={{ color: 'var(--text-dim)', fontSize: 14 }}>
                   <Loader2 className="w-4 h-4 animate-spin" />
                   {language === 'en' ? 'Searching…' : 'Se caută…'}

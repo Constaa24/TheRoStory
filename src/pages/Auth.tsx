@@ -11,6 +11,7 @@ import { PageHead } from "@/components/layout/PageHead";
 import { toast } from "sonner";
 import { Loader2, Mail, Lock, User, Eye, EyeOff } from "lucide-react";
 import { motion } from "framer-motion";
+import { ReducedMotionConfig } from "@/components/ui/reduced-motion-config";
 
 const GoogleIcon: React.FC = () => (
   <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24">
@@ -159,6 +160,19 @@ const Auth: React.FC = () => {
     }
   };
 
+  // Supabase's rate-limit errors carry exact timings ("you can only request
+  // this after 47 seconds"), which both leaks backend policy and reads badly.
+  // handleSignIn/handleSignUp already map provider errors to our own copy;
+  // these helpers extend the same treatment to the remaining flows.
+  const isRateLimitError = (error: unknown): boolean => {
+    const message = (error instanceof Error ? error.message : "").toLowerCase();
+    return (
+      message.includes("security purposes") ||
+      message.includes("rate limit") ||
+      message.includes("too many")
+    );
+  };
+
   const handleGoogleSignIn = async () => {
     setIsLoading(true);
     try {
@@ -166,8 +180,7 @@ const Auth: React.FC = () => {
       if (result?.error) throw result.error;
       // OAuth redirects immediately on success. No success toast needed here.
     } catch (error) {
-      const message = error instanceof Error ? error.message : t("auth.googleFailed");
-      toast.error(message);
+      toast.error(isRateLimitError(error) ? t("auth.rateLimited") : t("auth.googleFailed"));
     } finally {
       setIsLoading(false);
     }
@@ -182,8 +195,10 @@ const Auth: React.FC = () => {
       toast.success(t("auth.resetLinkSent"));
       setView("auth");
     } catch (error) {
-      const message = error instanceof Error ? error.message : t("auth.resetLinkFailed");
-      toast.error(message);
+      // Never surface the raw message here: Supabase returns success for
+      // unknown addresses by design (so this endpoint can't be used to probe
+      // who has an account), and echoing its errors would undo that.
+      toast.error(isRateLimitError(error) ? t("auth.rateLimited") : t("auth.resetLinkFailed"));
     } finally {
       setIsLoading(false);
     }
@@ -207,8 +222,17 @@ const Auth: React.FC = () => {
       setActiveTab("login");
       navigate("/auth", { replace: true, state: { bypassRecoveryRedirect: true } });
     } catch (error) {
-      const message = error instanceof Error ? error.message : t("auth.passwordResetFailed");
-      toast.error(message);
+      // Map the two cases worth explaining. In particular Supabase's own
+      // length error quotes its server-side minimum, which can contradict
+      // the 8-character rule this form enforces.
+      const raw = (error instanceof Error ? error.message : "").toLowerCase();
+      if (raw.includes("different from the old password") || raw.includes("should be different")) {
+        toast.error(t("auth.passwordSameAsOld"));
+      } else if (raw.includes("password") && raw.includes("characters")) {
+        toast.error(t("auth.passwordTooShort"));
+      } else {
+        toast.error(isRateLimitError(error) ? t("auth.rateLimited") : t("auth.passwordResetFailed"));
+      }
     } finally {
       setIsLoading(false);
     }
@@ -687,4 +711,13 @@ const Auth: React.FC = () => {
   );
 };
 
-export default Auth;
+// Wrapped at the export so framer-motion's reduced-motion handling travels
+// with this lazy chunk instead of the app entry point. See
+// components/ui/reduced-motion-config.tsx.
+const AuthPage: React.FC = () => (
+  <ReducedMotionConfig>
+    <Auth />
+  </ReducedMotionConfig>
+);
+
+export default AuthPage;

@@ -41,6 +41,64 @@
     <priority>0.3</priority>
   </url>
   <url>
+    <loc>https://therostory.com/category/cat_c1505804-aabb-43d8-b348-ff4e0cbb8b3b</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://therostory.com/category/cat_1772046674630</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://therostory.com/category/cat_1771872253710</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://therostory.com/category/cat_1772044766975</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://therostory.com/category/cat_1774215058195</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://therostory.com/category/cat_1775342596594</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://therostory.com/category/cat_1772025665338</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://therostory.com/category/cat_1772400679950</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://therostory.com/article/art_4cc36153-3c9e-46a8-8aeb-2a146c7fd7aa</loc>
+    <lastmod>2026-07-31</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://therostory.com/article/art_84395f52-a1dd-4744-b803-88fae159d7dd</loc>
+    <lastmod>2026-07-11</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://therostory.com/article/art_ee60d4bc-146f-4773-b891-91bdf287f9cb</loc>
+    <lastmod>2026-07-11</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
     <loc>https://therostory.com/article/art_f46f559e-e174-42db-b9a6-7cf637d000db</loc>
     <lastmod>2026-06-18</lastmod>
     <changefreq>monthly</changefreq>

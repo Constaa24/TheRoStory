@@ -6,6 +6,7 @@ import { useLanguage } from "@/hooks/use-language";
 import { EditorialArticle } from "@/components/organisms/EditorialArticle";
 import { logError, toJsonLd } from "@/lib/utils";
 import { articleCoverUrl, articleExcerpt } from "@/lib/article-utils";
+import { PageHead } from "@/components/layout/PageHead";
 import { SITE_NAME, SITE_URL } from "@/lib/constants";
 
 const ArticleDetailPage: React.FC = () => {
@@ -99,22 +100,28 @@ const ArticleDetailPage: React.FC = () => {
 
   return (
     <>
-      <title>{`${title} — ${SITE_NAME}`}</title>
-      <meta name="description" content={description} />
-      <link rel="canonical" href={articleUrl} />
-      <meta property="og:title" content={title} />
-      <meta property="og:description" content={description} />
-      <meta property="og:image" content={imageUrl} />
-      <meta property="og:url" content={articleUrl} />
-      <meta property="og:type" content="article" />
-      <meta property="og:site_name" content={SITE_NAME} />
-      <meta property="og:locale" content={language === "en" ? "en_US" : "ro_RO"} />
-      <meta name="twitter:card" content="summary_large_image" />
-      <meta name="twitter:title" content={title} />
-      <meta name="twitter:description" content={description} />
-      <meta name="twitter:image" content={imageUrl} />
-      <script type="application/ld+json">{toJsonLd(jsonLd)}</script>
-      <script type="application/ld+json">{toJsonLd(breadcrumbLd)}</script>
+      {/* Routed through PageHead like every other page rather than
+          hand-rolling the tags: the local copy had drifted and was missing
+          og:image:width/height/alt and twitter:image:alt, which social
+          previews use to lay the card out. og:type goes through the prop —
+          passing it as a child would emit a second og:type rather than
+          replacing PageHead's default. */}
+      <PageHead
+        title={title}
+        description={description}
+        imageUrl={imageUrl}
+        language={language}
+        canonical={articleUrl}
+        ogType="article"
+      >
+        <meta property="article:published_time" content={article.createdAt} />
+        <meta
+          property="article:modified_time"
+          content={article.updatedAt || article.createdAt}
+        />
+        <script type="application/ld+json">{toJsonLd(jsonLd)}</script>
+        <script type="application/ld+json">{toJsonLd(breadcrumbLd)}</script>
+      </PageHead>
       <EditorialArticle article={article} views={views} />
     </>
   );

@@ -8,7 +8,17 @@
     "strict": true,
     "noEmit": false,
     "declaration": true,
-    "outDir": "dist"
+    "outDir": "dist",
+    // middleware.ts runs on Vercel's Edge runtime: web-standard APIs
+    // (Request/Response/fetch/AbortController) plus process.env. DOM gives us
+    // the former; @types/node (already a devDependency) gives us the latter.
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "target": "ES2022"
   },
-  "include": ["vite.config.ts", "scripts/**/*"]
+  // middleware.ts is production code — it serves the OG tags every social
+  // crawler sees for every article — but it was covered by neither tsconfig,
+  // so `npm run lint:types` never checked it. Deno edge functions stay out:
+  // they import via `jsr:` and `https://esm.sh/...` specifiers that tsc
+  // cannot resolve. They are checked by `npm run lint:edge` instead.
+  "include": ["vite.config.ts", "scripts/**/*", "middleware.ts"]
 }

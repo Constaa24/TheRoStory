@@ -2,6 +2,14 @@ import React, { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
 import type { EmailOtpType } from "@supabase/supabase-js";
+import { useAuth } from "@/hooks/use-auth";
+import { useLanguage } from "@/hooks/use-language";
+import { CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { PageHead } from "@/components/layout/PageHead";
+import { motion } from "framer-motion";
+import { ReducedMotionConfig } from "@/components/ui/reduced-motion-config";
 
 const ALLOWED_OTP_TYPES = new Set<EmailOtpType>([
   "signup",
@@ -11,13 +19,49 @@ const ALLOWED_OTP_TYPES = new Set<EmailOtpType>([
   "email_change",
   "email",
 ]);
-import { useAuth } from "@/hooks/use-auth";
-import { useLanguage } from "@/hooks/use-language";
-import { CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { PageHead } from "@/components/layout/PageHead";
-import { motion } from "framer-motion";
+
+/**
+ * Maps Supabase's `error_code` to our own copy.
+ *
+ * The provider also sends a human-readable `error_description`, but that
+ * value is just a URL query parameter — anyone can link to
+ * /auth/callback?error_description=<anything> and have arbitrary text
+ * rendered on our domain inside an official-looking error card. React
+ * escapes it so there is no XSS, but it is a ready-made phishing surface
+ * ("Your account was suspended, call this number"). So we never display
+ * the supplied string: we recognize the code and write the message
+ * ourselves, falling back to a generic line for anything unknown.
+ */
+const authErrorMessage = (code: string | null, language: "en" | "ro"): string => {
+  const en = language === "en";
+  switch (code) {
+    case "otp_expired":
+      return en
+        ? "This link has expired. Please request a new one."
+        : "Acest link a expirat. Te rugăm să soliciți unul nou.";
+    case "access_denied":
+      return en
+        ? "Access was denied. Please try signing in again."
+        : "Accesul a fost refuzat. Te rugăm să încerci din nou.";
+    case "invalid_request":
+    case "validation_failed":
+      return en
+        ? "This verification link is not valid."
+        : "Acest link de verificare nu este valid.";
+    case "user_already_exists":
+      return en
+        ? "An account with this email already exists. Try signing in instead."
+        : "Există deja un cont cu acest email. Încearcă să te autentifici.";
+    case "over_email_send_rate_limit":
+      return en
+        ? "Too many attempts. Please wait a few minutes and try again."
+        : "Prea multe încercări. Te rugăm să aștepți câteva minute.";
+    default:
+      return en
+        ? "The verification link is invalid or has expired."
+        : "Link-ul de verificare este invalid sau a expirat.";
+  }
+};
 
 const AuthCallback: React.FC = () => {
   const navigate = useNavigate();
@@ -117,9 +161,10 @@ const AuthCallback: React.FC = () => {
           type === "email_change" ||
           type === "invite";
         const errorCode = searchParams.get("error_code") || hashParams.get("error_code");
-        const errorDescription =
-          searchParams.get("error_description") ||
-          hashParams.get("error_description");
+        // Presence only — the value is never rendered (see authErrorMessage).
+        const hasErrorDescription = Boolean(
+          searchParams.get("error_description") || hashParams.get("error_description")
+        );
 
         if (isRecoveryFlow && mountedRef.current) {
           setIsPasswordRecovery(true);
@@ -128,10 +173,10 @@ const AuthCallback: React.FC = () => {
           setIsEmailVerificationFlow(true);
         }
 
-        if (errorCode || errorDescription) {
+        if (errorCode || hasErrorDescription) {
           if (!mountedRef.current) return;
           setStatus("error");
-          setErrorMessage(errorDescription || "An error occurred during verification.");
+          setErrorMessage(authErrorMessage(errorCode, languageRef.current));
           return;
         }
 
@@ -269,11 +314,7 @@ const AuthCallback: React.FC = () => {
         }
 
         setStatus("error");
-        setErrorMessage(
-          languageRef.current === "en"
-            ? "The verification link is invalid or has expired."
-            : "Link-ul de verificare este invalid sau a expirat."
-        );
+        setErrorMessage(authErrorMessage(null, languageRef.current));
       } catch (err) {
         if (!mountedRef.current) return;
 
@@ -389,4 +430,12 @@ const AuthCallback: React.FC = () => {
   );
 };
 
-export default AuthCallback;
+// See components/ui/reduced-motion-config.tsx — keeps framer-motion in this
+// lazy chunk rather than the app entry point.
+const AuthCallbackPage: React.FC = () => (
+  <ReducedMotionConfig>
+    <AuthCallback />
+  </ReducedMotionConfig>
+);
+
+export default AuthCallbackPage;

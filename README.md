@@ -85,7 +85,59 @@ npm run dev          # Start Vite dev server
 npm run build        # Production build (regenerates public/sitemap.xml first)
 npm run preview      # Preview production build
 npm run lint         # Run all linting (TypeScript, ESLint, Stylelint)
-npm run lint:types   # TypeScript typecheck only
+npm run lint:types   # TypeScript typecheck (src + middleware.ts/scripts)
 npm run lint:js      # ESLint only
 npm run lint:css     # Stylelint only
+npm run lint:edge    # Type-check the Deno edge functions (requires Deno)
 ```
+
+`lint:edge` is intentionally outside `npm run lint`: the Supabase edge
+functions import via `jsr:` and `https://esm.sh/...` specifiers that `tsc`
+cannot resolve, so they need Deno's own checker. It is kept opt-in so the
+main lint pipeline doesn't fail on machines without Deno installed. Run it
+before deploying changes under `supabase/functions/`:
+
+```bash
+npm run lint:edge
+```
+
+## Known `npm audit` findings
+
+### react-router — GHSA-qwww-vcr4-c8h2 (high) — accepted, not applicable
+
+`npm audit` reports a high-severity advisory against `react-router`
+(7.12.0 – 8.2.0). **It does not apply to this project, and the reported
+"fix" is worse than the finding.** Recorded here so it doesn't get
+re-litigated on every audit.
+
+**The bug:** in React Router's *RSC mode*, the server handler ran a server
+action *before* returning the 400 for a failed CSRF origin check. The
+rejection was cosmetic — the mutation had already happened.
+
+**Why it can't reach us:** this app is a purely client-rendered SPA in
+*declarative mode* — `<BrowserRouter>` with `<Routes>`/`<Route>`. There is
+no React Router server runtime: no `loader` or `action` exports anywhere, no
+`react-router.config.ts`, no `entry.server.tsx`, no `@react-router/serve`.
+The only server-side code is the Vercel Edge Middleware (`middleware.ts`,
+plain `Request`/`Response`) and the Supabase Deno functions, which do their
+own origin allow-listing and JWT verification. Every mutation goes through
+Supabase behind RLS. The vulnerable handler is never imported, bundled, or
+executed.
+
+**Why we didn't "fix" it:** `npm audit fix --force` downgrades to
+`react-router-dom@7.11.0` — npm labels this a breaking change itself —
+because no patched release above 7.12 existed at the time of writing. That
+surrenders seven minor versions of fixes to the router code we *do* run, and
+only sticks if the version is pinned (`~7.11.0`), or the next `npm install`
+walks straight back into the range. Concrete regression risk traded for a
+theoretical one in a mode we don't use.
+
+**When to revisit:**
+
+- A patched 7.x release appears → `npm install react-router-dom@latest`;
+  the existing `^7.11.0` range already allows it, no code changes needed.
+- **We adopt React Router framework or RSC mode with server actions.** At
+  that point the advisory becomes directly exploitable and must be resolved
+  *before* shipping.
+
+Until then, expect `npm audit` to keep listing it. That is not a regression.

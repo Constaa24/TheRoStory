@@ -49,10 +49,39 @@ export const toneFor = (id: string): Tone => {
   return TONES[Math.abs(h) % TONES.length];
 };
 
+/**
+ * Content in the requested language, falling back to the other language
+ * when that translation is empty. Without the fallback an English-only
+ * story read in Romanian resolved to '' — which silently zeroed the word
+ * count and blanked the excerpt.
+ */
+const localizedContent = (article: Article, language: 'en' | 'ro'): string => {
+  const primary = getLocalized(article, 'content', language);
+  if (primary.trim()) return primary;
+  return getLocalized(article, 'content', language === 'en' ? 'ro' : 'en');
+};
+
+const WORDS_PER_MINUTE = 200;
+
+/**
+ * Estimated reading time in whole minutes.
+ *
+ * The chapter delimiter is stripped before counting. Chapters are joined
+ * without surrounding whitespace, so `end|||CHAPTER|||start` splits as one
+ * token — leaving it in merges the last word of each chapter with the first
+ * word of the next and undercounts by one per chapter boundary.
+ *
+ * The floor is 1 minute. It used to be 3, paired with a 220 wpm divisor,
+ * which meant every story under 770 words rounded down into the floor and
+ * displayed exactly "3 min read" — that covers most of the archive, so the
+ * number carried no information.
+ */
 export const readMinutes = (article: Article, language: 'en' | 'ro'): number => {
-  const text = getLocalized(article, 'content', language);
-  const words = text.split(/\s+/).filter(Boolean).length;
-  return Math.max(3, Math.round(words / 220));
+  const words = localizedContent(article, language)
+    .split(CHAPTER_DELIMITER).join(' ')
+    .split(/\s+/)
+    .filter(Boolean).length;
+  return Math.max(1, Math.ceil(words / WORDS_PER_MINUTE));
 };
 
 export const placeLabel = (article: Pick<Article, 'location'>): string =>
@@ -69,7 +98,7 @@ export const articleExcerpt = (
   language: 'en' | 'ro',
   maxLength: number
 ): string => {
-  const text = getLocalized(article, 'content', language)
+  const text = localizedContent(article, language)
     .split(CHAPTER_DELIMITER).join(' ')
     .replace(/[#*_>`]/g, ' ')
     .replace(/\s+/g, ' ')

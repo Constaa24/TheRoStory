@@ -17,6 +17,13 @@ interface PageHeadProps {
    * is self-referential (e.g. "/?page=2") instead of collapsing to "/".
    */
   canonical?: string;
+  /**
+   * og:type for this page. Defaults to "website"; article pages pass
+   * "article". This is a prop rather than something a caller can override
+   * via `children` because React does not de-duplicate <meta> tags — passing
+   * a second og:type as a child emits both, and crawlers read the first.
+   */
+  ogType?: "website" | "article";
   /** Any extra head children — JSON-LD scripts, link rels, etc. */
   children?: React.ReactNode;
 }
@@ -38,6 +45,7 @@ export const PageHead: React.FC<PageHeadProps> = ({
   imageUrl,
   language,
   canonical,
+  ogType = "website",
   children,
 }) => {
   const location = useLocation();
@@ -59,7 +67,7 @@ export const PageHead: React.FC<PageHeadProps> = ({
       <meta property="og:image:height" content="630" />
       <meta property="og:image:alt" content={title} />
       <meta property="og:url" content={canonicalUrl} />
-      <meta property="og:type" content="website" />
+      <meta property="og:type" content={ogType} />
       <meta property="og:site_name" content={SITE_NAME} />
       <meta property="og:locale" content={ogLocale} />
 

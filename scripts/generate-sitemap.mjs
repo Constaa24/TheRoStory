@@ -75,7 +75,10 @@ async function fetchPublishedArticles(supabaseUrl, anonKey) {
   let from = 0;
   while (true) {
     const to = from + PAGE - 1;
-    const endpoint = `${supabaseUrl}/rest/v1/articles?select=id,created_at,updated_at&is_published=eq.true&order=created_at.desc`;
+    // `id` tiebreaks the sort: created_at is not unique, and tied rows have
+    // no guaranteed relative order between requests, so paging without it
+    // can emit a URL twice or drop one from the sitemap entirely.
+    const endpoint = `${supabaseUrl}/rest/v1/articles?select=id,created_at,updated_at&is_published=eq.true&order=created_at.desc,id.asc`;
     // We don't read the count anywhere; using count=exact would force a
     // full COUNT(*) on the articles table for every paginated request.
     // Loop termination relies on `batch.length < PAGE`.
@@ -99,12 +102,27 @@ async function fetchPublishedArticles(supabaseUrl, anonKey) {
   return collected;
 }
 
+// Category landing pages (/category/:id). They are linked from the main nav
+// and the footer on every page but were absent from the sitemap entirely —
+// the only category URL listed was the /categories index.
+async function fetchCategories(supabaseUrl, anonKey) {
+  const res = await fetch(
+    `${supabaseUrl}/rest/v1/categories?select=id&order=name_en.asc`,
+    { headers: { apikey: anonKey, Authorization: `Bearer ${anonKey}` } }
+  );
+  if (!res.ok) {
+    throw new Error(`Supabase responded ${res.status}: ${await res.text()}`);
+  }
+  return res.json();
+}
+
 async function main() {
   await loadDotEnvIfNeeded();
   const supabaseUrl = process.env.VITE_SUPABASE_URL;
   const anonKey = process.env.VITE_SUPABASE_ANON_KEY;
 
   let articleEntries = [];
+  let categoryEntries = [];
 
   if (!supabaseUrl || !anonKey) {
     console.warn(
@@ -126,6 +144,18 @@ async function main() {
     } catch (err) {
       console.warn("[generate-sitemap] Failed to fetch articles:", err.message);
     }
+
+    try {
+      const categories = await fetchCategories(supabaseUrl, anonKey);
+      categoryEntries = categories.map((c) => ({
+        loc: `${SITE_URL}/category/${c.id}`,
+        changefreq: "weekly",
+        priority: "0.6",
+      }));
+      console.log(`[generate-sitemap] Included ${categoryEntries.length} category URLs.`);
+    } catch (err) {
+      console.warn("[generate-sitemap] Failed to fetch categories:", err.message);
+    }
   }
 
   const staticEntries = STATIC_ROUTES.map((r) => ({
@@ -137,7 +167,7 @@ async function main() {
   const xml = [
     '<?xml version="1.0" encoding="UTF-8"?>',
     '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
-    ...[...staticEntries, ...articleEntries].map(urlEntry),
+    ...[...staticEntries, ...categoryEntries, ...articleEntries].map(urlEntry),
     "</urlset>",
     "",
   ].join("\n");

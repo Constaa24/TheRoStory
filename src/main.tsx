@@ -1,7 +1,6 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
-import { MotionConfig } from "framer-motion";
 import App from "./App";
 import "./index.css";
 import { AuthProvider } from "./hooks/use-auth";
@@ -30,13 +29,16 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
       <LanguageProvider>
         <AuthProvider>
           <FavoritesProvider>
-            {/* reducedMotion="user" makes framer-motion honor the OS
-                prefers-reduced-motion setting (map zoom, page transitions
-                jump to their end state instead of animating). */}
-            <MotionConfig reducedMotion="user">
-              <App />
-              <Toaster />
-            </MotionConfig>
+            {/* framer-motion is deliberately NOT imported here. Importing it
+                at the entry point put the whole library (~41 kB gzipped) in
+                the eager bundle for every visitor, including the many routes
+                that never animate anything. The four pages that do use it
+                (Auth, AuthCallback, Map, Profile) are lazy-loaded and each
+                wrap themselves in <ReducedMotionConfig>, so the library now
+                loads only with those chunks. CSS-driven motion honors
+                prefers-reduced-motion via the media query in index.css. */}
+            <App />
+            <Toaster />
           </FavoritesProvider>
         </AuthProvider>
       </LanguageProvider>

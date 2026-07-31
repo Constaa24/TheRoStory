@@ -24,6 +24,16 @@ const CategoryDetail: React.FC = () => {
   const [totalCount, setTotalCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
+  // Tracked explicitly rather than derived from articles.length. The dedupe
+  // in loadMore can leave the list short of a page boundary (an article
+  // published mid-browse shifts the offset window), and the derived form
+  // then recomputed the *same* page — so "Load more" fetched rows it had
+  // already filtered out and appeared to do nothing.
+  const [loadedPages, setLoadedPages] = useState(1);
+  // End-of-data is decided by a short page from the server, not by comparing
+  // articles.length against totalCount. Those can disagree permanently once
+  // the dedupe drops a row, which left "Load more" visible forever.
+  const [reachedEnd, setReachedEnd] = useState(false);
 
   // Stable identity so StoryCard's React.memo can skip re-renders — an
   // inline object literal would defeat the shallow prop comparison.
@@ -35,6 +45,8 @@ const CategoryDetail: React.FC = () => {
     setIsLoading(true);
     setArticles([]);
     setTotalCount(0);
+    setLoadedPages(1);
+    setReachedEnd(false);
     const loadData = async () => {
       try {
         const [categoryRes, articlesPage] = await Promise.all([
@@ -47,6 +59,7 @@ const CategoryDetail: React.FC = () => {
         setCategory(toCamelCase<Category>(categoryRes.data));
         setArticles(articlesPage.articles);
         setTotalCount(articlesPage.total);
+        setReachedEnd(articlesPage.articles.length < CATEGORY_PAGE_SIZE);
       } catch (error) {
         if (!isAbortError(error)) console.error("Error loading category content:", error);
       } finally {
@@ -58,16 +71,18 @@ const CategoryDetail: React.FC = () => {
   }, [id, navigate]);
 
   const loadMore = async () => {
-    if (!id || isLoadingMore || articles.length >= totalCount) return;
+    if (!id || isLoadingMore || reachedEnd) return;
     setIsLoadingMore(true);
     try {
-      const nextPage = Math.floor(articles.length / CATEGORY_PAGE_SIZE) + 1;
+      const nextPage = loadedPages + 1;
       const { articles: more, total } = await fetchArticlesPage(nextPage, CATEGORY_PAGE_SIZE, id);
       setArticles(prev => {
         const seen = new Set(prev.map(a => a.id));
         return [...prev, ...more.filter(a => !seen.has(a.id))];
       });
       setTotalCount(total);
+      setLoadedPages(nextPage);
+      if (more.length < CATEGORY_PAGE_SIZE) setReachedEnd(true);
     } catch (error) {
       if (!isAbortError(error)) console.error("Error loading more articles:", error);
     } finally {
@@ -179,7 +194,7 @@ const CategoryDetail: React.FC = () => {
             </div>
           )}
 
-          {articles.length > 0 && articles.length < totalCount && (
+          {articles.length > 0 && !reachedEnd && (
             <div className="flex justify-center pt-16">
               <button
                 onClick={loadMore}
@@ -193,9 +208,12 @@ const CategoryDetail: React.FC = () => {
                     {language === 'en' ? 'Loading…' : 'Se încarcă…'}
                   </>
                 ) : (
+                  // Clamped: totalCount is the server's count for the whole
+                  // category, while articles.length reflects what survived
+                  // de-duplication, so the difference can drift negative.
                   language === 'en'
-                    ? `Load more (${totalCount - articles.length} remaining)`
-                    : `Încarcă mai multe (${totalCount - articles.length} rămase)`
+                    ? `Load more (${Math.max(0, totalCount - articles.length)} remaining)`
+                    : `Încarcă mai multe (${Math.max(0, totalCount - articles.length)} rămase)`
                 )}
               </button>
             </div>

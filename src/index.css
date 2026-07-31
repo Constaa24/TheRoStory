@@ -208,8 +208,10 @@ select:focus-visible,
 }
 
 /* Respect the OS "reduce motion" setting: neutralize CSS animations/transitions
-   (ticker, page fades, etc.). Framer-motion animations are handled separately
-   via <MotionConfig reducedMotion="user"> in main.tsx. */
+   (ticker, page fades, scroll-to-top, etc.). Framer-motion animations are
+   handled separately by <ReducedMotionConfig>, which the four lazy routes
+   that animate wrap themselves in — see
+   components/ui/reduced-motion-config.tsx. */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;
@@ -218,6 +220,41 @@ select:focus-visible,
     scroll-behavior: auto !important;
   }
   .ticker-track { animation: none !important; }
+}
+
+/* Keyboard focus for the map's county shapes. SVG elements don't render
+   `outline` reliably (Safari in particular), so the global :focus-visible
+   rule alone left keyboard users unable to see where they were. Draw the
+   ring on the child <path>'s stroke instead, which every engine honors. */
+.county-hit:focus-visible {
+  outline: none;
+}
+
+.county-hit:focus-visible path {
+  stroke: var(--gold);
+  stroke-width: 2.5;
+  paint-order: stroke;
+}
+
+/* Back-to-top button. Kept mounted and toggled with a class so it can
+   transition both in and out without framer-motion — see ScrollToTop.tsx.
+   The reduced-motion block above flattens the transition automatically. */
+.scroll-to-top {
+  position: fixed;
+  right: 2rem;
+  bottom: 2rem;
+  z-index: 100;
+  visibility: hidden;
+  opacity: 0;
+  transform: translateY(20px) scale(0.8);
+  transition: opacity 0.3s ease, transform 0.3s ease, visibility 0s linear 0.3s;
+}
+
+.scroll-to-top.is-visible {
+  visibility: visible;
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  transition: opacity 0.3s ease, transform 0.3s ease, visibility 0s;
 }
 
 /* Container & gutters */
@@ -473,6 +510,20 @@ select:focus-visible,
 .ed-form input:focus, .ed-form textarea:focus, .ed-form select:focus {
   outline: none;
   border-color: var(--gold);
+}
+
+/* Restore the keyboard focus ring the rule above suppresses.
+   `.ed-form input:focus` (0,2,1) out-specifies the global
+   `input:focus-visible` (0,1,1), so without this every field in every form
+   on the site — newsletter, contact, and all three story editors — showed
+   keyboard focus as nothing more than a faint border tint. Same specificity
+   as the rule above, so source order decides: this wins.
+   Pointer focus keeps the quieter border-only treatment. */
+.ed-form input:focus-visible,
+.ed-form textarea:focus-visible,
+.ed-form select:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
 }
 .ed-form label {
   font-family: var(--ui);

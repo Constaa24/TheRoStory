@@ -215,13 +215,21 @@ const Home: React.FC = () => {
   // when viewing the full archive. When a category is selected, treat the
   // request as a filter and route every article into the explore grid so users
   // don't get an empty section.
-  const showFeatured = selectedCategory === null && currentPage === 1 && articles.length >= 1;
+  // The featured spread needs a full set of three. With fewer published
+  // stories than that, promoting them all left the "Latest stories" section
+  // below rendering as a bare heading with no cards, no pager, and no empty
+  // state (that message is gated on articles.length > 0) — so a young archive
+  // showed a visibly broken section. Below the threshold, everything goes to
+  // the grid instead.
+  const FEATURED_COUNT = 3;
+  const showFeatured =
+    selectedCategory === null && currentPage === 1 && articles.length > FEATURED_COUNT;
   const featured = showFeatured ? articles[0] : undefined;
   const second = showFeatured ? articles[1] : undefined;
   const third = showFeatured ? articles[2] : undefined;
   // Articles shown in the featured spread are excluded from the grid below
   // so page 1 doesn't render the same three stories twice.
-  const latest = showFeatured ? articles.slice(3) : articles;
+  const latest = showFeatured ? articles.slice(FEATURED_COUNT) : articles;
 
   const tickerItems = language === 'en'
     ? ['Dacia · Wallachia · Moldavia', '1859 — The Small Union', 'Transilvania · Bucovina · Dobrogea', 'Folktales of the Carpathians', 'Wooden churches of Maramureș', 'Salt mines beneath the Apuseni']
@@ -274,10 +282,21 @@ const Home: React.FC = () => {
                 <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--gold)', boxShadow: '0 0 8px var(--gold)' }} />
                 {language === 'en' ? 'An archive of the Romanian imagination' : 'O arhivă a imaginației românești'}
               </div>
-              <div className="text-right font-ui text-[11px] uppercase shrink-0 whitespace-nowrap" style={{ letterSpacing: '0.18em', color: 'rgba(255, 255, 255, 0.7)' }}>
+              {/* Sits over the weakest part of the hero scrim (0.35 → 0.2),
+                  against the bright sky of the castle photo. The shadow was
+                  only on the second line, leaving the first hard to read
+                  there — apply it to both and lift the opacity. */}
+              <div
+                className="text-right font-ui text-[11px] uppercase shrink-0 whitespace-nowrap"
+                style={{
+                  letterSpacing: '0.18em',
+                  color: 'rgba(255, 255, 255, 0.85)',
+                  textShadow: '0 1px 3px rgba(0,0,0,0.8)',
+                }}
+              >
                 <div>{language === 'en' ? 'Stories' : 'Povești'}</div>
-                <div className="mt-1.5" style={{ color: '#f0e3c2', textShadow: '0 1px 3px rgba(0,0,0,0.8)' }}>
-                  {language === 'en' ? 'Online · 2026' : 'Online · 2026'}
+                <div className="mt-1.5" style={{ color: '#f0e3c2' }}>
+                  Online · 2026
                 </div>
               </div>
             </div>

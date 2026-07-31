@@ -17,8 +17,25 @@ const CATEGORY_IMAGES: Record<string, string> = {
   "art": "/categories/cat_art_new.png"
 };
 
-const getCategoryImage = (slug: string, index: number) => {
-  return CATEGORY_IMAGES[slug] || `/categories/cat_${(index % 2) + 1}.png`;
+const FALLBACK_IMAGES = Object.values(CATEGORY_IMAGES);
+
+/**
+ * Stable image for a category without its own mapping.
+ *
+ * Keyed on the slug rather than the list index: categories are ordered by
+ * name, so an index-based pick reshuffled the artwork of every unmapped
+ * category whenever one was added or renamed. It also drew from only
+ * cat_1/cat_2 — the artwork already assigned to "myths" and "traditions" —
+ * so a new category was guaranteed to look like a duplicate of an existing
+ * one. Hashing across the full set makes collisions possible but no longer
+ * certain, and keeps each category's image fixed over time.
+ */
+const getCategoryImage = (slug: string) => {
+  const mapped = CATEGORY_IMAGES[slug];
+  if (mapped) return mapped;
+  let h = 0;
+  for (let i = 0; i < slug.length; i++) h = ((h << 5) - h) + slug.charCodeAt(i);
+  return FALLBACK_IMAGES[Math.abs(h) % FALLBACK_IMAGES.length];
 };
 
 const Categories: React.FC = () => {
@@ -138,7 +155,7 @@ const Categories: React.FC = () => {
 
                       <div className="mb-6 relative overflow-hidden transition-transform group-hover:translate-y-[-2px]" style={{ aspectRatio: '16/9' }}>
                         <img
-                          src={getCategoryImage(category.slug || name.toLowerCase(), i)}
+                          src={getCategoryImage(category.slug || name.toLowerCase())}
                           alt={name}
                           loading="lazy"
                           decoding="async"

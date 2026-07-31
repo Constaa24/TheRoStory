@@ -4,6 +4,7 @@ import { useLanguage } from "@/hooks/use-language";
 import {
   Comment,
   fetchComments,
+  fetchCommentsThroughPage,
   postComment,
   deleteComment,
   updateComment,
@@ -92,13 +93,20 @@ export const ArticleComments: React.FC<Props> = ({ articleId }) => {
     };
   }, [articleId]);
 
+  /**
+   * Refreshes the comment list after a post / edit / delete.
+   *
+   * Keeps every page the reader had already loaded rather than collapsing
+   * back to page 0 — someone who had paged through three batches lost them
+   * all as soon as they replied to anything. Fetched as one widened range
+   * so this stays a single round-trip no matter how deep they had paged.
+   */
   const reloadComments = async (): Promise<boolean> => {
     try {
-      const data = await fetchComments(articleId, 0);
+      const data = await fetchCommentsThroughPage(articleId, commentsPage + 1);
       if (!mountedRef.current || currentArticleIdRef.current !== articleId) return false;
       setComments(data.comments);
       setCommentsTotal(data.total);
-      setCommentsPage(0);
       setLoadError(null);
       return true;
     } catch (error) {

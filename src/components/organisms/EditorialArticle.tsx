@@ -204,7 +204,11 @@ const TextArticle: React.FC<{ article: Article; category?: Category; views?: num
   const content = getLocalized(article, 'content', language);
   const chapters = useMemo(() => parseChapters(content).filter(Boolean), [content]);
   const tone = toneFor(article.id);
-  const cover = article.mediaUrl;
+  // Via the shared helper rather than article.mediaUrl directly: for a text
+  // story the helper falls back to posterUrl, so a story whose cover was set
+  // as a poster no longer renders with no lead image at all. Every other
+  // surface (cards, search, related) already resolved covers this way.
+  const cover = articleCoverUrl(article);
   const subtype: ArticleSubtype = (article.subtype as ArticleSubtype | null | undefined) || 'essay';
   // Essays and poems both lead each chapter with a styled first letter
   // (different class per subtype — see BodyContent). Short stories open

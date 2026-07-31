@@ -28,6 +28,7 @@ import { isAbortError } from "@/lib/utils";
 import { toneFor, articleExcerpt, articleCoverUrl } from "@/lib/article-utils";
 import { Camera, Loader2, Shield, Heart, ChevronRight, CheckCircle2, AlertCircle, Trash2, Download } from "lucide-react";
 import { motion } from "framer-motion";
+import { ReducedMotionConfig } from "@/components/ui/reduced-motion-config";
 import { PageHead } from "@/components/layout/PageHead";
 
 const Profile: React.FC = () => {
@@ -455,9 +456,14 @@ const Profile: React.FC = () => {
                           {language === 'en' ? 'Delete Account?' : 'Ștergi Contul?'}
                         </AlertDialogTitle>
                         <AlertDialogDescription>
+                          {/* Spells out the cascade (migration 20260511000000):
+                              deleting the account also deletes every story and
+                              comment written under it. Worth naming before an
+                              irreversible action — "all your data" was too
+                              vague for a writer with published work. */}
                           {language === 'en'
-                            ? 'Are you sure you want to permanently delete your account? This action cannot be undone and all your data will be lost.'
-                            : 'Ești sigur că vrei să ștergi permanent contul tău? Această acțiune nu poate fi anulată și toate datele tale vor fi pierdute.'}
+                            ? 'This permanently deletes your account and everything published under it — your stories, comments, favorites, and profile. Consider exporting your data first. This cannot be undone.'
+                            : 'Aceasta șterge permanent contul tău și tot ce ai publicat — poveștile, comentariile, favoritele și profilul. Ia în calcul exportarea datelor mai întâi. Acțiunea nu poate fi anulată.'}
                         </AlertDialogDescription>
                       </AlertDialogHeader>
                       <AlertDialogFooter>
@@ -608,4 +614,12 @@ const Profile: React.FC = () => {
   );
 };
 
-export default Profile;
+// See components/ui/reduced-motion-config.tsx — keeps framer-motion in this
+// lazy chunk rather than the app entry point.
+const ProfilePage: React.FC = () => (
+  <ReducedMotionConfig>
+    <Profile />
+  </ReducedMotionConfig>
+);
+
+export default ProfilePage;

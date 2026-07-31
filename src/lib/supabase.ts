@@ -167,15 +167,37 @@ export const fetchArticleCategoryCounts = async (): Promise<Record<string, numbe
   if (_categoryCountsCache && Date.now() - _categoryCountsCache.time < CACHE_TTL) {
     return _categoryCountsCache.data;
   }
-  const { data, error } = await supabase
-    .from('articles')
-    .select('category_id')
-    .eq('is_published', true);
-  if (error) throw error;
+
+  // Paged with .range(): PostgREST silently truncates an unbounded select at
+  // the project's `max-rows` (1000 by default), so the unpaged version began
+  // under-reporting every category the moment the archive passed 1000
+  // published stories — with no error to notice. Same approach as
+  // scripts/generate-sitemap.mjs.
+  const PAGE = 1000;
+  const MAX_PAGES = 100; // 100k published articles; a guard, not a real limit
   const counts: Record<string, number> = {};
-  (data || []).forEach((row: { category_id: string }) => {
-    counts[row.category_id] = (counts[row.category_id] || 0) + 1;
-  });
+
+  for (let page = 0; page < MAX_PAGES; page++) {
+    const from = page * PAGE;
+    const { data, error } = await supabase
+      .from('articles')
+      .select('category_id')
+      .eq('is_published', true)
+      // Ordered by the primary key so paging is deterministic. Postgres
+      // guarantees no row order without an ORDER BY, so consecutive .range()
+      // windows over an unordered query can overlap or skip rows — which
+      // would silently miscount rather than just truncate.
+      .order('id', { ascending: true })
+      .range(from, from + PAGE - 1);
+    if (error) throw error;
+
+    const rows = (data || []) as { category_id: string }[];
+    rows.forEach((row) => {
+      counts[row.category_id] = (counts[row.category_id] || 0) + 1;
+    });
+    if (rows.length < PAGE) break;
+  }
+
   _categoryCountsCache = { data: counts, time: Date.now() };
   return counts;
 };
@@ -191,15 +213,36 @@ export const fetchArticleCategoryCounts = async (): Promise<Record<string, numbe
  * hundreds of KB per page load.
  */
 export const fetchMapArticles = async (): Promise<Article[]> => {
-  const { data, error } = await supabase
-    .from('articles')
-    .select('id, title_en, title_ro, type, subtype, media_url, poster_url, media_urls, location, category_id, user_id, is_published, created_at')
-    .eq('is_published', true)
-    .not('location', 'is', null)
-    .order('created_at', { ascending: false })
-    .limit(2000);
-  if (error) throw error;
-  return toCamelCaseArray<Article>(data || []);
+  // Paged rather than a flat .limit(2000): the map derives per-county counts
+  // from these rows, so a truncated result silently under-reports every
+  // county once the located archive passes the cap — with nothing to signal
+  // it. PostgREST also caps unbounded selects at `max-rows` (1000 by
+  // default), which is below the old limit anyway.
+  const PAGE = 1000;
+  const MAX_PAGES = 50; // 50k located articles; a guard, not a real limit
+  const rows: Record<string, unknown>[] = [];
+
+  for (let page = 0; page < MAX_PAGES; page++) {
+    const from = page * PAGE;
+    const { data, error } = await supabase
+      .from('articles')
+      .select('id, title_en, title_ro, type, subtype, media_url, poster_url, media_urls, location, category_id, user_id, is_published, created_at')
+      .eq('is_published', true)
+      .not('location', 'is', null)
+      .order('created_at', { ascending: false })
+      // Tiebreaker on the primary key: created_at is not unique, and rows
+      // sharing a timestamp can land in a different relative order per
+      // query, which lets a row appear twice or not at all across pages.
+      .order('id', { ascending: true })
+      .range(from, from + PAGE - 1);
+    if (error) throw error;
+
+    const batch = data || [];
+    rows.push(...batch);
+    if (batch.length < PAGE) break;
+  }
+
+  return toCamelCaseArray<Article>(rows);
 };
 
 /**
@@ -286,10 +329,17 @@ export const fetchAdminArticlesPage = async (
   const start = (safePage - 1) * safeSize;
   const end = start + safeSize - 1;
 
+  // The dashboard table renders title / category / type / status only, and
+  // the delete path needs the media URLs for storage cleanup. It never shows
+  // an excerpt, so both full content columns were pure waste — 20 rows x 2
+  // languages x up to 50k chars per page load. The editors load the full row
+  // separately via fetchAnyArticle().
   let query = supabase
     .from('articles')
-    .select('*', { count: 'exact' })
-    .order('created_at', { ascending: false });
+    .select(ARTICLE_CARD_COLUMNS, { count: 'exact' })
+    .order('created_at', { ascending: false })
+    // See PAGINATION_TIEBREAKER note above fetchArticlesPage.
+    .order('id', { ascending: true });
   if (ownerId) query = query.eq('user_id', ownerId);
 
   const { data, error, count } = await query.range(start, end);
@@ -490,10 +540,26 @@ const escapePostgrestLikeTerm = (term: string): string =>
     // PostgREST OR-filter syntax separators
     .replace(/[,():*]/g, ' ');
 
+/**
+ * Shortest query `searchArticles` will run.
+ *
+ * Not arbitrary: migration 20260630000000 added pg_trgm GIN indexes so the
+ * leading-wildcard ILIKE search is index-assisted. A trigram index can only
+ * serve patterns with at least three characters between the wildcards, so
+ * `%a%` and `%ab%` fall back to a sequential scan across both full content
+ * columns of every published article. The search box fires on a 300ms
+ * debounce, which means a single keystroke was enough to trigger one.
+ * Exported so the UI can explain the threshold instead of showing an
+ * inaccurate "no results".
+ */
+export const SEARCH_MIN_LENGTH = 3;
+
 export const searchArticles = async (query: string, limit = 6): Promise<Article[]> => {
   if (!query.trim()) return [];
-  const q = escapePostgrestLikeTerm(query.trim());
-  if (!q.trim()) return [];
+  const q = escapePostgrestLikeTerm(query.trim()).trim();
+  // Check the length *after* sanitizing: the escaper turns PostgREST
+  // separators into spaces, so "a,b" is a 3-char input but a 1-char term.
+  if (q.length < SEARCH_MIN_LENGTH) return [];
   // Card columns only — the search overlay renders title + category +
   // thumbnail, so pulling both full content columns per hit was waste.
   const { data, error } = await supabase
@@ -508,6 +574,17 @@ export const searchArticles = async (query: string, limit = 6): Promise<Article[
   return toCamelCaseArray<Article>(data || []);
 };
 
+/**
+ * PAGINATION_TIEBREAKER
+ *
+ * Every paged query in this file sorts by `created_at` and then by `id`.
+ * `created_at` is not unique — a bulk import or two quick saves can share a
+ * timestamp — and Postgres makes no promise about the relative order of tied
+ * rows between queries. Without the tiebreaker, a row can appear on two
+ * consecutive pages or on neither, which surfaces as a duplicate card or a
+ * story that is simply missing from the grid. `id` is the primary key, so it
+ * makes the total order deterministic at no meaningful cost.
+ */
 export const fetchArticlesPage = async (
   page: number,
   pageSize: number,
@@ -520,7 +597,8 @@ export const fetchArticlesPage = async (
     .from('articles')
     .select('*', { count: 'exact' })
     .eq('is_published', true)
-    .order('created_at', { ascending: false });
+    .order('created_at', { ascending: false })
+    .order('id', { ascending: true });
 
   if (categoryId) {
     query = query.eq('category_id', categoryId);
@@ -531,22 +609,34 @@ export const fetchArticlesPage = async (
   return { articles: toCamelCaseArray<Article>(data || []), total: count ?? 0 };
 };
 
-export const fetchRandomArticle = async (): Promise<Article | null> => {
+/**
+ * Picks a random published article.
+ *
+ * Only the id is selected — the sole caller navigates to /article/:id, which
+ * fetches the row itself. The previous version pulled every column of the
+ * chosen row, including both full content columns, and discarded all of it.
+ */
+export const fetchRandomArticle = async (): Promise<{ id: string } | null> => {
   try {
     const { count } = await supabase
       .from('articles')
-      .select('*', { count: 'exact', head: true })
+      .select('id', { count: 'exact', head: true })
       .eq('is_published', true);
     if (!count) return null;
     const offset = Math.floor(Math.random() * count);
     const { data, error } = await supabase
       .from('articles')
-      .select('*')
+      .select('id')
       .eq('is_published', true)
+      // Ordered so the offset maps to a well-defined row. Without it the
+      // pick is uniform only over whatever order the planner happened to
+      // produce, and an unordered OFFSET is not guaranteed to return a row
+      // at all. See PAGINATION_TIEBREAKER.
+      .order('id', { ascending: true })
       .range(offset, offset)
-      .single();
-    if (error || !data) return null;
-    return toCamelCase<Article>(data);
+      .maybeSingle();
+    if (error || !data?.id) return null;
+    return { id: data.id };
   } catch {
     return null;
   }
@@ -621,6 +711,7 @@ export const fetchComments = async (
       .select('*', { count: 'exact' })
       .eq('article_id', articleId)
       .order('created_at', { ascending: false })
+      .order('id', { ascending: true })
       .range(start, end);
 
     if (error) throw error;
@@ -631,6 +722,41 @@ export const fetchComments = async (
   } catch (error) {
     if (!isAbortError(error)) {
       console.error("Error fetching comments from Supabase:", error);
+      throw error;
+    }
+    return { comments: [], total: 0 };
+  }
+};
+
+/**
+ * Re-fetches the first `pageCount` pages of comments as a single query.
+ *
+ * Used when refreshing after a post/edit/delete: the reader may have paged
+ * through several batches, and issuing one request per loaded page turned a
+ * single reply into N round-trips. One widened range covers the same rows.
+ */
+export const fetchCommentsThroughPage = async (
+  articleId: string,
+  pageCount: number
+): Promise<{ comments: Comment[]; total: number }> => {
+  const pages = Math.max(1, Math.floor(pageCount));
+  try {
+    const { data, error, count } = await supabase
+      .from('comments')
+      .select('*', { count: 'exact' })
+      .eq('article_id', articleId)
+      .order('created_at', { ascending: false })
+      .order('id', { ascending: true })
+      .range(0, pages * COMMENTS_PAGE_SIZE - 1);
+
+    if (error) throw error;
+    return {
+      comments: toCamelCaseArray<Comment>(data || []),
+      total: count ?? 0,
+    };
+  } catch (error) {
+    if (!isAbortError(error)) {
+      console.error("Error refreshing comments from Supabase:", error);
       throw error;
     }
     return { comments: [], total: 0 };

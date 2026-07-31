@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from "react";
 
 type Language = "en" | "ro";
 
@@ -130,7 +130,12 @@ const translations = {
     "admin.users.deleted": "User deleted",
     "admin.users.errDelete": "Error deleting user",
     "admin.users.deleteTitle": "Delete this user?",
-    "admin.users.deleteDesc": "This will permanently remove the user account. This action cannot be undone.",
+    // Names the cascade explicitly. articles.user_id and comments.user_id are
+    // ON DELETE CASCADE (migration 20260511000000), so deleting an account
+    // also deletes everything that user published — including live stories.
+    // The old copy said only "the user account", which understated it badly
+    // for an irreversible action.
+    "admin.users.deleteDesc": "This permanently deletes the account AND everything it published — all of this user's stories (including published ones), comments, and favorites. This cannot be undone.",
     "admin.users.deleteSelf": "You cannot delete yourself",
     "admin.users.roleUpdated": "User role updated",
     "admin.users.errRoleUpdate": "Error updating role",
@@ -186,6 +191,8 @@ const translations = {
     "auth.resetLinkFailed": "Failed to send reset link",
     "auth.passwordUpdated": "Password updated successfully! You can now login.",
     "auth.passwordResetFailed": "Failed to reset password",
+    "auth.rateLimited": "Too many attempts. Please wait a few minutes and try again.",
+    "auth.passwordSameAsOld": "Your new password must be different from your current one.",
     "auth.checkEmail": "Check your email",
     "auth.verificationSentTo": "We sent a verification link to",
     "auth.didntGetEmail": "Didn't receive it? Check your spam folder first.",
@@ -334,7 +341,7 @@ const translations = {
     "admin.users.deleted": "Utilizator șters",
     "admin.users.errDelete": "Eroare la ștergerea utilizatorului",
     "admin.users.deleteTitle": "Ștergi acest utilizator?",
-    "admin.users.deleteDesc": "Aceasta va șterge permanent contul. Acțiunea nu poate fi anulată.",
+    "admin.users.deleteDesc": "Aceasta șterge permanent contul ȘI tot ce a publicat — toate poveștile acestui utilizator (inclusiv cele publicate), comentariile și favoritele. Acțiunea nu poate fi anulată.",
     "admin.users.deleteSelf": "Nu te poți șterge pe tine însuți",
     "admin.users.roleUpdated": "Rol actualizat",
     "admin.users.errRoleUpdate": "Eroare la actualizarea rolului",
@@ -390,6 +397,8 @@ const translations = {
     "auth.resetLinkFailed": "Trimiterea link-ului a eșuat",
     "auth.passwordUpdated": "Parola a fost actualizată cu succes! Te poți autentifica.",
     "auth.passwordResetFailed": "Resetarea parolei a eșuat",
+    "auth.rateLimited": "Prea multe încercări. Te rugăm să aștepți câteva minute.",
+    "auth.passwordSameAsOld": "Noua parolă trebuie să fie diferită de cea curentă.",
     "auth.checkEmail": "Verifică-ți email-ul",
     "auth.verificationSentTo": "Am trimis un link de verificare la",
     "auth.didntGetEmail": "Nu l-ai primit? Verifică mai întâi folderul spam.",
@@ -449,7 +458,7 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   }, [language]);
 
-  const t = (key: TranslationKey) => {
+  const t = useCallback((key: TranslationKey) => {
     // Fall back to English when a key is missing in the active language so a
     // gap in one dictionary shows readable text instead of a blank. (Key
     // validity itself is enforced at compile time via TranslationKey.)
@@ -461,10 +470,14 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       return '';
     }
     return value;
-  };
+  }, [language]);
+
+  // Stable identity so consumers don't re-render on unrelated provider
+  // renders; `t` is memoized above for the same reason.
+  const value = useMemo(() => ({ language, setLanguage, t }), [language, t]);
 
   return (
-    <LanguageContext.Provider value={{ language, setLanguage, t }}>
+    <LanguageContext.Provider value={value}>
       {children}
     </LanguageContext.Provider>
   );

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
+import { ReducedMotionConfig } from "@/components/ui/reduced-motion-config";
 import * as topojson from "topojson-client";
 import * as d3 from "d3-geo";
 import countiesTopoData from "@/lib/counties_topo";
@@ -323,7 +324,11 @@ const MapPage: React.FC = () => {
                               if (isAnimating) return;
                               if (e.key === "Enter" || e.key === " ") { e.preventDefault(); handleLocationClick(id); }
                             }}
-                            className={cn("cursor-pointer outline-none", isAnimating && "pointer-events-none")}
+                            // county-hit carries a stroke-based focus ring:
+                            // `outline` on SVG elements is unreliable in
+                            // Safari, so the global :focus-visible outline
+                            // left keyboard users with no visible focus.
+                            className={cn("county-hit cursor-pointer outline-none", isAnimating && "pointer-events-none")}
                             style={{ transition: 'fill-opacity .2s' }}
                           >
                             <path
@@ -580,4 +585,12 @@ const Stat: React.FC<{ value: React.ReactNode; label: string }> = ({ value, labe
   </div>
 );
 
-export default MapPage;
+// See components/ui/reduced-motion-config.tsx — keeps framer-motion in this
+// lazy chunk rather than the app entry point.
+const MapPageWithMotion: React.FC = () => (
+  <ReducedMotionConfig>
+    <MapPage />
+  </ReducedMotionConfig>
+);
+
+export default MapPageWithMotion;
