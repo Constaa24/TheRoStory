@@ -12,7 +12,10 @@ import {
   updateUserRole as updateUserRoleFunc,
   deleteStorageFile,
   extractStoragePath,
+  fetchOrphanedMedia,
+  purgeOrphanedMedia,
 } from "@/lib/supabase";
+import type { OrphanedMediaReport } from "@/lib/supabase";
 import { supabase } from "@/lib/supabase";
 import { useLanguage } from "@/hooks/use-language";
 import { useAuth } from "@/hooks/use-auth";
@@ -53,7 +56,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Plus, Trash2, Edit, Check, X, Loader2, Lock, Users, FileText, Tag, ShieldCheck, CheckCircle2, XCircle, Video, BookText, Images } from "lucide-react";
+import { Plus, Trash2, Edit, Check, X, Loader2, Lock, Users, FileText, Tag, ShieldCheck, CheckCircle2, XCircle, Video, BookText, Images, HardDrive } from "lucide-react";
 import { PageHead } from "@/components/layout/PageHead";
 import { toast } from "sonner";
 import { cn, isAbortError } from "@/lib/utils";
@@ -337,6 +340,66 @@ const AdminDashboard: React.FC = () => {
     });
   };
 
+  // Storage maintenance: unreferenced files in the `articles` bucket.
+  // The editors clean up on save and on unmount, but a tab closed
+  // mid-edit skips the unmount handler, so the bucket drifts over time
+  // with nothing in the app able to notice. admin-api does the scan
+  // (see list_orphaned_article_media, migration 20260813010000) and only
+  // considers files older than a day, so live drafts are never at risk.
+  const [orphanReport, setOrphanReport] = useState<OrphanedMediaReport | null>(null);
+  const [orphanScanning, setOrphanScanning] = useState(false);
+  const [orphanPurging, setOrphanPurging] = useState(false);
+
+  const formatBytes = (bytes: number) => {
+    if (bytes < 1024) return `${bytes} B`;
+    const units = ["KB", "MB", "GB"];
+    let value = bytes / 1024;
+    let unit = 0;
+    while (value >= 1024 && unit < units.length - 1) {
+      value /= 1024;
+      unit += 1;
+    }
+    return `${value.toFixed(value >= 10 || unit === 0 ? 0 : 1)} ${units[unit]}`;
+  };
+
+  const handleScanOrphans = async () => {
+    if (!isAdmin) return;
+    setOrphanScanning(true);
+    try {
+      setOrphanReport(await fetchOrphanedMedia());
+    } catch (error) {
+      console.error("Error scanning for orphaned media:", error);
+      toast.error(t("admin.storage.errScan"));
+    } finally {
+      setOrphanScanning(false);
+    }
+  };
+
+  const requestPurgeOrphans = () => {
+    if (!isAdmin || !orphanReport?.count) return;
+    setConfirmDialog({
+      title: t("admin.storage.purgeTitle"),
+      description: t("admin.storage.purgeDesc"),
+      confirmLabel: t("admin.common.delete"),
+      cancelLabel: t("admin.common.cancel"),
+      onConfirm: async () => {
+        setOrphanPurging(true);
+        try {
+          const result = await purgeOrphanedMedia();
+          toast.success(`${t("admin.storage.purged")} ${result.removed} · ${formatBytes(result.freedBytes)}`);
+          // Re-scan rather than assuming the bucket is empty of orphans:
+          // remove() reports per-file outcomes and some may have failed.
+          setOrphanReport(await fetchOrphanedMedia());
+        } catch (error) {
+          console.error("Error purging orphaned media:", error);
+          toast.error(t("admin.storage.errPurge"));
+        } finally {
+          setOrphanPurging(false);
+        }
+      },
+    });
+  };
+
   const requestDeleteCategory = (catId: string) => {
     setConfirmDialog({
       title: t("admin.categories.deleteTitle"),
@@ -544,6 +607,67 @@ const AdminDashboard: React.FC = () => {
                 </ul>
               </div>
             </div>
+          </Card>
+
+          <Card className="p-4 sm:p-8 border-none shadow-elegant bg-background/50 backdrop-blur-sm">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="p-2 bg-secondary rounded-xl">
+                <HardDrive className="h-5 w-5 text-muted-foreground" />
+              </div>
+              <h3 className="text-base sm:text-lg font-serif italic">{t("admin.storage.heading")}</h3>
+            </div>
+            <p className="text-sm text-muted-foreground mb-6">{t("admin.storage.subheading")}</p>
+
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+              <Button
+                variant="outline"
+                onClick={handleScanOrphans}
+                disabled={orphanScanning || orphanPurging}
+                className="rounded-full"
+              >
+                {orphanScanning
+                  ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />{t("admin.storage.scanning")}</>
+                  : <><HardDrive className="h-4 w-4 mr-2" />{t("admin.storage.scan")}</>}
+              </Button>
+
+              {orphanReport && orphanReport.count > 0 && (
+                <Button
+                  variant="destructive"
+                  onClick={requestPurgeOrphans}
+                  disabled={orphanScanning || orphanPurging}
+                  className="rounded-full"
+                >
+                  {orphanPurging
+                    ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />{t("admin.storage.purging")}</>
+                    : <><Trash2 className="h-4 w-4 mr-2" />{t("admin.storage.purge")}</>}
+                </Button>
+              )}
+            </div>
+
+            {orphanReport && (
+              <div className="mt-6 text-sm">
+                {orphanReport.count === 0 ? (
+                  <p className="flex items-center gap-2 text-muted-foreground">
+                    <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" />
+                    {t("admin.storage.clean")}
+                  </p>
+                ) : (
+                  <>
+                    <p className="font-bold mb-3">
+                      {orphanReport.count} {t("admin.storage.found")} · {formatBytes(orphanReport.totalBytes)}
+                    </p>
+                    <ul className="space-y-1 max-h-56 overflow-y-auto text-muted-foreground font-mono text-xs">
+                      {orphanReport.files.map((file) => (
+                        <li key={file.name} className="flex justify-between gap-4">
+                          <span className="truncate">{file.name}</span>
+                          <span className="shrink-0">{formatBytes(file.bytes)}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </>
+                )}
+              </div>
+            )}
           </Card>
         </TabsContent>
 

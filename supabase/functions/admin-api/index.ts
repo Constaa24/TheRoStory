@@ -357,6 +357,85 @@ Deno.serve(async (req) => {
       return jsonResponse(200, { success: true }, corsHeaders)
     }
 
+    // Storage housekeeping. The editors clean up after themselves on save
+    // and on unmount, but that unmount handler never runs if the tab is
+    // killed mid-edit, and everything uploaded before those handlers
+    // existed is still sitting in the bucket. list_orphaned_article_media
+    // (migration 20260813010000) is the join nothing else does: bucket
+    // objects that no media_url / poster_url / media_urls points at.
+    //
+    // Deletion goes through the Storage API, never `delete from
+    // storage.objects` — the SQL path drops the metadata row and leaves
+    // the bytes behind in S3, still billed, now invisible.
+    if (action === 'listOrphanedMedia' || action === 'purgeOrphanedMedia') {
+      // Grace period, so a file uploaded into a draft that hasn't been
+      // saved yet is never a candidate. Floor of 1h even if the caller
+      // asks for less; a year is plenty of ceiling.
+      const rawMinAge = Number(body.minAgeHours)
+      const minAgeHours = Number.isFinite(rawMinAge)
+        ? Math.min(8760, Math.max(1, Math.floor(rawMinAge)))
+        : 24
+
+      const { data: orphanData, error: orphanError } = await adminClient
+        .rpc('list_orphaned_article_media', { p_min_age_hours: minAgeHours })
+      if (orphanError) throw orphanError
+
+      type OrphanRow = { object_name: string; size_bytes: number | string; last_modified: string }
+      const orphans = (orphanData ?? []) as OrphanRow[]
+      const bytesOf = (row: OrphanRow) => Number(row.size_bytes ?? 0)
+      const totalBytes = orphans.reduce((sum, row) => sum + bytesOf(row), 0)
+
+      if (action === 'listOrphanedMedia') {
+        return jsonResponse(200, {
+          minAgeHours,
+          count: orphans.length,
+          totalBytes,
+          files: orphans.map((row) => ({
+            name: row.object_name,
+            bytes: bytesOf(row),
+            lastModified: row.last_modified,
+          })),
+        }, corsHeaders)
+      }
+
+      // remove() takes a batch of paths per call; keep batches modest so a
+      // single failure doesn't take the whole sweep down with it.
+      const REMOVE_BATCH = 100
+      const bytesByName = new Map(orphans.map((row) => [row.object_name, bytesOf(row)]))
+      const removedNames: string[] = []
+      const failedNames: string[] = []
+
+      for (let i = 0; i < orphans.length; i += REMOVE_BATCH) {
+        const batch = orphans.slice(i, i + REMOVE_BATCH).map((row) => row.object_name)
+        const { data: removed, error: removeError } = await adminClient.storage
+          .from('articles')
+          .remove(batch)
+        if (removeError) {
+          console.error('purgeOrphanedMedia batch failed', removeError.message)
+          failedNames.push(...batch)
+          continue
+        }
+        const removedInBatch = (removed ?? []).map((entry) => entry.name)
+        removedNames.push(...removedInBatch)
+        // Storage reports only what it actually deleted; anything the
+        // batch asked for but didn't come back is still there.
+        const deleted = new Set(removedInBatch)
+        failedNames.push(...batch.filter((name) => !deleted.has(name)))
+      }
+
+      const freedBytes = removedNames.reduce((sum, name) => sum + (bytesByName.get(name) ?? 0), 0)
+      console.log(`purgeOrphanedMedia: removed ${removedNames.length}/${orphans.length} objects, freed ${freedBytes} bytes`)
+
+      return jsonResponse(200, {
+        minAgeHours,
+        candidates: orphans.length,
+        removed: removedNames.length,
+        failed: failedNames.length,
+        freedBytes,
+        totalBytes,
+      }, corsHeaders)
+    }
+
     return jsonResponse(400, { error: 'Unknown action' }, corsHeaders)
 
   } catch (error) {

@@ -521,55 +521,40 @@ export const fetchCategories = async (): Promise<Category[]> => {
 };
 
 /**
- * Sanitize a user-supplied search term for use inside PostgREST `or()` filters.
- *
- * PostgREST parses the string itself (commas separate clauses, parentheses
- * group, colons delimit operators, `*` is a wildcard). It also passes the
- * value through to PostgreSQL `ILIKE`, where `%` and `_` are wildcards and
- * `\` is the escape char.
- *
- * Without escaping, a user typing `a, b` would silently turn one filter into
- * two, and a query containing `(` could break the whole request.
- */
-const escapePostgrestLikeTerm = (term: string): string =>
-  term
-    // ILIKE escape char first, so we don't double-escape the next two
-    .replace(/\\/g, '\\\\')
-    .replace(/%/g, '\\%')
-    .replace(/_/g, '\\_')
-    // PostgREST OR-filter syntax separators
-    .replace(/[,():*]/g, ' ');
-
-/**
  * Shortest query `searchArticles` will run.
  *
- * Not arbitrary: migration 20260630000000 added pg_trgm GIN indexes so the
- * leading-wildcard ILIKE search is index-assisted. A trigram index can only
- * serve patterns with at least three characters between the wildcards, so
- * `%a%` and `%ab%` fall back to a sequential scan across both full content
- * columns of every published article. The search box fires on a 300ms
- * debounce, which means a single keystroke was enough to trigger one.
- * Exported so the UI can explain the threshold instead of showing an
- * inaccurate "no results".
+ * Not arbitrary: the article search runs on pg_trgm GIN indexes, and a
+ * trigram index can only serve patterns with at least three characters
+ * between the wildcards — `%a%` and `%ab%` fall back to a sequential scan
+ * across both full content columns of every published article. The search
+ * box fires on a 300ms debounce, which means a single keystroke was enough
+ * to trigger one. Exported so the UI can explain the threshold instead of
+ * showing an inaccurate "no results". search_articles() enforces the same
+ * floor server-side.
  */
 export const SEARCH_MIN_LENGTH = 3;
 
+/**
+ * Accent-insensitive search over published articles.
+ *
+ * Runs through the `search_articles` RPC (migration 20260813020000) rather
+ * than a PostgREST filter chain, because the match has to fold diacritics on
+ * both sides — on a Romanian archive, "Marasesti" must find "Mărășești" —
+ * and PostgREST can't call unaccent() inside a filter.
+ *
+ * Moving into the database also removes a whole class of escaping problems:
+ * the term is a bound parameter, so PostgREST's own syntax (commas splitting
+ * clauses, parentheses grouping) never sees it, and the function escapes the
+ * LIKE metacharacters itself. The RPC returns the card column set, so the
+ * content columns it searches are never sent back over the wire.
+ */
 export const searchArticles = async (query: string, limit = 6): Promise<Article[]> => {
-  if (!query.trim()) return [];
-  const q = escapePostgrestLikeTerm(query.trim()).trim();
-  // Check the length *after* sanitizing: the escaper turns PostgREST
-  // separators into spaces, so "a,b" is a 3-char input but a 1-char term.
+  const q = query.trim();
   if (q.length < SEARCH_MIN_LENGTH) return [];
-  // Card columns only — the search overlay renders title + category +
-  // thumbnail, so pulling both full content columns per hit was waste.
-  const { data, error } = await supabase
-    .from('articles')
-    .select(ARTICLE_CARD_COLUMNS)
-    .eq('is_published', true)
-    .or(
-      `title_en.ilike.%${q}%,title_ro.ilike.%${q}%,content_en.ilike.%${q}%,content_ro.ilike.%${q}%,location.ilike.%${q}%`
-    )
-    .limit(limit);
+  const { data, error } = await supabase.rpc('search_articles', {
+    p_query: q,
+    p_limit: limit,
+  });
   if (error) throw error;
   return toCamelCaseArray<Article>(data || []);
 };
@@ -999,6 +984,68 @@ export const deleteUser = async (id: string) => {
     console.error("Error deleting user via Supabase:", error);
     return false;
   }
+};
+
+/**
+ * Storage housekeeping (admin only).
+ *
+ * Files in the `articles` bucket that no article references — a media
+ * upload whose article was never saved, or whose article has since been
+ * deleted or re-uploaded. The editors handle the cases they can see, but
+ * a tab closed mid-edit skips their cleanup, so the bucket still drifts.
+ *
+ * Both calls go through admin-api, which runs the detection query with a
+ * grace period (`minAgeHours`, default 24) so an in-progress draft's
+ * upload is never a candidate.
+ */
+export type OrphanedMediaFile = {
+  name: string;
+  bytes: number;
+  lastModified: string;
+};
+
+export type OrphanedMediaReport = {
+  minAgeHours: number;
+  count: number;
+  totalBytes: number;
+  files: OrphanedMediaFile[];
+};
+
+export type OrphanedMediaPurgeResult = {
+  minAgeHours: number;
+  candidates: number;
+  removed: number;
+  failed: number;
+  freedBytes: number;
+  totalBytes: number;
+};
+
+export const fetchOrphanedMedia = async (minAgeHours = 24): Promise<OrphanedMediaReport> => {
+  const data = await invokeAdminApi<Partial<OrphanedMediaReport>>({
+    action: 'listOrphanedMedia',
+    minAgeHours,
+  });
+  return {
+    minAgeHours: data?.minAgeHours ?? minAgeHours,
+    count: data?.count ?? 0,
+    totalBytes: data?.totalBytes ?? 0,
+    files: data?.files ?? [],
+  };
+};
+
+export const purgeOrphanedMedia = async (minAgeHours = 24): Promise<OrphanedMediaPurgeResult> => {
+  const data = await invokeAdminApi<Partial<OrphanedMediaPurgeResult>>({
+    action: 'purgeOrphanedMedia',
+    minAgeHours,
+  });
+  return {
+    minAgeHours: data?.minAgeHours ?? minAgeHours,
+    candidates: data?.candidates ?? 0,
+    removed: data?.removed ?? 0,
+    failed: data?.failed ?? 0,
+    freedBytes: data?.freedBytes ?? 0,
+    totalBytes: data?.totalBytes ?? 0,
+  };
 };
 
 export const deleteOwnAccount = async (): Promise<boolean> => {
