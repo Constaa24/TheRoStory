@@ -82,10 +82,10 @@ npm run build
 
 ```bash
 npm run dev          # Start Vite dev server
-npm run build        # Production build (regenerates public/sitemap.xml first)
+npm run build        # Production build
 npm run preview      # Preview production build
 npm run lint         # Run all linting (TypeScript, ESLint, Stylelint)
-npm run lint:types   # TypeScript typecheck (src + middleware.ts/scripts)
+npm run lint:types   # TypeScript typecheck (src + middleware.ts/api)
 npm run lint:js      # ESLint only
 npm run lint:css     # Stylelint only
 npm run lint:edge    # Type-check the Deno edge functions (requires Deno)

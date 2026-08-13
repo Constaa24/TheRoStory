@@ -21,8 +21,11 @@ export default defineConfig({
         // The auth callback exchanges PKCE codes against Supabase and must
         // hit the network — never serve a cached HTML shell here. Same for
         // anything under /admin/ where a stale shell could mismatch the
-        // current role.
-        navigateFallbackDenylist: [/^\/auth\/callback/, /^\/admin/],
+        // current role. /sitemap.xml is served by api/sitemap.ts: crawlers
+        // never run a service worker so they always got the real XML, but
+        // without this a human opening the URL in an SW-controlled tab is
+        // handed the SPA shell instead.
+        navigateFallbackDenylist: [/^\/auth\/callback/, /^\/admin/, /^\/sitemap\.xml$/],
         // Don't fetch a navigation fallback for cross-origin requests.
         navigateFallback: '/index.html',
         runtimeCaching: [
