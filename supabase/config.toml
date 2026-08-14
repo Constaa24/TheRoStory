@@ -146,6 +146,15 @@ max_indexes = 5
 # Vector Buckets is available to Supabase Pro plan.
 # [storage.vector.buckets.documents-openai]
 
+# ⚠ DO NOT RUN `supabase config push`.
+#
+# This section describes the LOCAL dev stack, not production. `config push`
+# is the only config subcommand the CLI has (there is no pull/read), and it
+# overwrites the linked project's auth settings with everything below —
+# which would point production's site_url at localhost, replace the real
+# redirect allowlist with the localhost entries, and turn off email
+# confirmations. Production auth is managed in the Supabase dashboard and
+# cannot be read back from here; treat the dashboard as the source of truth.
 [auth]
 enabled = true
 # The base URL of your website. Used as an allow-list for redirects and for constructing URLs used
