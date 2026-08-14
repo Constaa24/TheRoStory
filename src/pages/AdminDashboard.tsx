@@ -246,6 +246,12 @@ const AdminDashboard: React.FC = () => {
         .eq('id', article.id);
 
       if (error) throw error;
+      // Publishing changes what the public sees, and fetchArticleCategoryCounts
+      // filters on is_published — so its cached counts are wrong the moment
+      // this succeeds. Invalidate here rather than relying on fetchData() to
+      // do it: that coupling holds today, but it breaks silently the first
+      // time someone optimizes this to patch local state instead of refetching.
+      invalidatePublicContentCache();
       fetchData();
       toast.success(newValue ? t("admin.articles.publishedToast") : t("admin.articles.unpublishedToast"));
     } catch {
@@ -267,6 +273,12 @@ const AdminDashboard: React.FC = () => {
 
       const { error } = await supabase.from('articles').delete().eq('id', id);
       if (error) throw error;
+
+      // Must happen here, not in fetchData(). Deleting the last row of a page
+      // past the first takes the setArticlesPage branch below, which refetches
+      // through the articlesPage effect and never touches the public-content
+      // cache — leaving the deleted story counted for the rest of the TTL.
+      invalidatePublicContentCache();
 
       // Best-effort: deleteStorageFile swallows failures, and admins can
       // remove other users' files via the storage RLS admin override.
@@ -412,6 +424,9 @@ const AdminDashboard: React.FC = () => {
           toast.error(t("admin.categories.errDelete"));
           return;
         }
+        // The categories list is cached for the footer, which mounts on every
+        // navigation — without this it keeps offering the deleted category.
+        invalidatePublicContentCache();
         fetchData();
         toast.success(t("admin.categories.deleted"));
       },
