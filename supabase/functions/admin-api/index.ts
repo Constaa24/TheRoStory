@@ -377,8 +377,26 @@ Deno.serve(async (req) => {
         ? Math.min(8760, Math.max(1, Math.floor(rawMinAge)))
         : 24
 
+      // Which bucket to sweep. The avatars bucket had no orphan detection at
+      // all until migration 20260816120000 — the scan only ever covered
+      // `articles`, so replaced profile pictures from before Profile.tsx
+      // started cleaning up after itself sat there permanently, invisible.
+      //
+      // Allowlisted rather than passed through: `bucket` reaches a storage
+      // remove() call, and the RPC name is chosen from it. An unchecked value
+      // would let an admin-authenticated caller aim the purge at any bucket.
+      const BUCKET_RPCS: Record<string, string> = {
+        articles: 'list_orphaned_article_media',
+        avatars: 'list_orphaned_avatars',
+      }
+      const bucket = typeof body.bucket === 'string' ? body.bucket : 'articles'
+      const rpcName = BUCKET_RPCS[bucket]
+      if (!rpcName) {
+        return jsonResponse(400, { error: 'Unknown bucket' }, corsHeaders)
+      }
+
       const { data: orphanData, error: orphanError } = await adminClient
-        .rpc('list_orphaned_article_media', { p_min_age_hours: minAgeHours })
+        .rpc(rpcName, { p_min_age_hours: minAgeHours })
       if (orphanError) throw orphanError
 
       type OrphanRow = { object_name: string; size_bytes: number | string; last_modified: string }
@@ -388,6 +406,7 @@ Deno.serve(async (req) => {
 
       if (action === 'listOrphanedMedia') {
         return jsonResponse(200, {
+          bucket,
           minAgeHours,
           count: orphans.length,
           totalBytes,
@@ -409,7 +428,7 @@ Deno.serve(async (req) => {
       for (let i = 0; i < orphans.length; i += REMOVE_BATCH) {
         const batch = orphans.slice(i, i + REMOVE_BATCH).map((row) => row.object_name)
         const { data: removed, error: removeError } = await adminClient.storage
-          .from('articles')
+          .from(bucket)
           .remove(batch)
         if (removeError) {
           console.error('purgeOrphanedMedia batch failed', removeError.message)
@@ -425,9 +444,10 @@ Deno.serve(async (req) => {
       }
 
       const freedBytes = removedNames.reduce((sum, name) => sum + (bytesByName.get(name) ?? 0), 0)
-      console.log(`purgeOrphanedMedia: removed ${removedNames.length}/${orphans.length} objects, freed ${freedBytes} bytes`)
+      console.log(`purgeOrphanedMedia[${bucket}]: removed ${removedNames.length}/${orphans.length} objects, freed ${freedBytes} bytes`)
 
       return jsonResponse(200, {
+        bucket,
         minAgeHours,
         candidates: orphans.length,
         removed: removedNames.length,

@@ -1005,7 +1005,13 @@ export type OrphanedMediaFile = {
   lastModified: string;
 };
 
+/** Buckets the orphan sweeper knows how to scan. Mirrors BUCKET_RPCS in admin-api. */
+export type StorageBucket = 'articles' | 'avatars';
+
+export const SWEEPABLE_BUCKETS: readonly StorageBucket[] = ['articles', 'avatars'] as const;
+
 export type OrphanedMediaReport = {
+  bucket: StorageBucket;
   minAgeHours: number;
   count: number;
   totalBytes: number;
@@ -1013,6 +1019,7 @@ export type OrphanedMediaReport = {
 };
 
 export type OrphanedMediaPurgeResult = {
+  bucket: StorageBucket;
   minAgeHours: number;
   candidates: number;
   removed: number;
@@ -1021,12 +1028,17 @@ export type OrphanedMediaPurgeResult = {
   totalBytes: number;
 };
 
-export const fetchOrphanedMedia = async (minAgeHours = 24): Promise<OrphanedMediaReport> => {
+export const fetchOrphanedMedia = async (
+  bucket: StorageBucket = 'articles',
+  minAgeHours = 24
+): Promise<OrphanedMediaReport> => {
   const data = await invokeAdminApi<Partial<OrphanedMediaReport>>({
     action: 'listOrphanedMedia',
+    bucket,
     minAgeHours,
   });
   return {
+    bucket: data?.bucket ?? bucket,
     minAgeHours: data?.minAgeHours ?? minAgeHours,
     count: data?.count ?? 0,
     totalBytes: data?.totalBytes ?? 0,
@@ -1034,12 +1046,17 @@ export const fetchOrphanedMedia = async (minAgeHours = 24): Promise<OrphanedMedi
   };
 };
 
-export const purgeOrphanedMedia = async (minAgeHours = 24): Promise<OrphanedMediaPurgeResult> => {
+export const purgeOrphanedMedia = async (
+  bucket: StorageBucket = 'articles',
+  minAgeHours = 24
+): Promise<OrphanedMediaPurgeResult> => {
   const data = await invokeAdminApi<Partial<OrphanedMediaPurgeResult>>({
     action: 'purgeOrphanedMedia',
+    bucket,
     minAgeHours,
   });
   return {
+    bucket: data?.bucket ?? bucket,
     minAgeHours: data?.minAgeHours ?? minAgeHours,
     candidates: data?.candidates ?? 0,
     removed: data?.removed ?? 0,

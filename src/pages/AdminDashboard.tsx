@@ -14,6 +14,7 @@ import {
   extractStoragePath,
   fetchOrphanedMedia,
   purgeOrphanedMedia,
+  SWEEPABLE_BUCKETS,
 } from "@/lib/supabase";
 import type { OrphanedMediaReport } from "@/lib/supabase";
 import { supabase } from "@/lib/supabase";
@@ -358,9 +359,21 @@ const AdminDashboard: React.FC = () => {
   // with nothing in the app able to notice. admin-api does the scan
   // (see list_orphaned_article_media, migration 20260813010000) and only
   // considers files older than a day, so live drafts are never at risk.
-  const [orphanReport, setOrphanReport] = useState<OrphanedMediaReport | null>(null);
+  // One report per sweepable bucket. `avatars` was invisible to this panel
+  // until migration 20260816120000 added its detection query — replaced
+  // profile pictures from before Profile.tsx started cleaning up after itself
+  // had no way of ever being found, let alone reclaimed.
+  const [orphanReports, setOrphanReports] = useState<OrphanedMediaReport[] | null>(null);
   const [orphanScanning, setOrphanScanning] = useState(false);
   const [orphanPurging, setOrphanPurging] = useState(false);
+
+  const orphanTotals = useMemo(() => {
+    if (!orphanReports) return null;
+    return {
+      count: orphanReports.reduce((n, r) => n + r.count, 0),
+      bytes: orphanReports.reduce((n, r) => n + r.totalBytes, 0),
+    };
+  }, [orphanReports]);
 
   const formatBytes = (bytes: number) => {
     if (bytes < 1024) return `${bytes} B`;
@@ -374,11 +387,14 @@ const AdminDashboard: React.FC = () => {
     return `${value.toFixed(value >= 10 || unit === 0 ? 0 : 1)} ${units[unit]}`;
   };
 
+  const scanAllBuckets = () =>
+    Promise.all(SWEEPABLE_BUCKETS.map((bucket) => fetchOrphanedMedia(bucket)));
+
   const handleScanOrphans = async () => {
     if (!isAdmin) return;
     setOrphanScanning(true);
     try {
-      setOrphanReport(await fetchOrphanedMedia());
+      setOrphanReports(await scanAllBuckets());
     } catch (error) {
       console.error("Error scanning for orphaned media:", error);
       toast.error(t("admin.storage.errScan"));
@@ -388,7 +404,7 @@ const AdminDashboard: React.FC = () => {
   };
 
   const requestPurgeOrphans = () => {
-    if (!isAdmin || !orphanReport?.count) return;
+    if (!isAdmin || !orphanTotals?.count) return;
     setConfirmDialog({
       title: t("admin.storage.purgeTitle"),
       description: t("admin.storage.purgeDesc"),
@@ -397,11 +413,21 @@ const AdminDashboard: React.FC = () => {
       onConfirm: async () => {
         setOrphanPurging(true);
         try {
-          const result = await purgeOrphanedMedia();
-          toast.success(`${t("admin.storage.purged")} ${result.removed} · ${formatBytes(result.freedBytes)}`);
-          // Re-scan rather than assuming the bucket is empty of orphans:
+          // Sequential, not Promise.all: each purge issues batched remove()
+          // calls against Storage, and running both buckets at once only
+          // makes a rate-limit or partial failure harder to attribute.
+          let removed = 0;
+          let freed = 0;
+          for (const report of orphanReports ?? []) {
+            if (report.count === 0) continue;
+            const result = await purgeOrphanedMedia(report.bucket);
+            removed += result.removed;
+            freed += result.freedBytes;
+          }
+          toast.success(`${t("admin.storage.purged")} ${removed} · ${formatBytes(freed)}`);
+          // Re-scan rather than assuming the buckets are empty of orphans:
           // remove() reports per-file outcomes and some may have failed.
-          setOrphanReport(await fetchOrphanedMedia());
+          setOrphanReports(await scanAllBuckets());
         } catch (error) {
           console.error("Error purging orphaned media:", error);
           toast.error(t("admin.storage.errPurge"));
@@ -645,7 +671,7 @@ const AdminDashboard: React.FC = () => {
                   : <><HardDrive className="h-4 w-4 mr-2" />{t("admin.storage.scan")}</>}
               </Button>
 
-              {orphanReport && orphanReport.count > 0 && (
+              {orphanTotals && orphanTotals.count > 0 && (
                 <Button
                   variant="destructive"
                   onClick={requestPurgeOrphans}
@@ -659,9 +685,9 @@ const AdminDashboard: React.FC = () => {
               )}
             </div>
 
-            {orphanReport && (
+            {orphanReports && orphanTotals && (
               <div className="mt-6 text-sm">
-                {orphanReport.count === 0 ? (
+                {orphanTotals.count === 0 ? (
                   <p className="flex items-center gap-2 text-muted-foreground">
                     <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" />
                     {t("admin.storage.clean")}
@@ -669,16 +695,29 @@ const AdminDashboard: React.FC = () => {
                 ) : (
                   <>
                     <p className="font-bold mb-3">
-                      {orphanReport.count} {t("admin.storage.found")} · {formatBytes(orphanReport.totalBytes)}
+                      {orphanTotals.count} {t("admin.storage.found")} · {formatBytes(orphanTotals.bytes)}
                     </p>
-                    <ul className="space-y-1 max-h-56 overflow-y-auto text-muted-foreground font-mono text-xs">
-                      {orphanReport.files.map((file) => (
-                        <li key={file.name} className="flex justify-between gap-4">
-                          <span className="truncate">{file.name}</span>
-                          <span className="shrink-0">{formatBytes(file.bytes)}</span>
-                        </li>
+                    {/* Grouped per bucket: "9 orphans" reads very differently
+                        when they are stale avatars than when they are article
+                        media, and the two are cleaned up by different code
+                        paths. Buckets with nothing to report are omitted. */}
+                    <div className="space-y-4">
+                      {orphanReports.filter((r) => r.count > 0).map((report) => (
+                        <div key={report.bucket}>
+                          <p className="font-mono text-xs uppercase tracking-wider text-muted-foreground mb-2">
+                            {report.bucket} · {report.count} · {formatBytes(report.totalBytes)}
+                          </p>
+                          <ul className="space-y-1 max-h-48 overflow-y-auto text-muted-foreground font-mono text-xs">
+                            {report.files.map((file) => (
+                              <li key={file.name} className="flex justify-between gap-4">
+                                <span className="truncate">{file.name}</span>
+                                <span className="shrink-0">{formatBytes(file.bytes)}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
                       ))}
-                    </ul>
+                    </div>
                   </>
                 )}
               </div>
