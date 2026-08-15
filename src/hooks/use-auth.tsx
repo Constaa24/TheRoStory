@@ -310,24 +310,35 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     void supabase.auth.signOut();
   };
 
-  // NOTE on the redirect URLs below: they deliberately stay on the bare
-  // /auth/callback rather than gaining a /ro prefix for Romanian users.
-  // Supabase only honours redirect targets that are in the project's
-  // allowlist, so emitting /ro/auth/callback would break every sign-up,
-  // OAuth and password-reset flow until that URL is added in the dashboard —
-  // a silent production breakage gated on a config change outside this repo.
-  // The cost of leaving it is small: the auth pages are noindex, and the only
-  // consequence is that a reader returns from the flow on the English side.
-  // To localize it later: add https://therostory.com/ro/auth/callback to
-  // Authentication -> URL Configuration -> Redirect URLs first, then prefix.
+  /**
+   * Absolute URL of the auth callback, in the locale the reader is currently
+   * browsing — so a Romanian visitor who signs up, confirms an email or resets
+   * a password comes back to /ro/auth/callback and stays on the Romanian side
+   * of the site instead of being dropped into English mid-flow.
+   *
+   * Derived from window.location rather than useLanguage() so it is correct
+   * regardless of where this provider sits relative to the Router.
+   *
+   * IMPORTANT: every URL this can produce must be in the Supabase project's
+   * allowlist (Authentication -> URL Configuration -> Redirect URLs), or
+   * Supabase silently refuses the redirect and the flow dead-ends. That is
+   * both origins x both locales:
+   *   https://therostory.com/auth/callback      http://localhost:3000/auth/callback
+   *   https://therostory.com/ro/auth/callback   http://localhost:3000/ro/auth/callback
+   * A wildcard entry such as http://localhost:3000/** covers the dev pair.
+   */
+  const callbackUrl = (search = ""): string => {
+    const language = detectLanguage(window.location.pathname);
+    return `${window.location.origin}${localizedPath(language, "/auth/callback")}${search}`;
+  };
+
   const signUp = async (params: { email: string; password: string; displayName: string; metadata?: Record<string, unknown> }): Promise<AuthResponse> => {
     const { email, password, displayName, metadata } = params;
-    const origin = window.location.origin;
     return supabase.auth.signUp({
       email,
       password,
       options: {
-        emailRedirectTo: `${origin}/auth/callback`,
+        emailRedirectTo: callbackUrl(),
         data: {
           display_name: displayName,
           ...metadata
@@ -340,10 +351,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     supabase.auth.signInWithPassword({ email, password });
 
   const signInWithGoogle = () => {
-    const origin = window.location.origin;
     return supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo: `${origin}/auth/callback` }
+      options: { redirectTo: callbackUrl() }
     });
   };
 
@@ -355,20 +365,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // current user's email for the in-app banner case.
     const targetEmail = email ?? user?.email;
     if (!targetEmail) return;
-    const origin = window.location.origin;
     return supabase.auth.resend({
       type: 'signup',
       email: targetEmail,
-      options: { emailRedirectTo: `${origin}/auth/callback` }
+      options: { emailRedirectTo: callbackUrl() }
     });
   };
 
   const sendPasswordReset = (email: string) => {
-    const origin = window.location.origin;
     return supabase.auth.resetPasswordForEmail(email, {
       // Preserve intent so the callback can reliably route to the password reset UI
       // even if Supabase provides recovery metadata in the URL hash or omits `type`.
-      redirectTo: `${origin}/auth/callback?flow=recovery`
+      redirectTo: callbackUrl("?flow=recovery")
     });
   };
 
