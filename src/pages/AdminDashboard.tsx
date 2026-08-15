@@ -528,6 +528,9 @@ const AdminDashboard: React.FC = () => {
               <TabsTrigger value="users" className="rounded-full px-4 sm:px-8 flex gap-1 sm:gap-2 text-xs sm:text-sm" aria-label={t("admin.tabs.users")}>
                 <Users className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> {t("admin.tabs.users")}
               </TabsTrigger>
+              <TabsTrigger value="storage" className="rounded-full px-4 sm:px-8 flex gap-1 sm:gap-2 text-xs sm:text-sm" aria-label={t("admin.tabs.storage")}>
+                <HardDrive className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> {t("admin.tabs.storage")}
+              </TabsTrigger>
               <TabsTrigger value="permissions" className="rounded-full px-4 sm:px-8 flex gap-1 sm:gap-2 text-xs sm:text-sm" aria-label={t("admin.tabs.permissions")}>
                 <ShieldCheck className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> <span className="hidden sm:inline">{t("admin.tabs.permissions")}</span><span className="sm:hidden">{t("admin.tabs.permissionsShort")}</span>
               </TabsTrigger>
@@ -649,7 +652,12 @@ const AdminDashboard: React.FC = () => {
               </div>
             </div>
           </Card>
+        </TabsContent>
 
+        {/* Storage maintenance used to live at the bottom of the Permissions
+            tab, which is where nobody looked for it — it has nothing to do
+            with roles. Its own tab, next to the other admin-only surfaces. */}
+        <TabsContent value="storage" className="space-y-6">
           <Card className="p-4 sm:p-8 border-none shadow-elegant bg-background/50 backdrop-blur-sm">
             <div className="flex items-center gap-3 mb-2">
               <div className="p-2 bg-secondary rounded-xl">
