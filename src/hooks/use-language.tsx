@@ -305,7 +305,7 @@ const translations = {
     "admin.permissions.enforcement.backend3": "Încărcările în stocare sunt permise doar scriitorilor/admin-ilor, limitate la folderul propriu și la o listă de tipuri imagine/video.",
     "admin.permissions.enforcement.backend4": "Auto-publicarea este blocată: doar scriitorii/admin-ii pot crea articole.",
     "admin.storage.heading": "Întreținerea stocării",
-    "admin.storage.subheading": "Fișiere pe care nu le mai folosește nimic — media din articole înlocuită, ștearsă sau rămasă în urma unei încărcări întrerupte, și poze de profil înlocuite cu altele mai noi. Sunt scanate ambele bucket-uri, articles și avatars. Sunt listate doar fișierele mai vechi de 24 de ore, așa că materialele în lucru nu apar niciodată.",
+    "admin.storage.subheading": "Fișiere care nu mai sunt folosite — media din articole înlocuită, ștearsă sau rămasă în urma unei încărcări întrerupte, și poze de profil înlocuite cu altele mai noi. Sunt scanate ambele bucket-uri, articles și avatars. Sunt listate doar fișierele mai vechi de 24 de ore, așa că materialele în lucru nu apar niciodată.",
     "admin.storage.scan": "Scanează stocarea",
     "admin.storage.scanning": "Se scanează…",
     "admin.storage.purge": "Șterge fișierele nefolosite",
