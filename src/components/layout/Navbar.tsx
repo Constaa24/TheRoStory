@@ -519,8 +519,14 @@ const NavSearchOverlay: React.FC<{ onClose: () => void; language: 'en' | 'ro' }>
           </div>
 
           {showResults && (
+            /* aria-live: results swap in without any focus change, so a
+               screen-reader user previously got no signal that the search had
+               returned anything. "polite" so it waits for a pause in typing
+               rather than interrupting each keystroke. */
             <div
               className="overflow-hidden"
+              role="status"
+              aria-live="polite"
               style={{ border: '1px solid var(--line)', background: 'var(--ink-2)' }}
             >
               {isBelowMinLength ? (

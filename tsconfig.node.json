@@ -8,7 +8,13 @@
     "strict": true,
     "noEmit": false,
     "declaration": true,
-    "outDir": "dist",
+    // NOT "dist": that is Vite's build output directory, so `npm run
+    // lint:types` dropped tsconfig.node.tsbuildinfo into the deployable
+    // bundle. Harmless today only because `npm run build` runs Vite alone and
+    // Vite empties dist/ first — adding a typecheck to the build, the obvious
+    // next CI step, would have started emitting compiled middleware.js and
+    // api/*.js into the deploy alongside it.
+    "outDir": "node_modules/.tmp/tsconfig-node",
     // middleware.ts runs on Vercel's Edge runtime: web-standard APIs
     // (Request/Response/fetch/AbortController) plus process.env. DOM gives us
     // the former; @types/node (already a devDependency) gives us the latter.

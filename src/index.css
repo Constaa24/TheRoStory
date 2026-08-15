@@ -95,14 +95,29 @@
     --line: rgba(80, 60, 30, 0.20);
     --line-soft: rgba(80, 60, 30, 0.10);
     --line-rgb: 80, 60, 30;
-    --gold: #a07a35;
-    --gold-2: #876520;
-    --gold-deep: #5c4515;
+    /* Gold and text-mute are darker here than the obvious "same hue, lighter
+       background" choice, because contrast has to hold against BOTH light
+       surfaces. --gold is the colour of every .eyebrow, category label,
+       active nav underline and inline link, all at 11-15px — normal text
+       under WCAG, so it needs 4.5:1, not the 3:1 large-text allowance.
+
+       Measured against all three light surfaces — --ink #f6f1e6,
+       --ink-2 #ede2cb (panels, dropdowns, the search overlay) and
+       --ink-3 #e2d4b6 — because a value can clear the page background and
+       still fail on a panel:
+         was  --gold #a07a35      3.50 / 3.07 / 2.70   FAIL
+         now  --gold #6e501a      6.60 / 5.78 / 5.07
+         was  --text-mute #7a6e52 4.46 / 3.91 / 3.43   FAIL
+         now  --text-mute #5f5646 6.42 / 5.62 / 4.93
+       The dark theme already cleared AA everywhere and is unchanged. */
+    --gold: #6e501a;
+    --gold-2: #573f14;
+    --gold-deep: #3d2c0e;
     --parchment: #2a1f10;
     --parchment-dim: #4a3820;
     --text: #1c1810;
     --text-dim: #4a4231;
-    --text-mute: #7a6e52;
+    --text-mute: #5f5646;
 
     /* Light-mode overlays */
     --overlay-dark: rgba(246, 241, 230, 0.88);
@@ -115,7 +130,11 @@
     --shadow-dropdown: 0 24px 60px rgba(80, 60, 30, 0.18);
     --hover-subtle: rgba(80, 60, 30, 0.06);
     --hover-subtle-strong: rgba(80, 60, 30, 0.04);
-    --logo-gradient: linear-gradient(180deg, #6b5020 0%, #a07a35 100%);
+    /* Re-based on the corrected golds above. Left at the old #6b5020 → #a07a35
+       the wordmark would have read visibly lighter than every other gold
+       element on the page. It clears AA-large either way (it is 23px+ display
+       type), but it should match the palette it sits in. */
+    --logo-gradient: linear-gradient(180deg, #4a3610 0%, #6e501a 100%);
     --scrim-card: linear-gradient(180deg, rgba(246,241,230,0.0) 40%, rgba(42,31,16,0.5) 100%);
     --scrim-hero: linear-gradient(180deg, rgba(42,31,16,0.3) 0%, rgba(42,31,16,0.15) 40%, rgba(42,31,16,0.85) 100%);
     --scrim-hero-short: linear-gradient(180deg, rgba(42,31,16,0.35) 0%, rgba(42,31,16,0.2) 40%, rgba(42,31,16,0.85) 100%);
@@ -220,6 +239,41 @@ select:focus-visible,
     scroll-behavior: auto !important;
   }
   .ticker-track { animation: none !important; }
+}
+
+/* Skip-to-content link (App.tsx). Off-screen until focused, then pinned to
+   the top-left above the sticky nav. Not `display: none` / `visibility:
+   hidden` — those remove it from the tab order, which is the whole point of
+   it. `<main>` carries tabIndex={-1} so focus actually lands there in Safari,
+   which otherwise moves the scroll position but not the focus ring. */
+.skip-link {
+  position: fixed;
+  top: 8px;
+  left: 8px;
+  z-index: 200;
+  transform: translateY(-160%);
+  padding: 12px 20px;
+  background: var(--gold);
+  color: var(--ink);
+  font-family: var(--ui);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  border-radius: 4px;
+  box-shadow: var(--shadow-dropdown);
+  transition: transform 0.15s ease;
+}
+
+.skip-link:focus {
+  transform: translateY(0);
+}
+
+/* The target of the skip link should not draw a focus ring — the reader
+   asked to move the viewport, not to focus a control. */
+main:focus,
+main:focus-visible {
+  outline: none;
 }
 
 /* Keyboard focus for the map's county shapes. SVG elements don't render
@@ -442,13 +496,19 @@ select:focus-visible,
   font-style: normal;
 }
 
-/* Reading-progress bar (article) */
+/* Reading-progress bar (article).
+   Width is driven by the --read-progress custom property, which
+   EditorialArticle writes straight to this element's style from a
+   requestAnimationFrame callback. It used to be React state updated from the
+   scroll handler, which re-rendered the whole article — every PhotoScene of a
+   30-frame photo essay — on essentially every scroll event, to move a 2px bar.
+   No transition: the value now lands once per frame, so easing it would only
+   make the bar trail 100ms behind the scroll. */
 .read-progress {
   position: fixed; top: 0; left: 0;
-  height: 2px; width: 0;
+  height: 2px; width: var(--read-progress, 0);
   background: var(--gold);
   z-index: 99;
-  transition: width 0.1s linear;
 }
 
 /* Ticker */
@@ -558,4 +618,82 @@ select:focus-visible,
 @keyframes fade-in-soft {
   from { opacity: 0; transform: translateY(20px); filter: blur(10px); }
   to   { opacity: 1; transform: translateY(0); filter: blur(0); }
+}
+
+/* ============================================================
+   Print — the article footer offers a Print button, and without
+   this it produced an unusable page: browsers drop background
+   colours by default, so the dark theme printed --text (#e9dfc8)
+   onto white paper, under the sticky nav, the grain overlay and
+   the reading-progress bar, followed by the comment thread and
+   the whole site footer.
+
+   Colours are forced rather than inherited from the token set,
+   because the reader's theme at print time is unknowable and half
+   the palette is unreadable on paper either way.
+   ============================================================ */
+@media print {
+  /* Ink on paper, whichever theme the screen was in. */
+  :root, .light, .dark {
+    --ink: #fff;
+    --ink-2: #fff;
+    --ink-3: #fff;
+    --text: #000;
+    --text-dim: #1a1a1a;
+    --text-mute: #333;
+    --parchment: #000;
+    --parchment-dim: #1a1a1a;
+    --gold: #000;
+    --gold-2: #000;
+    --gold-deep: #000;
+    --line: rgba(0, 0, 0, 0.28);
+    --line-soft: rgba(0, 0, 0, 0.14);
+  }
+
+  html, body {
+    background: #fff !important;
+    color: #000 !important;
+    font-size: 11pt;
+    line-height: 1.5;
+  }
+
+  /* Site chrome, controls, and everything after the article body. */
+  .ed-nav,
+  .grain-overlay,
+  .read-progress,
+  .scroll-to-top,
+  .no-print {
+    display: none !important;
+  }
+
+  /* Scrims and tinted overlays render as grey slabs on paper. */
+  .ph::after { display: none !important; }
+  .ph { background: none !important; border: 1px solid rgba(0, 0, 0, 0.28) !important; }
+
+  /* The page-load fade leaves content mid-animation on some engines. */
+  .screen-anim { animation: none !important; opacity: 1 !important; transform: none !important; }
+
+  /* Full measure — the on-screen layout reserves space for a sidebar
+     the printed page doesn't have. */
+  .ed-container { max-width: none !important; padding: 0 !important; }
+
+  /* Cinematic photo-essay heroes are sized in viewport units, which map to
+     the full page height in print and push everything else off page one. */
+  section { height: auto !important; min-height: 0 !important; }
+
+  img { max-width: 100% !important; break-inside: avoid; }
+  figure, blockquote, .pull { break-inside: avoid; }
+  h1, h2, h3 { break-after: avoid; color: #000 !important; }
+  p { orphans: 3; widows: 3; }
+
+  a { color: #000 !important; text-decoration: none !important; }
+  /* Links lose their destination on paper — print it once, inline. Only for
+     real external destinations; in-app hrefs would just be noise. */
+  article a[href^="http"]::after {
+    content: " (" attr(href) ")";
+    font-size: 9pt;
+    word-break: break-all;
+  }
+
+  @page { margin: 18mm 16mm; }
 }

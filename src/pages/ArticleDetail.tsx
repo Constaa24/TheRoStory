@@ -7,7 +7,9 @@ import { EditorialArticle } from "@/components/organisms/EditorialArticle";
 import { logError, toJsonLd } from "@/lib/utils";
 import { articleCoverUrl, articleExcerpt } from "@/lib/article-utils";
 import { PageHead } from "@/components/layout/PageHead";
+import NotFound from "@/pages/NotFound";
 import { SITE_NAME, SITE_URL } from "@/lib/constants";
+import { localizedPath } from "@/lib/locale";
 
 const ArticleDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -17,6 +19,7 @@ const ArticleDetailPage: React.FC = () => {
   const [article, setArticle] = useState<Article | null>(null);
   const [views, setViews] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
+  const [notFound, setNotFound] = useState(false);
 
   const fromState = location.state as { from?: string } | null;
   const fromPath = fromState?.from || "/";
@@ -25,6 +28,7 @@ const ArticleDetailPage: React.FC = () => {
     if (!id) return;
     let cancelled = false;
     setIsLoading(true);
+    setNotFound(false);
 
     (async () => {
       try {
@@ -38,10 +42,21 @@ const ArticleDetailPage: React.FC = () => {
           // for nonexistent ids. (The RPC also guards server-side now.)
           incrementView(id);
         } else {
-          navigate(fromPath, { replace: true });
+          // The article is genuinely absent — deleted, or unpublished since
+          // the link was shared. Render NotFound in place rather than
+          // navigating away: bouncing to "/" left the reader on the homepage
+          // with no explanation, and left Google with a 200-status redirect
+          // to the homepage (a soft 404) instead of the noindex that
+          // NotFound carries. The URL stays honest too, so a reload doesn't
+          // silently land somewhere else.
+          setNotFound(true);
         }
       } catch (error) {
         if (cancelled) return;
+        // A fetch *failure* is different from an absent article — the story
+        // may well exist and Supabase is simply unreachable. Claiming 404
+        // would be wrong, so this path still returns the reader where they
+        // came from.
         logError("ArticleDetail.fetchArticle", error);
         navigate(fromPath, { replace: true });
       } finally {
@@ -63,6 +78,8 @@ const ArticleDetailPage: React.FC = () => {
     );
   }
 
+  if (notFound) return <NotFound />;
+
   if (!article) return null;
 
   const title = getLocalized(article, "title", language);
@@ -70,7 +87,10 @@ const ArticleDetailPage: React.FC = () => {
   // it into the meta description of multi-chapter stories.
   const description = articleExcerpt(article, language, 160);
   const imageUrl = articleCoverUrl(article) || `${SITE_URL}/og-image.jpg`;
-  const articleUrl = `${SITE_URL}/article/${article.id}`;
+  // Locale-prefixed: the Romanian rendering of a story is its own indexable
+  // URL and must be self-canonical, not point at the English one.
+  const articlePath = `/article/${article.id}`;
+  const articleUrl = `${SITE_URL}${localizedPath(language, articlePath)}`;
 
   const jsonLd = {
     "@context": "https://schema.org",
@@ -93,7 +113,7 @@ const ArticleDetailPage: React.FC = () => {
     "@context": "https://schema.org",
     "@type": "BreadcrumbList",
     itemListElement: [
-      { "@type": "ListItem", position: 1, name: language === "en" ? "Home" : "Acasă", item: `${SITE_URL}/` },
+      { "@type": "ListItem", position: 1, name: language === "en" ? "Home" : "Acasă", item: `${SITE_URL}${localizedPath(language, "/")}` },
       { "@type": "ListItem", position: 2, name: title, item: articleUrl },
     ],
   };
@@ -112,6 +132,7 @@ const ArticleDetailPage: React.FC = () => {
         imageUrl={imageUrl}
         language={language}
         canonical={articleUrl}
+        alternatePath={articlePath}
         ogType="article"
       >
         <meta property="article:published_time" content={article.createdAt} />

@@ -1,5 +1,7 @@
 User-agent: *
 Allow: /
+
+# English tree (unprefixed)
 Disallow: /admin
 Disallow: /admin/*
 Disallow: /auth
@@ -8,5 +10,16 @@ Disallow: /reset-password
 Disallow: /profile
 Disallow: /newsletter
 Disallow: /newsletter/*
+
+# Romanian tree (/ro prefix) — same pages, same rules. Without these the
+# private routes stay crawlable on the Romanian side.
+Disallow: /ro/admin
+Disallow: /ro/admin/*
+Disallow: /ro/auth
+Disallow: /ro/auth/callback
+Disallow: /ro/reset-password
+Disallow: /ro/profile
+Disallow: /ro/newsletter
+Disallow: /ro/newsletter/*
 
 Sitemap: https://therostory.com/sitemap.xml

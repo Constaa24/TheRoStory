@@ -144,7 +144,7 @@ function EditorialFooter({ language }: { language: 'en' | 'ro' }) {
   }));
 
   return (
-    <footer className="mt-32 pt-20 pb-10 border-t border-line bg-[color:var(--ink-2)]/30">
+    <footer className="no-print mt-32 pt-20 pb-10 border-t border-line bg-[color:var(--ink-2)]/30">
       <div className="ed-container">
         <div className="grid grid-cols-1 md:grid-cols-[1.4fr_1fr_1fr] gap-14 items-start">
           <div>
@@ -243,9 +243,17 @@ const App: React.FC = () => {
     <ThemedProvider attribute="class" defaultTheme="dark">
       <div className="min-h-screen bg-background text-foreground flex flex-col relative">
         <ScrollToTopOnRoute />
+        {/* WCAG 2.4.1. Every page repeats the same header — logo, six nav
+            links, search, two language buttons, theme toggle, account menu —
+            so a keyboard or screen-reader user tabbed through a dozen
+            controls before reaching the content on every navigation. First
+            focusable thing in the app, visible only while focused. */}
+        <a href="#main" className="skip-link">
+          {language === 'en' ? 'Skip to content' : 'Sari la conținut'}
+        </a>
         <PaperOverlay />
         {user && !isEmailVerified && !hideAppChrome && (
-          <div className="bg-accent text-[color:var(--ink)] py-2 px-4 flex items-center justify-center gap-4 text-sm font-display italic shadow-md">
+          <div className="no-print bg-accent text-[color:var(--ink)] py-2 px-4 flex items-center justify-center gap-4 text-sm font-display italic shadow-md">
             <div className="flex items-center gap-2">
               <AlertCircle className="h-4 w-4" />
               <span>
@@ -268,7 +276,7 @@ const App: React.FC = () => {
           </div>
         )}
         {!hideAppChrome && <Navbar />}
-        <main className="flex-1">
+        <main id="main" tabIndex={-1} className="flex-1">
           <ErrorBoundary
             fallback={
             <div className="flex flex-col items-center justify-center p-20 gap-4">

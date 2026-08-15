@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import type { AuthResponse, AuthTokenResponsePassword, OAuthResponse, User, UserResponse } from "@supabase/supabase-js";
 import { isAbortError } from "@/lib/utils";
+import { detectLanguage, localizedPath } from "@/lib/locale";
 
 // Extended user type that includes our custom profile fields
 interface ExtendedUser extends User {
@@ -296,7 +297,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const login = () => {
-    window.location.href = "/auth";
+    // Full document load rather than a router navigation (this hook sits
+    // above the Router), so the locale prefix has to be re-applied by hand —
+    // a Romanian reader sent to a bare "/auth" would land in English and,
+    // worse, come back from the auth flow on the English side of the site.
+    const language = detectLanguage(window.location.pathname);
+    window.location.href = localizedPath(language, "/auth");
   };
 
   const logout = () => {
@@ -304,14 +310,35 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     void supabase.auth.signOut();
   };
 
+  /**
+   * Absolute URL of the auth callback, in the locale the reader is currently
+   * browsing — so a Romanian visitor who signs up, confirms an email or resets
+   * a password comes back to /ro/auth/callback and stays on the Romanian side
+   * of the site instead of being dropped into English mid-flow.
+   *
+   * Derived from window.location rather than useLanguage() so it is correct
+   * regardless of where this provider sits relative to the Router.
+   *
+   * IMPORTANT: every URL this can produce must be in the Supabase project's
+   * allowlist (Authentication -> URL Configuration -> Redirect URLs), or
+   * Supabase silently refuses the redirect and the flow dead-ends. That is
+   * both origins x both locales:
+   *   https://therostory.com/auth/callback      http://localhost:3000/auth/callback
+   *   https://therostory.com/ro/auth/callback   http://localhost:3000/ro/auth/callback
+   * A wildcard entry such as http://localhost:3000/** covers the dev pair.
+   */
+  const callbackUrl = (search = ""): string => {
+    const language = detectLanguage(window.location.pathname);
+    return `${window.location.origin}${localizedPath(language, "/auth/callback")}${search}`;
+  };
+
   const signUp = async (params: { email: string; password: string; displayName: string; metadata?: Record<string, unknown> }): Promise<AuthResponse> => {
     const { email, password, displayName, metadata } = params;
-    const origin = window.location.origin;
     return supabase.auth.signUp({
       email,
       password,
       options: {
-        emailRedirectTo: `${origin}/auth/callback`,
+        emailRedirectTo: callbackUrl(),
         data: {
           display_name: displayName,
           ...metadata
@@ -324,10 +351,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     supabase.auth.signInWithPassword({ email, password });
 
   const signInWithGoogle = () => {
-    const origin = window.location.origin;
     return supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo: `${origin}/auth/callback` }
+      options: { redirectTo: callbackUrl() }
     });
   };
 
@@ -339,20 +365,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // current user's email for the in-app banner case.
     const targetEmail = email ?? user?.email;
     if (!targetEmail) return;
-    const origin = window.location.origin;
     return supabase.auth.resend({
       type: 'signup',
       email: targetEmail,
-      options: { emailRedirectTo: `${origin}/auth/callback` }
+      options: { emailRedirectTo: callbackUrl() }
     });
   };
 
   const sendPasswordReset = (email: string) => {
-    const origin = window.location.origin;
     return supabase.auth.resetPasswordForEmail(email, {
       // Preserve intent so the callback can reliably route to the password reset UI
       // even if Supabase provides recovery metadata in the URL hash or omits `type`.
-      redirectTo: `${origin}/auth/callback?flow=recovery`
+      redirectTo: callbackUrl("?flow=recovery")
     });
   };
 

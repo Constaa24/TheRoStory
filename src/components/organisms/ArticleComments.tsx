@@ -281,7 +281,7 @@ export const ArticleComments: React.FC<Props> = ({ articleId }) => {
   };
 
   return (
-    <section style={{ padding: "80px 0", borderTop: "1px solid var(--line-soft)" }}>
+    <section className="no-print" style={{ padding: "80px 0", borderTop: "1px solid var(--line-soft)" }}>
       <div className="ed-container">
         <div className="max-w-[760px] mx-auto">
           <div className="flex items-center gap-3 mb-3">

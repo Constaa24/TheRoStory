@@ -48,7 +48,8 @@ type ArticleRow = { id: string; created_at: string | null; updated_at: string | 
 type CategoryRow = { id: string };
 
 type UrlEntry = {
-  loc: string;
+  /** Unprefixed in-app path, e.g. "/article/art_123". */
+  path: string;
   lastmod?: string | undefined;
   changefreq?: string | undefined;
   priority?: string | undefined;
@@ -62,14 +63,41 @@ const escapeXml = (value: string): string =>
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&apos;");
 
-const urlEntry = ({ loc, lastmod, changefreq, priority }: UrlEntry): string => {
-  const parts = [
-    `    <loc>${escapeXml(loc)}</loc>`,
-    lastmod ? `    <lastmod>${lastmod}</lastmod>` : null,
-    changefreq ? `    <changefreq>${changefreq}</changefreq>` : null,
-    priority ? `    <priority>${priority}</priority>` : null,
-  ].filter(Boolean);
-  return `  <url>\n${parts.join("\n")}\n  </url>`;
+// Mirrors localizedPath in src/lib/locale.ts. Not imported from there: this
+// runs on the edge runtime, which does not resolve the app's "@/" alias.
+const RO_PREFIX = "/ro";
+const localizedPath = (language: "en" | "ro", path: string): string => {
+  const clean = path.startsWith("/") ? path : `/${path}`;
+  if (language !== "ro") return clean;
+  return clean === "/" ? RO_PREFIX : `${RO_PREFIX}${clean}`;
+};
+
+/**
+ * Emits one <url> per locale, each carrying the full reciprocal alternate set.
+ *
+ * Both entries list both languages *and themselves* — Google discards an
+ * hreflang cluster where the annotations aren't mutually confirming, so the
+ * self-reference is not redundant. This is how the Romanian half of the
+ * archive becomes discoverable at all: before locales were in the URL, one
+ * story had one address and only English was ever indexed.
+ */
+const urlEntries = ({ path, lastmod, changefreq, priority }: UrlEntry): string[] => {
+  const alternates = [
+    `    <xhtml:link rel="alternate" hreflang="en" href="${escapeXml(SITE_URL + localizedPath("en", path))}"/>`,
+    `    <xhtml:link rel="alternate" hreflang="ro" href="${escapeXml(SITE_URL + localizedPath("ro", path))}"/>`,
+    `    <xhtml:link rel="alternate" hreflang="x-default" href="${escapeXml(SITE_URL + localizedPath("en", path))}"/>`,
+  ];
+
+  return (["en", "ro"] as const).map((language) => {
+    const parts = [
+      `    <loc>${escapeXml(SITE_URL + localizedPath(language, path))}</loc>`,
+      ...alternates,
+      lastmod ? `    <lastmod>${lastmod}</lastmod>` : null,
+      changefreq ? `    <changefreq>${changefreq}</changefreq>` : null,
+      priority ? `    <priority>${priority}</priority>` : null,
+    ].filter(Boolean);
+    return `  <url>\n${parts.join("\n")}\n  </url>`;
+  });
 };
 
 const supabaseFetch = async (
@@ -143,7 +171,7 @@ export default async function handler(): Promise<Response> {
       articleEntries = articles.map((article) => {
         const lastmodSource = article.updated_at || article.created_at;
         return {
-          loc: `${SITE_URL}/article/${article.id}`,
+          path: `/article/${article.id}`,
           lastmod: lastmodSource ? new Date(lastmodSource).toISOString().slice(0, 10) : undefined,
           changefreq: "monthly",
           priority: "0.7",
@@ -156,7 +184,7 @@ export default async function handler(): Promise<Response> {
     try {
       const categories = await fetchCategories(supabaseUrl, anonKey);
       categoryEntries = categories.map((category) => ({
-        loc: `${SITE_URL}/category/${category.id}`,
+        path: `/category/${category.id}`,
         changefreq: "weekly",
         priority: "0.6",
       }));
@@ -166,15 +194,17 @@ export default async function handler(): Promise<Response> {
   }
 
   const staticEntries: UrlEntry[] = STATIC_ROUTES.map((route) => ({
-    loc: `${SITE_URL}${route.path}`,
+    path: route.path,
     changefreq: route.changefreq,
     priority: route.priority,
   }));
 
   const xml = [
     '<?xml version="1.0" encoding="UTF-8"?>',
-    '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
-    ...[...staticEntries, ...categoryEntries, ...articleEntries].map(urlEntry),
+    // The xhtml namespace is what makes <xhtml:link rel="alternate"> legal
+    // here; without the declaration the whole document fails validation.
+    '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">',
+    ...[...staticEntries, ...categoryEntries, ...articleEntries].flatMap(urlEntries),
     "</urlset>",
     "",
   ].join("\n");

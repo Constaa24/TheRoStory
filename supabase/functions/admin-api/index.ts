@@ -361,8 +361,9 @@ Deno.serve(async (req) => {
     // and on unmount, but that unmount handler never runs if the tab is
     // killed mid-edit, and everything uploaded before those handlers
     // existed is still sitting in the bucket. list_orphaned_article_media
-    // (migration 20260813010000) is the join nothing else does: bucket
-    // objects that no media_url / poster_url / media_urls points at.
+    // (migration 20260813164931_orphaned_article_media_cleanup.sql) is the
+    // join nothing else does: bucket objects that no media_url /
+    // poster_url / media_urls points at.
     //
     // Deletion goes through the Storage API, never `delete from
     // storage.objects` — the SQL path drops the metadata row and leaves

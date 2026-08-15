@@ -5,16 +5,21 @@ import { useLanguage } from "@/hooks/use-language";
 import { isAbortError, toJsonLd } from "@/lib/utils";
 import { PageHead } from "@/components/layout/PageHead";
 import { SITE_URL } from "@/lib/constants";
+import { localizedPath } from "@/lib/locale";
 
+// Extension-less base paths — each has a .avif, .webp and .jpg sibling, served
+// through <picture> below. They shipped as ~800 KB files named .png that were
+// actually JPEGs inside; the same AVIF/WebP treatment the hero images already
+// get takes the eight of them from 6.3 MB to about 450 KB.
 const CATEGORY_IMAGES: Record<string, string> = {
-  "history": "/categories/cat_history_new.png",
-  "science": "/categories/cat_science_new.png",
-  "landmarks": "/categories/cat_landmarks_new.png",
-  "historical-figures": "/categories/cat_historical_figures_new.png",
-  "traditions": "/categories/cat_2.png",
-  "myths": "/categories/cat_1.png",
-  "nature": "/categories/cat_nature_new.png",
-  "art": "/categories/cat_art_new.png"
+  "history": "/categories/cat_history_new",
+  "science": "/categories/cat_science_new",
+  "landmarks": "/categories/cat_landmarks_new",
+  "historical-figures": "/categories/cat_historical_figures_new",
+  "traditions": "/categories/cat_2",
+  "myths": "/categories/cat_1",
+  "nature": "/categories/cat_nature_new",
+  "art": "/categories/cat_art_new"
 };
 
 const FALLBACK_IMAGES = Object.values(CATEGORY_IMAGES);
@@ -79,7 +84,7 @@ const Categories: React.FC = () => {
       "@type": "ListItem",
       position: i + 1,
       name: getLocalized(cat, "name", language),
-      url: `${SITE_URL}/category/${cat.id}`,
+      url: `${SITE_URL}${localizedPath(language, `/category/${cat.id}`)}`,
     })),
   };
 
@@ -154,13 +159,24 @@ const Categories: React.FC = () => {
                       </div>
 
                       <div className="mb-6 relative overflow-hidden transition-transform group-hover:translate-y-[-2px]" style={{ aspectRatio: '16/9' }}>
-                        <img
-                          src={getCategoryImage(category.slug || name.toLowerCase())}
-                          alt={name}
-                          loading="lazy"
-                          decoding="async"
-                          className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-                        />
+                        {(() => {
+                          const base = getCategoryImage(category.slug || name.toLowerCase());
+                          return (
+                            <picture>
+                              <source type="image/avif" srcSet={`${base}.avif`} />
+                              <source type="image/webp" srcSet={`${base}.webp`} />
+                              <img
+                                src={`${base}.jpg`}
+                                alt={name}
+                                width={1024}
+                                height={1024}
+                                loading="lazy"
+                                decoding="async"
+                                className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                              />
+                            </picture>
+                          );
+                        })()}
                       </div>
 
                       <div className="flex justify-between items-start gap-6">

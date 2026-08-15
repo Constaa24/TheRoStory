@@ -247,11 +247,19 @@ const ContactUs: React.FC = () => {
 
             <aside>
               <div className="mb-7 relative overflow-hidden" style={{ aspectRatio: '4/3' }}>
-                <img
-                  src="/bucharest_reading_room.png"
-                  alt={language === 'en' ? 'Reading room, Bucharest' : 'Camera de lectură, București'}
-                  className="w-full h-full object-cover transition-transform duration-700 hover:scale-105"
-                />
+                <picture>
+                  <source type="image/avif" srcSet="/bucharest_reading_room.avif" />
+                  <source type="image/webp" srcSet="/bucharest_reading_room.webp" />
+                  <img
+                    src="/bucharest_reading_room.jpg"
+                    alt={language === 'en' ? 'Reading room, Bucharest' : 'Camera de lectură, București'}
+                    width={1024}
+                    height={1024}
+                    loading="lazy"
+                    decoding="async"
+                    className="w-full h-full object-cover transition-transform duration-700 hover:scale-105"
+                  />
+                </picture>
               </div>
               <div className="grid grid-cols-2 gap-6 py-5" style={{ borderTop: '1px solid var(--line)', borderBottom: '1px solid var(--line)' }}>
                 {[
