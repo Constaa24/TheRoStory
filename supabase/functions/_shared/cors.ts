@@ -6,9 +6,11 @@
 // a project under a similar name. Use a staging Supabase project for
 // preview deploys instead.
 
+// Apex only. www.therostory.com used to be listed here, but it now 308s to
+// the apex in vercel.json before any request reaches an edge function, so a
+// browser never sends it as an Origin.
 const PROD_ORIGINS = [
   "https://therostory.com",
-  "https://www.therostory.com",
 ];
 
 const DEV_ORIGINS = [

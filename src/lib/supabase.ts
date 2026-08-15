@@ -537,7 +537,8 @@ export const SEARCH_MIN_LENGTH = 3;
 /**
  * Accent-insensitive search over published articles.
  *
- * Runs through the `search_articles` RPC (migration 20260813020000) rather
+ * Runs through the `search_articles` RPC (migration
+ * 20260813165613_unaccent_search.sql) rather
  * than a PostgREST filter chain, because the match has to fold diacritics on
  * both sides — on a Romanian archive, "Marasesti" must find "Mărășești" —
  * and PostgREST can't call unaccent() inside a filter.

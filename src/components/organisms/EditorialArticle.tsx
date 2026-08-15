@@ -17,19 +17,35 @@ export const EditorialArticle: React.FC<Props> = ({ article, views }) => {
   const { language } = useLanguage();
   const { handleFavoriteToggle, isFavorited } = useFavorites();
   const navigate = useNavigate();
-  const [progress, setProgress] = useState(0);
+  const progressRef = useRef<HTMLDivElement>(null);
   const [categories, setCategories] = useState<Category[]>([]);
   const [related, setRelated] = useState<Article[]>([]);
 
+  // The progress bar writes straight to its own element's --read-progress
+  // custom property instead of going through React state. As state, every
+  // scroll event re-rendered this component and its whole subtree — on a
+  // 30-frame photo essay that is 30 PhotoScene components reconciling per
+  // scroll frame to move a 2px bar. React never sees the scroll now, and the
+  // rAF guard collapses bursts of events into one write per frame.
   useEffect(() => {
-    const onScroll = () => {
+    let frame = 0;
+    const write = () => {
+      frame = 0;
       const h = document.documentElement;
       const max = h.scrollHeight - h.clientHeight;
-      setProgress(max > 0 ? Math.min(100, (h.scrollTop / max) * 100) : 0);
+      const pct = max > 0 ? Math.min(100, (h.scrollTop / max) * 100) : 0;
+      progressRef.current?.style.setProperty('--read-progress', pct + '%');
+    };
+    const onScroll = () => {
+      if (frame) return;
+      frame = window.requestAnimationFrame(write);
     };
     window.addEventListener('scroll', onScroll, { passive: true });
-    onScroll();
-    return () => window.removeEventListener('scroll', onScroll);
+    write();
+    return () => {
+      window.removeEventListener('scroll', onScroll);
+      if (frame) window.cancelAnimationFrame(frame);
+    };
   }, [article.id]);
 
   useEffect(() => {
@@ -52,14 +68,14 @@ export const EditorialArticle: React.FC<Props> = ({ article, views }) => {
 
   return (
     <div className="screen-anim pb-20">
-      <div className="read-progress" style={{ width: progress + '%' }} />
+      <div ref={progressRef} className="read-progress" />
 
       {article.type === 'text' && <TextArticle article={article} category={category} views={views} />}
       {article.type === 'carousel' && <PhotoEssay article={article} category={category} views={views} />}
       {article.type === 'video' && <VideoFilm article={article} category={category} views={views} />}
 
       {/* Footer actions */}
-      <section style={{ padding: '60px 0', borderTop: '1px solid var(--line-soft)' }}>
+      <section className="no-print" style={{ padding: '60px 0', borderTop: '1px solid var(--line-soft)' }}>
         <div className="ed-container max-w-[760px] mx-auto flex flex-wrap justify-between items-center gap-6">
           <div className="font-ui text-[11px] uppercase" style={{ letterSpacing: '0.18em', color: 'var(--text-mute)' }}>
             {kindLabel}
@@ -100,7 +116,7 @@ export const EditorialArticle: React.FC<Props> = ({ article, views }) => {
 
       {/* Related */}
       {related.length > 0 && (
-        <section style={{ padding: '100px 0 60px' }}>
+        <section className="no-print" style={{ padding: '100px 0 60px' }}>
           <div className="ed-container">
             <div className="flex flex-wrap justify-between items-end gap-6 mb-12">
               <div>
@@ -154,7 +170,7 @@ const ArticleMasthead: React.FC<{ article: Article; category?: Category; kindLab
       <div className="ed-container">
         <button
           onClick={() => (window.history.length > 1 ? window.history.back() : navigate('/'))}
-          className="flex items-center gap-2 mb-8 transition-colors hover:text-gold cursor-pointer"
+          className="no-print flex items-center gap-2 mb-8 transition-colors hover:text-gold cursor-pointer"
           style={{ color: 'var(--text-dim)', background: 'transparent', border: 0, fontFamily: 'var(--ui)', fontSize: 11, letterSpacing: '0.18em', textTransform: 'uppercase' }}
         >
           <ArrowLeft className="w-3.5 h-3.5" />
@@ -391,7 +407,7 @@ const PhotoEssay: React.FC<{ article: Article; category?: Category; views?: numb
         <div className="ed-container relative h-full flex flex-col justify-between" style={{ paddingTop: 32, paddingBottom: 56 }}>
           <button
             onClick={() => (window.history.length > 1 ? window.history.back() : navigate('/'))}
-            className="flex items-center gap-2 self-start cursor-pointer transition-colors"
+            className="no-print flex items-center gap-2 self-start cursor-pointer transition-colors"
             style={{ color: 'var(--parchment)', background: 'transparent', border: 0, fontFamily: 'var(--ui)', fontSize: 11, letterSpacing: '0.18em', textTransform: 'uppercase' }}
           >
             <ArrowLeft className="w-3.5 h-3.5" />
@@ -463,7 +479,7 @@ const PhotoEssay: React.FC<{ article: Article; category?: Category; views?: numb
 
       {/* Scenes */}
       {scenes.map((sc, i) => (
-        <PhotoScene key={i} scene={sc} idx={i + 1} total={scenes.length} layout={i % 3} />
+        <PhotoScene key={i} scene={sc} idx={i + 1} total={scenes.length} layout={i % 3} title={title} language={language} />
       ))}
 
       {/* Closing */}
@@ -478,55 +494,84 @@ const PhotoEssay: React.FC<{ article: Article; category?: Category; views?: numb
   );
 };
 
-const PhotoScene: React.FC<{ scene: { url: string; caption: string; tone: string; aspect: string }; idx: number; total: number; layout: number }> = ({ scene, idx, total, layout }) => {
+const PhotoScene: React.FC<{
+  scene: { url: string; caption: string; tone: string; aspect: string };
+  idx: number;
+  total: number;
+  layout: number;
+  title: string;
+  language: 'en' | 'ro';
+}> = ({ scene, idx, total, layout, title, language }) => {
   const indexLabel = `${String(idx).padStart(2, '0')} / ${String(total).padStart(2, '0')}`;
   const text = scene.caption;
 
+  // These photographs are the article, not decoration. They shipped as alt=""
+  // — the marker for "skip this, it carries no meaning" — so a screen reader
+  // reaching a photo essay announced the title, the dek, and then a run of
+  // index numbers with nothing between them. Prefer the caption the editor
+  // already wrote (media_captions is a populated bilingual column); fall back
+  // to naming the frame so the image is at least locatable.
+  const altText = text || (language === 'en'
+    ? `${title} — frame ${idx} of ${total}`
+    : `${title} — cadrul ${idx} din ${total}`);
+
   const Image = (
     <div className="ph relative" data-tone={scene.tone as 'warm'} data-label="" style={{ aspectRatio: scene.aspect }}>
-      <img src={scene.url} alt="" className="absolute inset-0 w-full h-full object-cover" loading="lazy" />
+      <img src={scene.url} alt={altText} className="absolute inset-0 w-full h-full object-cover" loading="lazy" />
     </div>
   );
 
+  // <figure>/<figcaption> rather than a loose <p> beside the image: the
+  // caption described the photograph but had no programmatic relationship to
+  // it, so neither assistive tech nor a search engine could connect the two.
+  // figcaption must be a direct first/last child of figure for the caption to
+  // be associated with the image, so the caption text and the frame counter
+  // live inside one figcaption rather than in a wrapper div beside it.
   if (layout === 0) {
     return (
       <section style={{ padding: '80px 0', borderBottom: '1px solid var(--line-soft)' }}>
-        <div className="relative" style={{ marginInline: 'var(--gutter)' }}>{Image}</div>
-        <div className="ed-container mt-7">
-          <div className="flex flex-wrap justify-between items-start gap-12">
-            {text && (
-              <p
-                className="font-display italic m-0 max-w-[720px]"
-                style={{ fontSize: 'clamp(28px, 3vw, 38px)', lineHeight: 1.25, color: 'var(--parchment)', textWrap: 'balance' as React.CSSProperties['textWrap'] }}
-              >
-                {text}
-              </p>
-            )}
-            <span className="font-ui text-[11px] whitespace-nowrap" style={{ letterSpacing: '0.22em', color: 'var(--gold)' }}>{indexLabel}</span>
-          </div>
-        </div>
+        <figure className="m-0">
+          <div className="relative" style={{ marginInline: 'var(--gutter)' }}>{Image}</div>
+          <figcaption className="ed-container mt-7 block">
+            <div className="flex flex-wrap justify-between items-start gap-12">
+              {text && (
+                <span
+                  className="font-display italic max-w-[720px]"
+                  style={{ fontSize: 'clamp(28px, 3vw, 38px)', lineHeight: 1.25, color: 'var(--parchment)', textWrap: 'balance' as React.CSSProperties['textWrap'] }}
+                >
+                  {text}
+                </span>
+              )}
+              <span className="font-ui text-[11px] whitespace-nowrap" style={{ letterSpacing: '0.22em', color: 'var(--gold)' }}>{indexLabel}</span>
+            </div>
+          </figcaption>
+        </figure>
       </section>
     );
   }
 
+  const Caption = (
+    <figcaption className="block">
+      <span className="font-ui text-[11px] block mb-5" style={{ letterSpacing: '0.22em', color: 'var(--gold)' }}>{indexLabel}</span>
+      {text && (
+        <span
+          className="font-display italic block"
+          style={{ fontSize: 'clamp(26px, 2.6vw, 34px)', lineHeight: 1.3, color: 'var(--parchment)', textWrap: 'balance' as React.CSSProperties['textWrap'] }}
+        >
+          {text}
+        </span>
+      )}
+    </figcaption>
+  );
+
   return (
     <section style={{ padding: '80px 0', borderBottom: '1px solid var(--line-soft)' }}>
       <div className="ed-container">
-        <div className={cn('grid items-center gap-14 grid-cols-1', layout === 1 ? 'md:grid-cols-[1.4fr_1fr]' : 'md:grid-cols-[1fr_1.4fr]')}>
+        <figure className={cn('m-0 grid items-center gap-14 grid-cols-1', layout === 1 ? 'md:grid-cols-[1.4fr_1fr]' : 'md:grid-cols-[1fr_1.4fr]')}>
           {layout === 1 ? Image : null}
-          <div>
-            <span className="font-ui text-[11px] block mb-5" style={{ letterSpacing: '0.22em', color: 'var(--gold)' }}>{indexLabel}</span>
-            {text && (
-              <p
-                className="font-display italic m-0"
-                style={{ fontSize: 'clamp(26px, 2.6vw, 34px)', lineHeight: 1.3, color: 'var(--parchment)', textWrap: 'balance' as React.CSSProperties['textWrap'] }}
-              >
-                {text}
-              </p>
-            )}
-          </div>
+          {Caption}
           {layout === 2 ? Image : null}
-        </div>
+        </figure>
       </div>
     </section>
   );
