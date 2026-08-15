@@ -8,6 +8,7 @@ import { isAbortError, toJsonLd } from "@/lib/utils";
 import { PageHead } from "@/components/layout/PageHead";
 import { StoryCard } from "@/components/ui/story-card";
 import { SITE_URL } from "@/lib/constants";
+import { localizedPath } from "@/lib/locale";
 
 // Fetched in pages so a large category doesn't pull hundreds of full-content
 // rows (previously: up to 500 articles × both 50k-char content columns in
@@ -105,17 +106,23 @@ const CategoryDetail: React.FC = () => {
     ? `Stories about ${categoryName} — explore Romania through ${totalCount} ${totalCount === 1 ? "story" : "stories"} curated by The RoStory.`
     : `Povești despre ${categoryName} — descoperă România prin ${totalCount} ${totalCount === 1 ? "poveste" : "povești"} pe The RoStory.`;
 
+  // Locale-prefixed throughout. These were hardcoded to the English tree, so
+  // /ro/category/x served structured data whose every URL contradicted the
+  // page's own canonical — breadcrumbs pointing readers into English and an
+  // ItemList of English article URLs on a Romanian page.
+  const url = (path: string) => `${SITE_URL}${localizedPath(language, path)}`;
+
   const breadcrumbLd = {
     "@context": "https://schema.org", "@type": "BreadcrumbList",
     itemListElement: [
-      { "@type": "ListItem", position: 1, name: language === "en" ? "Home" : "Acasă", item: `${SITE_URL}/` },
-      { "@type": "ListItem", position: 2, name: language === "en" ? "Categories" : "Categorii", item: `${SITE_URL}/categories` },
-      { "@type": "ListItem", position: 3, name: categoryName, item: `${SITE_URL}/category/${category.id}` },
+      { "@type": "ListItem", position: 1, name: language === "en" ? "Home" : "Acasă", item: url("/") },
+      { "@type": "ListItem", position: 2, name: language === "en" ? "Categories" : "Categorii", item: url("/categories") },
+      { "@type": "ListItem", position: 3, name: categoryName, item: url(`/category/${category.id}`) },
     ],
   };
   const itemListLd = {
     "@context": "https://schema.org", "@type": "ItemList",
-    itemListElement: articles.map((a, i) => ({ "@type": "ListItem", position: i + 1, url: `${SITE_URL}/article/${a.id}`, name: getLocalized(a, "title", language) })),
+    itemListElement: articles.map((a, i) => ({ "@type": "ListItem", position: i + 1, url: url(`/article/${a.id}`), name: getLocalized(a, "title", language) })),
   };
 
   return (

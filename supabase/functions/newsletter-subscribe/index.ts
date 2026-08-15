@@ -150,7 +150,12 @@ Deno.serve(async (req) => {
       );
     if (upsertError) throw upsertError;
 
-    const confirmUrl = `${SITE_URL}/newsletter/confirm?token=${confirmToken}`;
+    // Locale-prefixed: the email body is already written in the subscriber's
+    // language (see confirmEmailHtml), so sending them to the English
+    // confirmation page was the one step of the flow that switched languages
+    // under them. English keeps the bare path — see src/lib/locale.ts.
+    const confirmPath = lang === "ro" ? "/ro/newsletter/confirm" : "/newsletter/confirm";
+    const confirmUrl = `${SITE_URL}${confirmPath}?token=${confirmToken}`;
     const resendResp = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: {
