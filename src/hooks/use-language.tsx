@@ -1,6 +1,5 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from "react";
-
-type Language = "en" | "ro";
+import React, { createContext, useContext, useEffect, useCallback, useMemo } from "react";
+import { localizedPath, stripLanguage, type Language } from "@/lib/locale";
 
 /**
  * Union of every key in the EN dictionary. Typing t() against this catches
@@ -462,17 +461,18 @@ const translations = {
 
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
 
-export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [language, setLanguage] = useState<Language>(() => {
-    if (typeof window === "undefined") return "en";
-    try {
-      const saved = window.localStorage.getItem("rostory_lang");
-      return saved === "en" || saved === "ro" ? saved : "en";
-    } catch {
-      return "en";
-    }
-  });
-
+/**
+ * Language is derived from the URL (English bare, Romanian under /ro) and
+ * resolved in main.tsx before the app mounts, so it arrives here as a prop
+ * rather than being held as state. It used to live in localStorage alone,
+ * which is exactly why both languages shared one address and only English
+ * was ever indexed — see lib/locale.ts.
+ *
+ * localStorage is still written, but it is now a *preference* rather than the
+ * source of truth: it only decides where a visitor landing on the bare root
+ * gets sent (see the redirect in App.tsx), and the URL always wins over it.
+ */
+export const LanguageProvider: React.FC<{ children: React.ReactNode; language: Language }> = ({ children, language }) => {
   useEffect(() => {
     try {
       window.localStorage.setItem("rostory_lang", language);
@@ -482,6 +482,29 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     if (typeof document !== "undefined") {
       document.documentElement.lang = language;
     }
+  }, [language]);
+
+  /**
+   * Switching language is a navigation, not a state update: the same page in
+   * the other locale is a different URL. Done as a full document load rather
+   * than a client-side transition because the Router's basename is fixed at
+   * mount — changing the prefix means rebuilding the router, and a reload is
+   * both simpler and guaranteed correct. Language switching is a rare,
+   * deliberate action, so the cost is acceptable.
+   */
+  const setLanguage = useCallback((next: Language) => {
+    if (next === language) return;
+    // Persist BEFORE navigating. The effect above only runs after the new
+    // document mounts, so leaving it to that would mean the root redirect in
+    // main.tsx reads the *old* preference on the way in and bounces the
+    // reader straight back — an infinite loop between / and /ro.
+    try {
+      window.localStorage.setItem("rostory_lang", next);
+    } catch {
+      // Ignore browser storage restrictions
+    }
+    const { pathname, search, hash } = window.location;
+    window.location.assign(localizedPath(next, stripLanguage(pathname)) + search + hash);
   }, [language]);
 
   const t = useCallback((key: TranslationKey) => {
@@ -500,7 +523,7 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   // Stable identity so consumers don't re-render on unrelated provider
   // renders; `t` is memoized above for the same reason.
-  const value = useMemo(() => ({ language, setLanguage, t }), [language, t]);
+  const value = useMemo(() => ({ language, setLanguage, t }), [language, setLanguage, t]);
 
   return (
     <LanguageContext.Provider value={value}>

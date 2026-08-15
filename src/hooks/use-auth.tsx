@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import type { AuthResponse, AuthTokenResponsePassword, OAuthResponse, User, UserResponse } from "@supabase/supabase-js";
 import { isAbortError } from "@/lib/utils";
+import { detectLanguage, localizedPath } from "@/lib/locale";
 
 // Extended user type that includes our custom profile fields
 interface ExtendedUser extends User {
@@ -296,7 +297,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const login = () => {
-    window.location.href = "/auth";
+    // Full document load rather than a router navigation (this hook sits
+    // above the Router), so the locale prefix has to be re-applied by hand —
+    // a Romanian reader sent to a bare "/auth" would land in English and,
+    // worse, come back from the auth flow on the English side of the site.
+    const language = detectLanguage(window.location.pathname);
+    window.location.href = localizedPath(language, "/auth");
   };
 
   const logout = () => {
@@ -304,6 +310,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     void supabase.auth.signOut();
   };
 
+  // NOTE on the redirect URLs below: they deliberately stay on the bare
+  // /auth/callback rather than gaining a /ro prefix for Romanian users.
+  // Supabase only honours redirect targets that are in the project's
+  // allowlist, so emitting /ro/auth/callback would break every sign-up,
+  // OAuth and password-reset flow until that URL is added in the dashboard —
+  // a silent production breakage gated on a config change outside this repo.
+  // The cost of leaving it is small: the auth pages are noindex, and the only
+  // consequence is that a reader returns from the flow on the English side.
+  // To localize it later: add https://therostory.com/ro/auth/callback to
+  // Authentication -> URL Configuration -> Redirect URLs first, then prefix.
   const signUp = async (params: { email: string; password: string; displayName: string; metadata?: Record<string, unknown> }): Promise<AuthResponse> => {
     const { email, password, displayName, metadata } = params;
     const origin = window.location.origin;

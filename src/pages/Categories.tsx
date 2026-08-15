@@ -5,6 +5,7 @@ import { useLanguage } from "@/hooks/use-language";
 import { isAbortError, toJsonLd } from "@/lib/utils";
 import { PageHead } from "@/components/layout/PageHead";
 import { SITE_URL } from "@/lib/constants";
+import { localizedPath } from "@/lib/locale";
 
 // Extension-less base paths — each has a .avif, .webp and .jpg sibling, served
 // through <picture> below. They shipped as ~800 KB files named .png that were
@@ -83,7 +84,7 @@ const Categories: React.FC = () => {
       "@type": "ListItem",
       position: i + 1,
       name: getLocalized(cat, "name", language),
-      url: `${SITE_URL}/category/${cat.id}`,
+      url: `${SITE_URL}${localizedPath(language, `/category/${cat.id}`)}`,
     })),
   };
 

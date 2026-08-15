@@ -23,10 +23,12 @@ const CHAPTER_DELIMITER = "|||CHAPTER|||";
 const PREVIEW_BOT_RE =
   /facebookexternalhit|facebookcatalog|facebot|twitterbot|linkedinbot|whatsapp|slackbot|slack-imgproxy|telegrambot|discordbot|pinterest(bot)?|redditbot|skypeuripreview|vkshare|viber|line-poker|snapchat|iframely|embedly|quora link preview|outbrain|nuzzel|bitlybot|tumblr|bluesky|mastodon|misskey|pleroma|signal-desktop/i;
 
-const ARTICLE_PATH_RE = /^\/article\/([^/]+)\/?$/;
+// Matches both locale trees: /article/:id (English) and /ro/article/:id.
+// Capture 1 is the optional "ro" marker, capture 2 the article id.
+const ARTICLE_PATH_RE = /^(?:\/(ro))?\/article\/([^/]+)\/?$/;
 
 export const config = {
-  matcher: "/article/:id*",
+  matcher: ["/article/:id*", "/ro/article/:id*"],
 };
 
 type ArticleRow = {
@@ -105,32 +107,47 @@ const fetchArticle = async (id: string): Promise<ArticleRow | null> => {
   }
 };
 
-const buildHtml = (article: ArticleRow, articleUrl: string): string => {
-  const title = escapeHtml(article.title_en || article.title_ro || SITE_NAME);
+const buildHtml = (article: ArticleRow, language: "en" | "ro"): string => {
+  // Serve the shared link in the language it was shared in. A /ro/article/x
+  // link previously rendered an English card, because the middleware had no
+  // notion of locale and always reached for the *_en columns first.
+  const primaryTitle = language === "ro" ? article.title_ro : article.title_en;
+  const fallbackTitle = language === "ro" ? article.title_en : article.title_ro;
+  const primaryBody = language === "ro" ? article.content_ro : article.content_en;
+  const fallbackBody = language === "ro" ? article.content_en : article.content_ro;
+
+  const title = escapeHtml(primaryTitle || fallbackTitle || SITE_NAME);
   const description = escapeHtml(
-    excerpt(article.content_en || article.content_ro || "", 160) ||
-      "Visual storytelling about Romania — culture, history, traditions, and hidden gems."
+    excerpt(primaryBody || fallbackBody || "", 160) ||
+      (language === "ro"
+        ? "Povestiri vizuale despre România — cultură, istorie, tradiții și locuri ascunse."
+        : "Visual storytelling about Romania — culture, history, traditions, and hidden gems.")
   );
   const image = escapeHtml(coverUrl(article));
-  const url = escapeHtml(articleUrl);
+  const enUrl = `${SITE_URL}/article/${article.id}`;
+  const roUrl = `${SITE_URL}/ro/article/${article.id}`;
+  const url = escapeHtml(language === "ro" ? roUrl : enUrl);
   const published = article.created_at ?? "";
   const modified = article.updated_at || article.created_at || "";
 
   return `<!doctype html>
-<html lang="en">
+<html lang="${language}">
 <head>
 <meta charset="utf-8" />
 <title>${title} — ${SITE_NAME}</title>
 <meta name="description" content="${description}" />
 <link rel="canonical" href="${url}" />
+<link rel="alternate" hreflang="en" href="${escapeHtml(enUrl)}" />
+<link rel="alternate" hreflang="ro" href="${escapeHtml(roUrl)}" />
+<link rel="alternate" hreflang="x-default" href="${escapeHtml(enUrl)}" />
 <meta property="og:type" content="article" />
 <meta property="og:title" content="${title}" />
 <meta property="og:description" content="${description}" />
 <meta property="og:image" content="${image}" />
 <meta property="og:url" content="${url}" />
 <meta property="og:site_name" content="${SITE_NAME}" />
-<meta property="og:locale" content="en_US" />
-<meta property="og:locale:alternate" content="ro_RO" />
+<meta property="og:locale" content="${language === "ro" ? "ro_RO" : "en_US"}" />
+<meta property="og:locale:alternate" content="${language === "ro" ? "en_US" : "ro_RO"}" />
 ${published ? `<meta property="article:published_time" content="${escapeHtml(published)}" />` : ""}
 ${modified ? `<meta property="article:modified_time" content="${escapeHtml(modified)}" />` : ""}
 <meta name="twitter:card" content="summary_large_image" />
@@ -157,13 +174,14 @@ export default async function middleware(request: Request): Promise<Response | u
   const match = ARTICLE_PATH_RE.exec(pathname);
   if (!match) return undefined;
 
-  const id = decodeURIComponent(match[1]);
+  const language = match[1] === "ro" ? "ro" : "en";
+  const id = decodeURIComponent(match[2]);
   if (!id || id.length > 100) return undefined;
 
   const article = await fetchArticle(id);
   if (!article) return undefined;
 
-  return new Response(buildHtml(article, `${SITE_URL}/article/${article.id}`), {
+  return new Response(buildHtml(article, language), {
     status: 200,
     headers: {
       "Content-Type": "text/html; charset=utf-8",

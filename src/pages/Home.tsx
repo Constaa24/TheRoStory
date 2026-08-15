@@ -10,6 +10,7 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { PageHead } from "@/components/layout/PageHead";
 import { StoryCard } from "@/components/ui/story-card";
 import { SITE_NAME, SITE_URL } from "@/lib/constants";
+import { localizedPath } from "@/lib/locale";
 import { toneFor, readMinutes, placeLabel, articleExcerpt, articleCoverUrl } from "@/lib/article-utils";
 
 const PAGE_SIZE = 9;
@@ -241,7 +242,8 @@ const Home: React.FC = () => {
         title={pageTitle}
         description={pageDescription}
         language={language}
-        canonical={currentPage > 1 ? `${SITE_URL}/?page=${currentPage}` : `${SITE_URL}/`}
+        canonical={`${SITE_URL}${localizedPath(language, '/')}${currentPage > 1 ? `?page=${currentPage}` : ''}`}
+        alternatePath={currentPage > 1 ? `/?page=${currentPage}` : '/'}
       >
         <script type="application/ld+json">{toJsonLd(organizationLd)}</script>
       </PageHead>

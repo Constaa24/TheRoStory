@@ -49,7 +49,16 @@ export default defineConfig({
         // never run a service worker so they always got the real XML, but
         // without this a human opening the URL in an SW-controlled tab is
         // handed the SPA shell instead.
-        navigateFallbackDenylist: [/^\/auth\/callback/, /^\/admin/, /^\/sitemap\.xml$/],
+        // `(?:\/ro)?` on the app routes: locales live at /auth/callback and
+        // /ro/auth/callback (see lib/locale.ts), and a denylist that only
+        // knew the English spelling would hand the Romanian PKCE callback and
+        // the Romanian admin routes a cached shell — exactly the failures
+        // these entries exist to prevent. /sitemap.xml has no locale twin.
+        navigateFallbackDenylist: [
+          /^(?:\/ro)?\/auth\/callback/,
+          /^(?:\/ro)?\/admin/,
+          /^\/sitemap\.xml$/,
+        ],
         // Don't fetch a navigation fallback for cross-origin requests.
         navigateFallback: '/index.html',
         runtimeCaching: [

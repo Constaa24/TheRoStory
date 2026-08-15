@@ -9,6 +9,7 @@ import { articleCoverUrl, articleExcerpt } from "@/lib/article-utils";
 import { PageHead } from "@/components/layout/PageHead";
 import NotFound from "@/pages/NotFound";
 import { SITE_NAME, SITE_URL } from "@/lib/constants";
+import { localizedPath } from "@/lib/locale";
 
 const ArticleDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -86,7 +87,10 @@ const ArticleDetailPage: React.FC = () => {
   // it into the meta description of multi-chapter stories.
   const description = articleExcerpt(article, language, 160);
   const imageUrl = articleCoverUrl(article) || `${SITE_URL}/og-image.jpg`;
-  const articleUrl = `${SITE_URL}/article/${article.id}`;
+  // Locale-prefixed: the Romanian rendering of a story is its own indexable
+  // URL and must be self-canonical, not point at the English one.
+  const articlePath = `/article/${article.id}`;
+  const articleUrl = `${SITE_URL}${localizedPath(language, articlePath)}`;
 
   const jsonLd = {
     "@context": "https://schema.org",
@@ -109,7 +113,7 @@ const ArticleDetailPage: React.FC = () => {
     "@context": "https://schema.org",
     "@type": "BreadcrumbList",
     itemListElement: [
-      { "@type": "ListItem", position: 1, name: language === "en" ? "Home" : "Acasă", item: `${SITE_URL}/` },
+      { "@type": "ListItem", position: 1, name: language === "en" ? "Home" : "Acasă", item: `${SITE_URL}${localizedPath(language, "/")}` },
       { "@type": "ListItem", position: 2, name: title, item: articleUrl },
     ],
   };
@@ -128,6 +132,7 @@ const ArticleDetailPage: React.FC = () => {
         imageUrl={imageUrl}
         language={language}
         canonical={articleUrl}
+        alternatePath={articlePath}
         ogType="article"
       >
         <meta property="article:published_time" content={article.createdAt} />
