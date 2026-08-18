@@ -66,6 +66,33 @@ const excerpt = (text: string, maxLength: number): string => {
   return clean.slice(0, maxLength).trimEnd() + "…";
 };
 
+// Mirrors src/lib/image-url.ts:storageOgImage. Not imported from there: this
+// runs on Vercel's edge runtime, which does not resolve the app's "@/" alias.
+//
+// Social bots were handed the raw storage object — 7.2 MB for the article I
+// measured, against an 8 MB ceiling at Facebook and 5 MB at X, so the larger
+// covers rendered as cards with no image at all. Cropped to exactly the
+// 1200x630 the og:image:width/height tags below declare. format=origin rather
+// than webp: these are fetched once per share by a scraper, not by readers, so
+// the bytes hardly matter next to universal scraper support.
+const OBJECT_MARKER = "/storage/v1/object/public/";
+const RENDER_MARKER = "/storage/v1/render/image/public/";
+const OG_W = 1200;
+const OG_H = 630;
+
+const ogRendition = (url: string): string => {
+  if (!url.includes(OBJECT_MARKER)) return url;
+  if (/\.(mp4|webm|mov|m4v|ogv)(\?|#|$)/i.test(url)) return url;
+  const [base, query] = url.replace(OBJECT_MARKER, RENDER_MARKER).split("?");
+  const params = new URLSearchParams(query);
+  params.set("width", String(OG_W));
+  params.set("height", String(OG_H));
+  params.set("resize", "cover");
+  params.set("quality", "75");
+  params.set("format", "origin");
+  return `${base}?${params.toString()}`;
+};
+
 // Mirrors src/lib/article-utils.ts:articleCoverUrl — videos never fall back
 // to media_url (that's the video file itself, useless as og:image).
 const coverUrl = (article: ArticleRow): string => {
@@ -123,7 +150,7 @@ const buildHtml = (article: ArticleRow, language: "en" | "ro"): string => {
         ? "Povestiri vizuale despre România — cultură, istorie, tradiții și locuri ascunse."
         : "Visual storytelling about Romania — culture, history, traditions, and hidden gems.")
   );
-  const image = escapeHtml(coverUrl(article));
+  const image = escapeHtml(ogRendition(coverUrl(article)));
   const enUrl = `${SITE_URL}/article/${article.id}`;
   const roUrl = `${SITE_URL}/ro/article/${article.id}`;
   const url = escapeHtml(language === "ro" ? roUrl : enUrl);
@@ -144,6 +171,8 @@ const buildHtml = (article: ArticleRow, language: "en" | "ro"): string => {
 <meta property="og:title" content="${title}" />
 <meta property="og:description" content="${description}" />
 <meta property="og:image" content="${image}" />
+<meta property="og:image:width" content="${OG_W}" />
+<meta property="og:image:height" content="${OG_H}" />
 <meta property="og:url" content="${url}" />
 <meta property="og:site_name" content="${SITE_NAME}" />
 <meta property="og:locale" content="${language === "ro" ? "ro_RO" : "en_US"}" />

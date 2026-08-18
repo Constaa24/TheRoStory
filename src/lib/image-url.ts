@@ -94,3 +94,46 @@ export const storageImage = (
   params.set('resize', 'contain');
   return `${base}?${params.toString()}`;
 };
+
+/** Open Graph card dimensions. Every major platform targets 1.91:1. */
+export const OG_IMAGE_WIDTH = 1200;
+export const OG_IMAGE_HEIGHT = 630;
+
+/**
+ * The og:image rendition: cropped to exactly 1200x630.
+ *
+ * Social bots were being handed the raw poster — 7.2 MB for the article I
+ * measured. Facebook's ceiling is 8 MB and X's is 5 MB, so the larger covers
+ * were over the line and those cards would have rendered with no image at all.
+ * PageHead also declares `og:image:width` 1200 and `og:image:height` 630, which
+ * simply was not true of the original file; a platform that trusts those
+ * numbers lays the card out wrong.
+ *
+ * Two deliberate differences from `storageImage`:
+ *
+ * `resize=cover` with BOTH dimensions, not `contain`. Here a crop is what we
+ *   want — the declared 1200x630 has to be the real output, and a card is a
+ *   fixed aspect no matter the source. This is the one case where cover is
+ *   correct rather than the trap it is elsewhere.
+ *
+ * `format=origin`, not webp. WebP would be 45 KB against 1233 KB, but OG
+ *   images are fetched once per share by a crawler rather than by every
+ *   reader, so the bytes barely matter, while WebP support across every
+ *   scraper (LinkedIn in particular) is not something worth betting a share
+ *   card on. 1233 KB is comfortably inside every platform's limit.
+ */
+export const storageOgImage = (url: string | undefined | null): string | undefined => {
+  if (!url) return undefined;
+  if (url.includes(RENDER_MARKER)) return url;
+  if (!url.includes(OBJECT_MARKER)) return url;
+  if (VIDEO_EXT_RE.test(url)) return url;
+
+  const [base, existingQuery] = url.replace(OBJECT_MARKER, RENDER_MARKER).split('?');
+  const params = new URLSearchParams(existingQuery);
+  params.set('width', String(OG_IMAGE_WIDTH));
+  params.set('height', String(OG_IMAGE_HEIGHT));
+  params.set('resize', 'cover');
+  params.set('quality', '75');
+  params.set('format', 'origin');
+  return `${base}?${params.toString()}`;
+};

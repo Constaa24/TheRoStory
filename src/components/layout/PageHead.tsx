@@ -2,6 +2,7 @@ import React from "react";
 import { useLocation } from "react-router-dom";
 import { SITE_NAME, SITE_URL } from "@/lib/constants";
 import { localizedPath, ogLocaleFor } from "@/lib/locale";
+import { storageOgImage, OG_IMAGE_WIDTH, OG_IMAGE_HEIGHT } from "@/lib/image-url";
 
 interface PageHeadProps {
   /** Page title — will be suffixed with " — The RoStory" automatically */
@@ -77,7 +78,10 @@ export const PageHead: React.FC<PageHeadProps> = ({
   const enUrl = localized("en");
   const roUrl = localized("ro");
   const fullTitle = `${title} — ${SITE_NAME}`;
-  const image = imageUrl || `${SITE_URL}/og-image.jpg`;
+  // Cropped to exactly the 1200x630 the tags below declare. Passing the raw
+  // storage object made those declarations false and, at 7 MB, put the larger
+  // covers over X's 5 MB ceiling. Local assets pass through untouched.
+  const image = storageOgImage(imageUrl) || `${SITE_URL}/og-image.jpg`;
   const ogLocale = ogLocaleFor(language);
 
   return (
@@ -98,8 +102,8 @@ export const PageHead: React.FC<PageHeadProps> = ({
       <meta property="og:title" content={title} />
       <meta property="og:description" content={description} />
       <meta property="og:image" content={image} />
-      <meta property="og:image:width" content="1200" />
-      <meta property="og:image:height" content="630" />
+      <meta property="og:image:width" content={String(OG_IMAGE_WIDTH)} />
+      <meta property="og:image:height" content={String(OG_IMAGE_HEIGHT)} />
       <meta property="og:image:alt" content={title} />
       <meta property="og:url" content={canonicalUrl} />
       <meta property="og:type" content={ogType} />
