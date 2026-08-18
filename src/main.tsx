@@ -7,6 +7,7 @@ import { AuthProvider } from "./hooks/use-auth";
 import { FavoritesProvider } from "./hooks/use-favorites";
 import { LanguageProvider } from "./hooks/use-language";
 import { Toaster } from "@/components/ui/sonner";
+import { Analytics } from "@vercel/analytics/react";
 
 import { isAbortError } from "./lib/utils";
 import { basenameFor, detectLanguage, localizedPath } from "./lib/locale";
@@ -76,6 +77,23 @@ const mount = () => {
                   prefers-reduced-motion via the media query in index.css. */}
               <App />
               <Toaster />
+              {/* Vercel Web Analytics. Cookieless and no consent banner
+                  needed — it stores nothing on the device and records no
+                  personal data, so it sits outside GDPR consent
+                  requirements, unlike Google Analytics.
+
+                  No CSP change: in production the package injects
+                  /_vercel/insights/script.js and beacons to
+                  /_vercel/insights/event, both same-origin and therefore
+                  already covered by script-src / connect-src 'self'. Only
+                  the dev build reaches va.vercel-scripts.com, and localhost
+                  is not served the vercel.json CSP at all.
+
+                  Route reporting uses window.location.pathname, which keeps
+                  the /ro prefix — so English and Romanian traffic show up as
+                  separate routes, which is exactly what we want to measure
+                  after putting the locale in the URL. */}
+              <Analytics />
             </FavoritesProvider>
           </AuthProvider>
         </LanguageProvider>

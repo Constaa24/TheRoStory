@@ -44,8 +44,20 @@ const STATIC_ROUTES = [
   { path: "/terms", changefreq: "yearly", priority: "0.3" },
 ];
 
-type ArticleRow = { id: string; created_at: string | null; updated_at: string | null };
+type ArticleRow = {
+  id: string;
+  created_at: string | null;
+  updated_at: string | null;
+  type: string | null;
+  title_en: string | null;
+  title_ro: string | null;
+  media_url: string | null;
+  poster_url: string | null;
+  media_urls: string[] | null;
+};
 type CategoryRow = { id: string };
+
+type SitemapImage = { loc: string; title: string };
 
 type UrlEntry = {
   /** Unprefixed in-app path, e.g. "/article/art_123". */
@@ -53,6 +65,8 @@ type UrlEntry = {
   lastmod?: string | undefined;
   changefreq?: string | undefined;
   priority?: string | undefined;
+  /** Per-locale images. Keyed by language because <image:title> is localized. */
+  images?: { en: SitemapImage[]; ro: SitemapImage[] } | undefined;
 };
 
 const escapeXml = (value: string): string =>
@@ -72,6 +86,59 @@ const localizedPath = (language: "en" | "ro", path: string): string => {
   return clean === "/" ? RO_PREFIX : `${RO_PREFIX}${clean}`;
 };
 
+// Image entries, so the photographs are discoverable in Google Images and can
+// carry the story into Discover. For a visual archive that is a first-class
+// traffic source, and the sitemap previously advertised 80 pages and zero
+// images.
+//
+// Mirrors src/lib/image-url.ts:storageImage at the `feature` width, not the
+// raw object URL. That is deliberate: Google cross-references sitemap image
+// URLs against what it finds when it renders the page, and the page now serves
+// the resized rendition. Listing the 13 MB original would advertise a URL that
+// appears nowhere in the markup.
+const OBJECT_MARKER = "/storage/v1/object/public/";
+const RENDER_MARKER = "/storage/v1/render/image/public/";
+const IMAGE_WIDTH = 1600;
+
+const sizedImage = (url: string): string => {
+  if (!url.includes(OBJECT_MARKER)) return url;
+  if (/\.(mp4|webm|mov|m4v|ogv)(\?|#|$)/i.test(url)) return url;
+  const [base, query] = url.replace(OBJECT_MARKER, RENDER_MARKER).split("?");
+  const params = new URLSearchParams(query);
+  params.set("width", String(IMAGE_WIDTH));
+  params.set("quality", "72");
+  params.set("format", "webp");
+  params.set("resize", "contain");
+  return `${base}?${params.toString()}`;
+};
+
+// Cover + every carousel frame. A photo essay's frames are the reason anyone
+// would find it through image search, so listing only the cover would waste
+// most of the opportunity. Videos contribute their poster and never media_url,
+// which is the film itself.
+const articleImages = (article: ArticleRow, language: "en" | "ro"): SitemapImage[] => {
+  const title = (language === "ro" ? article.title_ro : article.title_en)
+    || (language === "ro" ? article.title_en : article.title_ro)
+    || "";
+  const candidates: (string | null)[] = [article.poster_url];
+  if (article.type !== "video") candidates.push(article.media_url);
+  if (article.media_urls) candidates.push(...article.media_urls);
+
+  const seen = new Set<string>();
+  const out: SitemapImage[] = [];
+  for (const raw of candidates) {
+    if (!raw) continue;
+    const loc = sizedImage(raw);
+    if (loc === raw && !raw.includes(OBJECT_MARKER)) continue; // not ours to list
+    if (seen.has(loc)) continue;
+    seen.add(loc);
+    out.push({ loc, title });
+  }
+  // The spec caps image entries at 1000 per <url>; nothing here approaches it,
+  // but slice rather than trust the data.
+  return out.slice(0, 1000);
+};
+
 /**
  * Emits one <url> per locale, each carrying the full reciprocal alternate set.
  *
@@ -81,7 +148,7 @@ const localizedPath = (language: "en" | "ro", path: string): string => {
  * archive becomes discoverable at all: before locales were in the URL, one
  * story had one address and only English was ever indexed.
  */
-const urlEntries = ({ path, lastmod, changefreq, priority }: UrlEntry): string[] => {
+const urlEntries = ({ path, lastmod, changefreq, priority, images }: UrlEntry): string[] => {
   const alternates = [
     `    <xhtml:link rel="alternate" hreflang="en" href="${escapeXml(SITE_URL + localizedPath("en", path))}"/>`,
     `    <xhtml:link rel="alternate" hreflang="ro" href="${escapeXml(SITE_URL + localizedPath("ro", path))}"/>`,
@@ -95,6 +162,16 @@ const urlEntries = ({ path, lastmod, changefreq, priority }: UrlEntry): string[]
       lastmod ? `    <lastmod>${lastmod}</lastmod>` : null,
       changefreq ? `    <changefreq>${changefreq}</changefreq>` : null,
       priority ? `    <priority>${priority}</priority>` : null,
+      ...(images?.[language] ?? []).map(
+        (img) =>
+          `    <image:image>
+` +
+          `      <image:loc>${escapeXml(img.loc)}</image:loc>
+` +
+          (img.title ? `      <image:title>${escapeXml(img.title)}</image:title>
+` : "") +
+          `    </image:image>`,
+      ),
     ].filter(Boolean);
     return `  <url>\n${parts.join("\n")}\n  </url>`;
   });
@@ -127,7 +204,7 @@ async function fetchPublishedArticles(supabaseUrl: string, anonKey: string): Pro
   const PAGE = 1000;
   const endpoint =
     `${supabaseUrl}/rest/v1/articles` +
-    `?select=id,created_at,updated_at&is_published=eq.true&order=created_at.desc,id.asc`;
+    `?select=id,created_at,updated_at,type,title_en,title_ro,media_url,poster_url,media_urls&is_published=eq.true&order=created_at.desc,id.asc`;
 
   const collected: ArticleRow[] = [];
   let from = 0;
@@ -175,6 +252,10 @@ export default async function handler(): Promise<Response> {
           lastmod: lastmodSource ? new Date(lastmodSource).toISOString().slice(0, 10) : undefined,
           changefreq: "monthly",
           priority: "0.7",
+          images: {
+            en: articleImages(article, "en"),
+            ro: articleImages(article, "ro"),
+          },
         };
       });
     } catch (error) {
@@ -203,7 +284,7 @@ export default async function handler(): Promise<Response> {
     '<?xml version="1.0" encoding="UTF-8"?>',
     // The xhtml namespace is what makes <xhtml:link rel="alternate"> legal
     // here; without the declaration the whole document fails validation.
-    '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">',
+    '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">',
     ...[...staticEntries, ...categoryEntries, ...articleEntries].flatMap(urlEntries),
     "</urlset>",
     "",
