@@ -186,12 +186,16 @@ const VideoStoryCreate: React.FC = () => {
       const previousVideoPath = videoStoragePath;
       const previousPosterPath = posterStoragePath;
 
+      // No maxBytes override: this used to pass 500 MB explicitly, which
+      // silently overrode MAX_VIDEO_BYTES in lib/supabase.ts and made lowering
+      // that constant to 150 MB a no-op for the only path that uploads video.
+      // The constant is the single source of truth now, and the `articles`
+      // bucket enforces the same 150 MB server-side.
       const { publicUrl, storagePath } = await uploadUserFile(file, {
         bucket: 'articles',
         kind: 'video',
         userId: user.id,
         subfolder: 'stories/videos',
-        maxBytes: 500 * 1024 * 1024,
       });
 
       // Only now discard the replaced files (session uploads immediately,
