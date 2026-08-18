@@ -8,6 +8,7 @@ import countiesTopoData from "@/lib/counties_topo";
 import { fetchMapArticles, Article, getLocalized } from "@/lib/supabase";
 import { useLanguage } from "@/hooks/use-language";
 import { StoryThumbnail } from "@/components/ui/story-thumbnail";
+import { LoadError } from "@/components/ui/load-error";
 import { X, MapPin, ChevronRight, Maximize2, Minimize2, RotateCcw, ArrowLeft } from "lucide-react";
 import { cn, isAbortError } from "@/lib/utils";
 import { PageHead } from "@/components/layout/PageHead";
@@ -44,6 +45,7 @@ const MapPage: React.FC = () => {
   const location = useLocation();
   const [articles, setArticles] = useState<Article[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadFailed, setLoadFailed] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState<string | null>(null);
   const [isZoomed, setIsZoomed] = useState(false);
   const [isAnimating, setIsAnimating] = useState(false);
@@ -66,20 +68,34 @@ const MapPage: React.FC = () => {
     return { paths: countyPaths };
   }, []);
 
-  useEffect(() => {
-    let cancelled = false;
+  // Hoisted so the failure state can re-run it. Only the fetch lives here —
+  // the location-state handling below is a one-time mount concern and must not
+  // repeat on retry, or a retry would re-zoom the map to a county the reader
+  // may have since navigated away from.
+  const loadArticles = useCallback(async () => {
     setIsLoading(true);
-    fetchMapArticles()
-      .then((data) => { if (!cancelled) setArticles(data || []); })
-      .catch((error) => { if (!isAbortError(error)) console.error("Error fetching data:", error); })
-      .finally(() => { if (!cancelled) setIsLoading(false); });
+    setLoadFailed(false);
+    try {
+      const data = await fetchMapArticles();
+      setArticles(data || []);
+    } catch (error) {
+      if (!isAbortError(error)) {
+        console.error("Error fetching data:", error);
+        setLoadFailed(true);
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadArticles();
 
     const state = location.state as { selectedLocation?: string } | null;
     if (state?.selectedLocation) {
       setSelectedLocation(state.selectedLocation);
       setIsZoomed(true);
     }
-    return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -201,7 +217,11 @@ const MapPage: React.FC = () => {
             </div>
           )}
 
-          {!isLoading && (
+          {!isLoading && loadFailed && (
+            <LoadError onRetry={loadArticles} />
+          )}
+
+          {!isLoading && !loadFailed && (
             <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-12 items-start">
               <div className="lg:sticky lg:top-24">
                 <div

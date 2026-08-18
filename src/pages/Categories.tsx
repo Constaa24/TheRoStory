@@ -1,10 +1,11 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Category, getLocalized, fetchCategories, fetchArticleCategoryCounts } from "@/lib/supabase";
 import { useLanguage } from "@/hooks/use-language";
 import { isAbortError, toJsonLd } from "@/lib/utils";
 import { PageHead } from "@/components/layout/PageHead";
 import { SITE_URL } from "@/lib/constants";
+import { LoadError } from "@/components/ui/load-error";
 import { localizedPath } from "@/lib/locale";
 
 // Extension-less base paths — each has a .avif, .webp and .jpg sibling, served
@@ -49,28 +50,36 @@ const Categories: React.FC = () => {
   const [categories, setCategories] = useState<Category[]>([]);
   const [categoryCounts, setCategoryCounts] = useState<Record<string, number>>({});
   const [isLoading, setIsLoading] = useState(true);
+  const [loadFailed, setLoadFailed] = useState(false);
 
   const handleCategorySelect = (categoryId: string) => {
     navigate(`/category/${categoryId}`);
   };
 
-  useEffect(() => {
-    const loadData = async () => {
-      try {
-        const [cats, counts] = await Promise.all([
-          fetchCategories(),
-          fetchArticleCategoryCounts(),
-        ]);
-        setCategories(cats);
-        setCategoryCounts(counts);
-      } catch (error) {
-        if (!isAbortError(error)) console.error("Error loading content:", error);
-      } finally {
-        setIsLoading(false);
+  // Hoisted out of the effect so the failure state can re-run it. An abort is
+  // not a failure — it means a newer load superseded this one — so it clears
+  // nothing and shows nothing.
+  const loadData = useCallback(async () => {
+    setIsLoading(true);
+    setLoadFailed(false);
+    try {
+      const [cats, counts] = await Promise.all([
+        fetchCategories(),
+        fetchArticleCategoryCounts(),
+      ]);
+      setCategories(cats);
+      setCategoryCounts(counts);
+    } catch (error) {
+      if (!isAbortError(error)) {
+        console.error("Error loading content:", error);
+        setLoadFailed(true);
       }
-    };
-    loadData();
+    } finally {
+      setIsLoading(false);
+    }
   }, []);
+
+  useEffect(() => { loadData(); }, [loadData]);
 
   const pageTitle = language === "en" ? "Categories" : "Categorii";
   const pageDescription = language === "en"
@@ -126,6 +135,8 @@ const Categories: React.FC = () => {
                 <div key={i} className="animate-pulse" style={{ aspectRatio: '16/9', background: 'var(--ink-2)', border: '1px solid var(--line)' }} />
               ))}
             </div>
+          ) : loadFailed ? (
+            <LoadError onRetry={loadData} />
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-14">
               {categories.map((category, i) => {

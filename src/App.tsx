@@ -275,13 +275,48 @@ const App: React.FC = () => {
             </Button>
           </div>
         )}
-        {!hideAppChrome && <Navbar />}
+        {/* The chrome sits OUTSIDE the route boundary below, so until now a
+            render error in the navbar or footer propagated to the root and
+            React unmounted the whole app — a blank page rather than a broken
+            header. Each gets its own boundary so a failure there costs only
+            that strip.
+
+            The navbar's fallback is not `null`: without it a reader on an
+            article page has no way back except the browser button. A logo
+            linking home is the minimum that keeps the site usable. */}
+        {!hideAppChrome && (
+          <ErrorBoundary
+            fallback={
+              <header className="ed-nav">
+                <div className="ed-container flex items-center" style={{ paddingTop: 18, paddingBottom: 18, minHeight: 76 }}>
+                  <Link to="/" className="flex items-center gap-3">
+                    <picture>
+                      <source type="image/webp" srcSet="/logo.webp" />
+                      <img src="/logo.png" alt="The RoStory" width={42} height={42} className="h-[42px] w-[42px] object-contain" />
+                    </picture>
+                    <span className="font-display italic font-semibold text-[23px]" style={{ color: 'var(--gold)' }}>
+                      The RoStory
+                    </span>
+                  </Link>
+                </div>
+              </header>
+            }
+          >
+            <Navbar />
+          </ErrorBoundary>
+        )}
         <main id="main" tabIndex={-1} className="flex-1">
           <ErrorBoundary
             fallback={
             <div className="flex flex-col items-center justify-center p-20 gap-4">
-              <p className="text-lg font-serif text-muted-foreground">Something went wrong loading this page.</p>
-              <Button variant="outline" onClick={() => window.location.reload()}>Reload</Button>
+              <p className="text-lg font-serif text-muted-foreground">
+                {language === 'en'
+                  ? 'Something went wrong loading this page.'
+                  : 'A apărut o problemă la încărcarea acestei pagini.'}
+              </p>
+              <Button variant="outline" onClick={() => window.location.reload()}>
+                {language === 'en' ? 'Reload' : 'Reîncarcă'}
+              </Button>
             </div>
           }
           >
@@ -339,7 +374,11 @@ const App: React.FC = () => {
           </Suspense>
           </ErrorBoundary>
         </main>
-        {!hideAppChrome && <EditorialFooter language={language} />}
+        {!hideAppChrome && (
+          <ErrorBoundary fallback={null}>
+            <EditorialFooter language={language} />
+          </ErrorBoundary>
+        )}
         <ScrollToTop />
       </div>
     </ThemedProvider>

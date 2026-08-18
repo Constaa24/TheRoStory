@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { Category, Article, getLocalized, supabase, toCamelCase, fetchArticlesPage } from "@/lib/supabase";
 import { useLanguage } from "@/hooks/use-language";
@@ -7,6 +7,7 @@ import { ArrowLeft, ChevronRight, Loader2 } from "lucide-react";
 import { isAbortError, toJsonLd } from "@/lib/utils";
 import { PageHead } from "@/components/layout/PageHead";
 import { StoryCard } from "@/components/ui/story-card";
+import { LoadError } from "@/components/ui/load-error";
 import { SITE_URL } from "@/lib/constants";
 import { localizedPath } from "@/lib/locale";
 
@@ -35,41 +36,51 @@ const CategoryDetail: React.FC = () => {
   // articles.length against totalCount. Those can disagree permanently once
   // the dedupe drops a row, which left "Load more" visible forever.
   const [reachedEnd, setReachedEnd] = useState(false);
+  const [loadFailed, setLoadFailed] = useState(false);
 
   // Stable identity so StoryCard's React.memo can skip re-renders — an
   // inline object literal would defeat the shallow prop comparison.
   const cardLinkState = useMemo(() => ({ from: `/category/${id}`, category: id }), [id]);
 
-  useEffect(() => {
+  // Hoisted so the failure state can re-run it. Takes its own cancellation
+  // signal rather than closing over one, so a retry started after the effect
+  // has torn down still applies its result.
+  const loadData = useCallback(async (isCancelled: () => boolean = () => false) => {
     if (!id) { navigate("/categories"); return; }
-    let cancelled = false;
     setIsLoading(true);
+    setLoadFailed(false);
     setArticles([]);
     setTotalCount(0);
     setLoadedPages(1);
     setReachedEnd(false);
-    const loadData = async () => {
-      try {
-        const [categoryRes, articlesPage] = await Promise.all([
-          supabase.from('categories').select('*').eq('id', id).maybeSingle(),
-          fetchArticlesPage(1, CATEGORY_PAGE_SIZE, id),
-        ]);
-        if (cancelled) return;
-        if (categoryRes.error) throw categoryRes.error;
-        if (!categoryRes.data) { navigate("/categories"); return; }
-        setCategory(toCamelCase<Category>(categoryRes.data));
-        setArticles(articlesPage.articles);
-        setTotalCount(articlesPage.total);
-        setReachedEnd(articlesPage.articles.length < CATEGORY_PAGE_SIZE);
-      } catch (error) {
-        if (!isAbortError(error)) console.error("Error loading category content:", error);
-      } finally {
-        if (!cancelled) setIsLoading(false);
+    try {
+      const [categoryRes, articlesPage] = await Promise.all([
+        supabase.from('categories').select('*').eq('id', id).maybeSingle(),
+        fetchArticlesPage(1, CATEGORY_PAGE_SIZE, id),
+      ]);
+      if (isCancelled()) return;
+      if (categoryRes.error) throw categoryRes.error;
+      if (!categoryRes.data) { navigate("/categories"); return; }
+      setCategory(toCamelCase<Category>(categoryRes.data));
+      setArticles(articlesPage.articles);
+      setTotalCount(articlesPage.total);
+      setReachedEnd(articlesPage.articles.length < CATEGORY_PAGE_SIZE);
+    } catch (error) {
+      if (isCancelled()) return;
+      if (!isAbortError(error)) {
+        console.error("Error loading category content:", error);
+        setLoadFailed(true);
       }
-    };
-    loadData();
-    return () => { cancelled = true; };
+    } finally {
+      if (!isCancelled()) setIsLoading(false);
+    }
   }, [id, navigate]);
+
+  useEffect(() => {
+    let cancelled = false;
+    loadData(() => cancelled);
+    return () => { cancelled = true; };
+  }, [loadData]);
 
   const loadMore = async () => {
     if (!id || isLoadingMore || reachedEnd) return;
@@ -95,6 +106,15 @@ const CategoryDetail: React.FC = () => {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="h-10 w-10 border-4 border-t-transparent rounded-full animate-spin" style={{ borderColor: 'var(--gold)', borderTopColor: 'transparent' }} />
+      </div>
+    );
+  }
+  if (loadFailed) {
+    return (
+      <div className="screen-anim">
+        <section className="ed-container" style={{ padding: '80px 0' }}>
+          <LoadError onRetry={() => loadData()} />
+        </section>
       </div>
     );
   }
