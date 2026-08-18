@@ -39,7 +39,7 @@ const Privacy: React.FC = () => {
         },
         {
           heading: "Local storage on your device",
-          body: "We store a few small preferences in your browser's localStorage and sessionStorage: your selected language, theme (light/dark), and a per-article session flag to avoid double-counting views in a single session. These never leave your device.",
+          body: "The site keeps a small amount of data in your browser, none of it used to track you and none of it sent anywhere except where noted. Preferences that persist: your language, your theme (light or dark), and the last category filter you chose. Housekeeping that persists: a short timestamp used to recover from a stale page after we deploy an update, and, if you comment, the time of your last comment so the form can enforce its own cooldown. Cleared when you close the tab: a flag per article so a single visit is not counted twice, and a flag marking a password-recovery session in progress. If you are signed in, your login session is also stored here — that is what keeps you signed in between visits, and clearing your browser data signs you out. You can clear all of it at any time through your browser settings.",
         },
         {
           heading: "Authentication providers",
@@ -102,7 +102,7 @@ const Privacy: React.FC = () => {
         },
         {
           heading: "Stocare locală pe dispozitivul tău",
-          body: "Stocăm câteva preferințe mici în localStorage și sessionStorage-ul browserului tău: limba selectată, tema (deschisă/întunecată) și un marcaj per articol pentru a evita dublarea numărării vizualizărilor într-o sesiune. Acestea nu părăsesc niciodată dispozitivul tău.",
+          body: "Site-ul păstrează o cantitate mică de date în browserul tău, niciuna folosită pentru a te urmări și niciuna trimisă altundeva, cu excepția cazurilor menționate. Preferințe care persistă: limba, tema (deschisă sau întunecată) și ultimul filtru de categorie ales. Elemente tehnice care persistă: o marcă de timp folosită pentru a recupera o pagină învechită după ce publicăm o actualizare și, dacă lași un comentariu, ora ultimului tău comentariu, ca formularul să își poată aplica propria pauză. Șterse când închizi fila: un marcaj per articol, ca o singură vizită să nu fie numărată de două ori, și un marcaj care indică o sesiune de recuperare a parolei în curs. Dacă ești autentificat, sesiunea ta de autentificare este de asemenea stocată aici — asta te menține conectat între vizite, iar ștergerea datelor din browser te deconectează. Poți șterge oricând toate acestea din setările browserului.",
         },
         {
           heading: "Furnizori de autentificare",
