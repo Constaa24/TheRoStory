@@ -30,8 +30,6 @@
 
 export type Language = 'en' | 'ro';
 
-export const SUPPORTED_LANGUAGES: readonly Language[] = ['en', 'ro'] as const;
-
 export const DEFAULT_LANGUAGE: Language = 'en';
 
 /** Path segment that marks the Romanian tree. No trailing slash. */
@@ -79,6 +77,5 @@ export const stripLanguage = (pathname: string): string => {
   return pathname || '/';
 };
 
-/** BCP 47 tag for hreflang and og:locale. */
-export const hreflangFor = (language: Language): string => (language === 'ro' ? 'ro' : 'en');
+/** og:locale value for a language. */
 export const ogLocaleFor = (language: Language): string => (language === 'ro' ? 'ro_RO' : 'en_US');
