@@ -59,6 +59,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Plus, Trash2, Edit, Check, X, Loader2, Lock, Users, FileText, Tag, ShieldCheck, CheckCircle2, XCircle, Video, BookText, Images, HardDrive } from "lucide-react";
 import { PageHead } from "@/components/layout/PageHead";
+import { storageImage } from "@/lib/image-url";
 import { toast } from "sonner";
 import { cn, isAbortError } from "@/lib/utils";
 // The dashboard used raw toLocaleDateString(), which follows the browser's
@@ -1118,7 +1119,7 @@ const AdminDashboard: React.FC = () => {
                   <div className="flex items-start gap-3">
                     <div className="h-9 w-9 rounded-full bg-accent/20 flex items-center justify-center overflow-hidden shrink-0">
                       {u.avatarUrl ? (
-                        <img src={u.avatarUrl} alt={u.displayName} className="h-full w-full object-cover" loading="lazy" />
+                        <img src={storageImage(u.avatarUrl, "avatar")} alt={u.displayName} className="h-full w-full object-cover" loading="lazy" />
                       ) : (
                         <span className="text-xs">{u.displayName?.charAt(0) || u.email.charAt(0)}</span>
                       )}
@@ -1191,7 +1192,7 @@ const AdminDashboard: React.FC = () => {
                         <div className="flex items-center gap-2">
                           <div className="h-8 w-8 rounded-full bg-accent/20 flex items-center justify-center overflow-hidden">
                             {u.avatarUrl ? (
-                              <img src={u.avatarUrl} alt={u.displayName} className="h-full w-full object-cover" loading="lazy" />
+                              <img src={storageImage(u.avatarUrl, "avatar")} alt={u.displayName} className="h-full w-full object-cover" loading="lazy" />
                             ) : (
                               <span className="text-xs">{u.displayName?.charAt(0) || u.email.charAt(0)}</span>
                             )}

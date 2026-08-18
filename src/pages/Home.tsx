@@ -11,6 +11,7 @@ import { PageHead } from "@/components/layout/PageHead";
 import { StoryCard } from "@/components/ui/story-card";
 import { SITE_NAME, SITE_URL } from "@/lib/constants";
 import { localizedPath } from "@/lib/locale";
+import { storageImage } from "@/lib/image-url";
 import { toneFor, readMinutes, placeLabel, articleExcerpt, articleCoverUrl } from "@/lib/article-utils";
 
 const PAGE_SIZE = 9;
@@ -383,7 +384,7 @@ const Home: React.FC = () => {
                         films — posterUrl || mediaUrl rendered a broken <img>
                         when a video had no poster. */}
                     {articleCoverUrl(featured) && (
-                      <img src={articleCoverUrl(featured)} alt={getLocalized(featured, 'title', language)} className="absolute inset-0 w-full h-full object-cover" loading="lazy" />
+                      <img src={storageImage(articleCoverUrl(featured), 'feature')} alt={getLocalized(featured, 'title', language)} className="absolute inset-0 w-full h-full object-cover" loading="lazy" />
                     )}
                     <div className="absolute left-6 top-6">
                       <span className="pill" style={{ background: 'var(--overlay-deep)' }}>{language === 'en' ? 'Lead story' : 'Articolul principal'}</span>

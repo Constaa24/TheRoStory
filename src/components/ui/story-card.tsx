@@ -11,6 +11,7 @@ import {
   articleCoverUrl,
   getArticleKindLabel,
 } from "@/lib/article-utils";
+import { storageImage } from "@/lib/image-url";
 
 export interface StoryCardProps {
   article: Article;
@@ -37,7 +38,7 @@ export const StoryCard = React.memo<StoryCardProps>(({ article, category, langua
       ? { aspect: '16/10', titleSize: 28 }
       : { aspect: '3/4', titleSize: 22 };
   const tone = toneFor(article.id);
-  const cover = articleCoverUrl(article);
+  const cover = storageImage(articleCoverUrl(article), "card");
 
   return (
     <div className="relative group">

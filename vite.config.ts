@@ -96,13 +96,22 @@ export default defineConfig({
             // serving forever-stale media. Videos are excluded above.
             // Shorter TTL than before so admin previews of draft media
             // don't linger client-side for a week on shared devices.
-            urlPattern: /^https:\/\/.*\.supabase\.co\/storage\/v1\/object\/public\/.*/,
+            //
+            // Matches BOTH storage paths. Images now come from
+            // `render/image/public/` (resized on demand — see lib/image-url.ts)
+            // while videos and any untransformed object still come from
+            // `object/public/`. A pattern covering only the latter would leave
+            // every resized image uncached, so repeat visits would re-fetch
+            // the whole set. maxEntries is raised because one source image can
+            // legitimately occupy several cache entries, one per requested
+            // width (the query string is part of the cache key).
+            urlPattern: /^https:\/\/.*\.supabase\.co\/storage\/v1\/(?:object|render\/image)\/public\/.*/,
             handler: 'StaleWhileRevalidate',
             options: {
               cacheName: 'supabase-storage',
               // 1 hour: balance between repeat-visit speed and not pinning
               // unpublished draft media in the cache for days.
-              expiration: { maxEntries: 200, maxAgeSeconds: 60 * 60 },
+              expiration: { maxEntries: 400, maxAgeSeconds: 60 * 60 },
               cacheableResponse: { statuses: [0, 200] },
             },
           },

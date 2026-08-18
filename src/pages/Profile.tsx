@@ -30,6 +30,7 @@ import { Camera, Loader2, Shield, Heart, ChevronRight, CheckCircle2, AlertCircle
 import { motion } from "framer-motion";
 import { ReducedMotionConfig } from "@/components/ui/reduced-motion-config";
 import { PageHead } from "@/components/layout/PageHead";
+import { storageImage } from "@/lib/image-url";
 
 const Profile: React.FC = () => {
   const { user, role, refreshUser, logout } = useAuth();
@@ -314,7 +315,7 @@ const Profile: React.FC = () => {
               <div className="flex flex-col items-center gap-4">
                 <div className="relative group">
                   <Avatar className="h-32 w-32 border-4 border-background shadow-xl">
-                    <AvatarImage src={avatarUrl} alt={displayName || user.email || ''} />
+                    <AvatarImage src={storageImage(avatarUrl, "avatar")} alt={displayName || user.email || ''} />
                     <AvatarFallback className="text-4xl font-serif bg-accent/10 text-accent">
                       {displayName?.charAt(0) || user.email?.charAt(0)}
                     </AvatarFallback>
@@ -552,7 +553,7 @@ const Profile: React.FC = () => {
                       <div className="flex h-full">
                         <div className="w-1/3 aspect-square overflow-hidden relative">
                           {(() => {
-                            const cover = articleCoverUrl(article);
+                            const cover = storageImage(articleCoverUrl(article), "card");
                             return cover ? (
                               <img
                                 src={cover}

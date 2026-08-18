@@ -6,6 +6,7 @@ import { useFavorites } from "@/hooks/use-favorites";
 import { ArrowLeft, Heart, Share2, Printer, Play, Pause, Maximize2, Volume2, VolumeX } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ArticleComments } from "@/components/organisms/ArticleComments";
+import { storageImage } from "@/lib/image-url";
 import { TONES, toneFor, readMinutes, placeLabel, articleCoverUrl, getArticleKindLabel, formatArticleDate } from "@/lib/article-utils";
 
 interface Props {
@@ -136,7 +137,7 @@ export const EditorialArticle: React.FC<Props> = ({ article, views }) => {
               {related.map(r => {
                 const cat = categories.find(c => c.id === r.categoryId);
                 const tone = toneFor(r.id);
-                const cover = articleCoverUrl(r);
+                const cover = storageImage(articleCoverUrl(r), "card");
                 return (
                   <Link key={r.id} to={`/article/${r.id}`} className="block group" style={{ color: 'inherit', textDecoration: 'none' }}>
                     <div className="ph relative" data-tone={tone} data-label={placeLabel(r)} style={{ aspectRatio: '3/4' }}>
@@ -224,7 +225,7 @@ const TextArticle: React.FC<{ article: Article; category?: Category; views?: num
   // story the helper falls back to posterUrl, so a story whose cover was set
   // as a poster no longer renders with no lead image at all. Every other
   // surface (cards, search, related) already resolved covers this way.
-  const cover = articleCoverUrl(article);
+  const cover = storageImage(articleCoverUrl(article), "feature");
   const subtype: ArticleSubtype = (article.subtype as ArticleSubtype | null | undefined) || 'essay';
   // Essays and poems both lead each chapter with a styled first letter
   // (different class per subtype — see BodyContent). Short stories open
@@ -394,7 +395,7 @@ const PhotoEssay: React.FC<{ article: Article; category?: Category; views?: numb
       <section className="relative overflow-hidden" style={{ height: '100dvh', minHeight: 720, borderBottom: '1px solid var(--line-soft)' }}>
         <div className="absolute inset-0">
           {(() => {
-            const hero = article.posterUrl || article.mediaUrl;
+            const hero = storageImage(article.posterUrl || article.mediaUrl, "hero");
             return hero ? (
               <img src={hero} alt={title} className="w-full h-full object-cover" />
             ) : (
@@ -517,7 +518,7 @@ const PhotoScene: React.FC<{
 
   const Image = (
     <div className="ph relative" data-tone={scene.tone as 'warm'} data-label="" style={{ aspectRatio: scene.aspect }}>
-      <img src={scene.url} alt={altText} className="absolute inset-0 w-full h-full object-cover" loading="lazy" />
+      <img src={storageImage(scene.url, "feature")} alt={altText} className="absolute inset-0 w-full h-full object-cover" loading="lazy" />
     </div>
   );
 
@@ -833,7 +834,7 @@ const VideoFilm: React.FC<{ article: Article; category?: Category; views?: numbe
                   <video
                     ref={videoRef}
                     src={article.mediaUrl}
-                    poster={article.posterUrl}
+                    poster={storageImage(article.posterUrl, "feature")}
                     className="absolute inset-0 w-full h-full object-cover"
                     style={{ cursor: controlsVisible ? 'pointer' : 'none' }}
                     playsInline

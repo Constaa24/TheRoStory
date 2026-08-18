@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 import { useTheme } from "next-themes";
 import { Article, Category, searchArticles, fetchCategories, getLocalized, SEARCH_MIN_LENGTH } from "@/lib/supabase";
 import { articleCoverUrl } from "@/lib/article-utils";
+import { storageImage } from "@/lib/image-url";
 
 export const Navbar: React.FC = () => {
   const { user, login, logout, isAdmin, isWriter, signInWithGoogle } = useAuth();
@@ -182,7 +183,7 @@ export const Navbar: React.FC = () => {
             >
               {user?.avatarUrl ? (
                 <Avatar className="h-full w-full">
-                  <AvatarImage src={user.avatarUrl} alt={user.displayName || user.email || ''} />
+                  <AvatarImage src={storageImage(user.avatarUrl, "avatar")} alt={user.displayName || user.email || ''} />
                   <AvatarFallback
                     className="text-xs bg-transparent font-display italic font-semibold"
                     style={{ background: 'linear-gradient(135deg, var(--gold) 0%, var(--gold-deep) 100%)', color: 'var(--ink)' }}
@@ -231,7 +232,7 @@ export const Navbar: React.FC = () => {
                         >
                           {user.avatarUrl ? (
                             <Avatar className="h-11 w-11">
-                              <AvatarImage src={user.avatarUrl} alt={user.displayName || user.email || ''} />
+                              <AvatarImage src={storageImage(user.avatarUrl, "avatar")} alt={user.displayName || user.email || ''} />
                               <AvatarFallback className="bg-transparent text-[color:var(--ink)] font-display italic font-semibold">{initial}</AvatarFallback>
                             </Avatar>
                           ) : initial}
@@ -547,7 +548,7 @@ const NavSearchOverlay: React.FC<{ onClose: () => void; language: 'en' | 'ro' }>
               ) : results.length > 0 ? (
                 results.map((article) => {
                   const cat = categories.find((c) => c.id === article.categoryId);
-                  const thumb = articleCoverUrl(article);
+                  const thumb = storageImage(articleCoverUrl(article), "thumb");
                   return (
                     <button
                       key={article.id}

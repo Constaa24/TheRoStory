@@ -1,6 +1,7 @@
 import React from "react";
 import { Video } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { storageImage } from "@/lib/image-url";
 
 interface StoryThumbnailProps {
   posterUrl?: string | null;
@@ -32,7 +33,7 @@ export const StoryThumbnail: React.FC<StoryThumbnailProps> = ({
 
   return (
     <img
-      src={posterUrl}
+      src={storageImage(posterUrl, "thumb")}
       alt={alt}
       className={className}
       loading="lazy"
