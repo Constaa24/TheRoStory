@@ -12,7 +12,6 @@
     /* === RoStory editorial palette — DARK is default === */
     --ink: #0d0b08;
     --ink-2: #14110c;
-    --ink-3: #1c1812;
     --line-rgb: 201, 169, 110;
     --line: rgba(201, 169, 110, 0.18);
     --line-soft: rgba(201, 169, 110, 0.10);
@@ -21,11 +20,9 @@
     --gold-2: #d9bf8c;
     --gold-deep: #8c6f3e;
 
-    --oxblood: #8a2a2a;
     --oxblood-2: #a83c3c;
 
     --parchment: #f4ead7;
-    --parchment-dim: #e7dcc4;
 
     --text: #e9dfc8;
     --text-dim: #b9ad93;
@@ -37,9 +34,6 @@
     --display: "Cormorant Garamond", "Cormorant", Georgia, serif;
     --serif: "Newsreader", Georgia, serif;
     --ui: "Manrope", -apple-system, BlinkMacSystemFont, sans-serif;
-    --font-sans: var(--ui);
-    --font-serif: var(--serif);
-    --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
 
     --container: 1320px;
     --gutter: clamp(24px, 6vw, 56px);
@@ -83,7 +77,6 @@
     --ring: 38 45% 60%;
 
     --tracking-normal: 0.01em;
-    --spacing: 0.25rem;
     --radius: 0.25rem;
   }
 
@@ -91,7 +84,6 @@
   .light {
     --ink: #f6f1e6;
     --ink-2: #ede2cb;
-    --ink-3: #e2d4b6;
     --line: rgba(80, 60, 30, 0.20);
     --line-soft: rgba(80, 60, 30, 0.10);
     --line-rgb: 80, 60, 30;
@@ -101,20 +93,20 @@
        active nav underline and inline link, all at 11-15px — normal text
        under WCAG, so it needs 4.5:1, not the 3:1 large-text allowance.
 
-       Measured against all three light surfaces — --ink #f6f1e6,
-       --ink-2 #ede2cb (panels, dropdowns, the search overlay) and
-       --ink-3 #e2d4b6 — because a value can clear the page background and
-       still fail on a panel:
-         was  --gold #a07a35      3.50 / 3.07 / 2.70   FAIL
-         now  --gold #6e501a      6.60 / 5.78 / 5.07
-         was  --text-mute #7a6e52 4.46 / 3.91 / 3.43   FAIL
-         now  --text-mute #5f5646 6.42 / 5.62 / 4.93
-       The dark theme already cleared AA everywhere and is unchanged. */
+       Measured against both light surfaces — --ink #f6f1e6 and --ink-2
+       #ede2cb (panels, dropdowns, the search overlay) — because a value can
+       clear the page background and still fail on a panel:
+         was  --gold #a07a35      3.50 / 3.07   FAIL
+         now  --gold #6e501a      6.60 / 5.78
+         was  --text-mute #7a6e52 4.46 / 3.91   FAIL
+         now  --text-mute #5f5646 6.42 / 5.62
+       Values were originally chosen against a third surface, --ink-3, which
+       has since been removed as unused. The dark theme already cleared AA
+       everywhere and is unchanged. */
     --gold: #6e501a;
     --gold-2: #573f14;
     --gold-deep: #3d2c0e;
     --parchment: #2a1f10;
-    --parchment-dim: #4a3820;
     --text: #1c1810;
     --text-dim: #4a4231;
     --text-mute: #5f5646;
@@ -637,12 +629,10 @@ main:focus-visible {
   :root, .light, .dark {
     --ink: #fff;
     --ink-2: #fff;
-    --ink-3: #fff;
     --text: #000;
     --text-dim: #1a1a1a;
     --text-mute: #333;
     --parchment: #000;
-    --parchment-dim: #1a1a1a;
     --gold: #000;
     --gold-2: #000;
     --gold-deep: #000;
