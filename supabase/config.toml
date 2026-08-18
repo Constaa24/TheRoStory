@@ -108,7 +108,15 @@ port = 54324
 [storage]
 enabled = true
 # The maximum file size allowed (e.g. "5MB", "500KB").
-file_size_limit = "50MiB"
+#
+# LOCAL DEV ONLY — the hosted project's per-bucket limits are set by migration
+# 20260818192338 (articles 150 MB, avatars 5 MB) and are not affected by this
+# file. This is the global ceiling `supabase start` applies locally, and at the
+# previous 50MiB it sat BELOW the 150 MB the articles bucket allows in
+# production: a 100 MB video would upload against the real project and fail
+# against a local stack, which is the wrong way round for a dev environment.
+# Matched to the largest bucket limit so local behaviour mirrors production.
+file_size_limit = "150MiB"
 
 # Uncomment to configure local storage buckets
 # [storage.buckets.images]

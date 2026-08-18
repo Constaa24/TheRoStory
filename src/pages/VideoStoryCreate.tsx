@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Category } from "@/lib/supabase";
 import { fetchCategories, uploadUserFile, createArticle, updateArticle, deleteStorageFile, fetchAnyArticle, extractStoragePath } from "@/lib/supabase";
-import { ARTICLE_LIMITS } from "@/lib/supabase";
+import { ARTICLE_LIMITS, MAX_VIDEO_BYTES, asMb } from "@/lib/supabase";
 import { useLanguage } from "@/hooks/use-language";
 import { useAuth } from "@/hooks/use-auth";
 import { useUnsavedChangesWarning } from "@/hooks/use-unsaved-changes";
@@ -568,7 +568,7 @@ const VideoStoryCreate: React.FC = () => {
                         {language === 'en' ? 'Click to upload video' : 'Apasă pentru a încărca video'}
                       </span>
                       <span className="font-ui text-[10px] uppercase" style={{ letterSpacing: '0.18em', color: 'var(--text-mute)' }}>
-                        MP4 · WebM · MOV · 500 MB max
+                        MP4 · WebM · MOV · {asMb(MAX_VIDEO_BYTES)} MB max
                       </span>
                     </>
                   )}

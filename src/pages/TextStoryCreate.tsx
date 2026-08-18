@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Category, CHAPTER_DELIMITER, ARTICLE_LIMITS, parseChapters, ArticleSubtype } from "@/lib/supabase";
+import { Category, CHAPTER_DELIMITER, ARTICLE_LIMITS, parseChapters, ArticleSubtype, MAX_IMAGE_BYTES, asMb } from "@/lib/supabase";
 import { fetchCategories, uploadUserFile, createArticle, updateArticle, fetchAnyArticle, deleteStorageFile, extractStoragePath } from "@/lib/supabase";
 import { useLanguage } from "@/hooks/use-language";
 import { useAuth } from "@/hooks/use-auth";
@@ -531,7 +531,7 @@ const TextStoryCreate: React.FC = () => {
                           {language === 'en' ? 'Upload cover' : 'Încarcă coperta'}
                         </span>
                         <span className="font-ui text-[10px]" style={{ color: 'var(--text-mute)' }}>
-                          JPG · PNG · WebP · 10 MB
+                          JPG · PNG · WebP · {asMb(MAX_IMAGE_BYTES)} MB
                         </span>
                       </>
                     )}

@@ -1243,19 +1243,31 @@ const matchesMagicBytes = async (file: File, kind: UploadKind): Promise<boolean>
   return isIsoBmff && !isHeifImageBrand;                                                     // MP4/MOV/M4V
 };
 
-const MAX_IMAGE_BYTES = 10 * 1024 * 1024; // 10 MB
-// Well under the `articles` bucket's own 500 MB ceiling, deliberately. The
-// bucket limit is the point past which Storage rejects an upload; it is not a
-// sensible thing to serve. At 500 MB this cap let through four films totalling
-// 1.1 GB, one of them 397 MB, streamed to phones over mobile data and billed
-// as egress on every play. Re-encoded (H.264 CRF 23, 1080p cap, faststart)
-// the same four came to 282 MB, the largest 88 MB.
+// Upload ceilings. Exported because the editors render them as guidance next
+// to the file picker, and a hardcoded string there is exactly how the UI came
+// to promise "500 MB max" for months after the real cap became 150 MB.
+// Deriving the label from the constant makes that drift impossible.
+//
+// These are mirrored by the buckets' own file_size_limit (migration
+// 20260818192338), so the limit holds even against a client that skips the
+// editor. Change one, change the other.
+export const MAX_IMAGE_BYTES = 10 * 1024 * 1024; // 10 MB
+
+// Deliberately far below what Storage would physically accept. A bucket limit
+// is the point past which an upload is rejected; it is not a sensible thing to
+// serve. At the old 500 MB this cap let through four films totalling 1.1 GB,
+// one of them 397 MB, streamed to phones over mobile data and billed as egress
+// on every play. Re-encoded (H.264 CRF 23, 1080p cap, faststart) the same four
+// came to 282 MB, the largest 88 MB.
 //
 // 150 MB leaves comfortable headroom over that 88 MB while making the old
-// failure mode impossible. A legitimate film that genuinely exceeds this
-// wants re-encoding, not a bigger number — see the ffmpeg recipe in the
-// project notes. Raising it is a decision about bandwidth cost, not a bug fix.
-const MAX_VIDEO_BYTES = 150 * 1024 * 1024; // 150 MB
+// failure mode impossible. A legitimate film that genuinely exceeds this wants
+// re-encoding, not a bigger number. Raising it is a decision about bandwidth
+// cost, not a bug fix.
+export const MAX_VIDEO_BYTES = 150 * 1024 * 1024; // 150 MB
+
+/** Megabytes, for rendering a cap in the UI. */
+export const asMb = (bytes: number): number => Math.round(bytes / (1024 * 1024));
 
 export type UploadKind = 'image' | 'video';
 
