@@ -384,7 +384,7 @@ export const Navbar: React.FC = () => {
               </div>
               <button
                 onClick={toggleTheme}
-                aria-label="Toggle theme"
+                aria-label={isDark ? (language === 'en' ? 'Switch to light mode' : 'Mod luminos') : (language === 'en' ? 'Switch to dark mode' : 'Mod întunecat')}
                 className="grid w-10 h-10 rounded-full place-items-center"
                 style={{ border: '1px solid var(--line)', color: 'var(--text)' }}
               >

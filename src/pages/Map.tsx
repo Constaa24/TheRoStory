@@ -460,7 +460,7 @@ const MapPage: React.FC = () => {
                         <span className="eyebrow flex items-center gap-2"><MapPin className="w-3 h-3" /> {selectedLocation}</span>
                         <button
                           onClick={closeList}
-                          aria-label="Close"
+                          aria-label={language === 'en' ? 'Close' : 'Închide'}
                           className="grid w-7 h-7 rounded-full place-items-center transition-colors hover:text-gold"
                           style={{ border: '1px solid var(--line)', background: 'transparent', color: 'var(--text-dim)' }}
                         >

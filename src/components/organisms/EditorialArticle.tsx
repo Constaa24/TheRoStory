@@ -884,7 +884,7 @@ const VideoFilm: React.FC<{ article: Article; category?: Category; views?: numbe
                       onPointerUp={handleScrubEnd}
                       onPointerCancel={handleScrubEnd}
                       role="slider"
-                      aria-label="Seek"
+                      aria-label={language === 'en' ? 'Seek' : 'Derulează'}
                       aria-valuemin={0}
                       aria-valuemax={Math.round(duration) || 0}
                       aria-valuenow={Math.round(currentTime) || 0}
@@ -933,7 +933,7 @@ const VideoFilm: React.FC<{ article: Article; category?: Category; views?: numbe
                             onChange={handleVolumeChange}
                             className="volume-slider"
                             style={{ writingMode: 'vertical-lr', direction: 'rtl', width: 4, height: 80, accentColor: 'var(--gold)', cursor: 'pointer' }}
-                            aria-label="Volume"
+                            aria-label={language === 'en' ? 'Volume' : 'Volum'}
                           />
                           {isTouch && (
                             <button
@@ -952,7 +952,7 @@ const VideoFilm: React.FC<{ article: Article; category?: Category; views?: numbe
                       onClick={fullscreen}
                       className="w-9 h-9 grid place-items-center cursor-pointer"
                       style={{ background: 'transparent', border: 0, color: 'var(--parchment)' }}
-                      aria-label="Fullscreen"
+                      aria-label={language === 'en' ? 'Fullscreen' : 'Ecran complet'}
                     >
                       <Maximize2 className="w-4 h-4" />
                     </button>

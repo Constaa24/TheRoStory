@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { ChevronUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { useLanguage } from '@/hooks/use-language';
 
 /**
  * Back-to-top affordance.
@@ -18,6 +19,7 @@ import { cn } from '@/lib/utils';
  * and away from the pointer while hidden.
  */
 export const ScrollToTop: React.FC = () => {
+  const { language } = useLanguage();
   const [isVisible, setIsVisible] = useState(false);
 
   useEffect(() => {
@@ -55,7 +57,7 @@ export const ScrollToTop: React.FC = () => {
           'h-12 w-12 rounded-full shadow-elegant bg-accent text-white hover:bg-accent/90 border border-white/20',
           'group transition-all duration-300 hover:scale-110 active:scale-95'
         )}
-        aria-label="Scroll to top"
+        aria-label={language === 'en' ? 'Scroll to top' : 'Înapoi sus'}
       >
         <ChevronUp className="h-6 w-6 group-hover:-translate-y-1 transition-transform" />
       </Button>

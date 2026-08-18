@@ -143,7 +143,7 @@ const CategoryDetail: React.FC = () => {
             {language === 'en' ? 'Back' : 'Înapoi'}
           </button>
 
-          <nav aria-label="Breadcrumb" className="mb-6 font-ui text-[11px] uppercase" style={{ letterSpacing: '0.18em', color: 'var(--text-mute)' }}>
+          <nav aria-label={language === 'en' ? 'Breadcrumb' : 'Navigare'} className="mb-6 font-ui text-[11px] uppercase" style={{ letterSpacing: '0.18em', color: 'var(--text-mute)' }}>
             <ol className="flex flex-wrap items-center gap-2">
               <li><Link to="/" className="transition-colors hover:text-gold">{language === 'en' ? 'Home' : 'Acasă'}</Link></li>
               <li><ChevronRight className="w-3 h-3" /></li>
