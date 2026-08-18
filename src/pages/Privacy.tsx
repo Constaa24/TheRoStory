@@ -5,7 +5,16 @@ import { PageHead } from "@/components/layout/PageHead";
 const Privacy: React.FC = () => {
   const { language } = useLanguage();
 
-  const lastUpdated = "2026-06-13";
+  // Bump this ONLY for a material change — a new processing activity, a new
+  // recipient of data, a change to retention or to a reader's rights. Not for
+  // typos or rewording, which would train readers to ignore it.
+  //
+  // The section "Changes to this policy" below promises this date tracks
+  // material revisions, so leaving it stale while adding one makes the policy
+  // contradict itself. 2026-08-19 covers disclosing Vercel Web Analytics and
+  // rewriting the local-storage section, which had listed three of the eight
+  // things actually stored.
+  const lastUpdated = "2026-08-19";
 
   const content = {
     en: {
@@ -28,6 +37,10 @@ const Privacy: React.FC = () => {
         {
           heading: "Newsletter",
           body: "If you subscribe to our newsletter, we store your email address and the date you confirmed it. Subscription is double opt-in — nothing is sent until you click the confirmation link in the email we send you. We use your address solely to send the newsletter (roughly once a month), delivered via Resend. Every issue contains a one-click unsubscribe link. To have your address erased from our records entirely, email support@therostory.com.",
+        },
+        {
+          heading: "Donations",
+          body: "The Support page links out to Revolut, PayPal, and our bank details. We process no payments ourselves: there is no payment form on this site, and no card number ever reaches it. Follow one of those links and you are on that provider's site, under their privacy policy. If you send a bank transfer, our statement shows your name and account number the way it would for any transfer — that stays in our accounting records, and is never added to your site account or connected to what you read here.",
         },
         {
           heading: "What we do not collect",
@@ -91,6 +104,10 @@ const Privacy: React.FC = () => {
         {
           heading: "Buletin informativ",
           body: "Dacă te abonezi la buletinul nostru, stocăm adresa ta de email și data la care ai confirmat-o. Abonarea se face prin dublă confirmare — nu trimitem nimic până nu apeși pe linkul de confirmare din emailul pe care ți-l trimitem. Folosim adresa ta exclusiv pentru a trimite buletinul (aproximativ o dată pe lună), livrat prin Resend. Fiecare ediție conține un link de dezabonare cu un singur clic. Pentru a-ți șterge complet adresa din evidențele noastre, scrie la support@therostory.com.",
+        },
+        {
+          heading: "Donații",
+          body: "Pagina de susținere trimite către Revolut, PayPal și datele noastre bancare. Nu procesăm noi nicio plată: pe acest site nu există niciun formular de plată și niciun număr de card nu ajunge vreodată aici. Dacă urmezi unul dintre acele linkuri, ești pe site-ul furnizorului respectiv, sub politica lui de confidențialitate. Dacă trimiți un transfer bancar, extrasul nostru arată numele și numărul tău de cont, la fel ca la orice transfer — acestea rămân în evidențele noastre contabile și nu sunt niciodată adăugate la contul tău de pe site sau legate de ce citești aici.",
         },
         {
           heading: "Ce nu colectăm",

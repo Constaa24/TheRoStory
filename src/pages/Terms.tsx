@@ -5,7 +5,12 @@ import { PageHead } from "@/components/layout/PageHead";
 const Terms: React.FC = () => {
   const { language } = useLanguage();
 
-  const lastUpdated = "2026-06-13";
+  // Independent of the privacy policy's date — these are separate documents,
+  // and bumping them together would falsely claim both had changed. Bump only
+  // when the terms themselves change. 2026-08-19 covers adding the donations
+  // section: the Support page has solicited donations since the first commit,
+  // and this document had never mentioned them.
+  const lastUpdated = "2026-08-19";
 
   const content = {
     en: {
@@ -40,6 +45,10 @@ const Terms: React.FC = () => {
         {
           heading: "Intellectual property",
           body: "The articles published by The RoStory's editorial team, the site design, and the brand are the property of The RoStory. Don't copy, redistribute, or republish them without written permission. User-submitted comments belong to their authors.",
+        },
+        {
+          heading: "Donations",
+          body: "The RoStory is free to read and will stay that way. If you want to support the archive, the Support page links out to Revolut, PayPal, and our bank details. Donations are voluntary and non-refundable. They don't buy a subscription, membership, early access, or any influence over what we publish, and they don't make you a client or partner. We run no payment form ourselves — the provider you choose handles the transaction, and no card number ever reaches this site. A bank transfer will show us your name and account number, as any transfer would; that stays in our accounting records. If you send something by mistake, write to support@therostory.com and we'll try to put it right.",
         },
         {
           heading: "Service availability",
@@ -95,6 +104,10 @@ const Terms: React.FC = () => {
         {
           heading: "Proprietate intelectuală",
           body: "Articolele publicate de echipa editorială The RoStory, design-ul site-ului și brandul sunt proprietatea The RoStory. Nu le copia, redistribui sau republica fără permisiune scrisă. Comentariile postate de utilizatori aparțin autorilor lor.",
+        },
+        {
+          heading: "Donații",
+          body: "The RoStory se citește gratuit și așa va rămâne. Dacă vrei să susții arhiva, pagina de susținere trimite către Revolut, PayPal și datele noastre bancare. Donațiile sunt voluntare și nerambursabile. Nu cumpără un abonament, o calitate de membru, acces în avans sau vreo influență asupra a ceea ce publicăm și nu te fac client sau partener. Noi nu avem niciun formular de plată — tranzacția este gestionată de furnizorul pe care îl alegi, iar niciun număr de card nu ajunge vreodată pe acest site. Un transfer bancar ne va arăta numele și numărul tău de cont, ca orice transfer; acestea rămân în evidențele noastre contabile. Dacă trimiți ceva din greșeală, scrie-ne la support@therostory.com și vom încerca să îndreptăm lucrurile.",
         },
         {
           heading: "Disponibilitatea serviciului",
