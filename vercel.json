@@ -27,7 +27,6 @@
         { "key": "Permissions-Policy", "value": "camera=(), microphone=(), geolocation=()" },
         { "key": "Cross-Origin-Opener-Policy", "value": "same-origin" },
         {
-          "//": "Search-result presentation, not indexing. max-image-preview:large is the one that matters for a photo-essay archive: without it Google shows a thumbnail or nothing, with it the story can appear as a full visual card in Search and Discover. The two -1 values remove Google's default caps on text-snippet and video-preview length. Set as a header rather than a meta tag so it applies to every response from one place, and so it cannot collide with the per-page robots meta that the admin and auth routes emit — Google merges the two, and noindex still wins there.",
           "key": "X-Robots-Tag",
           "value": "max-image-preview:large, max-snippet:-1, max-video-preview:-1"
         },

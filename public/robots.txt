@@ -1,3 +1,17 @@
+# Presentation directives are NOT set here — they are sent as an
+# X-Robots-Tag response header from vercel.json:
+#   max-image-preview:large, max-snippet:-1, max-video-preview:-1
+#
+# max-image-preview:large is the one that matters for this site. Without it
+# Google shows a thumbnail or no image at all; with it a photo essay can
+# appear as a full visual card in Search and Discover, which for an archive
+# of photographs is the difference between a text link and something anyone
+# clicks. It lives as a header rather than a <meta> tag so it applies to
+# every response from one place and cannot collide with the per-page robots
+# meta that /admin and /auth emit (Google merges the two; noindex still wins
+# there). Note vercel.json is strict JSON: a "//" comment key inside a
+# header object makes Vercel silently drop that header.
+
 User-agent: *
 Allow: /
 
