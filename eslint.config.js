@@ -25,16 +25,6 @@ export default tseslint.config(
       "react-hooks/exhaustive-deps": "warn",
     },
   },
-  // Node-side scripts (build-time tooling) run under Node, not the browser.
-  // Without this override `process`, `Buffer`, etc. are flagged as undefined.
-  {
-    files: ["scripts/**/*.{js,mjs,cjs}"],
-    languageOptions: {
-      globals: {
-        ...globals.node,
-      },
-    },
-  },
   {
     ignores: ["dist/", "node_modules/", "*.cjs", "**/counties_topo.js"],
   }
