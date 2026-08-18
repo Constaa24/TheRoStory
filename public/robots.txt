@@ -1,3 +1,11 @@
+# Static images under public/ are cached by a Cache-Control rule in
+# vercel.json (max-age=86400, stale-while-revalidate=604800). They are NOT
+# content-hashed the way /assets/* is, so they cannot be immutable: replacing
+# logo.png or a category image reuses the filename, and a year-long cache
+# would pin the old bytes. A day of freshness with a week of
+# stale-while-revalidate removes the per-image revalidation round-trip on
+# repeat visits while still letting a replacement propagate within a day.
+#
 # Presentation directives are NOT set here — they are sent as an
 # X-Robots-Tag response header from vercel.json:
 #   max-image-preview:large, max-snippet:-1, max-video-preview:-1
