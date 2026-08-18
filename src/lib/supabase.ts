@@ -1244,10 +1244,18 @@ const matchesMagicBytes = async (file: File, kind: UploadKind): Promise<boolean>
 };
 
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024; // 10 MB
-// Matches the `articles` Supabase Storage bucket file-size limit (500 MB).
-// Keep these in sync: a client cap above the bucket limit lets a file pass
-// validation only to be rejected by Storage mid-upload.
-const MAX_VIDEO_BYTES = 500 * 1024 * 1024; // 500 MB
+// Well under the `articles` bucket's own 500 MB ceiling, deliberately. The
+// bucket limit is the point past which Storage rejects an upload; it is not a
+// sensible thing to serve. At 500 MB this cap let through four films totalling
+// 1.1 GB, one of them 397 MB, streamed to phones over mobile data and billed
+// as egress on every play. Re-encoded (H.264 CRF 23, 1080p cap, faststart)
+// the same four came to 282 MB, the largest 88 MB.
+//
+// 150 MB leaves comfortable headroom over that 88 MB while making the old
+// failure mode impossible. A legitimate film that genuinely exceeds this
+// wants re-encoding, not a bigger number — see the ffmpeg recipe in the
+// project notes. Raising it is a decision about bandwidth cost, not a bug fix.
+const MAX_VIDEO_BYTES = 150 * 1024 * 1024; // 150 MB
 
 export type UploadKind = 'image' | 'video';
 
