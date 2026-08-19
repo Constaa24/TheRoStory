@@ -1,7 +1,18 @@
 import { defineConfig, devices } from '@playwright/test';
 
 const PORT = 4173;
-const BASE_URL = `http://127.0.0.1:${PORT}`;
+
+/**
+ * Defaults to a locally built preview. Set E2E_BASE_URL to point the same
+ * suite at a deployed environment instead — the post-deploy smoke check:
+ *
+ *     E2E_BASE_URL=https://therostory.com npx playwright test
+ *
+ * The local web server is skipped entirely in that mode, so nothing is built
+ * and nothing is served; the tests talk only to the deployment.
+ */
+const EXTERNAL = process.env.E2E_BASE_URL;
+const BASE_URL = EXTERNAL ?? `http://127.0.0.1:${PORT}`;
 
 /**
  * Runs against the real production build, not the dev server.
@@ -31,7 +42,7 @@ export default defineConfig({
     { name: 'mobile', use: { ...devices['Pixel 7'] } },
   ],
 
-  webServer: {
+  webServer: EXTERNAL ? undefined : {
     command: `npm run build && npx vite preview --port ${PORT} --strictPort`,
     url: BASE_URL,
     reuseExistingServer: !process.env.CI,
