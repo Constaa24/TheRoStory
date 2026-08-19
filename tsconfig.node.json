@@ -27,5 +27,16 @@
   // checked it. Deno edge functions stay out: they import via `jsr:` and
   // `https://esm.sh/...` specifiers that tsc cannot resolve. They are checked
   // by `npm run lint:edge` instead.
-  "include": ["vite.config.ts", "middleware.ts", "api/**/*"]
+  "include": [
+    "vite.config.ts",
+    "vitest.config.ts",
+    "playwright.config.ts",
+    "middleware.ts",
+    "api/**/*",
+    // Browser specs. They run under Node but reach into the page via
+    // page.evaluate, so they need the DOM lib this config already has
+    // for the Vercel handlers. Without them listed here nothing
+    // typechecks e2e/ at all — `npm run lint` was silently skipping it.
+    "e2e/**/*"
+  ]
 }

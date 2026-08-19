@@ -519,18 +519,24 @@ const NavSearchOverlay: React.FC<{ onClose: () => void; language: 'en' | 'ro' }>
             </button>
           </div>
 
-          {showResults && (
-            /* aria-live: results swap in without any focus change, so a
-               screen-reader user previously got no signal that the search had
-               returned anything. "polite" so it waits for a pause in typing
-               rather than interrupting each keystroke. */
+          {/* aria-live: results swap in without any focus change, so a
+              screen-reader user previously got no signal that the search had
+              returned anything. "polite" so it waits for a pause in typing
+              rather than interrupting each keystroke.
+
+              The container stays mounted even when there is no query, and only
+              its contents change. A live region that enters the DOM already
+              holding its text is frequently never announced at all: NVDA and
+              JAWS report mutations inside a region they are already observing,
+              so the region has to be there first. Caught by e2e/keyboard.spec
+              once there was finally a browser to catch it in. */}
             <div
               className="overflow-hidden"
               role="status"
               aria-live="polite"
-              style={{ border: '1px solid var(--line)', background: 'var(--ink-2)' }}
+              style={showResults ? { border: '1px solid var(--line)', background: 'var(--ink-2)' } : undefined}
             >
-              {isBelowMinLength ? (
+              {!showResults ? null : isBelowMinLength ? (
                 <div className="px-4 py-5 text-center font-display italic" style={{ color: 'var(--text-dim)', fontSize: 14 }}>
                   {language === 'en'
                     ? `Keep typing — at least ${SEARCH_MIN_LENGTH} characters.`
@@ -593,7 +599,6 @@ const NavSearchOverlay: React.FC<{ onClose: () => void; language: 'en' | 'ro' }>
                 </div>
               )}
             </div>
-          )}
         </div>
       </div>
     </div>

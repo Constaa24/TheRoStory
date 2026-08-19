@@ -40,3 +40,7 @@ coverage/
 
 # Local dev tool configs
 .claude/
+e2e/screenshots/
+e2e/.results/
+playwright-report/
+test-results/
