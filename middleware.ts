@@ -204,7 +204,16 @@ export default async function middleware(request: Request): Promise<Response | u
   if (!match) return undefined;
 
   const language = match[1] === "ro" ? "ro" : "en";
-  const id = decodeURIComponent(match[2]);
+  // decodeURIComponent throws URIError on malformed percent-encoding
+  // (/article/%, /article/%zz). Uncaught, that returns a 500 to the bot —
+  // the one path in this file that wasn't fail-open. A malformed id can't
+  // match a row anyway, so treat it exactly like an unknown one.
+  let id: string;
+  try {
+    id = decodeURIComponent(match[2]);
+  } catch {
+    return undefined;
+  }
   if (!id || id.length > 100) return undefined;
 
   const article = await fetchArticle(id);

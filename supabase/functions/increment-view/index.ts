@@ -1,8 +1,24 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getCorsHeaders, isAllowedOrigin } from "../_shared/cors.ts";
 import { createRateLimiter, getClientIp } from "../_shared/rate-limit.ts";
 import { jsonResponse } from "../_shared/http.ts";
+
+// Module-scoped service-role client, same reasoning as admin-api: env vars
+// don't change between invocations on a warm instance, so creating it once
+// per cold start avoids the per-request createClient cost. Read through a
+// getter so a missing env still answers "Server not configured" instead of
+// throwing on import.
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
+const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+
+let cachedAdminClient: SupabaseClient | null = null;
+const getAdminClient = (): SupabaseClient => {
+  if (!cachedAdminClient) {
+    cachedAdminClient = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
+  }
+  return cachedAdminClient;
+};
 
 // Rate limiter keyed by `<ip>:<articleId>` (shared implementation in
 // _shared/rate-limit.ts). The goal is to stop scripted view-count
@@ -42,15 +58,12 @@ Deno.serve(async (req) => {
       return jsonResponse(200, { ok: true, rateLimited: true }, corsHeaders);
     }
 
-    const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
-    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
-    if (!supabaseUrl || !serviceRoleKey) {
+    if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {
       console.error("increment-view: missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY");
       return jsonResponse(500, { ok: false, error: "Server not configured" }, corsHeaders);
     }
 
-    const adminClient = createClient(supabaseUrl, serviceRoleKey);
-    const { error } = await adminClient.rpc("increment_article_view", {
+    const { error } = await getAdminClient().rpc("increment_article_view", {
       p_article_id: articleId,
     });
 

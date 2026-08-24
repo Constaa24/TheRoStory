@@ -1,0 +1,71 @@
+name: CI
+
+# Everything here runs without a single repository secret, which is the
+# point: the suite can never fail for reasons unrelated to the code.
+#
+# vitest.config.ts hard-codes dummy Supabase credentials for `test.env`, so
+# the unit tests reach nothing real. The browser suite (`npm run test:e2e`)
+# is deliberately NOT here — it builds the app and needs the real
+# VITE_SUPABASE_* values to render anything, so it would need secrets and
+# would go red on every fork PR. Run it locally before deploying, or add a
+# second workflow once those secrets exist.
+#
+# Not included either: `npm run lint:edge`, which needs Deno set up and
+# reaches jsr.io and esm.sh at check time. Worth adding via
+# `denoland/setup-deno` if the edge functions start changing often.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+# A second push to the same branch makes the first run irrelevant.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Lint, types and unit tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          # Matches the version this project is developed against.
+          node-version: '26'
+          cache: npm
+
+      # `ci`, not `install`: fails loudly if package-lock.json and
+      # package.json have drifted apart, rather than quietly resolving.
+      - name: Install dependencies
+        run: npm ci
+
+      # Split rather than `npm run lint` so a failure names itself in the
+      # step list instead of hiding inside one collapsed block.
+      - name: Typecheck (src, middleware, api)
+        run: npm run lint:types
+
+      - name: ESLint
+        run: npm run lint:js
+
+      - name: Stylelint
+        run: npm run lint:css
+
+      - name: Unit tests
+        run: npm test
+
+      # Cheap, and catches the class of break that only shows up when Vite
+      # actually resolves and bundles every import.
+      - name: Production build
+        run: npm run build
+        env:
+          VITE_SUPABASE_URL: http://127.0.0.1:54321
+          VITE_SUPABASE_ANON_KEY: build-time-placeholder-not-a-credential

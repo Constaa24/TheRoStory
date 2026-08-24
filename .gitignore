@@ -38,6 +38,11 @@ coverage/
 .bashrc
 .profile
 
+# Deno writes this next to deno.check.json. Deliberately not committed:
+# lint:edge exists to check the functions against the edge runtime types
+# Supabase actually deploys, so freezing them would defeat the point.
+supabase/functions/deno.lock
+
 # Local dev tool configs
 .claude/
 e2e/screenshots/

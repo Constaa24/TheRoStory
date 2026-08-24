@@ -303,7 +303,16 @@ const MapPage: React.FC = () => {
                       viewBox={`0 0 ${MAP_VIEW_W} ${MAP_VIEW_H}`}
                       className={cn("w-full h-full transition-all duration-300", isAnimating && "pointer-events-none")}
                       style={{ shapeRendering: 'geometricPrecision' }}
-                      role="img"
+                      // `group`, not `img`. Every county below is a
+                      // role="button" with tabIndex 0, and role="img" is a
+                      // leaf in the accessibility tree — it must not contain
+                      // focusable content. Declaring the map an image meant a
+                      // screen reader announced one label, "Map of Romania's
+                      // counties", and never exposed a single county: the 42
+                      // buttons were reachable by Tab and silent on arrival.
+                      // `group` carries the same name and lets its children
+                      // through. (axe: nested-interactive / no-focusable-content)
+                      role="group"
                       aria-label={language === 'en' ? "Map of Romania's counties" : "Harta județelor României"}
                     >
                       <defs>

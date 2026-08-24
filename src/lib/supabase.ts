@@ -55,7 +55,7 @@ export function toCamelCase<T>(obj: Record<string, unknown>): T {
   return result as T;
 }
 
-export function toCamelCaseArray<T>(arr: Record<string, unknown>[]): T[] {
+function toCamelCaseArray<T>(arr: Record<string, unknown>[]): T[] {
   return arr.map(item => toCamelCase<T>(item));
 }
 

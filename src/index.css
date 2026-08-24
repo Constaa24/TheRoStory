@@ -138,13 +138,26 @@
     --card-foreground: 36 25% 9%;
     --popover: 40 51% 87%;
     --popover-foreground: 36 25% 9%;
-    --primary: 38 52% 41%;
+    /* 41% put cream (#f6f1e4) on gold (#9f7732) at 3.6:1 — a serious AA
+       failure on every default Badge and accent chip, found once the axe
+       suite reached the article page.
+
+       32% is set against the *card* ground (#efe3cd), not the page ground:
+       card is the darker of the two light surfaces, so it is the binding
+       constraint, and text-primary renders on it (Profile's favourite
+       cards, AdminDashboard). At 34% that pairing was still 4.35:1 — it
+       cleared the 3:1 UI floor but not the 4.5:1 normal-text one, and
+       /profile is auth-gated so no axe run reaches it.
+
+       32% gives 4.79:1 on card and 5.39:1 on the page, both directions
+       (gold fill under cream text, gold text over either ground). */
+    --primary: 38 52% 32%;
     --primary-foreground: 42 51% 93%;
     --secondary: 38 41% 80%;
     --secondary-foreground: 36 30% 14%;
     --muted: 38 35% 78%;
     --muted-foreground: 36 20% 30%;
-    --accent: 38 52% 41%;
+    --accent: 38 52% 32%;
     --accent-foreground: 42 51% 93%;
     --destructive: 0 70% 40%;
     --destructive-foreground: 42 51% 93%;

@@ -101,43 +101,72 @@ before deploying changes under `supabase/functions/`:
 npm run lint:edge
 ```
 
-## Known `npm audit` findings
+It runs with an explicit `--config supabase/functions/deno.check.json`,
+and that file exists for one reason: `"nodeModulesDir": "none"`. Without
+it, Deno sees the `node_modules` at the repo root and insists on resolving
+every `npm:` type reference from there. The edge runtime's own type
+declarations (`jsr:@supabase/functions-js/edge-runtime.d.ts`) reference
+`npm:openai` for the built-in `Supabase.ai` API we don't use, so the check
+died with `Could not find a matching package for 'npm:openai'` before it
+type-checked a single line of our code. The functions are a Deno project
+that merely lives inside an npm project; they should never read that
+`node_modules`. The config name is deliberately not `deno.json` so the
+Supabase CLI's deploy path — which references import maps by explicit
+path in `config.toml` — cannot pick it up.
 
-### react-router — GHSA-qwww-vcr4-c8h2 (high) — accepted, not applicable
 
-`npm audit` reports a high-severity advisory against `react-router`
-(7.12.0 – 8.2.0). **It does not apply to this project, and the reported
-"fix" is worse than the finding.** Recorded here so it doesn't get
-re-litigated on every audit.
+## Edge function secrets
 
-**The bug:** in React Router's *RSC mode*, the server handler ran a server
-action *before* returning the 400 for a failed CSRF origin check. The
-rejection was cosmetic — the mutation had already happened.
+The six Supabase edge functions read their configuration from Supabase's own
+secret store, not from `.env`. Three are injected automatically on every
+project (`SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`);
+the five below must be set by hand, and nothing in the build or the deploy
+fails if they are missing. The site keeps serving, the forms keep accepting
+input, and the mail silently never arrives — so they are listed here rather
+than left to be rediscovered.
 
-**Why it can't reach us:** this app is a purely client-rendered SPA in
-*declarative mode* — `<BrowserRouter>` with `<Routes>`/`<Route>`. There is
-no React Router server runtime: no `loader` or `action` exports anywhere, no
-`react-router.config.ts`, no `entry.server.tsx`, no `@react-router/serve`.
-The only server-side code is the Vercel Edge Middleware (`middleware.ts`,
-plain `Request`/`Response`) and the Supabase Deno functions, which do their
-own origin allow-listing and JWT verification. Every mutation goes through
-Supabase behind RLS. The vulnerable handler is never imported, bundled, or
-executed.
+| Secret | Used by | What breaks without it |
+|---|---|---|
+| `RESEND_API_KEY` | contact-email, newsletter-subscribe, newsletter-confirm, admin-api | All outbound mail; account deletion stops removing the Resend contact |
+| `CONTACT_FROM_EMAIL` | contact-email, newsletter-subscribe | Contact form and newsletter opt-in mail |
+| `CONTACT_TO_EMAIL` | contact-email | Where the contact form delivers |
+| `NEWSLETTER_FROM_EMAIL` | newsletter-subscribe | Newsletter double opt-in mail |
+| `RESEND_WEBHOOK_SECRET` | newsletter-webhook | Svix signature check — every webhook is rejected, so unsubscribes stop syncing back |
 
-**Why we didn't "fix" it:** `npm audit fix --force` downgrades to
-`react-router-dom@7.11.0` — npm labels this a breaking change itself —
-because no patched release above 7.12 existed at the time of writing. That
-surrenders seven minor versions of fixes to the router code we *do* run, and
-only sticks if the version is pinned (`~7.11.0`), or the next `npm install`
-walks straight back into the range. Concrete regression risk traded for a
-theoretical one in a mode we don't use.
+Set them against the linked project:
 
-**When to revisit:**
+```bash
+supabase secrets set RESEND_API_KEY=re_...
+supabase secrets set CONTACT_FROM_EMAIL="The RoStory <hello@therostory.com>"
+supabase secrets set CONTACT_TO_EMAIL=you@example.com
+supabase secrets set NEWSLETTER_FROM_EMAIL="The RoStory <hello@therostory.com>"
+supabase secrets set RESEND_WEBHOOK_SECRET=whsec_...
+```
 
-- A patched 7.x release appears → `npm install react-router-dom@latest`;
-  the existing `^7.11.0` range already allows it, no code changes needed.
-- **We adopt React Router framework or RSC mode with server actions.** At
-  that point the advisory becomes directly exploitable and must be resolved
-  *before* shipping.
+`supabase secrets list` shows which are present (values are returned as
+digests, never in clear). The `CONTACT_FROM_EMAIL` / `NEWSLETTER_FROM_EMAIL`
+addresses must be on a domain verified in Resend or delivery fails at the
+provider, not here.
 
-Until then, expect `npm audit` to keep listing it. That is not a regression.
+## Dependency advisories
+
+`npm audit` currently reports **0 vulnerabilities**, for both `--omit=dev`
+and the full tree. Keep it that way; a non-empty audit here is news.
+
+### react-router — GHSA-qwww-vcr4-c8h2 — resolved, keep 7.18.2 or newer
+
+This section used to argue at length that the advisory didn't apply to us,
+because the vulnerable code path was React Router's RSC-mode server handler
+and this app is a client-rendered SPA in declarative mode. That reasoning
+was sound and is no longer needed: the advisory's range is
+`>=7.12.0 <7.18.2`, and the project runs **7.18.2**, the release that
+patched it.
+
+Worth knowing rather than deleting outright, because 7.18.2 is not an
+incidental version number. It is also the fix floor for several other
+advisories in the 7.x line — inefficient route matching (DoS), arbitrary
+constructor injection via `deserializeErrors()`, the backslash open-redirect
+bypass, and RSCErrorHandler protocol validation all require `>=7.18.0`, and
+this one requires `.2`. The `^7.18.2` range in `package.json` is what keeps
+an `npm install` from ever walking back below that floor — don't loosen it
+to `^7` and don't pin it downward.

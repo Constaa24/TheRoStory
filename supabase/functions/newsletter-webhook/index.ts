@@ -37,7 +37,7 @@ import { jsonResponse } from "../_shared/http.ts";
 
 const encoder = new TextEncoder();
 
-const base64Decode = (value: string): Uint8Array =>
+const base64Decode = (value: string): Uint8Array<ArrayBuffer> =>
   Uint8Array.from(atob(value), (c) => c.charCodeAt(0));
 
 const base64Encode = (bytes: Uint8Array): string => {
@@ -78,7 +78,7 @@ async function verifySvixSignature(
   if (!Number.isFinite(ts)) return false;
   if (Math.abs(Date.now() / 1000 - ts) > SIGNATURE_TOLERANCE_SECONDS) return false;
 
-  let secretBytes: Uint8Array;
+  let secretBytes: Uint8Array<ArrayBuffer>;
   try {
     secretBytes = base64Decode(secret.startsWith("whsec_") ? secret.slice(6) : secret);
   } catch {

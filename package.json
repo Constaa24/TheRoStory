@@ -17,7 +17,7 @@
     "lint:types": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.node.json",
     "lint:css": "stylelint \"src/**/*.css\"",
     "lint": "npm run lint:types && npm run lint:js && npm run lint:css",
-    "lint:edge": "deno check supabase/functions/**/*.ts"
+    "lint:edge": "deno check --config supabase/functions/deno.check.json supabase/functions/**/*.ts"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.13.0",

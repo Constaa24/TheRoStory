@@ -29,13 +29,22 @@ export const formatArticleDate = (
   lang: 'en' | 'ro',
   monthStyle: 'long' | 'short' = 'long'
 ): string => {
+  // toLocaleDateString does NOT throw on an invalid date — it returns the
+  // literal string "Invalid Date", so the try/catch this used to rely on
+  // never fired and a bad timestamp rendered into the byline verbatim.
+  // Falsy input is rejected separately because `new Date(null)` is not
+  // invalid, it's the epoch, which would print as 1 January 1970.
+  if (!iso) return '';
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return '';
   try {
-    return new Date(iso).toLocaleDateString(lang === 'en' ? 'en-GB' : 'ro-RO', {
+    return date.toLocaleDateString(lang === 'en' ? 'en-GB' : 'ro-RO', {
       day: 'numeric',
       month: monthStyle,
       year: 'numeric',
     });
   } catch {
+    // Only reachable via a RangeError from the formatter itself.
     return '';
   }
 };
