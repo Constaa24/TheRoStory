@@ -163,9 +163,20 @@ export const ArticleComments: React.FC<Props> = ({ articleId }) => {
       return;
     }
 
+    // The cooldown is a client-side courtesy — the real limit is the RLS
+    // CHECK (private.comment_count_last_minute < 5). Reading localStorage
+    // throws a SecurityError where site data is blocked, and this read sits
+    // outside the try below: uncaught, it rejected handlePost before the
+    // comment was ever sent, with no toast and no post. Treat unavailable
+    // storage as "no recent comment" and let the database do the limiting.
     const now = Date.now();
     const cooldownMs = 10_000;
-    const last = parseInt(localStorage.getItem(COOLDOWN_KEY) || "0", 10);
+    let last = 0;
+    try {
+      last = parseInt(localStorage.getItem(COOLDOWN_KEY) || "0", 10) || 0;
+    } catch {
+      // Storage unavailable — skip the local cooldown.
+    }
     if (now - last < cooldownMs) {
       const secsLeft = Math.ceil((cooldownMs - (now - last)) / 1000);
       toast.error(
@@ -184,7 +195,15 @@ export const ArticleComments: React.FC<Props> = ({ articleId }) => {
         content: trimmed,
       });
       if (success) {
-        localStorage.setItem(COOLDOWN_KEY, String(Date.now()));
+        // Inside the try, so an unguarded throw here would be caught below and
+        // reported as "Failed to post comment" — for a comment that had just
+        // been posted successfully, while skipping the reset and the reload.
+        // The reader would see a failure and post again, duplicating it.
+        try {
+          localStorage.setItem(COOLDOWN_KEY, String(Date.now()));
+        } catch {
+          // Storage unavailable — the cooldown is best-effort, the post stands.
+        }
         setNewComment("");
         await reloadComments();
         toast.success(language === "en" ? "Comment posted" : "Comentariu postat");

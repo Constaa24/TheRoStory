@@ -26,6 +26,19 @@ export default tseslint.config(
     },
   },
   {
+    // Build-time tooling, run by hand with `node`, never bundled. It needs
+    // Node globals (Buffer, process) that the browser-globals block above
+    // does not provide. An override of this shape existed once for
+    // scripts/generate-sitemap.mjs and was removed with it in 9cda460; it is
+    // back because scripts/generate-icons.mjs lives here now.
+    files: ["scripts/**/*.{js,mjs,cjs}"],
+    languageOptions: {
+      globals: {
+        ...globals.node,
+      },
+    },
+  },
+  {
     ignores: ["dist/", "node_modules/", "*.cjs", "**/counties_topo.js"],
   }
 );

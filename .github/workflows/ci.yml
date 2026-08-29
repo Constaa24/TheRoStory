@@ -1,7 +1,12 @@
 name: CI
 
 # Everything here runs without a single repository secret, which is the
-# point: the suite can never fail for reasons unrelated to the code.
+# point: no fork PR can fail for want of access to something.
+#
+# It is NOT true that the suite only fails on our own changes — the audit
+# steps deliberately break when an advisory is published upstream against a
+# tree we have not touched. That is the whole reason they exist, and it is
+# the one class of red build here that is news rather than a mistake.
 #
 # vitest.config.ts hard-codes dummy Supabase credentials for `test.env`, so
 # the unit tests reach nothing real. The browser suite (`npm run test:e2e`)
@@ -9,10 +14,6 @@ name: CI
 # VITE_SUPABASE_* values to render anything, so it would need secrets and
 # would go red on every fork PR. Run it locally before deploying, or add a
 # second workflow once those secrets exist.
-#
-# Not included either: `npm run lint:edge`, which needs Deno set up and
-# reaches jsr.io and esm.sh at check time. Worth adding via
-# `denoland/setup-deno` if the edge functions start changing often.
 
 on:
   push:
@@ -69,3 +70,56 @@ jobs:
         env:
           VITE_SUPABASE_URL: http://127.0.0.1:54321
           VITE_SUPABASE_ANON_KEY: build-time-placeholder-not-a-credential
+
+      # Audit last, on purpose. These are the only steps that can go red
+      # because of something published upstream rather than something in the
+      # diff, so running them after the code checks means a genuine breakage
+      # always surfaces first instead of being masked by a fresh advisory.
+      #
+      # README ("Dependency advisories") states the standard this enforces:
+      # zero vulnerabilities in BOTH trees. Nothing checked it until now, so
+      # "keep it that way" relied on someone remembering to run it by hand.
+      #
+      # Split into two steps so a red build names which tree is affected
+      # without opening the log: the first ships to readers, the second does
+      # not. --audit-level=low is npm's own default, stated explicitly so a
+      # future change to that default cannot quietly loosen the gate.
+
+      # Blocking: these packages are in the bundle users download.
+      - name: Audit production dependencies
+        run: npm audit --omit=dev --audit-level=low
+
+      # Also blocking, per the README. Build tooling never reaches a browser,
+      # so if this proves noisy the honest fix is `continue-on-error: true`
+      # here — which keeps the finding visible while unblocking merges — not
+      # deleting the step.
+      - name: Audit full dependency tree (including dev)
+        run: npm audit --audit-level=low
+
+  # Separate job: different toolchain, and a jsr.io/esm.sh hiccup should name
+  # itself rather than fail the job that checks the app.
+  #
+  # These six functions hold the newsletter double opt-in, the Svix signature
+  # check and every service-role code path in the project, and nothing in CI
+  # had ever type-checked them — `npm run lint` cannot, because tsc can't
+  # resolve their jsr:/https: specifiers (see README, "Available Scripts").
+  # A broken edge function deploys silently and fails in production.
+  edge:
+    name: Type-check edge functions
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: denoland/setup-deno@v2
+        with:
+          # Matches edge_runtime.deno_version in supabase/config.toml.
+          deno-version: v2.x
+
+      # Deliberately no `npm ci`. deno.check.json sets nodeModulesDir "none"
+      # precisely so the functions never resolve out of the repo's
+      # node_modules (README explains the npm:openai failure that caused).
+      # Not installing it at all makes that guarantee structural here.
+      - name: Deno check
+        run: npm run lint:edge

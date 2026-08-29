@@ -93,9 +93,11 @@ npm run lint:edge    # Type-check the Deno edge functions (requires Deno)
 
 `lint:edge` is intentionally outside `npm run lint`: the Supabase edge
 functions import via `jsr:` and `https://esm.sh/...` specifiers that `tsc`
-cannot resolve, so they need Deno's own checker. It is kept opt-in so the
-main lint pipeline doesn't fail on machines without Deno installed. Run it
-before deploying changes under `supabase/functions/`:
+cannot resolve, so they need Deno's own checker. It is kept out of
+`npm run lint` so the main pipeline doesn't fail on machines without Deno
+installed — but CI runs it in its own `edge` job (`.github/workflows/ci.yml`),
+so a type error under `supabase/functions/` no longer depends on someone
+remembering. Run it locally before deploying changes there:
 
 ```bash
 npm run lint:edge
@@ -113,6 +115,53 @@ that merely lives inside an npm project; they should never read that
 `node_modules`. The config name is deliberately not `deno.json` so the
 Supabase CLI's deploy path — which references import maps by explicit
 path in `config.toml` — cannot pick it up.
+
+
+## App icons
+
+**Never edit anything in `public/` by hand.** Every icon is generated:
+
+```bash
+npm run icons        # regenerates all nine from brand/logo-master.png
+```
+
+`brand/logo-master.png` (512x512, full lockup — illustration *and* the
+"RoStory" wordmark) is the only file a human touches. `scripts/generate-icons.mjs`
+derives the rest and prints what it measured.
+
+### Why they are generated
+
+The hand-exported set had two faults, and both came from nothing deriving
+anything. Every icon was off-centre by the same amount — the artwork sat 22px
+from the left of the 512 canvas and 41px from the right, 54 from the top and
+67 from the bottom — because they had been cropped to the canvas rather than
+to the art. And they carried the wordmark down to 16x16, where it renders as
+an unreadable grey smear, and into the 42px navbar logo, where it duplicated
+the typeset "The RoStory" sitting directly beside it.
+
+So the icons use the **mark** — the illustration alone. Apple's HIG and
+Android's icon guidance both advise against text in app icons, because it is
+illegible at the sizes they actually render; the site already spells the name
+in HTML text next to the logo. The wordmark survives in the master, and in
+`og-image.jpg`, which is the one place it is seen large.
+
+The script finds the mark by measuring the master's alpha channel: the widest
+fully-transparent horizontal band inside the artwork is the gutter between
+illustration and wordmark, and everything above it is the mark. Nothing is
+hardcoded, so re-drawing the logo re-derives the crop. Hardcoding those rows
+would reintroduce the drift this replaces.
+
+### Two things that are not arbitrary
+
+`apple-touch-icon.png` and `maskable-icon-512x512.png` are **opaque**, on the
+manifest's own `background_color`. iOS composites transparency onto black and
+applies its own mask; Android crops maskable icons to an OS-chosen shape
+(circle, squircle, teardrop) and transparent corners show through as holes.
+
+The maskable icon is drawn at 64% because Android's safe zone is a circle of
+radius 40% — 205px of 512. At that scale the mark is 327x208, whose
+half-diagonal is 194px, inside 205 with room to spare. Raising the fill past
+roughly 0.68 starts clipping corners on a circular mask.
 
 
 ## Edge function secrets

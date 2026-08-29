@@ -44,7 +44,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isLoading, setIsLoading] = useState(true);
   const [isRecoveryMode, setIsRecoveryMode] = useState<boolean>(() => {
     if (typeof window === "undefined") return false;
-    return window.sessionStorage.getItem(RECOVERY_MODE_STORAGE_KEY) === "1";
+    // Guarded like every other storage access in the app (persistRecoveryMode
+    // below, main.tsx, App.tsx): merely *reading* sessionStorage throws a
+    // SecurityError in browsers configured to block site data. This runs in a
+    // useState initializer inside AuthProvider, which sits above the router
+    // and above every ErrorBoundary — so an uncaught throw here takes down the
+    // whole mount and renders a blank page rather than degrading. Not being
+    // able to read the flag just means we don't resume a recovery session.
+    try {
+      return window.sessionStorage.getItem(RECOVERY_MODE_STORAGE_KEY) === "1";
+    } catch {
+      return false;
+    }
   });
   const mountedRef = React.useRef(true);
   const userRef = React.useRef<ExtendedUser | null>(null);

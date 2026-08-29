@@ -438,7 +438,14 @@ export const createArticle = async (input: NewArticleInput): Promise<{ id: strin
     is_published: input.isPublished,
     type: input.type,
     subtype: input.type === 'text' ? (input.subtype ?? null) : null,
-    created_at: new Date().toISOString(),
+    // created_at is deliberately NOT sent. The column defaults to now(), and
+    // updated_at is set by the same default in the same transaction — so
+    // letting the server stamp both keeps them on one clock. Sending a
+    // client timestamp made created_at lead updated_at by the round-trip
+    // latency (~230ms on the row that exposed this), which the article page
+    // publishes as an article:modified_time *earlier* than its
+    // article:published_time. It also made the archive's sort key
+    // client-controlled for no benefit.
   };
 
   const { error } = await supabase.from('articles').insert(row);
