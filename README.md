@@ -151,6 +151,27 @@ illustration and wordmark, and everything above it is the mark. Nothing is
 hardcoded, so re-drawing the logo re-derives the crop. Hardcoding those rows
 would reintroduce the drift this replaces.
 
+### The Google Search favicon
+
+`favicon-96x96.png` exists only for Google. Search picks among the icons a page
+declares in `<link rel="icon">` / `apple-touch-icon` — it does **not** read the
+web app manifest — and it documents wanting a favicon that is a multiple of
+48px square. Before this, nothing declared qualified: 16 and 32 are not
+multiples of 48, apple-touch is 180, and the `android-chrome-192` that would
+have been ideal was manifest-only and therefore invisible to it. Google was
+rendering the icon upscaled and soft at 128px as a result.
+
+Search also masks the favicon to a **circle**, so anything beyond the inscribed
+circle is cut. That is why this one is drawn at 0.88 rather than full bleed:
+measured, its furthest ink sits at 43px against a 48px radius. The 16 and 32
+stay full-bleed because browser tab strips are square and every pixel counts
+at that size — and they were measured too, at 7.91/8 and 16.14/16, so the
+circle costs them nothing either.
+
+**Google caches favicons on its own schedule.** A deploy does not update the
+one in search results; expect days to weeks. Requesting indexing on the
+homepage in Search Console is the only way to nudge it.
+
 ### Two things that are not arbitrary
 
 `apple-touch-icon.png` and `maskable-icon-512x512.png` are **opaque**, on the

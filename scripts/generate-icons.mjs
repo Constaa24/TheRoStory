@@ -70,6 +70,16 @@ const BRAND_BG = "#0d0b08";
 const JOBS = [
   { name: "favicon-16x16.png", size: 16, fill: 1.0, bg: null },
   { name: "favicon-32x32.png", size: 32, fill: 1.0, bg: null },
+  // For Google Search, which documents that a favicon "should be a multiple
+  // of 48px square" and picks among the icons a page declares. Nothing else
+  // we declared qualified: 16 and 32 are not multiples of 48, apple-touch is
+  // 180, and Google does not read manifest icons — so the 192 that would have
+  // been perfect was invisible to it. Google was also rendering our icon
+  // upscaled and soft at 128px, which is what having no large source does.
+  //
+  // fill 0.88 rather than 1.0 because Search masks the favicon to a circle:
+  // measured, the mark's furthest ink lands at 44px against a 48px radius.
+  { name: "favicon-96x96.png", size: 96, fill: 0.88, bg: null },
   // iOS renders this around 60pt; leave it its own breathing room because iOS
   // adds a corner radius but never any padding.
   { name: "apple-touch-icon.png", size: 180, fill: 0.8, bg: BRAND_BG },
