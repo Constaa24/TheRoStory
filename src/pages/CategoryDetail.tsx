@@ -10,6 +10,8 @@ import { StoryCard } from "@/components/ui/story-card";
 import { LoadError } from "@/components/ui/load-error";
 import { SITE_URL } from "@/lib/constants";
 import { localizedPath } from "@/lib/locale";
+import { countLabel } from "@/lib/article-utils";
+import { categoryDescription } from "@/lib/category-copy";
 
 // Fetched in pages so a large category doesn't pull hundreds of full-content
 // rows (previously: up to 500 articles × both 50k-char content columns in
@@ -123,8 +125,8 @@ const CategoryDetail: React.FC = () => {
   const categoryName = getLocalized(category, "name", language);
   const pageTitle = categoryName;
   const pageDescription = language === "en"
-    ? `Stories about ${categoryName} — explore Romania through ${totalCount} ${totalCount === 1 ? "story" : "stories"} curated by The RoStory.`
-    : `Povești despre ${categoryName} — descoperă România prin ${totalCount} ${totalCount === 1 ? "poveste" : "povești"} pe The RoStory.`;
+    ? `Stories about ${categoryName} — explore Romania through ${countLabel(totalCount, "story", "en")} curated by The RoStory.`
+    : `Povești despre ${categoryName} — descoperă România prin ${countLabel(totalCount, "story", "ro")} pe The RoStory.`;
 
   // Locale-prefixed throughout. These were hardcoded to the English tree, so
   // /ro/category/x served structured data whose every URL contradicted the
@@ -187,9 +189,12 @@ const CategoryDetail: React.FC = () => {
               >
                 {categoryName}
               </h1>
+              <p className="mt-6 mb-0 max-w-[560px]" style={{ fontSize: 19, color: 'var(--text-dim)', lineHeight: 1.55 }}>
+                {categoryDescription(category.slug, categoryName, language)}
+              </p>
             </div>
             <div className="font-ui text-[11px] uppercase" style={{ letterSpacing: '0.18em', color: 'var(--text-mute)' }}>
-              {totalCount} {language === 'en' ? 'stories' : 'povești'}
+              {countLabel(totalCount, 'story', language)}
             </div>
           </div>
         </div>

@@ -4,19 +4,64 @@ import { getLocalized, CHAPTER_DELIMITER } from "@/lib/supabase";
 /**
  * Human label for an article's kind, shown on cards, the article masthead,
  * and the Map side panel. Text articles can opt into a subtype (poetry /
- * short story) that overrides the default "Long read" copy. NULL subtype is
- * treated as essay so legacy rows keep their original wording.
+ * short story) that overrides the default "Essay" label. NULL subtype is
+ * treated as essay.
+ *
+ * Two labels used to claim more than the stories deliver. "Long read" sat on
+ * essays of 300–700 words, a two-to-four-minute read. "Photo essay" sat on
+ * carousels whose frames are sometimes illustrations or animation stills
+ * rather than photographs — on an archive whose mission is correcting
+ * misconceptions, the format label should not assert a medium. "Visual
+ * essay" is true of every carousel.
  */
 export const getArticleKindLabel = (
   article: Pick<Article, 'type' | 'subtype'>,
   language: 'en' | 'ro'
 ): string => {
   if (article.type === 'video') return language === 'en' ? 'Film' : 'Film';
-  if (article.type === 'carousel') return language === 'en' ? 'Photo essay' : 'Eseu foto';
+  if (article.type === 'carousel') return language === 'en' ? 'Visual essay' : 'Eseu vizual';
   const subtype: ArticleSubtype = (article.subtype as ArticleSubtype | null | undefined) || 'essay';
   if (subtype === 'poetry') return language === 'en' ? 'Poem' : 'Poem';
   if (subtype === 'short_story') return language === 'en' ? 'Short story' : 'Povestire';
-  return language === 'en' ? 'Long read' : 'Lectură lungă';
+  return language === 'en' ? 'Essay' : 'Eseu';
+};
+
+/**
+ * Nouns the interface counts, as [singular, plural] per language. The "de"
+ * that Romanian puts after 20 and up is added by countLabel, not stored here.
+ */
+const COUNT_NOUNS = {
+  story: { en: ['story', 'stories'], ro: ['poveste', 'povești'] },
+  view: { en: ['view', 'views'], ro: ['vizualizare', 'vizualizări'] },
+  reply: { en: ['reply', 'replies'], ro: ['răspuns', 'răspunsuri'] },
+  frame: { en: ['frame', 'frames'], ro: ['cadru', 'cadre'] },
+} as const;
+
+export type CountNoun = keyof typeof COUNT_NOUNS;
+
+const PLURAL_RULES = {
+  en: new Intl.PluralRules('en'),
+  ro: new Intl.PluralRules('ro'),
+};
+
+/**
+ * "1 story" / "3 stories" — and in Romanian "1 poveste" / "3 povești" /
+ * "24 de povești".
+ *
+ * Counts used to be written as `${n} povești` everywhere, which is wrong
+ * twice in Romanian: a single story is "1 poveste", and any number whose
+ * last two digits fall in 20–99, or that is a round hundred, takes "de" —
+ * "24 de povești", the very number the map shows. English had its own slip,
+ * "1 stories". Intl.PluralRules encodes the Romanian split as one / few /
+ * other, so this follows CLDR rather than a hand-rolled approximation.
+ */
+export const countLabel = (n: number, noun: CountNoun, language: 'en' | 'ro'): string => {
+  const [one, many] = COUNT_NOUNS[noun][language];
+  const formatted = n.toLocaleString(language === 'en' ? 'en-GB' : 'ro-RO');
+  const category = PLURAL_RULES[language].select(n);
+  if (category === 'one') return `${formatted} ${one}`;
+  if (language === 'ro' && category === 'other') return `${formatted} de ${many}`;
+  return `${formatted} ${many}`;
 };
 
 /**

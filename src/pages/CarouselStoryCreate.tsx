@@ -21,6 +21,7 @@ import { ArrowLeft, Loader2, Save, X, Plus, ArrowUp, ArrowDown, Star, Image as I
 import { toast } from "sonner";
 import { isAbortError } from "@/lib/utils";
 import { COUNTIES, LOCATION_NONE } from "@/lib/constants";
+import { countLabel } from "@/lib/article-utils";
 
 const CarouselStoryCreate: React.FC = () => {
   const { user, isAdmin } = useAuth();
@@ -321,10 +322,10 @@ const CarouselStoryCreate: React.FC = () => {
       // (enforce_article_publish_rights) pins it server-side regardless.
       if (isEditing && editingId) {
         await updateArticle({ ...payload, id: editingId, isPublished });
-        toast.success(language === 'en' ? "Photo essay updated!" : "Eseul a fost actualizat!");
+        toast.success(language === 'en' ? "Visual essay updated!" : "Eseul a fost actualizat!");
       } else {
         await createArticle({ ...payload, userId: user.id, isPublished: isAdmin && isPublished });
-        toast.success(language === 'en' ? "Photo essay created!" : "Eseul a fost creat!");
+        toast.success(language === 'en' ? "Visual essay created!" : "Eseul a fost creat!");
       }
       savedRef.current = true;
       // The save committed — the article no longer references media the
@@ -348,8 +349,8 @@ const CarouselStoryCreate: React.FC = () => {
   const pageHead = (
     <PageHead
       title={isEditing
-        ? (language === 'en' ? 'Edit photo essay' : 'Editează eseul foto')
-        : (language === 'en' ? 'Build a photo essay' : 'Construiește un eseu foto')}
+        ? (language === 'en' ? 'Edit visual essay' : 'Editează eseul vizual')
+        : (language === 'en' ? 'Build a visual essay' : 'Construiește un eseu vizual')}
       description={language === 'en' ? 'Editorial dashboard — story editor.' : 'Panou editorial — editor de povești.'}
       language={language}
     >
@@ -390,13 +391,13 @@ const CarouselStoryCreate: React.FC = () => {
           </button>
           <div className="eyebrow mb-3">
             {isEditing
-              ? (language === 'en' ? 'Editing · Photo essay' : 'Editare · Eseu foto')
-              : (language === 'en' ? 'New entry · Photo essay' : 'Intrare nouă · Eseu foto')}
+              ? (language === 'en' ? 'Editing · Visual essay' : 'Editare · Eseu vizual')
+              : (language === 'en' ? 'New entry · Visual essay' : 'Intrare nouă · Eseu vizual')}
           </div>
           <h1 className="font-display italic font-medium m-0" style={{ fontSize: 'clamp(48px, 7vw, 96px)', lineHeight: 0.95, letterSpacing: '-0.01em', color: 'var(--parchment)' }}>
             {isEditing
-              ? (language === 'en' ? 'Edit photo essay.' : 'Editează eseul foto.')
-              : (language === 'en' ? 'Build a photo essay.' : 'Construiește un eseu foto.')}
+              ? (language === 'en' ? 'Edit visual essay.' : 'Editează eseul vizual.')
+              : (language === 'en' ? 'Build a visual essay.' : 'Construiește un eseu vizual.')}
           </h1>
           <p className="mt-5 max-w-[640px]" style={{ fontSize: 17, color: 'var(--text-dim)', lineHeight: 1.55 }}>
             {language === 'en'
@@ -586,7 +587,7 @@ const CarouselStoryCreate: React.FC = () => {
                   <h2 className="font-display italic m-0" style={{ fontSize: 32, lineHeight: 1.1, color: 'var(--parchment)' }}>
                     {items.length === 0
                       ? (language === 'en' ? 'Add your first image.' : 'Adaugă prima imagine.')
-                      : (language === 'en' ? `${items.length} frame${items.length === 1 ? '' : 's'}.` : `${items.length} ${items.length === 1 ? 'cadru' : 'cadre'}.`)}
+                      : `${countLabel(items.length, 'frame', language)}.`}
                   </h2>
                 </div>
                 {items.length > 0 && (
@@ -817,7 +818,7 @@ const CarouselStoryCreate: React.FC = () => {
                 {isEditing
                   ? (language === 'en' ? 'Save changes' : 'Salvează modificările')
                   : (isAdmin && isPublished
-                      ? (language === 'en' ? 'Publish photo essay' : 'Publică eseul')
+                      ? (language === 'en' ? 'Publish visual essay' : 'Publică eseul')
                       : (language === 'en' ? 'Save as draft' : 'Salvează ca ciornă'))}
               </>
             )}

@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   formatArticleDate,
   getArticleKindLabel,
+  countLabel,
   readMinutes,
   articleExcerpt,
   articleCoverUrl,
@@ -70,8 +71,8 @@ describe('formatArticleDate', () => {
 describe('getArticleKindLabel', () => {
   it('labels the three story types', () => {
     expect(getArticleKindLabel({ type: 'video', subtype: null }, 'en')).toBe('Film');
-    expect(getArticleKindLabel({ type: 'carousel', subtype: null }, 'en')).toBe('Photo essay');
-    expect(getArticleKindLabel({ type: 'carousel', subtype: null }, 'ro')).toBe('Eseu foto');
+    expect(getArticleKindLabel({ type: 'carousel', subtype: null }, 'en')).toBe('Visual essay');
+    expect(getArticleKindLabel({ type: 'carousel', subtype: null }, 'ro')).toBe('Eseu vizual');
   });
 
   it('lets a text story override the default with a subtype', () => {
@@ -80,16 +81,50 @@ describe('getArticleKindLabel', () => {
     expect(getArticleKindLabel({ type: 'text', subtype: 'short_story' }, 'ro')).toBe('Povestire');
   });
 
-  /** Legacy rows predate the column and must keep their original wording. */
+  /** Legacy rows predate the column and render as essays. */
   it('treats a missing subtype as an essay', () => {
-    expect(getArticleKindLabel({ type: 'text', subtype: null }, 'en')).toBe('Long read');
-    expect(getArticleKindLabel({ type: 'text', subtype: undefined }, 'ro')).toBe('Lectură lungă');
+    expect(getArticleKindLabel({ type: 'text', subtype: null }, 'en')).toBe('Essay');
+    expect(getArticleKindLabel({ type: 'text', subtype: undefined }, 'ro')).toBe('Eseu');
   });
 
   /** A subtype on a non-text story is meaningless and must not leak through. */
   it('ignores subtype on video and carousel', () => {
     expect(getArticleKindLabel({ type: 'video', subtype: 'poetry' }, 'en')).toBe('Film');
-    expect(getArticleKindLabel({ type: 'carousel', subtype: 'poetry' }, 'en')).toBe('Photo essay');
+    expect(getArticleKindLabel({ type: 'carousel', subtype: 'poetry' }, 'en')).toBe('Visual essay');
+  });
+});
+
+describe('countLabel', () => {
+  it('uses the singular for one, in both languages', () => {
+    expect(countLabel(1, 'story', 'en')).toBe('1 story');
+    expect(countLabel(1, 'story', 'ro')).toBe('1 poveste');
+    expect(countLabel(1, 'reply', 'ro')).toBe('1 răspuns');
+  });
+
+  it('uses the plural for zero and for many in English', () => {
+    expect(countLabel(0, 'story', 'en')).toBe('0 stories');
+    expect(countLabel(24, 'story', 'en')).toBe('24 stories');
+  });
+
+  /**
+   * The Romanian rule the old `${n} povești` missed: 2–19 take the bare
+   * plural, while 20–99 and round hundreds take "de". The archive crossed
+   * 20 stories, so the map's own total was the first number to get it wrong.
+   */
+  it('adds "de" in Romanian from 20, and only where CLDR says so', () => {
+    expect(countLabel(0, 'story', 'ro')).toBe('0 povești');
+    expect(countLabel(2, 'story', 'ro')).toBe('2 povești');
+    expect(countLabel(19, 'story', 'ro')).toBe('19 povești');
+    expect(countLabel(20, 'story', 'ro')).toBe('20 de povești');
+    expect(countLabel(24, 'story', 'ro')).toBe('24 de povești');
+    expect(countLabel(100, 'story', 'ro')).toBe('100 de povești');
+    expect(countLabel(101, 'story', 'ro')).toBe('101 povești');
+    expect(countLabel(120, 'frame', 'ro')).toBe('120 de cadre');
+  });
+
+  it('groups thousands the way each language writes them', () => {
+    expect(countLabel(1192, 'view', 'en')).toBe('1,192 views');
+    expect(countLabel(1192, 'view', 'ro')).toBe('1.192 de vizualizări');
   });
 });
 

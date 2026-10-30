@@ -308,6 +308,23 @@ export const fetchRelatedArticles = async (
 };
 
 /**
+ * The newest published stories, card columns only — for surfaces that list
+ * titles and places but never render a body (the home page ticker).
+ */
+export const fetchLatestArticleCards = async (limit: number): Promise<Article[]> => {
+  const { data, error } = await supabase
+    .from('articles')
+    .select(ARTICLE_CARD_COLUMNS)
+    .eq('is_published', true)
+    .order('created_at', { ascending: false })
+    // See PAGINATION_TIEBREAKER note above fetchArticlesPage.
+    .order('id', { ascending: true })
+    .limit(limit);
+  if (error) throw error;
+  return toCamelCaseArray<Article>(data || []);
+};
+
+/**
  * Paginated admin/writer dashboard fetcher for articles. Skips the
  * public-content cache (admins always want fresh data) and accepts an
  * optional `ownerId` so writers fetch only their own rows server-side.

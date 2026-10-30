@@ -27,6 +27,7 @@ import {
 import { toast } from "sonner";
 import { isAbortError } from "@/lib/utils";
 import { COUNTIES, LOCATION_NONE } from "@/lib/constants";
+import { getArticleKindLabel } from "@/lib/article-utils";
 
 const MIN_CHAPTERS = 1;
 const MAX_CHAPTERS = 10;
@@ -334,8 +335,8 @@ const TextStoryCreate: React.FC = () => {
   const pageHead = (
     <PageHead
       title={isEditing
-        ? (language === 'en' ? 'Edit long read' : 'Editează lectura')
-        : (language === 'en' ? 'Write a long read' : 'Scrie o lectură lungă')}
+        ? (language === 'en' ? 'Edit story' : 'Editează povestea')
+        : (language === 'en' ? 'Write a story' : 'Scrie o poveste')}
       description={language === 'en' ? 'Editorial dashboard — story editor.' : 'Panou editorial — editor de povești.'}
       language={language}
     >
@@ -373,19 +374,21 @@ const TextStoryCreate: React.FC = () => {
             {language === 'en' ? 'Back to dashboard' : 'Înapoi la panou'}
           </button>
           <div className="eyebrow mb-3">
+            {/* Names the format the story will be published as — the same
+                label readers see on its card. */}
             {isEditing
-              ? (language === 'en' ? 'Editing · Long read' : 'Editare · Lectură lungă')
-              : (language === 'en' ? 'New entry · Long read' : 'Intrare nouă · Lectură lungă')}
+              ? `${language === 'en' ? 'Editing' : 'Editare'} · ${getArticleKindLabel({ type: 'text', subtype }, language)}`
+              : `${language === 'en' ? 'New entry' : 'Intrare nouă'} · ${getArticleKindLabel({ type: 'text', subtype }, language)}`}
           </div>
           <h1 className="font-display italic font-medium m-0" style={{ fontSize: 'clamp(48px, 7vw, 96px)', lineHeight: 0.95, letterSpacing: '-0.01em', color: 'var(--parchment)' }}>
             {isEditing
-              ? (language === 'en' ? 'Edit long read.' : 'Editează lectura.')
-              : (language === 'en' ? 'Write a long read.' : 'Scrie o lectură lungă.')}
+              ? (language === 'en' ? 'Edit story.' : 'Editează povestea.')
+              : (language === 'en' ? 'Write a story.' : 'Scrie o poveste.')}
           </h1>
           <p className="mt-5 max-w-[640px]" style={{ fontSize: 17, color: 'var(--text-dim)', lineHeight: 1.55 }}>
             {language === 'en'
-              ? 'Up to ten chapters, in two languages. The first chapter renders with a drop cap; later chapters get Roman-numeral headers.'
-              : 'Până la zece capitole, în două limbi. Primul capitol primește o literă inițială; capitolele următoare au cifre romane.'}
+              ? 'Up to ten chapters, in two languages. With more than one chapter, each opens under a Roman numeral; an essay’s first chapter also opens with a drop cap.'
+              : 'Până la zece capitole, în două limbi. Când sunt mai multe capitole, fiecare începe cu o cifră romană; primul capitol al unui eseu începe și cu o literă inițială.'}
           </p>
         </div>
       </section>
@@ -480,7 +483,7 @@ const TextStoryCreate: React.FC = () => {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="essay">{language === 'en' ? 'Long read (essay)' : 'Lectură lungă (eseu)'}</SelectItem>
+                      <SelectItem value="essay">{language === 'en' ? 'Essay' : 'Eseu'}</SelectItem>
                       <SelectItem value="poetry">{language === 'en' ? 'Poem' : 'Poem'}</SelectItem>
                       <SelectItem value="short_story">{language === 'en' ? 'Short story' : 'Povestire'}</SelectItem>
                     </SelectContent>
@@ -633,7 +636,9 @@ const TextStoryCreate: React.FC = () => {
                         <span className="eyebrow">
                           {language === 'en' ? `Chapter ${index + 1}` : `Capitolul ${index + 1}`}
                         </span>
-                        {index === 0 && (
+                        {/* Only essays get a drop cap (see EditorialArticle's
+                            ChapterBlock), so only an essay's editor says so. */}
+                        {index === 0 && subtype === 'essay' && (
                           <span className="font-ui text-[10px] uppercase" style={{ letterSpacing: '0.18em', color: 'var(--text-mute)' }}>
                             · {language === 'en' ? 'Drop cap' : 'Literă inițială'}
                           </span>

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useId, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Article, ArticleSubtype, Category, getLocalized, parseChapters, fetchCategories, fetchRelatedArticles } from "@/lib/supabase";
 import { useLanguage } from "@/hooks/use-language";
@@ -7,7 +7,7 @@ import { ArrowLeft, Heart, Share2, Printer, Play, Pause, Maximize2, Volume2, Vol
 import { cn } from "@/lib/utils";
 import { ArticleComments } from "@/components/organisms/ArticleComments";
 import { storageImage } from "@/lib/image-url";
-import { TONES, toneFor, readMinutes, placeLabel, articleCoverUrl, getArticleKindLabel, formatArticleDate } from "@/lib/article-utils";
+import { TONES, toneFor, readMinutes, placeLabel, articleCoverUrl, getArticleKindLabel, formatArticleDate, countLabel } from "@/lib/article-utils";
 
 interface Props {
   article: Article;
@@ -205,7 +205,7 @@ const Byline: React.FC<{ article: Article; views?: number }> = ({ article, views
           <div className="font-ui text-[11px] uppercase" style={{ letterSpacing: '0.18em', color: 'var(--text-mute)' }}>
             {formatArticleDate(article.createdAt, language)} · {readMinutes(article, language)} {language === 'en' ? 'min read' : 'min citire'}
             {views !== undefined && views > 0 && (
-              <> · {views.toLocaleString()} {language === 'en' ? 'views' : 'vizualizări'}</>
+              <> · {countLabel(views, 'view', language)}</>
             )}
           </div>
         </div>
@@ -227,9 +227,10 @@ const TextArticle: React.FC<{ article: Article; category?: Category; views?: num
   // surface (cards, search, related) already resolved covers this way.
   const cover = storageImage(articleCoverUrl(article), "feature");
   const subtype: ArticleSubtype = (article.subtype as ArticleSubtype | null | undefined) || 'essay';
-  // Essays and poems both lead each chapter with a styled first letter
-  // (different class per subtype — see BodyContent). Short stories open
-  // clean to keep the prose feel.
+  // Essays open their first chapter with a floated drop cap; poems open every
+  // section with a smaller versal (different class per subtype — see
+  // BodyContent and ChapterBlock). Short stories open clean to keep the prose
+  // feel.
   const allowDropcap = subtype === 'essay' || subtype === 'poetry';
 
   return (
@@ -308,7 +309,12 @@ const ChapterBlock: React.FC<{ index: number; text: string; subtype: ArticleSubt
       >
         {`${romanNumeral(index + 1)}.`}
       </h2>
-      <BodyContent text={text} subtype={subtype} dropcap={allowDropcap} />
+      {/* An essay's drop cap marks where the piece begins, so only the first
+          chapter gets one. Every chapter used to: the five-chapter Arcul de
+          Triumf essay opened five times, and the editor promised writers
+          "the first chapter renders with a drop cap". A poem's versal is a
+          section marker and stays on each. */}
+      <BodyContent text={text} subtype={subtype} dropcap={allowDropcap && (subtype === 'poetry' || index === 0)} />
     </>
   );
 };
@@ -418,7 +424,7 @@ const PhotoEssay: React.FC<{ article: Article; category?: Category; views?: numb
           <div>
             <div className="flex flex-wrap items-center gap-3.5 mb-7">
               <span className="pill" style={{ color: 'var(--gold)', borderColor: 'var(--gold)', background: 'var(--overlay-dark)' }}>
-                {language === 'en' ? 'Photo essay' : 'Eseu foto'}
+                {getArticleKindLabel(article, language)}
               </span>
               {category && (
                 <span className="font-ui text-[11px] uppercase" style={{ letterSpacing: '0.18em', color: 'var(--parchment)' }}>
@@ -440,9 +446,9 @@ const PhotoEssay: React.FC<{ article: Article; category?: Category; views?: numb
               {title}
             </h1>
             <div className="flex flex-wrap gap-8 mt-10 items-center font-ui text-[11px] uppercase" style={{ letterSpacing: '0.18em', color: 'var(--parchment)' }}>
-              <span>{scenes.length} {language === 'en' ? 'frames' : 'cadre'}</span>
+              <span>{countLabel(scenes.length, 'frame', language)}</span>
               <span>{readMinutes(article, language)} {language === 'en' ? 'min read' : 'min citire'}</span>
-              {views !== undefined && views > 0 && <span>{views.toLocaleString()} {language === 'en' ? 'views' : 'vizualizări'}</span>}
+              {views !== undefined && views > 0 && <span>{countLabel(views, 'view', language)}</span>}
               <span>{language === 'en' ? 'Scroll to begin ↓' : 'Derulează pentru a începe ↓'}</span>
             </div>
           </div>
@@ -466,7 +472,9 @@ const PhotoEssay: React.FC<{ article: Article; category?: Category; views?: numb
             </p>
             <div className="flex flex-col gap-5">
               <div>
-                <div className="eyebrow">{language === 'en' ? 'Photographs' : 'Fotografii'}</div>
+                {/* "Images", not "Photographs": some essays are illustrated or
+                    animated, and a credit line should not claim a medium. */}
+                <div className="eyebrow">{language === 'en' ? 'Images' : 'Imagini'}</div>
                 <div className="font-display italic mt-1" style={{ fontSize: 20 }}>The RoStory</div>
               </div>
               <div className="rule" />
@@ -579,11 +587,55 @@ const PhotoScene: React.FC<{
 };
 
 // ── Variant C: VIDEO FILM ────────────────────────────────────────────
+
+/** Roughly how much of a film's description shows before "Read more". */
+const DESCRIPTION_PREVIEW_CHARS = 600;
+
+/**
+ * Keeps whole paragraphs while they fit the budget, then cuts the next one at
+ * a word boundary. `truncated` says whether anything was left out, which is
+ * what decides whether the reader is offered the rest.
+ */
+const clampParagraphs = (paragraphs: string[], budget: number): { paragraphs: string[]; truncated: boolean } => {
+  const out: string[] = [];
+  let used = 0;
+  for (const p of paragraphs) {
+    if (used + p.length <= budget) {
+      out.push(p);
+      used += p.length;
+      continue;
+    }
+    // Only start a paragraph that has room to say something; otherwise stop
+    // at the end of the last whole one.
+    const room = budget - used;
+    if (room > 80) {
+      const cut = p.slice(0, room);
+      const lastSpace = cut.lastIndexOf(' ');
+      out.push((lastSpace > 0 ? cut.slice(0, lastSpace) : cut).trimEnd() + '…');
+    }
+    return { paragraphs: out, truncated: true };
+  }
+  return { paragraphs: out, truncated: false };
+};
+
 const VideoFilm: React.FC<{ article: Article; category?: Category; views?: number }> = ({ article, category, views }) => {
   const { language } = useLanguage();
   const title = getLocalized(article, 'title', language);
   const content = getLocalized(article, 'content', language);
-  const dek = content.split(/\n+/).filter(Boolean)[0] || '';
+  // The first paragraph is the synopsis; the rest is the description. The
+  // description used to be cut at 600 characters with an ellipsis and no way
+  // to read on, so anything past that was unreachable on the page.
+  const { dek, rest, preview } = useMemo(() => {
+    const paragraphs = content.split(/\n+/).map((p) => p.trim()).filter(Boolean);
+    const remaining = paragraphs.slice(1);
+    return {
+      dek: paragraphs[0] || '',
+      rest: remaining,
+      preview: clampParagraphs(remaining, DESCRIPTION_PREVIEW_CHARS),
+    };
+  }, [content]);
+  const [descriptionOpen, setDescriptionOpen] = useState(false);
+  const descriptionId = useId();
   const videoRef = useRef<HTMLVideoElement>(null);
   const progressBarRef = useRef<HTMLDivElement>(null);
   const volumeContainerRef = useRef<HTMLDivElement>(null);
@@ -979,13 +1031,28 @@ const VideoFilm: React.FC<{ article: Article; category?: Category; views?: numbe
                 {dek}
               </p>
 
-              {content.length > dek.length && (
+              {rest.length > 0 && (
                 <div className="mt-12 px-8 py-8" style={{ borderLeft: '2px solid var(--gold)', background: 'var(--overlay-ticker)' }}>
                   <div className="eyebrow mb-3">{language === 'en' ? 'From the description' : 'Din descriere'}</div>
-                  <p className="font-serif-ed m-0" style={{ fontSize: 17, lineHeight: 1.7, color: 'var(--text)' }}>
-                    {content.slice(dek.length, dek.length + 600).trim()}
-                    {content.length > dek.length + 600 ? '…' : ''}
-                  </p>
+                  <div id={descriptionId} className="font-serif-ed" style={{ fontSize: 17, lineHeight: 1.7, color: 'var(--text)' }}>
+                    {(descriptionOpen ? rest : preview.paragraphs).map((p, i) => (
+                      <p key={i} className="m-0" style={{ marginTop: i === 0 ? 0 : '1em' }}>{p}</p>
+                    ))}
+                  </div>
+                  {preview.truncated && (
+                    <button
+                      type="button"
+                      onClick={() => setDescriptionOpen((open) => !open)}
+                      aria-expanded={descriptionOpen}
+                      aria-controls={descriptionId}
+                      className="no-print mt-5 font-ui text-[11px] uppercase cursor-pointer transition-opacity hover:opacity-80"
+                      style={{ letterSpacing: '0.18em', color: 'var(--gold)', background: 'transparent', border: 0, padding: 0 }}
+                    >
+                      {descriptionOpen
+                        ? (language === 'en' ? 'Show less' : 'Arată mai puțin')
+                        : (language === 'en' ? 'Read the full description' : 'Citește descrierea completă')}
+                    </button>
+                  )}
                 </div>
               )}
             </div>
@@ -1014,7 +1081,7 @@ const VideoFilm: React.FC<{ article: Article; category?: Category; views?: numbe
                 {views !== undefined && views > 0 && (
                   <div className="px-6 py-4" style={{ borderBottom: '1px solid var(--line-soft)' }}>
                     <div className="font-display italic" style={{ fontSize: 19, color: 'var(--parchment)' }}>
-                      {views.toLocaleString()} {language === 'en' ? 'views' : 'vizualizări'}
+                      {countLabel(views, 'view', language)}
                     </div>
                   </div>
                 )}

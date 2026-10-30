@@ -12,7 +12,7 @@ import { LoadError } from "@/components/ui/load-error";
 import { X, MapPin, ChevronRight, Maximize2, Minimize2, RotateCcw, ArrowLeft } from "lucide-react";
 import { cn, isAbortError } from "@/lib/utils";
 import { PageHead } from "@/components/layout/PageHead";
-import { articleCoverUrl, getArticleKindLabel } from "@/lib/article-utils";
+import { articleCoverUrl, getArticleKindLabel, countLabel } from "@/lib/article-utils";
 import { storageImage } from "@/lib/image-url";
 
 // Choropleth tiers — counties get progressively warmer as story density grows.
@@ -188,10 +188,14 @@ const MapPage: React.FC = () => {
               >
                 {language === 'en' ? 'Find a story\non the map.' : 'Găsește o poveste\npe hartă.'}
               </h1>
+              {/* Promises only what the map does. It used to invite readers
+                  to "pan the country, follow the rivers" on a map with no
+                  panning and no rivers, and to treat "each pin" as a place
+                  when pins mark whole counties. */}
               <p className="mt-7 max-w-[540px]" style={{ fontSize: 19, color: 'var(--text-dim)', lineHeight: 1.55 }}>
                 {language === 'en'
-                  ? 'Each pin is a place. Each place is a story still being told. Pan the country, follow the rivers, and pick a thread to pull.'
-                  : 'Fiecare loc este o poveste încă spusă. Plimbă-te prin țară, urmează râurile, alege un fir.'}
+                  ? 'Every gold county holds stories still being told. Choose one, look closer, and pick a thread to pull.'
+                  : 'Fiecare județ auriu păstrează povești încă spuse. Alege unul, privește mai de aproape și trage de un fir.'}
               </p>
             </div>
             <div className="hidden lg:block">
@@ -337,7 +341,7 @@ const MapPage: React.FC = () => {
                         const fillOpacity = isSelected ? 1 : (isHovered && tier ? tier.hoverOpacity : (tier ? tier.fillOpacity : 0.04));
 
                         const ariaLabel = count > 0
-                          ? `${county.name} — ${count} ${count === 1 ? t("map.storyOne") : t("map.storyMany")}`
+                          ? `${county.name} — ${countLabel(count, 'story', language)}`
                           : `${county.name} — ${t("map.legendNone")}`;
 
                         return (
@@ -376,54 +380,84 @@ const MapPage: React.FC = () => {
                               // to the hitch.
                               style={{ transition: 'fill-opacity .25s, stroke .25s, stroke-width .25s' }}
                             />
-
-                            {/* County label — only visible on hover/select */}
-                            {(isSelected || isHovered) && (
-                              <text
-                                x={county.lx}
-                                y={county.ly - 3}
-                                textAnchor="middle"
-                                dominantBaseline="middle"
-                                fontFamily="var(--display)"
-                                fontStyle="italic"
-                                fontSize="11"
-                                fill={isSelected ? "var(--ink)" : "var(--gold)"}
-                                style={{ pointerEvents: 'none', transition: 'fill .2s' }}
-                              >
-                                {county.name}
-                              </text>
-                            )}
-
-                            {count > 0 && (
-                              <>
-                                <circle
-                                  cx={county.lx}
-                                  cy={county.ly + (isSelected || isHovered ? 12 : 0)}
-                                  r="9"
-                                  fill={isSelected ? "var(--ink)" : "var(--ink-2)"}
-                                  stroke="var(--gold)"
-                                  strokeWidth="1.5"
-                                  style={{ pointerEvents: 'none' }}
-                                />
-                                <circle cx={county.lx} cy={county.ly + (isSelected || isHovered ? 12 : 0)} r="3" fill="var(--gold)" style={{ pointerEvents: 'none' }} />
-                                <text
-                                  x={county.lx + 14}
-                                  y={county.ly + (isSelected || isHovered ? 12 : 0)}
-                                  textAnchor="start"
-                                  dominantBaseline="middle"
-                                  fontFamily="var(--ui)"
-                                  fontSize="9"
-                                  fill="var(--gold)"
-                                  letterSpacing="0.15em"
-                                  style={{ pointerEvents: 'none' }}
-                                >
-                                  {count}
-                                </text>
-                              </>
-                            )}
                           </g>
                         );
                       })}
+
+                      {/* Pins and county names draw in their own layers, above
+                          every county. Inside each county's group, a county
+                          later in the list painted over an earlier one's marks,
+                          and the selected name — dark ink meant to sit on the
+                          gold-filled county — disappeared wherever it overhung a
+                          small county: București read as "cure ști". The name
+                          now sits above the pin instead of colliding with it,
+                          and a halo in the page colour keeps it legible over
+                          gold fill, borders and bare paper alike. The pin no
+                          longer jumps down on hover to make room. Decorative:
+                          each county's aria-label already carries its name and
+                          count. */}
+                      <g aria-hidden="true" style={{ pointerEvents: 'none' }}>
+                        {paths.map((county) => {
+                          const count = storiesPerLocation[county.id] || 0;
+                          if (count === 0) return null;
+                          const isSelected = selectedLocation === county.id;
+                          return (
+                            <g key={county.id}>
+                              <circle
+                                cx={county.lx}
+                                cy={county.ly}
+                                r="9"
+                                fill={isSelected ? "var(--ink)" : "var(--ink-2)"}
+                                stroke="var(--gold)"
+                                strokeWidth="1.5"
+                              />
+                              <circle cx={county.lx} cy={county.ly} r="3" fill="var(--gold)" />
+                              <text
+                                x={county.lx + 14}
+                                y={county.ly}
+                                textAnchor="start"
+                                dominantBaseline="middle"
+                                fontFamily="var(--ui)"
+                                fontSize="9"
+                                fill="var(--gold)"
+                                letterSpacing="0.15em"
+                                stroke="var(--ink)"
+                                strokeWidth="3"
+                                strokeLinejoin="round"
+                                style={{ paintOrder: 'stroke' }}
+                              >
+                                {count}
+                              </text>
+                            </g>
+                          );
+                        })}
+                      </g>
+                      <g aria-hidden="true" style={{ pointerEvents: 'none' }}>
+                        {paths.map((county) => {
+                          const isSelected = selectedLocation === county.id;
+                          if (!isSelected && hoverCounty !== county.id) return null;
+                          const hasPin = (storiesPerLocation[county.id] || 0) > 0;
+                          return (
+                            <text
+                              key={county.id}
+                              x={county.lx}
+                              y={hasPin ? county.ly - 17 : county.ly}
+                              textAnchor="middle"
+                              dominantBaseline="middle"
+                              fontFamily="var(--display)"
+                              fontStyle="italic"
+                              fontSize="11"
+                              fill={isSelected ? "var(--parchment)" : "var(--gold)"}
+                              stroke="var(--ink)"
+                              strokeWidth="3"
+                              strokeLinejoin="round"
+                              style={{ paintOrder: 'stroke', transition: 'fill .2s' }}
+                            >
+                              {county.name}
+                            </text>
+                          );
+                        })}
+                      </g>
                     </svg>
                   </motion.div>
                 </div>
@@ -456,8 +490,22 @@ const MapPage: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Legend strip */}
-                <div className="flex flex-wrap items-center gap-6 mt-10 font-ui text-[11px] uppercase" style={{ letterSpacing: '0.15em', color: 'var(--text-mute)' }}>
+                {/* Legend strip. Leads with the four shading levels the map
+                    actually uses — it used to explain the pin and the border
+                    and say nothing about the shading, which is most of what
+                    the map shows. */}
+                <div className="flex flex-wrap items-center gap-x-6 gap-y-3 mt-10 font-ui text-[11px] uppercase" style={{ letterSpacing: '0.15em', color: 'var(--text-mute)' }}>
+                  <span className="flex flex-wrap items-center gap-x-2.5 gap-y-2">
+                    <span>{language === 'en' ? 'Stories per county' : 'Povești pe județ'}</span>
+                    {STORY_DENSITY_TIERS.map((tier) => (
+                      <span key={tier.label} className="flex items-center gap-1.5">
+                        <svg width="16" height="11" viewBox="0 0 16 11" aria-hidden="true">
+                          <rect x="0.5" y="0.5" width="15" height="10" fill="var(--gold)" fillOpacity={tier.fillOpacity} stroke="var(--gold-deep)" />
+                        </svg>
+                        {tier.label}
+                      </span>
+                    ))}
+                  </span>
                   <span className="flex items-center gap-2">
                     <span className="rounded-full" style={{ width: 8, height: 8, background: 'var(--gold)' }} />
                     {language === 'en' ? 'Story pinned' : 'Poveste fixată'}
@@ -467,7 +515,7 @@ const MapPage: React.FC = () => {
                     {language === 'en' ? 'Border' : 'Graniță'}
                   </span>
                   <span className="ml-auto">
-                    {Object.values(storiesPerLocation).reduce((a, b) => a + b, 0)} {language === 'en' ? 'stories pinned' : 'povești fixate'}
+                    {countLabel(Object.values(storiesPerLocation).reduce((a, b) => a + b, 0), 'story', language)} {language === 'en' ? 'on the map' : 'pe hartă'}
                   </span>
                 </div>
               </div>
@@ -497,10 +545,12 @@ const MapPage: React.FC = () => {
                         </button>
                       </div>
                       <h3 className="font-display italic font-medium m-0" style={{ fontSize: 28, lineHeight: 1.1, color: 'var(--parchment)' }}>
-                        {filteredArticles.length} {filteredArticles.length === 1 ? (language === 'en' ? 'story' : 'poveste') : (language === 'en' ? 'stories' : 'povești')}
+                        {countLabel(filteredArticles.length, 'story', language)}
                       </h3>
                       <p className="text-ink-dim mt-2" style={{ fontSize: 14 }}>
-                        {language === 'en' ? `Pinned to ${selectedLocation}.` : `Fixate în ${selectedLocation}.`}
+                        {language === 'en'
+                          ? `Pinned to ${selectedLocation}.`
+                          : `${filteredArticles.length === 1 ? 'Fixată' : 'Fixate'} în ${selectedLocation}.`}
                       </p>
 
                       <div className="mt-6 flex flex-col gap-3">
@@ -545,10 +595,12 @@ const MapPage: React.FC = () => {
                     <h3 className="font-display italic font-medium m-0" style={{ fontSize: 24, lineHeight: 1.15, color: 'var(--parchment)' }}>
                       {language === 'en' ? 'Tap a county to pull a thread.' : 'Apasă un județ pentru a trage de un fir.'}
                     </h3>
+                    {/* "Deeper", not "darker": on the default dark theme more
+                        stories make a county brighter gold, not darker. */}
                     <p className="text-ink-dim mt-3" style={{ fontSize: 14, lineHeight: 1.6 }}>
                       {language === 'en'
-                        ? 'Counties shaded gold contain stories. Darker means more. Click to zoom and read.'
-                        : 'Județele aurii conțin povești. Mai închis înseamnă mai multe. Apasă pentru zoom și lectură.'}
+                        ? 'Counties shaded gold contain stories — the deeper the gold, the more there are. Select one to zoom in and read.'
+                        : 'Județele aurii conțin povești — cu cât auriul e mai intens, cu atât sunt mai multe. Alege unul pentru a te apropia și a citi.'}
                     </p>
                   </div>
                 )}
@@ -583,7 +635,7 @@ const MapPage: React.FC = () => {
                           {loc}
                         </span>
                         <span className="font-ui text-[11px] uppercase" style={{ letterSpacing: '0.15em', color: 'var(--text-mute)' }}>
-                          {count} {language === 'en' ? 'stories' : 'povești'}
+                          {countLabel(count, 'story', language)}
                         </span>
                       </button>
                     ))}

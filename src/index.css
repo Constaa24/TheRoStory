@@ -244,6 +244,9 @@ select:focus-visible,
     scroll-behavior: auto !important;
   }
   .ticker-track { animation: none !important; }
+  /* With the scroll stopped, let the strip be swiped or scrolled instead, so
+     the stories past the first screenful stay reachable. */
+  .ticker { overflow-x: auto; }
 }
 
 /* Skip-to-content link (App.tsx). Off-screen until focused, then pinned to
@@ -525,7 +528,10 @@ main:focus-visible {
   display: flex; gap: 48px; width: max-content;
   animation: ticker 60s linear infinite;
 }
-.ticker:hover .ticker-track { animation-play-state: paused; }
+/* The ticker's items are links now, so it also stops while one has keyboard
+   focus — a moving target is hard to read and harder to activate. */
+.ticker:hover .ticker-track,
+.ticker:focus-within .ticker-track { animation-play-state: paused; }
 
 /* Video player chrome (article video variant) */
 .video-frame {

@@ -7,6 +7,8 @@ import { PageHead } from "@/components/layout/PageHead";
 import { SITE_URL } from "@/lib/constants";
 import { LoadError } from "@/components/ui/load-error";
 import { localizedPath } from "@/lib/locale";
+import { countLabel } from "@/lib/article-utils";
+import { categoryDescription } from "@/lib/category-copy";
 
 // Extension-less base paths — each has a .avif, .webp and .jpg sibling, served
 // through <picture> below. They shipped as ~800 KB files named .png that were
@@ -164,7 +166,7 @@ const Categories: React.FC = () => {
                             </h2>
                           </div>
                           <span className="font-ui text-[12px] uppercase shrink-0 ml-4" style={{ letterSpacing: '0.18em', color: 'var(--text-mute)' }}>
-                            {count} {language === 'en' ? 'stories' : 'povești'}
+                            {countLabel(count, 'story', language)}
                           </span>
                         </div>
                       </div>
@@ -193,9 +195,7 @@ const Categories: React.FC = () => {
                       <div className="flex justify-between items-start gap-6">
                         <div className="flex-1">
                           <p className="text-ink-dim m-0 max-w-[480px]" style={{ fontSize: 15, lineHeight: 1.6 }}>
-                            {language === 'en'
-                              ? `Stories filed under ${name.toLowerCase()} — long reads, photo essays, and films.`
-                              : `Povești filtrate sub ${name.toLowerCase()} — lecturi, eseuri foto și filme.`}
+                            {categoryDescription(category.slug || name.toLowerCase(), name, language)}
                           </p>
                           <p className="font-display italic mt-3" style={{ fontSize: 18, color: 'var(--gold)' }}>
                             {language === 'en' ? `Browse ${name.toLowerCase()} →` : `Explorează ${name.toLowerCase()} →`}

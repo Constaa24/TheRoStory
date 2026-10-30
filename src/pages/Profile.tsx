@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useLanguage } from "@/hooks/use-language";
 import { useSearchParams, Navigate, useNavigate, Link } from "react-router-dom";
@@ -21,22 +21,27 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { Article, getLocalized } from "@/lib/supabase";
-import { fetchUserFavorites, deleteOwnAccount, exportOwnData, supabase, deleteStorageFile, extractStoragePath, uploadUserFile } from "@/lib/supabase";
+import { Article, Category } from "@/lib/supabase";
+import { fetchUserFavorites, fetchCategories, deleteOwnAccount, exportOwnData, supabase, deleteStorageFile, extractStoragePath, uploadUserFile } from "@/lib/supabase";
 import { useFavorites } from "@/hooks/use-favorites";
 import { isAbortError } from "@/lib/utils";
-import { toneFor, articleExcerpt, articleCoverUrl } from "@/lib/article-utils";
-import { Camera, Loader2, Shield, Heart, ChevronRight, CheckCircle2, AlertCircle, Trash2, Download } from "lucide-react";
+import { StoryCard } from "@/components/ui/story-card";
+import { LoadError } from "@/components/ui/load-error";
+import { Camera, Loader2, Shield, Heart, CheckCircle2, AlertCircle, Trash2, Download } from "lucide-react";
 import { motion } from "framer-motion";
 import { ReducedMotionConfig } from "@/components/ui/reduced-motion-config";
 import { PageHead } from "@/components/layout/PageHead";
 import { storageImage } from "@/lib/image-url";
 
+// Hoisted so StoryCard's React.memo can actually skip re-renders — an inline
+// literal would be a new object identity every render (see Home).
+const FAVORITES_LINK_STATE = { from: '/profile?tab=favorites' };
+
 const Profile: React.FC = () => {
   const { user, role, refreshUser, logout } = useAuth();
   // Shared favorites provider so toggling here also updates heart state on
   // Home/CategoryDetail/article pages (they read the same source).
-  const { handleFavoriteToggle: toggleFavoriteShared } = useFavorites();
+  const { handleFavoriteToggle: toggleFavoriteShared, isFavorited } = useFavorites();
   const { language, t } = useLanguage();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -52,6 +57,14 @@ const Profile: React.FC = () => {
   const [isDeleting, setIsDeleting] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  // For the category label on each saved story's card. Served from the
+  // shared five-minute cache, so this is usually not a request at all.
+  const [categories, setCategories] = useState<Category[]>([]);
+  const categoryMap = useMemo(() => new Map(categories.map((c) => [c.id, c])), [categories]);
+
+  useEffect(() => {
+    fetchCategories().then(setCategories).catch(() => {});
+  }, []);
 
   const activeTab = searchParams.get("tab") || "profile";
   const isMountedRef = useRef(true);
@@ -498,114 +511,74 @@ const Profile: React.FC = () => {
         </TabsContent>
 
         <TabsContent value="favorites" className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-          <div className="space-y-8">
-            <div className="text-center space-y-2">
-              <h2 className="text-3xl font-serif font-bold text-primary italic">
-                {language === 'en' ? 'Your Favorite Stories' : 'Poveștile tale favorite'}
+          {/* In the archive's own visual language. This tab used to look like
+              a different site — 2rem-rounded cards, bold serif titles, bright
+              red hearts — so saved stories looked nothing like the cards they
+              were saved from. It reuses StoryCard and the editorial states
+              (LoadError, the dashed empty panel) the archive pages use. */}
+          <div className="space-y-12">
+            <div className="text-center">
+              <div className="eyebrow mb-3">{language === 'en' ? 'Saved stories' : 'Povești salvate'}</div>
+              <h2
+                className="font-display italic font-medium m-0"
+                style={{ fontSize: 'clamp(32px, 4vw, 48px)', lineHeight: 1.05, color: 'var(--parchment)' }}
+              >
+                {language === 'en' ? 'Your favorite stories.' : 'Poveștile tale favorite.'}
               </h2>
-              <p className="text-muted-foreground font-serif italic">
-                {language === 'en' 
-                  ? 'A collection of pieces that touched your heart.' 
+              <p className="font-display italic text-ink-dim mt-3 mb-0" style={{ fontSize: 18 }}>
+                {language === 'en'
+                  ? 'A collection of pieces that touched your heart.'
                   : 'O colecție de povești care ți-au atins inima.'}
               </p>
             </div>
 
             {!isLoadingFavorites && favoritesLoadError && favorites.length > 0 && (
-              <Card className="border-destructive/20 bg-destructive/5 p-4 text-center text-destructive font-serif italic">
+              <p role="alert" className="font-display italic text-center m-0" style={{ fontSize: 17, color: 'var(--oxblood-2)' }}>
                 {favoritesLoadError}
-              </Card>
+              </p>
             )}
 
             {isLoadingFavorites ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-12">
                 {[1, 2, 3, 4].map(i => (
-                  <div key={i} className="h-48 rounded-2xl bg-secondary/40 animate-pulse" />
+                  <div key={i} className="animate-pulse" style={{ aspectRatio: '3/4', border: '1px solid var(--line)', background: 'var(--ink-2)' }} />
                 ))}
               </div>
             ) : favoritesLoadError && favorites.length === 0 ? (
-              <Card className="border-destructive/20 bg-destructive/5 p-12 text-center space-y-4">
-                <AlertCircle className="h-12 w-12 text-destructive mx-auto opacity-70" />
-                <p className="text-lg font-serif italic text-destructive">
-                  {favoritesLoadError}
-                </p>
-                <Button variant="outline" className="rounded-full font-serif italic" onClick={loadFavorites}>
-                  {language === 'en' ? 'Try Again' : 'Încearcă din nou'}
-                </Button>
-              </Card>
+              <LoadError message={favoritesLoadError} onRetry={loadFavorites} />
             ) : favorites.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-12 gap-y-16">
                 {favorites.map((article) => (
                   <motion.div
                     key={article.id}
                     layout
-                    initial={{ opacity: 0, scale: 0.95 }}
+                    initial={{ opacity: 0, scale: 0.97 }}
                     animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.95 }}
                   >
-                    <Card
-                      className="group overflow-hidden border-none shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_20px_60px_rgb(0,0,0,0.08)] transition-all duration-700 bg-secondary/5 cursor-pointer h-full flex flex-col rounded-[2rem] hover:-translate-y-2 relative"
-                      onClick={() => navigate(`/article/${article.id}`, { state: { from: '/profile?tab=favorites' } })}
-                    >
-                      <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none z-10">
-                        <div className="absolute inset-0 bg-accent/5 mix-blend-overlay" />
-                        <div className="absolute inset-0 border-2 border-accent/20 rounded-[2rem] m-2" />
-                      </div>
-                      <div className="flex h-full">
-                        <div className="w-1/3 aspect-square overflow-hidden relative">
-                          {(() => {
-                            const cover = storageImage(articleCoverUrl(article), "card");
-                            return cover ? (
-                              <img
-                                src={cover}
-                                alt={getLocalized(article, "title", language)}
-                                className="w-full h-full object-cover grayscale-[0.2] group-hover:grayscale-0 transition-all duration-500"
-                                loading="lazy"
-                              />
-                            ) : (
-                              <div className="ph w-full h-full" data-tone={toneFor(article.id)} />
-                            );
-                          })()}
-                        </div>
-                        <div className="flex-1 p-4 flex flex-col justify-between">
-                          <div className="space-y-1">
-                            <h3 className="text-lg font-serif font-bold text-primary line-clamp-2 leading-tight">
-                              {getLocalized(article, "title", language)}
-                            </h3>
-                            <p className="text-xs text-muted-foreground line-clamp-2 italic font-serif">
-                              {articleExcerpt(article, language, 80)}
-                            </p>
-                          </div>
-                          <div className="flex items-center justify-between pt-2">
-                            <Button variant="link" size="sm" className="p-0 h-auto text-accent gap-1 text-xs uppercase tracking-wider font-bold">
-                              {t("articles.readMore")} <ChevronRight className="h-3 w-3" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-50/50"
-                              onClick={(e) => handleFavoriteToggle(e, article.id)}
-                            >
-                              <Heart className="h-4 w-4 fill-current" />
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
-                    </Card>
+                    <StoryCard
+                      article={article}
+                      category={categoryMap.get(article.categoryId)}
+                      language={language}
+                      size="md"
+                      linkState={FAVORITES_LINK_STATE}
+                      isArticleFavorited={isFavorited(article.id)}
+                      onFavoriteToggle={handleFavoriteToggle}
+                    />
                   </motion.div>
                 ))}
               </div>
             ) : (
-              <Card className="border-dashed border-border/40 bg-secondary/5 p-12 text-center space-y-4">
-                <Heart className="h-12 w-12 text-muted-foreground mx-auto opacity-20" />
-                <p className="text-lg font-serif italic text-muted-foreground">
-                  {language === 'en' 
-                    ? "You haven't favorited any stories yet." 
+              <div className="py-20 px-6 text-center" style={{ border: '1px dashed var(--line)' }}>
+                <Heart className="w-8 h-8 mx-auto mb-5" style={{ color: 'var(--gold)', opacity: 0.6 }} aria-hidden="true" />
+                <p className="font-display italic text-2xl text-ink-dim m-0">
+                  {language === 'en'
+                    ? "You haven't favorited any stories yet."
                     : "Nu ai salvat încă nicio poveste la favorite."}
                 </p>
-                <Button variant="outline" className="rounded-full font-serif italic" asChild>
-                  <Link to="/categories">{language === 'en' ? 'Explore Stories' : 'Explorează Poveștile'}</Link>
-                </Button>
-              </Card>
+                <Link to="/categories" className="btn-ed btn-ed-ghost mt-8">
+                  {language === 'en' ? 'Explore stories' : 'Explorează poveștile'}
+                </Link>
+              </div>
             )}
           </div>
         </TabsContent>

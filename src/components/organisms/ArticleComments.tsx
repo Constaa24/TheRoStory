@@ -10,7 +10,7 @@ import {
   updateComment,
 } from "@/lib/supabase";
 import { isAbortError } from "@/lib/utils";
-import { formatArticleDate } from "@/lib/article-utils";
+import { formatArticleDate, countLabel } from "@/lib/article-utils";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -321,15 +321,7 @@ export const ArticleComments: React.FC<Props> = ({ articleId }) => {
               ? language === "en"
                 ? "No replies yet."
                 : "Niciun răspuns încă."
-              : `${commentsTotal} ${
-                  language === "en"
-                    ? commentsTotal === 1
-                      ? "reply"
-                      : "replies"
-                    : commentsTotal === 1
-                    ? "răspuns"
-                    : "răspunsuri"
-                }`}
+              : countLabel(commentsTotal, "reply", language)}
           </h2>
 
           {/* Compose */}

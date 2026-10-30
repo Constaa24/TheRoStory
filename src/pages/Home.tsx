@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Category, Article, getLocalized, fetchCategories, fetchArticlesPage, fetchRandomArticle, supabase } from "@/lib/supabase";
+import { Category, Article, getLocalized, fetchCategories, fetchArticlesPage, fetchRandomArticle, fetchLatestArticleCards, supabase } from "@/lib/supabase";
 import { useLanguage } from "@/hooks/use-language";
 import { useFavorites } from "@/hooks/use-favorites";
 import { useCooldown } from "@/hooks/use-cooldown";
@@ -15,6 +15,9 @@ import { storageImage } from "@/lib/image-url";
 import { toneFor, readMinutes, placeLabel, articleExcerpt, articleCoverUrl } from "@/lib/article-utils";
 
 const PAGE_SIZE = 9;
+
+// How many of the newest stories the ticker carries.
+const TICKER_SIZE = 12;
 
 // Hoisted so StoryCard's React.memo can actually skip re-renders — an inline
 // `{{ from: '/' }}` literal would be a new object identity every render.
@@ -134,6 +137,9 @@ const Home: React.FC = () => {
   }, [setSearchParams]);
   const [totalCount, setTotalCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
+  // null while loading; [] when there is nothing to show (or the fetch
+  // failed), which removes the strip rather than leaving it empty.
+  const [tickerStories, setTickerStories] = useState<Article[] | null>(null);
 
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
   const categoryMap = useMemo(() => new Map(categories.map((c) => [c.id, c])), [categories]);
@@ -183,6 +189,26 @@ const Home: React.FC = () => {
 
   useEffect(() => {
     let cancelled = false;
+    fetchLatestArticleCards(TICKER_SIZE)
+      .then((rows) => { if (!cancelled) setTickerStories(rows); })
+      .catch((error) => {
+        if (!isAbortError(error)) console.error('Error fetching ticker stories:', error);
+        if (!cancelled) setTickerStories([]);
+      });
+    return () => { cancelled = true; };
+  }, []);
+
+  // A short list would leave the strip half-empty mid-loop, so it repeats
+  // until one copy is comfortably wider than a desktop viewport.
+  const tickerLoop = useMemo(() => {
+    if (!tickerStories?.length) return [];
+    let loop = tickerStories;
+    while (loop.length < 8) loop = loop.concat(tickerStories);
+    return loop;
+  }, [tickerStories]);
+
+  useEffect(() => {
+    let cancelled = false;
     setIsLoading(true);
     fetchArticlesPage(currentPage, PAGE_SIZE, selectedCategory)
       .then(({ articles, total }) => {
@@ -213,10 +239,15 @@ const Home: React.FC = () => {
     ],
   };
 
-  // The magazine-style featured spread is editorial top picks — only meaningful
+  // The magazine-style spread shows the three newest stories — only meaningful
   // when viewing the full archive. When a category is selected, treat the
   // request as a filter and route every article into the explore grid so users
   // don't get an empty section.
+  //
+  // It is labelled as what it is. It used to say "Featured this season",
+  // "Editorial selection" and "Three deep readings" over what is simply the
+  // newest three — the lead often a one-minute visual essay. An editorial
+  // pick needs a featured flag on the article, which does not exist yet.
   // The featured spread needs a full set of three. With fewer published
   // stories than that, promoting them all left the "Latest stories" section
   // below rendering as a bare heading with no cards, no pager, and no empty
@@ -232,10 +263,6 @@ const Home: React.FC = () => {
   // Articles shown in the featured spread are excluded from the grid below
   // so page 1 doesn't render the same three stories twice.
   const latest = showFeatured ? articles.slice(FEATURED_COUNT) : articles;
-
-  const tickerItems = language === 'en'
-    ? ['Dacia · Wallachia · Moldavia', '1859 — The Small Union', 'Transilvania · Bucovina · Dobrogea', 'Folktales of the Carpathians', 'Wooden churches of Maramureș', 'Salt mines beneath the Apuseni']
-    : ['Dacia · Țara Românească · Moldova', '1859 — Mica Unire', 'Transilvania · Bucovina · Dobrogea', 'Povești din Carpați', 'Bisericile de lemn din Maramureș', 'Salinele de sub Apuseni'];
 
   return (
     <>
@@ -280,7 +307,7 @@ const Home: React.FC = () => {
           </div>
 
           <div className="ed-container relative h-full flex flex-col justify-between" style={{ paddingTop: 64, paddingBottom: 56 }}>
-            <div className="flex items-start justify-between">
+            <div className="flex items-start justify-between gap-4">
               <div className="pill">
                 <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--gold)', boxShadow: '0 0 8px var(--gold)' }} />
                 {language === 'en' ? 'An archive of the Romanian imagination' : 'O arhivă a imaginației românești'}
@@ -288,9 +315,12 @@ const Home: React.FC = () => {
               {/* Sits over the weakest part of the hero scrim (0.35 → 0.2),
                   against the bright sky of the castle photo. The shadow was
                   only on the second line, leaving the first hard to read
-                  there — apply it to both and lift the opacity. */}
+                  there — apply it to both and lift the opacity.
+
+                  Hidden on phones: the pill beside it wraps to two lines
+                  there and ran straight into it. */}
               <div
-                className="text-right font-ui text-[11px] uppercase shrink-0 whitespace-nowrap"
+                className="hidden sm:block text-right font-ui text-[11px] uppercase shrink-0 whitespace-nowrap"
                 style={{
                   letterSpacing: '0.18em',
                   color: 'rgba(255, 255, 255, 0.85)',
@@ -305,10 +335,16 @@ const Home: React.FC = () => {
             </div>
 
             <div style={{ maxWidth: 980 }}>
+              {/* Sized against the viewport's height as well as its width.
+                  At 10vw alone, a 1440x900 laptop set the headline in four
+                  156px-ish lines and pushed the three buttons onto the bottom
+                  edge of the screen. Capping at 13.5vh keeps them on the first
+                  screen there and on 1366x768; phones and tablets are
+                  unchanged, since 10vw is the smaller term for them. */}
               <h1
                 className="font-display italic font-medium m-0"
                 style={{
-                  fontSize: 'clamp(64px, 10vw, 156px)',
+                  fontSize: 'clamp(64px, min(10vw, 13.5vh), 156px)',
                   lineHeight: 0.92,
                   letterSpacing: '-0.02em',
                   color: '#f4ead7',
@@ -351,30 +387,70 @@ const Home: React.FC = () => {
               writingMode: 'vertical-rl', transform: 'rotate(180deg)',
             }}
           >
-            {language === 'en' ? 'Photograph · The RoStory · Spring 2026' : 'Fotografie · The RoStory · Primăvara 2026'}
+            {/* Names what the picture shows. It used to read "Photograph ·
+                The RoStory · Spring 2026", a claim about medium and date the
+                page has no way to back. */}
+            {language === 'en' ? 'Peleș Castle · Sinaia' : 'Castelul Peleș · Sinaia'}
           </div>
         </section>
 
-        {/* TICKER */}
-        <section className="ticker overflow-hidden" style={{ borderBottom: '1px solid var(--line-soft)', padding: '22px 0', background: 'var(--overlay-ticker)' }}>
-          <div className="ticker-track">
-            {[...tickerItems, ...tickerItems, ...tickerItems].map((tx, i) => (
-              <div key={i} className="flex items-center gap-12 whitespace-nowrap" style={{ fontFamily: 'var(--display)', fontStyle: 'italic', fontSize: 22, color: 'var(--gold)' }}>
-                <span>{tx}</span>
-                <span style={{ color: 'var(--text-mute)' }}>✦</span>
+        {/* TICKER — the newest stories, each a link. It used to be six
+            hard-coded phrases, some naming things the archive has no story
+            about (the wooden churches of Maramureș), and none went anywhere.
+
+            Two copies of the list, each carrying its own trailing gap, make
+            the -50% loop seamless. Only the first occurrence of each story is
+            exposed: the second copy and any padding repeats are hidden from
+            assistive tech and the tab order, so each story is announced and
+            reachable once. The strip holds its height while loading and is
+            removed only when there is nothing to show. */}
+        {tickerStories?.length !== 0 && (
+          <section
+            className="ticker overflow-hidden"
+            aria-label={language === 'en' ? 'Newest stories' : 'Cele mai noi povești'}
+            style={{ borderBottom: '1px solid var(--line-soft)', padding: '22px 0', background: 'var(--overlay-ticker)', minHeight: 81 }}
+          >
+            {tickerStories && (
+              <div className="ticker-track" style={{ gap: 0 }}>
+                {[0, 1].map((copy) => (
+                  <div key={copy} className="flex gap-12 pr-12" aria-hidden={copy === 1 ? true : undefined}>
+                    {tickerLoop.map((story, i) => {
+                      const isRepeat = copy === 1 || i >= tickerStories.length;
+                      return (
+                        <div
+                          key={`${story.id}-${i}`}
+                          className="flex items-center gap-12 whitespace-nowrap"
+                          aria-hidden={isRepeat && copy === 0 ? true : undefined}
+                          style={{ fontFamily: 'var(--display)', fontStyle: 'italic', fontSize: 22 }}
+                        >
+                          <Link
+                            to={`/article/${story.id}`}
+                            state={HOME_LINK_STATE}
+                            tabIndex={isRepeat ? -1 : undefined}
+                            className="transition-opacity hover:opacity-75"
+                            style={{ color: 'var(--gold)' }}
+                          >
+                            {story.location && <span style={{ color: 'var(--text-mute)' }}>{story.location} · </span>}
+                            {getLocalized(story, 'title', language)}
+                          </Link>
+                          <span aria-hidden="true" style={{ color: 'var(--text-mute)' }}>✦</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
-        </section>
+            )}
+          </section>
+        )}
 
         {/* FEATURED — magazine-style spread */}
         {featured && (
           <section style={{ padding: '120px 0 80px' }}>
             <div className="ed-container">
               <SectionHeader
-                eyebrow={language === 'en' ? 'Featured this season' : 'Recomandate sezonul acesta'}
-                title={language === 'en' ? 'Three deep readings\non Romania this season.' : 'Trei lecturi profunde\ndespre România în acest sezon.'}
-                action={<span className="font-ui text-[11px] uppercase text-ink-mute" style={{ letterSpacing: '0.22em' }}>{language === 'en' ? 'Editorial selection' : 'Selecție editorială'}</span>}
+                eyebrow={language === 'en' ? 'Just added' : 'Abia adăugate'}
+                title={language === 'en' ? 'Three new stories\nfrom the archive.' : 'Trei povești noi\ndin arhivă.'}
               />
 
               <div className="grid grid-cols-1 lg:grid-cols-[1.6fr_1fr] gap-14 items-stretch">
@@ -387,7 +463,7 @@ const Home: React.FC = () => {
                       <img src={storageImage(articleCoverUrl(featured), 'feature')} alt={getLocalized(featured, 'title', language)} className="absolute inset-0 w-full h-full object-cover" loading="lazy" />
                     )}
                     <div className="absolute left-6 top-6">
-                      <span className="pill" style={{ background: 'var(--overlay-deep)' }}>{language === 'en' ? 'Lead story' : 'Articolul principal'}</span>
+                      <span className="pill" style={{ background: 'var(--overlay-deep)' }}>{language === 'en' ? 'Newest' : 'Cea mai nouă'}</span>
                     </div>
                   </div>
                   <div className="pt-7">
@@ -447,9 +523,9 @@ const Home: React.FC = () => {
         <section id="explore" style={{ padding: '120px 0 60px' }}>
           <div className="ed-container">
             <SectionHeader
-              eyebrow={language === 'en' ? 'Latest stories' : 'Ultimele povești'}
+              eyebrow={language === 'en' ? 'The archive' : 'Arhiva'}
               title={language === 'en' ? 'From the field.' : 'Din teren.'}
-              sub={language === 'en' ? 'New stories, fresh from the road.' : 'Povești noi, proaspete de pe drum.'}
+              sub={language === 'en' ? 'Every story, newest first.' : 'Toate poveștile, începând cu cele mai noi.'}
               action={
                 <button className="btn-ed btn-ed-ghost" onClick={() => navigate('/categories')}>
                   {language === 'en' ? 'All categories →' : 'Toate categoriile →'}

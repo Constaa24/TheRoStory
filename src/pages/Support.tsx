@@ -103,7 +103,9 @@ const Support: React.FC = () => {
       icon: <RevolutIcon className="w-7 h-7" />,
       desc: t.revolutDesc,
       onClick: () => window.open("https://revolut.me/manu2492", "_blank", "noopener,noreferrer"),
-      popular: true,
+      // Our recommendation, and labelled as one. The badge used to say "Most
+      // chosen" — a claim about other readers that nothing measured.
+      recommended: true,
     },
     {
       label: t.paypal,
@@ -156,11 +158,11 @@ const Support: React.FC = () => {
                   className="relative cursor-pointer transition-colors group"
                   style={{
                     padding: '40px 32px',
-                    border: tier.popular ? '1px solid var(--gold)' : '1px solid var(--line)',
-                    background: tier.popular ? 'linear-gradient(180deg, rgba(201,169,110,0.06), transparent)' : 'var(--overlay-panel-soft)',
+                    border: tier.recommended ? '1px solid var(--gold)' : '1px solid var(--line)',
+                    background: tier.recommended ? 'linear-gradient(180deg, rgba(201,169,110,0.06), transparent)' : 'var(--overlay-panel-soft)',
                   }}
                 >
-                  {tier.popular && (
+                  {tier.recommended && (
                     <span
                       className="pill absolute"
                       style={{
@@ -171,7 +173,7 @@ const Support: React.FC = () => {
                         borderColor: 'var(--gold)',
                       }}
                     >
-                      {language === 'en' ? 'Most chosen' : 'Cel mai ales'}
+                      {language === 'en' ? 'Recommended' : 'Recomandat'}
                     </span>
                   )}
                   <div className="grid place-items-center mb-5" style={{ width: 56, height: 56, borderRadius: '50%', background: 'rgba(201,169,110,0.12)', color: 'var(--gold)' }}>
@@ -186,7 +188,7 @@ const Support: React.FC = () => {
                   <p className="mt-3 mb-7" style={{ color: 'var(--text-dim)', fontSize: 15, lineHeight: 1.55 }}>
                     {tier.desc}
                   </p>
-                  <div className="btn-ed w-full justify-center" style={{ background: tier.popular ? 'var(--gold)' : 'transparent', color: tier.popular ? 'var(--ink)' : 'var(--gold)' }}>
+                  <div className="btn-ed w-full justify-center" style={{ background: tier.recommended ? 'var(--gold)' : 'transparent', color: tier.recommended ? 'var(--ink)' : 'var(--gold)' }}>
                     {language === 'en' ? `Donate via ${tier.label}` : `Donează prin ${tier.label}`}
                   </div>
                 </div>
