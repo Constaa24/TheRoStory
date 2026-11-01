@@ -160,6 +160,17 @@ describe('readMinutes', () => {
   it('still reports a minute for an empty story', () => {
     expect(readMinutes(article(), 'en')).toBe(1);
   });
+
+  /** A visual essay is mostly read in its captions, not its short text. */
+  it("counts a visual essay's captions, in the reader's language first", () => {
+    const caps = Array.from({ length: 3 }, () => ({ en: 'word '.repeat(100).trim(), ro: '' }));
+    const essay = article({ type: 'carousel', contentEn: 'A short dek.', mediaCaptions: caps });
+    // 3 + 300 words: two minutes, and a Romanian reader is counted the English captions.
+    expect(readMinutes(essay, 'en')).toBe(2);
+    expect(readMinutes(essay, 'ro')).toBe(2);
+    // Captions only count for visual essays.
+    expect(readMinutes(article({ contentEn: 'A short dek.', mediaCaptions: caps }), 'en')).toBe(1);
+  });
 });
 
 describe('articleExcerpt', () => {
@@ -171,8 +182,14 @@ describe('articleExcerpt', () => {
   });
 
   it('drops markdown and pull-quote markers and collapses whitespace', () => {
-    const messy = article({ contentEn: '# Title\n\n> *A quote*   with   `code`_' });
-    expect(articleExcerpt(messy, 'en', 200)).toBe('Title A quote with code');
+    const messy = article({ contentEn: 'Opening.\n\n> *A quote*   with   `code`_ # here' });
+    expect(articleExcerpt(messy, 'en', 200)).toBe('Opening. A quote with code here');
+  });
+
+  /** A chapter may open with "# Its title"; that is a heading, not the story's first words. */
+  it("leaves a chapter's title line out of the excerpt", () => {
+    const titled = ['# The first stones\nWhen Brașov was still Kronstadt.', '# The fire\nThen came 1689.'].join(CHAPTER_DELIMITER);
+    expect(articleExcerpt(article({ contentEn: titled }), 'en', 200)).toBe('When Brașov was still Kronstadt. Then came 1689.');
   });
 
   it('clamps with an ellipsis, and only when it needs to', () => {

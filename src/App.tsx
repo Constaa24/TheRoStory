@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { AlertCircle } from "lucide-react";
 import { PaperOverlay } from "@/components/ui/PaperOverlay";
 import { SocialLinks } from "@/components/ui/social-links";
+import { Divider, Motif } from "@/components/story/Ornaments";
 import { toast } from "sonner";
 import { fetchCategories, Category } from "@/lib/supabase";
 
@@ -105,98 +106,87 @@ const Terms = lazyWithReload(() => import("@/pages/Terms"));
 const NewsletterConfirm = lazyWithReload(() => import("@/pages/NewsletterConfirm"));
 const NotFound = lazyWithReload(() => import("@/pages/NotFound"));
 
-type FooterItem = { label: string; href: string };
-
-function FooterCol({ title, items }: { title: string; items: FooterItem[] }) {
-  const columns = [];
-  for (let i = 0; i < items.length; i += 5) {
-    columns.push(items.slice(i, i + 5));
-  }
-
-  return (
-    <div>
-      <div className="eyebrow mb-4">{title}</div>
-      <div className="flex flex-wrap gap-x-12 gap-y-6">
-        {columns.map((col, idx) => (
-          <ul key={idx} className="list-none p-0 m-0 flex flex-col gap-3 min-w-[120px]">
-            {col.map(i => (
-              <li key={i.label}>
-                <Link to={i.href} className="text-ink-dim hover:text-gold text-[15px] transition-colors">{i.label}</Link>
-              </li>
-            ))}
-          </ul>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function EditorialFooter({ language }: { language: 'en' | 'ro' }) {
+/**
+ * The storybook's last page: a band of cross-stitch, the shelves, the fine
+ * print, and a line about why stories matter.
+ */
+function StorybookFooter({ language }: { language: 'en' | 'ro' }) {
   const [categories, setCategories] = React.useState<Category[]>([]);
+  const en = language === 'en';
 
   React.useEffect(() => {
     fetchCategories().then(setCategories).catch(() => {});
   }, []);
 
-  const archiveItems: FooterItem[] = categories.map(cat => ({
-    label: language === 'en' ? cat.nameEn : cat.nameRo,
-    href: `/category/${cat.id}`,
-  }));
+  const linkClass = "text-[17px] transition-colors hover:text-gold";
 
   return (
-    <footer className="no-print mt-32 pt-20 pb-10 border-t border-line bg-[color:var(--ink-2)]/30">
-      <div className="ed-container">
-        <div className="grid grid-cols-1 md:grid-cols-[1.4fr_1fr_1fr] gap-14 items-start">
-          <div>
-            <Link to="/" className="flex items-center gap-3">
-              <picture>
-                <source type="image/webp" srcSet="/logo.webp" />
-                <img src="/logo.png" alt="The RoStory" width={48} height={48} className="h-12 w-12 object-contain" />
-              </picture>
-              <span
-                className="font-display italic font-semibold text-[26px] leading-none"
-                style={{
-                  background: 'var(--logo-gradient)',
-                  WebkitBackgroundClip: 'text',
-                  WebkitTextFillColor: 'transparent',
-                  letterSpacing: '-0.01em',
-                }}
-              >
-                The RoStory
-              </span>
-            </Link>
-            <p className="text-ink-dim mt-6 max-w-[360px] text-base leading-relaxed">
-              {language === 'en'
-                ? 'A reader-supported visual archive of the histories, traditions, landscapes and people of Romania. Published from Bucharest.'
-                : 'O arhivă vizuală susținută de cititori cu istoriile, tradițiile, peisajele și oamenii României. Publicată din București.'}
-            </p>
-            <div className="mt-7">
-              <SocialLinks />
-            </div>
-          </div>
-          <FooterCol title={language === 'en' ? 'Archive' : 'Arhivă'} items={archiveItems} />
-          <div>
-            <div className="eyebrow mb-4">{language === 'en' ? 'The fine print' : 'Detalii'}</div>
-            <ul className="list-none p-0 m-0 flex flex-col gap-3">
-              <li><Link to="/privacy" className="text-ink-dim hover:text-gold text-[15px] transition-colors">{language === 'en' ? 'Privacy policy' : 'Confidențialitate'}</Link></li>
-              <li><Link to="/terms" className="text-ink-dim hover:text-gold text-[15px] transition-colors">{language === 'en' ? 'Terms' : 'Termeni'}</Link></li>
-              <li><Link to="/contact-us" className="text-ink-dim hover:text-gold text-[15px] transition-colors">{language === 'en' ? 'Contact' : 'Contact'}</Link></li>
-            </ul>
-          </div>
+    <footer className="no-print mt-32" style={{ background: 'var(--ink-2)' }}>
+      <Motif style={{ opacity: 0.32 }} />
+      <div className="ed-container grid grid-cols-1 md:grid-cols-[1.3fr_1fr_0.7fr] gap-12 items-start" style={{ paddingTop: 72, paddingBottom: 48 }}>
+        <div className="flex flex-col gap-5">
+          <Link to="/" className="flex items-center gap-3 self-start">
+            <picture>
+              <source type="image/webp" srcSet="/logo.webp" />
+              <img src="/logo.png" alt="The RoStory" width={52} height={52} className="h-[52px] w-[52px] object-contain" />
+            </picture>
+            <span
+              className="font-display italic font-semibold text-[29px] leading-none"
+              style={{
+                background: 'var(--logo-gradient)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                letterSpacing: '-0.01em',
+                padding: '0.1em 0',
+              }}
+            >
+              The RoStory
+            </span>
+          </Link>
+          <p className="sb-dim max-w-[380px] text-[17px] leading-relaxed">
+            {en
+              ? 'A reader-supported visual archive of the histories, traditions, landscapes and people of Romania. Published from Bucharest.'
+              : 'O arhivă vizuală susținută de cititori cu istoriile, tradițiile, peisajele și oamenii României. Publicată din București.'}
+          </p>
+          <SocialLinks iconSize="sb-ico" className="gap-2.5" linkClassName="sb-icon-btn" />
         </div>
-        <div className="rule my-14" />
-        <div className="flex flex-wrap justify-between gap-4 font-ui text-xs text-ink-mute tracking-[0.1em]">
-          <span>© {new Date().getFullYear()} The RoStory · {language === 'en' ? 'Made in Bucharest, with field notes from everywhere.' : 'Făcut în București, cu note de teren de pretutindeni.'}</span>
-          <span className="font-display italic text-base text-ink-dim max-w-md">
-            {language === 'en'
+        <nav aria-label={en ? 'The shelves' : 'Rafturile'} className="flex flex-col gap-4">
+          <p className="sb-kicker">{en ? 'The shelves' : 'Rafturile'}</p>
+          <ul className="list-none p-0 m-0 grid grid-cols-2 gap-x-6 gap-y-3">
+            {categories.map(cat => (
+              <li key={cat.id}>
+                <Link to={`/category/${cat.id}`} className={linkClass} style={{ color: 'var(--text)' }}>
+                  {en ? cat.nameEn : cat.nameRo}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </nav>
+        <nav aria-label={en ? 'The fine print' : 'Detalii'} className="flex flex-col gap-4">
+          <p className="sb-kicker">{en ? 'The fine print' : 'Detalii'}</p>
+          <ul className="list-none p-0 m-0 grid gap-3">
+            <li><Link to="/privacy" className={linkClass} style={{ color: 'var(--text)' }}>{en ? 'Privacy policy' : 'Politica de confidențialitate'}</Link></li>
+            <li><Link to="/terms" className={linkClass} style={{ color: 'var(--text)' }}>{en ? 'Terms' : 'Termeni'}</Link></li>
+            <li><Link to="/contact-us" className={linkClass} style={{ color: 'var(--text)' }}>Contact</Link></li>
+          </ul>
+        </nav>
+      </div>
+      <div className="ed-container">
+        <Divider />
+        <div className="flex flex-wrap justify-between items-start gap-x-10 gap-y-5" style={{ paddingTop: 26, paddingBottom: 40 }}>
+          <p className="sb-meta">
+            © {new Date().getFullYear()} The RoStory · {en ? 'Made in Bucharest, with field notes from everywhere.' : 'Făcut în București, cu note de teren de pretutindeni.'}
+          </p>
+          <p className="font-display italic m-0 max-w-[560px] text-[18px] leading-[1.45]" style={{ color: 'var(--text-dim)' }}>
+            {en
               ? '“Storytelling is the essential human activity. The harder the situation, the more essential it is.”'
               : '„Povestirea este activitatea umană esențială. Cu cât situația este mai grea, cu atât devine mai esențială.”'}
-          </span>
+          </p>
         </div>
       </div>
     </footer>
   );
-};
+}
 
 const App: React.FC = () => {
   const { isAdmin, isWriter, isLoading, user, isEmailVerified, sendVerification, isRecoveryMode } = useAuth();
@@ -216,7 +206,7 @@ const App: React.FC = () => {
     return (
       <div className="h-screen w-screen flex items-center justify-center bg-background">
         <PaperOverlay />
-        <div className="animate-pulse text-2xl font-serif text-accent tracking-[0.2em] italic px-2 pb-1">The RoStory...</div>
+        <div className="animate-pulse text-3xl font-display text-accent italic px-2 pb-1">The RoStory…</div>
       </div>
     );
   }
@@ -288,7 +278,7 @@ const App: React.FC = () => {
           <ErrorBoundary
             fallback={
               <header className="ed-nav">
-                <div className="ed-container flex items-center" style={{ paddingTop: 18, paddingBottom: 18, minHeight: 76 }}>
+                <div className="ed-container flex items-center" style={{ paddingTop: 16, paddingBottom: 14, minHeight: 80 }}>
                   <Link to="/" className="flex items-center gap-3">
                     <picture>
                       <source type="image/webp" srcSet="/logo.webp" />
@@ -376,7 +366,7 @@ const App: React.FC = () => {
         </main>
         {!hideAppChrome && (
           <ErrorBoundary fallback={null}>
-            <EditorialFooter language={language} />
+            <StorybookFooter language={language} />
           </ErrorBoundary>
         )}
         <ScrollToTop />

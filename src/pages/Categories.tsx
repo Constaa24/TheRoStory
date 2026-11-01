@@ -1,6 +1,6 @@
-import React, { useCallback, useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { Category, getLocalized, fetchCategories, fetchArticleCategoryCounts } from "@/lib/supabase";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { ArchiveEntry, Category, getLocalized, fetchArchiveIndex, fetchCategories, fetchArticleCategoryCounts, fetchRandomArticle } from "@/lib/supabase";
 import { useLanguage } from "@/hooks/use-language";
 import { isAbortError, toJsonLd } from "@/lib/utils";
 import { PageHead } from "@/components/layout/PageHead";
@@ -8,42 +8,21 @@ import { SITE_URL } from "@/lib/constants";
 import { LoadError } from "@/components/ui/load-error";
 import { localizedPath } from "@/lib/locale";
 import { countLabel } from "@/lib/article-utils";
-import { categoryDescription } from "@/lib/category-copy";
+import { categoryDescription, getCategoryImage } from "@/lib/category-copy";
+import { splitTitle } from "@/lib/story-facts";
+import { ChapterHead, Divider } from "@/components/story/Ornaments";
 
-// Extension-less base paths — each has a .avif, .webp and .jpg sibling, served
-// through <picture> below. They shipped as ~800 KB files named .png that were
-// actually JPEGs inside; the same AVIF/WebP treatment the hero images already
-// get takes the eight of them from 6.3 MB to about 450 KB.
-const CATEGORY_IMAGES: Record<string, string> = {
-  "history": "/categories/cat_history_new",
-  "science": "/categories/cat_science_new",
-  "landmarks": "/categories/cat_landmarks_new",
-  "historical-figures": "/categories/cat_historical_figures_new",
-  "traditions": "/categories/cat_2",
-  "myths": "/categories/cat_1",
-  "nature": "/categories/cat_nature_new",
-  "art": "/categories/cat_art_new"
-};
+// "Eight shelves of stories." — the number spelled out, as a book would.
+const NUMBER_WORDS = {
+  en: ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten', 'Eleven', 'Twelve'],
+  // Neuter plural, to agree with "rafturi": două rafturi, douăsprezece rafturi.
+  ro: ['', 'Un', 'Două', 'Trei', 'Patru', 'Cinci', 'Șase', 'Șapte', 'Opt', 'Nouă', 'Zece', 'Unsprezece', 'Douăsprezece'],
+} as const;
 
-const FALLBACK_IMAGES = Object.values(CATEGORY_IMAGES);
-
-/**
- * Stable image for a category without its own mapping.
- *
- * Keyed on the slug rather than the list index: categories are ordered by
- * name, so an index-based pick reshuffled the artwork of every unmapped
- * category whenever one was added or renamed. It also drew from only
- * cat_1/cat_2 — the artwork already assigned to "myths" and "traditions" —
- * so a new category was guaranteed to look like a duplicate of an existing
- * one. Hashing across the full set makes collisions possible but no longer
- * certain, and keeps each category's image fixed over time.
- */
-const getCategoryImage = (slug: string) => {
-  const mapped = CATEGORY_IMAGES[slug];
-  if (mapped) return mapped;
-  let h = 0;
-  for (let i = 0; i < slug.length; i++) h = ((h << 5) - h) + slug.charCodeAt(i);
-  return FALLBACK_IMAGES[Math.abs(h) % FALLBACK_IMAGES.length];
+const shelvesHeading = (n: number, language: 'en' | 'ro'): string => {
+  const word = NUMBER_WORDS[language][n] ?? String(n);
+  if (language === 'ro') return n === 1 ? 'Un raft de povești.' : `${word} rafturi de povești.`;
+  return n === 1 ? 'One shelf of stories.' : `${word} shelves of stories.`;
 };
 
 const Categories: React.FC = () => {
@@ -51,12 +30,10 @@ const Categories: React.FC = () => {
   const navigate = useNavigate();
   const [categories, setCategories] = useState<Category[]>([]);
   const [categoryCounts, setCategoryCounts] = useState<Record<string, number>>({});
+  const [archiveIndex, setArchiveIndex] = useState<ArchiveEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadFailed, setLoadFailed] = useState(false);
-
-  const handleCategorySelect = (categoryId: string) => {
-    navigate(`/category/${categoryId}`);
-  };
+  const en = language === 'en';
 
   // Hoisted out of the effect so the failure state can re-run it. An abort is
   // not a failure — it means a newer load superseded this one — so it clears
@@ -83,8 +60,35 @@ const Categories: React.FC = () => {
 
   useEffect(() => { loadData(); }, [loadData]);
 
-  const pageTitle = language === "en" ? "Categories" : "Categorii";
-  const pageDescription = language === "en"
+  // The "Inside: …" line under each shelf. Optional garnish: a failure
+  // leaves the line off rather than failing the page.
+  useEffect(() => {
+    let cancelled = false;
+    fetchArchiveIndex()
+      .then((rows) => { if (!cancelled) setArchiveIndex(rows); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
+
+  const insideOf = useMemo(() => {
+    const byShelf = new Map<string, string[]>();
+    for (const entry of archiveIndex) {
+      const titles = byShelf.get(entry.categoryId) ?? [];
+      if (titles.length < 2) {
+        titles.push(splitTitle(getLocalized(entry, 'title', language)).main);
+        byShelf.set(entry.categoryId, titles);
+      }
+    }
+    return byShelf;
+  }, [archiveIndex, language]);
+
+  const handleRandomStory = async () => {
+    const a = await fetchRandomArticle();
+    if (a) navigate(`/article/${a.id}`, { state: { from: '/categories' } });
+  };
+
+  const pageTitle = en ? "Categories" : "Categorii";
+  const pageDescription = en
     ? "Browse stories of Romania organized by theme — history, traditions, nature, food, regions, and more."
     : "Răsfoiește poveștile României organizate pe teme — istorie, tradiții, natură, mâncare, regiuni și multe altele.";
 
@@ -100,114 +104,99 @@ const Categories: React.FC = () => {
   };
 
   return (
-    <div className="screen-anim pb-20">
+    <div className="screen-anim">
       <PageHead title={pageTitle} description={pageDescription} language={language}>
         <script type="application/ld+json">{toJsonLd(itemListLd)}</script>
       </PageHead>
 
-      {/* PAGE HERO */}
-      <section style={{ padding: '80px 0 56px', borderBottom: '1px solid var(--line-soft)' }}>
-        <div className="ed-container">
-          <div className="eyebrow mb-4">{language === 'en' ? 'Routes through the archive' : 'Trasee prin arhivă'}</div>
-          <h1
-            className="font-display italic font-medium m-0"
-            style={{
-              fontSize: 'clamp(42px, 8vw, 120px)',
-              lineHeight: 0.95,
-              letterSpacing: '-0.01em',
-              color: 'var(--parchment)',
-            }}
-          >
-            {language === 'en' ? 'Categories.' : 'Categorii.'}
-          </h1>
-          <p className="mt-7 max-w-[540px]" style={{ fontSize: 19, color: 'var(--text-dim)', lineHeight: 1.55 }}>
-            {language === 'en'
-              ? 'Different ways into the same country. Choose how you want to wander.'
-              : 'Căi diferite prin aceeași țară. Alege cum vrei să rătăcești.'}
+      <section className="ed-container" style={{ paddingTop: 'clamp(48px, 6vw, 72px)', paddingBottom: 56 }}>
+        <ChapterHead
+          as="h1"
+          kicker={en ? 'Routes through the archive' : 'Trasee prin arhivă'}
+          title={categories.length ? shelvesHeading(categories.length, language) : (en ? 'The shelves.' : 'Rafturile.')}
+        >
+          <p className="sb-lede max-w-[620px]">
+            {en
+              ? 'Pick the kind of story you’re in the mood for — a legend, a poem, a person, a place — and follow it wherever it leads.'
+              : 'Alege ce fel de poveste ți-e dor să citești — o legendă, un poem, un om, un loc — și urmeaz-o oriunde te-ar duce.'}
           </p>
-        </div>
+        </ChapterHead>
       </section>
 
-      {/* CATEGORIES GRID */}
-      <section style={{ padding: '60px 0 120px' }}>
-        <div className="ed-container">
-          {isLoading ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-14">
-              {[1, 2, 3, 4].map(i => (
-                <div key={i} className="animate-pulse" style={{ aspectRatio: '16/9', background: 'var(--ink-2)', border: '1px solid var(--line)' }} />
-              ))}
-            </div>
-          ) : loadFailed ? (
-            <LoadError onRetry={loadData} />
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-14">
-              {categories.map((category, i) => {
-                const name = getLocalized(category, 'name', language);
-                const count = categoryCounts[category.id] ?? 0;
-                return (
-                  <button
-                    key={category.id}
-                    onClick={() => handleCategorySelect(category.id)}
-                    className="block text-left cursor-pointer group transition-colors w-full h-full"
-                    style={{ background: 'transparent', border: 0, padding: 0, borderRadius: 0 }}
-                  >
-                    <div style={{ borderTop: '1px solid var(--line)', paddingTop: 28 }} className="h-full flex flex-col">
-                      <div className="mb-6 md:min-h-[120px] lg:min-h-[140px]">
-                        <div className="flex justify-between items-baseline">
-                          <div className="flex gap-4 items-baseline">
-                            <span className="font-ui text-[12px] uppercase shrink-0" style={{ letterSpacing: '0.18em', color: 'var(--gold)' }}>
-                              {String(i + 1).padStart(2, '0')}
-                            </span>
-                            <h2
-                              className="font-display italic font-medium m-0 transition-colors group-hover:text-gold"
-                              style={{ fontSize: 'clamp(38px, 4vw, 56px)', lineHeight: 1, color: 'var(--parchment)' }}
-                            >
-                              {name}
-                            </h2>
-                          </div>
-                          <span className="font-ui text-[12px] uppercase shrink-0 ml-4" style={{ letterSpacing: '0.18em', color: 'var(--text-mute)' }}>
-                            {countLabel(count, 'story', language)}
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="mb-6 relative overflow-hidden transition-transform group-hover:translate-y-[-2px]" style={{ aspectRatio: '16/9' }}>
-                        {(() => {
-                          const base = getCategoryImage(category.slug || name.toLowerCase());
-                          return (
-                            <picture>
-                              <source type="image/avif" srcSet={`${base}.avif`} />
-                              <source type="image/webp" srcSet={`${base}.webp`} />
-                              <img
-                                src={`${base}.jpg`}
-                                alt={name}
-                                width={1024}
-                                height={1024}
-                                loading="lazy"
-                                decoding="async"
-                                className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-                              />
-                            </picture>
-                          );
-                        })()}
-                      </div>
-
-                      <div className="flex justify-between items-start gap-6">
-                        <div className="flex-1">
-                          <p className="text-ink-dim m-0 max-w-[480px]" style={{ fontSize: 15, lineHeight: 1.6 }}>
-                            {categoryDescription(category.slug || name.toLowerCase(), name, language)}
-                          </p>
-                          <p className="font-display italic mt-3" style={{ fontSize: 18, color: 'var(--gold)' }}>
-                            {language === 'en' ? `Browse ${name.toLowerCase()} →` : `Explorează ${name.toLowerCase()} →`}
-                          </p>
-                        </div>
+      <section className="ed-container" style={{ paddingBottom: 96 }}>
+        {isLoading ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-x-8 gap-y-14">
+            {[1, 2, 3, 4].map(i => (
+              <div key={i} className="sb-arch animate-pulse" style={{ aspectRatio: '3 / 4' }} />
+            ))}
+          </div>
+        ) : loadFailed ? (
+          <LoadError onRetry={loadData} />
+        ) : (
+          <ul className="list-none m-0 p-0 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-x-8 gap-y-14">
+            {categories.map((category) => {
+              const name = getLocalized(category, 'name', language);
+              const count = categoryCounts[category.id] ?? 0;
+              const base = getCategoryImage(category.slug || name.toLowerCase());
+              const inside = insideOf.get(category.id);
+              return (
+                <li key={category.id}>
+                  <Link to={`/category/${category.id}`} className="sb-card grid gap-3.5">
+                    <div className="sb-window" style={{ padding: 8 }}>
+                      <div className="sb-arch sb-card-media" style={{ aspectRatio: '3 / 4' }}>
+                        <picture>
+                          <source type="image/avif" srcSet={`${base}.avif`} />
+                          <source type="image/webp" srcSet={`${base}.webp`} />
+                          <img
+                            src={`${base}.jpg`}
+                            alt=""
+                            width={1024}
+                            height={1024}
+                            loading="lazy"
+                            decoding="async"
+                            className="absolute inset-0 w-full h-full object-cover"
+                          />
+                        </picture>
+                        <div className="sb-scrim" style={{ opacity: 0.55 }} />
+                        <span className="sb-tag whitespace-nowrap" style={{ position: 'absolute', left: '50%', bottom: 18, transform: 'translateX(-50%)' }}>
+                          {countLabel(count, 'story', language)}
+                        </span>
                       </div>
                     </div>
-                  </button>
-                );
-              })}
-            </div>
-          )}
+                    <h2 className="sb-h3 text-center mt-1.5">{name}</h2>
+                    <p className="sb-dim text-center" style={{ fontSize: 16.5, lineHeight: 1.55 }}>
+                      {categoryDescription(category.slug || name.toLowerCase(), name, language)}
+                    </p>
+                    {inside && inside.length > 0 && (
+                      <>
+                        <Divider className="mt-1" />
+                        <p className="sb-kicker-sm text-center" style={{ color: 'var(--text-dim)', fontSize: 16 }}>
+                          {en ? 'Inside: ' : 'Înăuntru: '}{inside.join(', ')}
+                        </p>
+                      </>
+                    )}
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </section>
+
+      <section className="sb-band">
+        <div className="ed-container flex flex-wrap justify-between items-center gap-7" style={{ paddingTop: 64, paddingBottom: 64 }}>
+          <div className="flex flex-col gap-2.5">
+            <p className="sb-kicker">{en ? 'Not sure where to begin?' : 'Nu știi de unde să începi?'}</p>
+            <h2 className="sb-h2" style={{ fontSize: 'clamp(30px, 3.4vw, 46px)' }}>
+              {en ? 'Let the map, or chance, choose for you.' : 'Lasă harta, sau norocul, să aleagă pentru tine.'}
+            </h2>
+          </div>
+          <div className="flex flex-wrap gap-3">
+            <Link to="/map" className="sb-btn">{en ? 'Open the map →' : 'Deschide harta →'}</Link>
+            <button type="button" className="sb-btn sb-btn-ghost" onClick={handleRandomStory}>
+              {en ? 'Tell me a story at random' : 'Spune-mi o poveste la întâmplare'}
+            </button>
+          </div>
         </div>
       </section>
     </div>

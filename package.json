@@ -18,7 +18,8 @@
     "lint:css": "stylelint \"src/**/*.css\"",
     "lint": "npm run lint:types && npm run lint:js && npm run lint:css",
     "lint:edge": "deno check --config supabase/functions/deno.check.json supabase/functions/**/*.ts",
-    "icons": "node scripts/generate-icons.mjs"
+    "icons": "node scripts/generate-icons.mjs",
+    "atlas:geo": "node scripts/generate-atlas-geo.mjs"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.13.0",

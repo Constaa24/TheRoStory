@@ -22,6 +22,9 @@ import { toast } from "sonner";
 import { isAbortError } from "@/lib/utils";
 import { COUNTIES, LOCATION_NONE } from "@/lib/constants";
 import { countLabel } from "@/lib/article-utils";
+import { PlaceTimeFields } from "@/components/organisms/PlaceTimeFields";
+import { StoryNoteFields, EMPTY_NOTE, shouldSendNote, type StoryNoteDraft } from "@/components/organisms/StoryNoteFields";
+import { EMPTY_PLACE_DATE, draftFromArticle, draftToPlaceDate, placeDateErrors, shouldSendPlaceDate, type PlaceDateDraft } from "@/lib/atlas/place-date";
 
 const CarouselStoryCreate: React.FC = () => {
   const { user, isAdmin } = useAuth();
@@ -78,8 +81,16 @@ const CarouselStoryCreate: React.FC = () => {
   const [posterUrl, setPosterUrl] = useState("");
   const [posterStoragePath, setPosterStoragePath] = useState<string | null>(null);
   const isFull = items.length >= ARTICLE_LIMITS.MEDIA_URLS_MAX;
+  const [placeDate, setPlaceDate] = useState<PlaceDateDraft>(EMPTY_PLACE_DATE);
+  // Whether the story was read with the place/date columns; see
+  // shouldSendPlaceDate().
+  const placeDateSupportedRef = useRef(false);
+  const [note, setNote] = useState<StoryNoteDraft>(EMPTY_NOTE);
+  const noteSupportedRef = useRef(false);
+  const [showPlaceErrors, setShowPlaceErrors] = useState(false);
+  const placeErrors = placeDateErrors(placeDate, language);
 
-  const formSnapshot = JSON.stringify({ titleEn, titleRo, descriptionEn, descriptionRo, categoryId, location, posterUrl, items: items.map(i => i.url), mediaCaptions });
+  const formSnapshot = JSON.stringify({ titleEn, titleRo, descriptionEn, descriptionRo, categoryId, location, posterUrl, items: items.map(i => i.url), mediaCaptions, placeDate, note });
   const isDirty = initialSnapshotRef.current !== null && formSnapshot !== initialSnapshotRef.current;
 
   useUnsavedChangesWarning(isDirty && !isSaving);
@@ -139,6 +150,12 @@ const CarouselStoryCreate: React.FC = () => {
             ? article.mediaCaptions
             : urls.map(() => ({ en: '', ro: '' }));
           setMediaCaptions(loadedCaptions);
+          const loadedPlaceDate = draftFromArticle(article);
+          setPlaceDate(loadedPlaceDate.draft);
+          placeDateSupportedRef.current = loadedPlaceDate.supported;
+          const loadedNote = { en: article.noteEn ?? '', ro: article.noteRo ?? '' };
+          setNote(loadedNote);
+          noteSupportedRef.current = 'noteEn' in article;
           initialSnapshotRef.current = JSON.stringify({
             titleEn: article.titleEn || '',
             titleRo: article.titleRo || '',
@@ -149,11 +166,13 @@ const CarouselStoryCreate: React.FC = () => {
             posterUrl: article.posterUrl || '',
             items: urls,
             mediaCaptions: loadedCaptions,
+            placeDate: loadedPlaceDate.draft,
+            note: loadedNote,
           });
         } else {
           initialSnapshotRef.current = JSON.stringify({
             titleEn: '', titleRo: '', descriptionEn: '', descriptionRo: '',
-            categoryId: '', location: '', posterUrl: '', items: [], mediaCaptions: [],
+            categoryId: '', location: '', posterUrl: '', items: [], mediaCaptions: [], placeDate: EMPTY_PLACE_DATE, note: EMPTY_NOTE,
           });
         }
       } catch (err) {
@@ -298,6 +317,11 @@ const CarouselStoryCreate: React.FC = () => {
       toast.error(language === 'en' ? "Please fill all required fields and upload at least one image" : "Vă rugăm să completați toate câmpurile obligatorii și să încărcați cel puțin o imagine");
       return;
     }
+    if (placeErrors.length) {
+      setShowPlaceErrors(true);
+      toast.error(placeErrors[0].message);
+      return;
+    }
     setIsSaving(true);
     try {
       const mediaUrls = items.map(i => i.url);
@@ -315,6 +339,8 @@ const CarouselStoryCreate: React.FC = () => {
         mediaUrls,
         mediaCaptions: hasAnyCaption ? mediaCaptions : undefined,
         posterUrl: posterUrl || null,
+        ...(shouldSendPlaceDate(placeDate, placeDateSupportedRef.current) ? { placeDate: draftToPlaceDate(placeDate) } : {}),
+        ...(shouldSendNote(note, noteSupportedRef.current) ? { note: { en: note.en, ro: note.ro } } : {}),
       };
 
       // The visibility checkbox is admin-only; writers pass their story's
@@ -777,6 +803,17 @@ const CarouselStoryCreate: React.FC = () => {
                   </p>
                 )}
               </div>
+
+              <PlaceTimeFields
+                value={placeDate}
+                onChange={setPlaceDate}
+                county={location}
+                onCountyChange={setLocation}
+                errorFor={(field) => (showPlaceErrors ? placeErrors.find((e) => e.field === field)?.message : undefined)}
+                language={language}
+              />
+
+              <StoryNoteFields value={note} onChange={setNote} language={language} />
             </div>
           </div>
         </div>

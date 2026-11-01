@@ -4,7 +4,6 @@ import { supabase } from "@/lib/supabase";
 import { useLanguage } from "@/hooks/use-language";
 import { CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { PageHead } from "@/components/layout/PageHead";
 
 type Status = "loading" | "success" | "error";
@@ -83,41 +82,39 @@ const NewsletterConfirm: React.FC = () => {
       >
         <meta name="robots" content="noindex, nofollow" />
       </PageHead>
-      <Card className="border-line bg-[color:var(--ink-2)]/60 backdrop-blur-md text-center rounded-sm max-w-md w-full">
+      <Card className="border-[color:var(--line-soft)] bg-[color:var(--paper)] shadow-none text-center rounded-[26px] max-w-md w-full">
         <CardHeader>
           <div className="flex justify-center mb-4">
             {status === "loading" && (
-              <div className="h-16 w-16 bg-accent/10 rounded-full flex items-center justify-center">
+              <div className="h-16 w-16 rounded-full flex items-center justify-center" style={{ border: "1px solid var(--line)" }}>
                 <Loader2 className="h-8 w-8 text-accent animate-spin" />
               </div>
             )}
             {status === "success" && (
-              <div className="h-16 w-16 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center">
-                <CheckCircle2 className="h-8 w-8 text-green-600 dark:text-green-400" />
+              <div className="h-16 w-16 rounded-full flex items-center justify-center" style={{ border: "1px solid var(--gold-deep)", background: "var(--glow)" }}>
+                <CheckCircle2 className="h-8 w-8" style={{ color: "var(--gold)" }} />
               </div>
             )}
             {status === "error" && (
-              <div className="h-16 w-16 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center">
-                <AlertCircle className="h-8 w-8 text-red-600 dark:text-red-400" />
+              <div className="h-16 w-16 rounded-full flex items-center justify-center" style={{ border: "1px solid var(--line)" }}>
+                <AlertCircle className="h-8 w-8" style={{ color: "var(--oxblood-2)" }} />
               </div>
             )}
           </div>
-          <CardTitle className="text-3xl font-display italic text-[color:var(--parchment)]">
+          <CardTitle className="sb-h3" style={{ fontSize: 32 }}>
             {status === "loading" && copy.loading}
             {status === "success" && copy.successTitle}
             {status === "error" && copy.errorTitle}
           </CardTitle>
           {status !== "loading" && (
-            <CardDescription className="text-muted-foreground font-serif italic text-lg">
+            <CardDescription className="font-display italic text-[19px] text-[color:var(--text-dim)]">
               {status === "success" ? copy.successBody : copy[errorKind]}
             </CardDescription>
           )}
         </CardHeader>
         {status !== "loading" && (
           <CardContent>
-            <Button asChild className="w-full rounded-full h-12 font-serif italic">
-              <Link to="/">{copy.home}</Link>
-            </Button>
+            <Link to="/" className="sb-btn w-full">{copy.home}</Link>
           </CardContent>
         )}
       </Card>

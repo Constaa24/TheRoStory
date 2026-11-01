@@ -1,0 +1,503 @@
+/* ============================================================
+   THE ATLAS (/map)
+   An engraved atlas plate: the map and its chronicle side by side, with the
+   timeline as the plate's lower margin. Every class is prefixed `at-` and
+   every token `--at-`, so nothing here can leak into the rest of the site.
+
+   Width queries use min-width / max-width rather than the range syntax the
+   linter prefers: Safari only understands `(width <= …)` from 16.4, and on an
+   older iPhone the whole phone layout would silently fall back to desktop.
+   ============================================================ */
+/* stylelint-disable media-feature-range-notation */
+
+/* `.at-portal` wraps what renders outside the page (the phone's bottom
+   sheet), so it carries the same tokens. */
+.atlas-page,
+.at-portal {
+  --at-ink-3: #1b170f;
+  --at-oxblood: #b04848;
+  --at-grid: rgba(201, 169, 110, 0.045);
+  --at-land-solid: #1d1911;
+  --at-land-has: rgba(201, 169, 110, 0.08);
+  --at-county-line: rgba(201, 169, 110, 0.24);
+  --at-region-line: rgba(217, 191, 140, 0.62);
+  --at-river: rgba(140, 160, 180, 0.64);
+  --at-hatch: rgba(201, 169, 110, 0.22);
+  --at-panel: rgba(20, 17, 12, 0.78);
+  --at-shade: rgba(13, 11, 8, 0.66);
+  --at-sheet-shadow: 0 -18px 50px rgba(0, 0, 0, 0.55);
+  --at-pop-shadow: 0 18px 46px rgba(0, 0, 0, 0.5);
+}
+.atlas-page { padding-bottom: 72px; }
+.light .atlas-page,
+.light .at-portal {
+  --at-ink-3: #e5d6b7;
+  --at-oxblood: #8f2f2f;
+  --at-grid: rgba(80, 60, 30, 0.05);
+  --at-land-solid: #e5dac2;
+  --at-land-has: rgba(110, 80, 26, 0.09);
+  --at-county-line: rgba(80, 60, 30, 0.28);
+  --at-region-line: rgba(87, 63, 20, 0.62);
+  --at-river: rgba(60, 90, 120, 0.62);
+  --at-hatch: rgba(80, 60, 30, 0.22);
+  --at-panel: rgba(237, 226, 203, 0.82);
+  --at-shade: rgba(246, 241, 230, 0.72);
+  --at-sheet-shadow: 0 -18px 50px rgba(80, 60, 30, 0.22);
+  --at-pop-shadow: 0 18px 46px rgba(80, 60, 30, 0.2);
+}
+
+.atlas-page h1,
+.atlas-page h2,
+.atlas-page h3,
+.at-portal h3 { font-family: var(--display); font-weight: 500; font-style: italic; text-wrap: balance; margin: 0; color: var(--parchment); }
+
+/* ---------- intro ---------- */
+.at-intro { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 22px 48px; padding-block: 40px 24px; }
+.at-intro > div { min-width: 0; max-width: 640px; }
+.atlas-page .eyebrow,
+.at-portal .eyebrow { font-family: var(--display); font-style: italic; font-weight: 400; font-size: 18px; letter-spacing: 0; text-transform: none; color: var(--gold); }
+.at-intro h1 { font-size: clamp(40px, 5.2vw, 76px); line-height: 0.95; letter-spacing: -0.015em; margin-top: 14px; }
+.at-lede { font-size: 18px; color: var(--text-dim); max-width: 560px; margin: 14px 0 0; line-height: 1.55; }
+.at-facts { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px 28px; }
+.at-facts li { display: grid; gap: 2px; }
+.at-facts b { font-family: var(--display); font-style: italic; font-weight: 500; font-size: 32px; line-height: 1; color: var(--gold); font-variant-numeric: lining-nums; }
+.at-facts span { font-family: var(--display); font-style: italic; font-weight: 400; letter-spacing: 0; text-transform: none; font-size: 16px; color: var(--text-dim); }
+
+/* ---------- buttons ---------- */
+.at-btn-gold,
+.at-btn-ghost {
+  display: inline-flex; align-items: center; gap: 9px; border-radius: 999px; padding: 10px 18px; cursor: pointer; text-decoration: none;
+  font-family: var(--ui); font-size: 14px; font-weight: 600; letter-spacing: 0.01em;
+}
+.at-btn-gold { background: var(--gold); border: 1px solid var(--gold); color: var(--on-gold); }
+.at-btn-gold:hover { background: var(--gold-2); border-color: var(--gold-2); }
+.at-btn-ghost { background: transparent; border: 1px solid var(--line); color: var(--gold); }
+.at-btn-ghost:hover { border-color: var(--gold-deep); }
+.at-btn-gold:disabled,
+.at-btn-ghost:disabled { opacity: 0.4; cursor: default; }
+.at-ico { width: 12px; height: 12px; flex: none; }
+.at-link {
+  border: 0; background: none; padding: 0; cursor: pointer; font-family: var(--display); font-style: italic; font-weight: 400; letter-spacing: 0; text-transform: none; font-size: 17px;
+  color: var(--gold); text-decoration: underline; text-underline-offset: 4px; text-decoration-thickness: 1px;
+}
+.at-seg { display: inline-flex; border: 1px solid var(--line); border-radius: 999px; padding: 3px; gap: 2px; }
+.at-seg-btn {
+  border: 0; background: transparent; cursor: pointer; border-radius: 999px; padding: 6px 12px;
+  font-family: var(--ui); font-size: 13px; font-weight: 600; color: var(--text-dim);
+}
+.at-seg-btn[aria-pressed="true"] { background: var(--gold); color: var(--on-gold); }
+
+/* ---------- toolbar ----------
+   One row: three dropdowns, the filters in force as removable chips, and the
+   map/list switch. The options live in popovers, so nothing is lost. */
+.at-toolbar {
+  position: relative; z-index: 20; display: flex; flex-wrap: wrap; align-items: center; gap: 10px;
+  padding-block: 14px; border-top: 1px dashed var(--line); border-bottom: 1px dashed var(--line); margin-bottom: 22px;
+}
+.at-toolbar > .at-seg { margin-left: auto; }
+.at-dd { position: relative; }
+.at-dd-btn,
+.at-key-btn {
+  display: inline-flex; align-items: center; gap: 8px; border: 1px solid var(--line); background: transparent; border-radius: 999px;
+  padding: 7px 16px; min-height: 40px; cursor: pointer; white-space: nowrap;
+  font-family: var(--display); font-style: italic; font-weight: 400; letter-spacing: 0; text-transform: none; font-size: 18px; color: var(--text-dim);
+}
+.at-key-btn { background: var(--ink); padding: 7px 12px; gap: 7px; }
+.at-dd-btn:hover,
+.at-dd-btn[aria-expanded="true"],
+.at-key-btn:hover,
+.at-key-btn[aria-expanded="true"] { border-color: var(--gold-deep); color: var(--text); }
+.at-dd-v { color: var(--gold); }
+.at-caret { width: 10px; height: 10px; transition: transform 0.15s; }
+.at-dd-btn[aria-expanded="true"] .at-caret { transform: rotate(180deg); }
+.at-pop {
+  position: absolute; top: calc(100% + 8px); left: 0; z-index: 30; min-width: 240px; max-width: min(320px, calc(100vw - 32px));
+  background: var(--ink-2); border: 1px solid var(--line); border-radius: 16px; box-shadow: var(--at-pop-shadow); padding: 8px;
+}
+.at-pop-list { display: grid; gap: 1px; }
+.at-opt {
+  width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 16px; border: 0; background: transparent;
+  border-radius: 10px; padding: 8px 10px; cursor: pointer; text-align: left;
+  font-family: var(--display); font-style: italic; font-size: 18px; line-height: 1.2; color: var(--text);
+}
+.at-opt:hover { background: var(--line-soft); }
+.at-opt[aria-pressed="true"] { color: var(--gold); background: var(--at-land-has); }
+.at-opt-n { font-family: var(--ui); font-style: normal; font-size: 11px; font-weight: 600; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+.at-tick { width: 14px; height: 14px; flex: none; border: 1px solid var(--gold-deep); border-radius: 3px; display: grid; place-items: center; }
+.at-opt[aria-pressed="true"] .at-tick::after { content: ""; width: 8px; height: 8px; background: var(--gold); border-radius: 1px; }
+.at-af { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.at-af-chip {
+  display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--gold-deep); background: var(--at-land-has); border-radius: 999px;
+  padding: 5px 9px 5px 12px; cursor: pointer; font-family: var(--display); font-style: italic; font-size: 15px; color: var(--gold);
+}
+.at-x { width: 9px; height: 9px; }
+.at-af-chip:hover { border-color: var(--gold); }
+
+/* ---------- grid ---------- */
+.at-grid { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 28px; align-items: start; }
+/* The map and its timeline are one plate. */
+.at-plate { min-width: 0; border: 1px solid var(--line); border-radius: 22px; background: var(--ink-2); overflow: hidden; }
+
+.at-frame {
+  position: relative; aspect-ratio: 10 / 7; width: 100%; max-width: 100%; overflow: hidden;
+  background:
+    linear-gradient(var(--at-grid) 1px, transparent 1px) 0 0 / 40px 40px,
+    linear-gradient(90deg, var(--at-grid) 1px, transparent 1px) 0 0 / 40px 40px,
+    radial-gradient(ellipse at 50% 42%, var(--at-land-has), transparent 62%),
+    var(--ink-2);
+  touch-action: pan-y; user-select: none; cursor: grab;
+}
+.at-frame.at-dragging { cursor: grabbing; }
+.at-frame:focus-visible { outline: 2px solid var(--gold); outline-offset: -2px; }
+.at-svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+
+/* The land is one shape: the national border stitched into a closed ring
+   when the geometry was generated, so the seams between separately
+   digitised counties never show through. Counties draw on top only as tints
+   and hit areas. Shading is stroked across the seam to the neighbouring
+   county and faded as a whole group, so overlapping strokes never double. */
+.at-l-under path { fill: var(--at-land-solid); }
+.at-l-tint { opacity: 0.09; }
+.at-l-sel { opacity: 0.28; }
+.at-l-hatch { opacity: 0.17; }
+.at-l-tint path,
+.at-l-sel path { fill: var(--gold); stroke: var(--gold); stroke-width: 2.6; stroke-linejoin: round; pointer-events: none; }
+.at-l-hatch path { fill: url("#at-hatch"); stroke: url("#at-hatch"); stroke-width: 2.6; stroke-linejoin: round; pointer-events: none; }
+.at-hatch-line { stroke: var(--gold); stroke-width: 1.1; }
+.at-l-land path { fill: transparent; }
+.at-l-land path.at-unw { cursor: pointer; }
+.at-l-lines path { fill: none; stroke: var(--at-county-line); stroke-width: 0.8; vector-effect: non-scaling-stroke; pointer-events: none; }
+.at-l-regions path { fill: none; stroke: var(--at-region-line); stroke-width: 2; stroke-dasharray: 7 4; vector-effect: non-scaling-stroke; pointer-events: none; }
+.at-l-outline path { fill: none; stroke: var(--gold); stroke-width: 1.4; vector-effect: non-scaling-stroke; stroke-linejoin: round; stroke-linecap: round; pointer-events: none; }
+.at-l-rivers path { fill: none; stroke: var(--at-river); stroke-width: 1.2; vector-effect: non-scaling-stroke; stroke-linejoin: round; stroke-linecap: round; pointer-events: none; }
+
+.at-lbl { font-family: var(--ui); pointer-events: none; }
+.at-lbl-region {
+  font-size: 10.5px; font-weight: 600; letter-spacing: 0.32em; text-transform: uppercase; fill: var(--at-region-line);
+  paint-order: stroke; stroke: var(--ink-2); stroke-width: 3px; stroke-linejoin: round;
+}
+.at-lbl-river { font-family: var(--display); font-style: italic; font-size: 13px; fill: var(--at-river); paint-order: stroke; stroke: var(--ink-2); stroke-width: 3px; }
+.at-lbl-feature { font-family: var(--display); font-style: italic; fill: var(--text-mute); }
+
+.at-pin,
+.at-cluster { cursor: pointer; }
+.at-pin:focus,
+.at-cluster:focus { outline: none; }
+.at-pin-hit { fill: transparent; }
+.at-pin-halo { fill: var(--ink-2); stroke: var(--gold); stroke-width: 1.6; }
+.at-pin-core { fill: var(--gold); }
+.at-pin-approx { fill: none; stroke: var(--gold); stroke-width: 1.3; stroke-dasharray: 3 3; }
+.at-pin-star { fill: var(--gold); stroke: var(--ink-2); stroke-width: 1; }
+.at-pin-ring { fill: none; stroke: var(--gold-2); stroke-width: 2; opacity: 0; transition: opacity 0.15s; }
+.at-pin.at-hot .at-pin-ring,
+.at-pin:focus-visible .at-pin-ring { opacity: 0.75; }
+.at-pin.at-sel .at-pin-ring { opacity: 1; }
+.at-pin.at-sel .at-pin-halo { fill: var(--gold); }
+.at-pin.at-sel .at-pin-core { fill: var(--ink); }
+.at-pin.at-dim { opacity: 0.22; }
+.at-pin-num circle { fill: var(--gold); }
+.at-pin-num text { fill: var(--ink); font-family: var(--ui); font-size: 10px; font-weight: 700; text-anchor: middle; dominant-baseline: central; }
+/* While the timeline plays, each pin arrives with a ripple. A CSS animation
+   restarts whenever an element goes from display:none to shown, which is
+   exactly when a pin's year comes round. */
+.at-playing .at-pin { animation: at-pin-in 0.9s ease-out; }
+.at-playing .at-pin .at-pin-ring { animation: at-ripple 0.9s ease-out; }
+@keyframes at-pin-in { 0% { opacity: 0; } 30% { opacity: 1; } 100% { opacity: 1; } }
+@keyframes at-ripple { 0% { opacity: 1; stroke-width: 6; } 100% { opacity: 0; stroke-width: 1; } }
+
+.at-spider-leg { stroke: var(--gold); opacity: 0.6; }
+.at-spider-hub { fill: var(--gold); }
+.at-cl-ring { fill: var(--ink-2); stroke: var(--gold); stroke-width: 1.6; }
+.at-cl-ring-2 { fill: none; stroke: var(--gold); stroke-width: 1; opacity: 0.45; }
+.at-cluster:focus-visible .at-cl-ring,
+.at-cluster:hover .at-cl-ring { stroke: var(--gold-2); stroke-width: 2.4; }
+.at-cl-num { fill: var(--gold); font-family: var(--ui); font-size: 12px; font-weight: 700; text-anchor: middle; dominant-baseline: central; }
+
+.at-journey-line { fill: none; stroke: var(--gold-2); stroke-linejoin: round; stroke-linecap: round; opacity: 0.85; }
+.at-journey-line.at-draw { stroke-dasharray: 1; stroke-dashoffset: 1; animation: at-draw 1.3s ease-out forwards; }
+@keyframes at-draw { to { stroke-dashoffset: 0; } }
+
+.at-ui { position: absolute; inset: 0; pointer-events: none; }
+.at-zoom { position: absolute; top: 12px; right: 12px; display: grid; gap: 6px; pointer-events: auto; }
+.at-zoom-btn {
+  width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--line); background: var(--ink);
+  color: var(--text); cursor: pointer; display: grid; place-items: center;
+}
+.at-zoom-btn:hover { color: var(--gold); border-color: var(--gold-deep); }
+.at-zoom-ico { width: 15px; height: 15px; }
+.at-scale {
+  position: absolute; left: 14px; bottom: 12px; display: flex; align-items: center; gap: 8px;
+  font-family: var(--display); font-style: italic; font-weight: 400; letter-spacing: 0; text-transform: none; font-size: 14px; color: var(--text-mute);
+}
+.at-scale i { display: block; height: 5px; border: 1px solid var(--gold); border-top: 0; }
+.at-coords { position: absolute; left: 14px; top: 12px; font-family: var(--display); font-style: italic; font-size: 13px; color: var(--text-mute); }
+.at-readout { position: absolute; left: 14px; bottom: 34px; max-width: min(80%, 460px); display: grid; gap: 2px; pointer-events: none; }
+.at-readout-yr {
+  font-family: var(--display); font-style: italic; font-size: clamp(40px, 7vw, 76px); line-height: 0.9; color: var(--gold);
+  text-shadow: 0 2px 18px var(--ink); font-variant-numeric: lining-nums;
+}
+.at-readout-cap { font-family: var(--display); font-style: italic; font-size: 18px; color: var(--parchment); text-shadow: 0 1px 10px var(--ink); }
+.at-tip {
+  position: absolute; z-index: 3; transform: translate(-50%, calc(-100% - 18px)); pointer-events: none;
+  background: var(--ink); border: 1px solid var(--line); border-radius: 14px; padding: 10px 14px; width: max-content; max-width: 260px;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
+}
+.at-tip.at-below { transform: translate(-50%, 22px); }
+.at-tip-m { display: block; font-family: var(--display); font-style: italic; font-weight: 400; letter-spacing: 0; text-transform: none; font-size: 15px; color: var(--gold); }
+.at-tip-t { display: block; font-family: var(--display); font-style: italic; font-size: 17px; line-height: 1.15; color: var(--parchment); margin-top: 3px; }
+.at-tip-p { display: block; font-size: 12.5px; color: var(--text-dim); margin-top: 3px; }
+.at-wheel {
+  position: absolute; inset: 0; display: grid; place-items: center; background: var(--at-shade);
+  font-family: var(--ui); font-size: 13px; font-weight: 600; letter-spacing: 0.1em; color: var(--parchment); pointer-events: none;
+}
+
+/* The key: legend and gesture help, folded into one button on the map. */
+.at-key { position: absolute; right: 12px; bottom: 12px; pointer-events: auto; }
+.at-key .at-pop { inset: auto 0 calc(100% + 8px) auto; width: 290px; padding: 12px 14px; }
+.at-legend {
+  list-style: none; margin: 0; padding: 0; display: grid; gap: 9px;
+  font-family: var(--ui); font-size: 13px; font-weight: 500; color: var(--text-dim);
+}
+.at-legend li { display: flex; align-items: center; gap: 10px; }
+.at-legend-ico { width: 18px; height: 18px; flex: none; }
+.at-legend .at-hint {
+  display: block; margin-top: 3px; padding-top: 10px; border-top: 1px solid var(--line-soft);
+  text-transform: none; letter-spacing: 0.01em; font-weight: 500; font-size: 12px; line-height: 1.5; color: var(--text-mute);
+}
+
+/* ---------- list view ---------- */
+.at-list-wrap { overflow-x: auto; }
+.at-lv { width: 100%; border-collapse: collapse; min-width: 640px; }
+.at-lv caption {
+  text-align: left; padding: 14px 16px 6px; font-family: var(--display); font-style: italic; font-weight: 400; letter-spacing: 0; text-transform: none; font-size: 17px; color: var(--text-dim);
+}
+.at-lv th {
+  text-align: left; font-family: var(--display); font-style: italic; font-weight: 400; letter-spacing: 0; text-transform: none; font-size: 16px;
+  color: var(--gold); padding: 10px 16px; border-bottom: 1px dashed var(--line);
+}
+.at-lv td { padding: 11px 16px; border-bottom: 1px solid var(--line-soft); font-size: 15px; color: var(--text-dim); vertical-align: top; }
+.at-lv td:first-child { font-family: var(--ui); font-size: 12px; font-weight: 600; color: var(--text-mute); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.at-lv-title {
+  border: 0; background: none; padding: 0; cursor: pointer; text-align: left;
+  font-family: var(--display); font-style: italic; font-size: 19px; line-height: 1.2; color: var(--parchment);
+}
+.at-lv-title:hover { color: var(--gold); }
+.at-lv .at-era-row td { font-family: var(--display); font-style: italic; font-weight: 400; letter-spacing: 0; text-transform: none; font-size: 18px; color: var(--gold); padding-top: 18px; }
+.at-lv tr.at-sel td { background: var(--at-land-has); }
+
+/* ---------- timeline ----------
+   A compact strip under the map: header row, then the dated track with the
+   timeless column beside it. */
+.at-tl { border-top: 1px solid var(--line); padding: 12px 18px 6px; overflow: hidden; }
+.at-tl-head { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; margin-bottom: 8px; }
+.atlas-page .at-tl-head h2 {
+  font-family: var(--display); font-style: italic; font-weight: 400; letter-spacing: 0; text-transform: none; font-size: 19px; color: var(--gold);
+}
+.at-tl-head .at-btn-gold { padding: 7px 13px; }
+.at-tl-range { font-family: var(--ui); font-size: 12px; font-weight: 600; letter-spacing: 0.08em; color: var(--text-dim); font-variant-numeric: tabular-nums; margin-left: auto; }
+.at-tl-body { display: flex; align-items: stretch; gap: 12px; }
+.at-tl-track { position: relative; flex: 1; min-width: 0; margin: 0 9px; }
+.at-tl-eras { position: relative; height: 24px; }
+.at-tl-era {
+  position: absolute; top: 0; height: 24px; border: 0; border-left: 1px solid var(--line); background: transparent; cursor: pointer;
+  font-family: var(--ui); font-size: 11px; font-weight: 600; color: var(--text-dim);
+  text-align: left; padding: 0 6px; overflow: hidden; white-space: nowrap; text-overflow: clip;
+}
+.at-tl-era:nth-child(odd) { background: var(--line-soft); }
+.at-tl-era:hover { color: var(--gold); }
+.at-tl-era[aria-pressed="true"] { color: var(--on-gold); background: var(--gold); }
+.at-tl-tcol { flex: none; width: 112px; border-left: 1px dashed var(--line); padding-left: 10px; display: grid; align-content: start; gap: 10px; }
+.at-tl-timeless {
+  width: 100%; height: 24px; display: flex; align-items: center; gap: 5px; border: 0; border-left: 1px solid var(--line);
+  background: var(--line-soft); cursor: pointer; padding: 0 6px; white-space: nowrap; overflow: hidden;
+  font-family: var(--ui); font-size: 11px; font-weight: 600; color: var(--text-dim);
+}
+.at-tl-timeless:hover { color: var(--gold); }
+.at-tl-timeless[aria-pressed="true"] { color: var(--on-gold); background: var(--gold); }
+/* Off reads as an empty band, not faded text, so the label keeps its contrast. */
+.at-tl-timeless[aria-pressed="false"] { background: transparent; border: 1px dashed var(--line); }
+.at-tl-marks { position: relative; }
+.at-tl-mark { position: absolute; height: 10px; cursor: pointer; }
+.at-tl-bar { position: absolute; left: 0; right: 0; top: 4px; height: 2px; background: repeating-linear-gradient(90deg, var(--gold-deep) 0 6px, transparent 6px 10px); }
+.at-tl-dot { position: absolute; left: -5px; top: 0; width: 10px; height: 10px; transform: rotate(45deg); background: var(--ink-2); border: 1.5px solid var(--gold); }
+.at-tl-mark.at-out { opacity: 0.25; }
+.at-tl-mark.at-hot .at-tl-dot,
+.at-tl-mark.at-sel .at-tl-dot { background: var(--gold); }
+.at-tl-mark.at-stop .at-tl-dot { box-shadow: 0 0 0 3px rgba(var(--line-rgb), 0.26); }
+.at-tl-lbl {
+  position: absolute; bottom: 17px; left: 0; transform: translateX(-30%); display: none; white-space: nowrap; z-index: 2;
+  background: var(--ink); border: 1px solid var(--line); padding: 4px 10px; border-radius: 10px;
+  font-family: var(--display); font-style: italic; font-size: 15px; color: var(--parchment);
+}
+.at-tl-mark.at-hot .at-tl-lbl { display: block; }
+.at-tl-axis { position: relative; height: 30px; border-top: 1px dashed var(--gold-deep); }
+.at-tl-tick { position: absolute; top: 0; height: 5px; border-left: 1px solid var(--gold-deep); }
+.at-tl-tick span {
+  position: absolute; top: 8px; transform: translateX(-50%);
+  font-family: var(--ui); font-size: 10px; font-weight: 600; color: var(--text-mute); font-variant-numeric: tabular-nums;
+}
+.at-tl-shade { position: absolute; top: 0; bottom: 30px; background: var(--at-shade); pointer-events: none; }
+.at-tl-handle {
+  position: absolute; bottom: 22px; width: 16px; height: 16px; margin-left: -8px; border-radius: 50%; z-index: 3;
+  background: var(--gold); border: 3px solid var(--ink-2); box-shadow: 0 0 0 1px var(--gold); cursor: ew-resize; touch-action: none;
+}
+.at-tl-handle::after { content: ""; position: absolute; inset: -12px; }
+.at-tl-handle:focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; }
+.at-tl-cursor {
+  position: absolute; top: 0; bottom: 30px; width: 2px; margin-left: -1px; background: var(--gold-2);
+  box-shadow: 0 0 12px var(--gold); pointer-events: none;
+}
+.at-tl-stars { display: flex; flex-wrap: wrap; gap: 7px 9px; }
+.at-tl-star {
+  position: relative; border: 0; background: none; padding: 0; cursor: pointer;
+  display: grid; place-items: center; width: 16px; height: 16px; color: var(--gold);
+}
+.at-star-ico { width: 13px; height: 13px; flex: none; }
+.at-tl-timeless .at-star-ico { width: 9px; height: 9px; }
+.at-tl-star.at-hot .at-star-ico,
+.at-tl-star.at-sel .at-star-ico { width: 16px; height: 16px; color: var(--gold-2); }
+.at-tl-star.at-out { opacity: 0.3; }
+.at-tl-lbl-r { bottom: 22px; left: auto; right: -4px; transform: none; }
+.at-tl-star.at-hot .at-tl-lbl { display: block; }
+.at-tl-empty { margin: 4px 0 10px; font-size: 14px; color: var(--text-mute); }
+
+/* ---------- panel ---------- */
+.at-panel {
+  position: sticky; top: 96px; max-height: calc(100vh - 112px); overflow: auto; overscroll-behavior: contain;
+  border: 1px solid var(--line); border-radius: 22px; background: var(--at-panel);
+}
+.at-tabs { display: flex; border-bottom: 1px solid var(--line); position: sticky; top: 0; background: var(--ink-2); z-index: 2; }
+.at-tab {
+  flex: 1; border: 0; border-bottom: 2px solid transparent; background: transparent; cursor: pointer; padding: 13px 8px 11px;
+  font-family: var(--display); font-style: italic; font-size: 18.5px; color: var(--text-dim);
+}
+.at-tab[aria-selected="true"] { color: var(--gold); border-bottom-color: var(--gold); }
+.at-tab-n { font-family: var(--ui); font-style: normal; font-size: 10px; font-weight: 600; color: var(--text-mute); margin-left: 4px; }
+.at-pane { padding: 18px 20px 22px; display: grid; gap: 16px; }
+.at-back {
+  justify-self: start; border: 0; background: none; padding: 0; cursor: pointer; display: inline-flex; align-items: center; gap: 7px;
+  font-family: var(--display); font-style: italic; font-weight: 400; letter-spacing: 0; text-transform: none; font-size: 18px; color: var(--text-dim);
+}
+.at-back:hover { color: var(--gold); }
+.at-pane-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.atlas-page .at-count { font-family: var(--display); font-style: italic; font-size: 22px; color: var(--parchment); margin: 0; }
+
+.at-story-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.at-era-h {
+  font-family: var(--display); font-style: italic; font-weight: 400; letter-spacing: 0; text-transform: none; font-size: 18px; color: var(--gold);
+  padding: 14px 0 6px; border-bottom: 1px dashed var(--line);
+}
+.at-row {
+  width: 100%; display: grid; grid-template-columns: 44px minmax(0, 1fr); gap: 12px; align-items: center; text-align: left;
+  border: 0; background: transparent; padding: 7px 6px; border-radius: 12px; cursor: pointer;
+}
+.at-row:hover,
+.at-row.at-hot { background: var(--line-soft); }
+.at-row.at-sel { background: var(--at-land-has); }
+.at-thumb { width: 44px; height: 44px; object-fit: cover; border-radius: 50% 50% 8px 8px / 36% 36% 8px 8px; background: var(--at-ink-3); display: block; }
+.at-row-meta {
+  display: block; font-family: var(--display); font-style: italic; font-weight: 400; letter-spacing: 0; text-transform: none; font-size: 15px; color: var(--text-mute);
+}
+.at-row-title { display: block; font-family: var(--display); font-style: italic; font-size: 16.5px; line-height: 1.15; color: var(--parchment); margin-top: 2px; }
+/* --text-mute clears AA on the panel but not on the selected row's gold tint. */
+.at-row.at-sel .at-row-meta { color: var(--text-dim); }
+.at-empty { font-family: var(--display); font-style: italic; font-size: 19px; color: var(--text-dim); margin: 8px 0; }
+
+.at-card { display: grid; gap: 10px; padding-bottom: 18px; border-bottom: 1px solid var(--line); }
+.at-card-cover { position: relative; aspect-ratio: 16 / 10; max-width: 100%; overflow: hidden; border-radius: 50% 50% 14px 14px / 18% 18% 14px 14px; background: var(--at-ink-3); }
+.at-card-cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.at-card-kind {
+  position: absolute; left: 12px; bottom: 12px; font-family: var(--display); font-style: italic; font-weight: 400; letter-spacing: 0; text-transform: none; font-size: 15px;
+  color: #f4ead7; background: rgba(13, 11, 8, 0.62); border: 1px solid rgba(201, 169, 110, 0.45); border-radius: 999px; padding: 3px 11px; backdrop-filter: blur(6px);
+}
+.atlas-page .at-card-title,
+.at-portal .at-card-title { font-size: 30px; line-height: 1.05; }
+.atlas-page .at-card-title:focus,
+.at-portal .at-card-title:focus { outline: none; }
+.atlas-page .at-card-title:focus-visible,
+.at-portal .at-card-title:focus-visible { outline: 2px solid var(--gold); }
+.at-card-place { margin: 0; font-family: var(--display); font-style: italic; font-weight: 400; letter-spacing: 0; text-transform: none; font-size: 17px; color: var(--gold); }
+.at-card-ex { margin: 0; font-size: 15.5px; line-height: 1.6; color: var(--text-dim); }
+.at-card-ex-wait { min-height: 3.2em; }
+.at-card-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
+.at-card-parts { margin: 2px 0 0; font-family: var(--ui); font-size: 11px; color: var(--text-mute); display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.at-chip {
+  border: 1px solid var(--gold-deep); background: transparent; border-radius: 999px; padding: 4px 10px; cursor: pointer;
+  font-family: var(--display); font-style: italic; font-size: 14px; color: var(--gold);
+}
+.at-chip:hover { background: var(--at-land-has); }
+.at-fine { margin: 0; font-size: 12.5px; color: var(--text-mute); }
+
+.at-unw { display: grid; gap: 12px; }
+.at-unw p { margin: 0; font-size: 15px; color: var(--text-dim); }
+.at-county-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.at-county-chip {
+  border: 1px dashed var(--line); background: transparent; border-radius: 999px; padding: 4px 12px; cursor: pointer;
+  font-family: var(--display); font-style: italic; font-size: 15px; color: var(--text-dim);
+}
+.at-county-chip:hover,
+.at-county-chip[aria-pressed="true"] { border-style: solid; border-color: var(--gold-deep); color: var(--gold); }
+
+.at-journey { display: grid; gap: 10px; padding: 18px; border: 1px solid var(--line-soft); border-radius: 18px; background: var(--paper); }
+.atlas-page .at-journey-title { font-size: 26px; line-height: 1.05; }
+.at-journey p { margin: 0; font-size: 15px; color: var(--text-dim); }
+.atlas-page .at-journey .at-jmeta { font-family: var(--ui); font-size: 13px; font-weight: 500; color: var(--text-mute); }
+.at-stops { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.at-stops li { display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 10px; align-items: baseline; }
+.at-stop-no { font-family: var(--ui); font-size: 11px; font-weight: 700; color: var(--gold); font-variant-numeric: tabular-nums; }
+.at-stop {
+  border: 0; background: none; padding: 2px 0; text-align: left; cursor: pointer;
+  font-family: var(--display); font-style: italic; font-size: 16.5px; line-height: 1.2; color: var(--text);
+}
+.at-stop:hover,
+.at-stop[aria-current="step"] { color: var(--gold); }
+.at-stop-where {
+  display: block; font-family: var(--display); font-style: italic; font-weight: 400; letter-spacing: 0; text-transform: none; font-size: 14.5px; color: var(--text-mute); margin-top: 2px;
+}
+.at-jnav { display: flex; flex-wrap: wrap; gap: 8px; justify-content: space-between; }
+
+/* ---------- bottom sheet (narrow screens) ---------- */
+.at-sheet {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 40; max-height: 74vh; overflow: auto; overscroll-behavior: contain;
+  background: var(--ink-2); border-top: 1px solid var(--gold-deep); border-radius: 22px 22px 0 0; box-shadow: var(--at-sheet-shadow);
+  padding: 10px max(16px, env(safe-area-inset-right, 0)) calc(18px + env(safe-area-inset-bottom, 0)) max(16px, env(safe-area-inset-left, 0));
+  animation: at-rise 0.28s ease-out;
+}
+@keyframes at-rise { from { transform: translateY(24px); opacity: 0; } to { transform: none; opacity: 1; } }
+.at-sheet-grab { width: 44px; height: 4px; border-radius: 4px; background: var(--line); margin: 0 auto 12px; }
+.at-sheet .at-card { border-bottom: 0; padding-bottom: 6px; }
+
+/* ---------- notes ---------- */
+.at-notes { margin-top: 34px; padding-top: 22px; border-top: 1px dashed var(--line); font-size: 14.5px; color: var(--text-mute); max-width: 760px; }
+.atlas-page .at-notes h2 { font-size: 22px; margin-bottom: 6px; }
+.at-notes p { margin: 0; }
+.at-notes p + p { margin-top: 10px; }
+
+.at-loading { display: flex; min-height: 40vh; align-items: center; justify-content: center; }
+
+@media (max-width: 1023px) {
+  .at-grid { grid-template-columns: minmax(0, 1fr); }
+  .at-panel { position: static; max-height: none; overflow: visible; }
+  .at-tabs { position: static; }
+}
+@media (max-width: 720px) {
+  .at-intro { padding-block: 36px 20px; }
+  .at-facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 18px; width: 100%; }
+  .at-facts b { font-size: 24px; }
+  .at-toolbar > .at-seg { margin-left: 0; }
+  .at-tl { padding: 12px 12px 6px; }
+  .at-tl-track { margin: 0 6px; }
+  .at-tl-tcol { width: 44px; padding-left: 8px; }
+  /* The band keeps its star and its spoken name; the word itself won't fit. */
+  .at-tl-timeless-txt { display: none; }
+  .at-coords { display: none; }
+  .at-key .at-pop { width: min(290px, calc(100vw - 56px)); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .atlas-page *,
+  .atlas-page *::before,
+  .atlas-page *::after,
+  .at-portal *,
+  .at-portal *::before,
+  .at-portal *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
+}

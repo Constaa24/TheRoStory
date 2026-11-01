@@ -57,7 +57,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Plus, Trash2, Edit, Check, X, Loader2, Lock, Users, FileText, Tag, ShieldCheck, CheckCircle2, XCircle, Video, BookText, Images, HardDrive } from "lucide-react";
+import { Plus, Trash2, Edit, Check, X, Loader2, Lock, Users, FileText, Tag, ShieldCheck, CheckCircle2, XCircle, Video, BookText, Images, HardDrive, Route } from "lucide-react";
+import { JourneysManager } from "@/components/organisms/JourneysManager";
 import { PageHead } from "@/components/layout/PageHead";
 import { storageImage } from "@/lib/image-url";
 import { toast } from "sonner";
@@ -525,6 +526,9 @@ const AdminDashboard: React.FC = () => {
             <>
               <TabsTrigger value="categories" className="rounded-full px-4 sm:px-8 flex gap-1 sm:gap-2 text-xs sm:text-sm" aria-label={t("admin.tabs.categories")}>
                 <Tag className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> <span className="hidden sm:inline">{t("admin.tabs.categories")}</span><span className="sm:hidden">{t("admin.tabs.categoriesShort")}</span>
+              </TabsTrigger>
+              <TabsTrigger value="journeys" className="rounded-full px-4 sm:px-8 flex gap-1 sm:gap-2 text-xs sm:text-sm" aria-label={language === 'en' ? 'Journeys' : 'Trasee'}>
+                <Route className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> {language === 'en' ? 'Journeys' : 'Trasee'}
               </TabsTrigger>
               <TabsTrigger value="users" className="rounded-full px-4 sm:px-8 flex gap-1 sm:gap-2 text-xs sm:text-sm" aria-label={t("admin.tabs.users")}>
                 <Users className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> {t("admin.tabs.users")}
@@ -1075,6 +1079,14 @@ const AdminDashboard: React.FC = () => {
             </div>
           </div>
         </TabsContent>
+        )}
+
+        {/* Curated walks shown on the Atlas (/map). Admin-only, like
+            categories; the manager loads its data when the tab opens. */}
+        {isAdmin && (
+          <TabsContent value="journeys" className="space-y-6">
+            <JourneysManager />
+          </TabsContent>
         )}
 
         {isAdmin && (

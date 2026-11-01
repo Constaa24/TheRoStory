@@ -35,6 +35,18 @@ const COUNT_NOUNS = {
   view: { en: ['view', 'views'], ro: ['vizualizare', 'vizualizări'] },
   reply: { en: ['reply', 'replies'], ro: ['răspuns', 'răspunsuri'] },
   frame: { en: ['frame', 'frames'], ro: ['cadru', 'cadre'] },
+  stop: { en: ['stop', 'stops'], ro: ['oprire', 'opriri'] },
+  county: { en: ['county', 'counties'], ro: ['județ', 'județe'] },
+  minute: { en: ['minute', 'minutes'], ro: ['minut', 'minute'] },
+  essay: { en: ['essay', 'essays'], ro: ['eseu', 'eseuri'] },
+  poem: { en: ['poem', 'poems'], ro: ['poem', 'poeme'] },
+  shortStory: { en: ['short story', 'short stories'], ro: ['povestire', 'povestiri'] },
+  visualEssay: { en: ['visual essay', 'visual essays'], ro: ['eseu vizual', 'eseuri vizuale'] },
+  film: { en: ['film', 'films'], ro: ['film', 'filme'] },
+  chapter: { en: ['chapter', 'chapters'], ro: ['capitol', 'capitole'] },
+  scene: { en: ['scene', 'scenes'], ro: ['scenă', 'scene'] },
+  stanza: { en: ['stanza', 'stanzas'], ro: ['strofă', 'strofe'] },
+  note: { en: ['note', 'notes'], ro: ['notă', 'note'] },
 } as const;
 
 export type CountNoun = keyof typeof COUNT_NOUNS;
@@ -129,10 +141,17 @@ const WORDS_PER_MINUTE = 200;
  * which meant every story under 770 words rounded down into the floor and
  * displayed exactly "3 min read" — that covers most of the archive, so the
  * number carried no information.
+ *
+ * A visual essay is read through its captions, not its short introduction,
+ * so their words count too — without them a ten-frame essay with 340 words
+ * of captions claimed to be a one-minute read.
  */
 export const readMinutes = (article: Article, language: 'en' | 'ro'): number => {
-  const words = localizedContent(article, language)
-    .split(CHAPTER_DELIMITER).join(' ')
+  const other = language === 'en' ? 'ro' : 'en';
+  const captions = article.type === 'carousel'
+    ? (article.mediaCaptions || []).map((c) => (c?.[language] || c?.[other] || '')).join(' ')
+    : '';
+  const words = `${localizedContent(article, language).split(CHAPTER_DELIMITER).join(' ')} ${captions}`
     .split(/\s+/)
     .filter(Boolean).length;
   return Math.max(1, Math.ceil(words / WORDS_PER_MINUTE));
@@ -153,7 +172,10 @@ export const articleExcerpt = (
   maxLength: number
 ): string => {
   const text = localizedContent(article, language)
-    .split(CHAPTER_DELIMITER).join(' ')
+    .split(CHAPTER_DELIMITER)
+    // A chapter's optional "# Title" line is a heading, not its first words.
+    .map((chapter) => chapter.replace(/^\s*#\s+[^\n]*\n?/, ''))
+    .join(' ')
     .replace(/[#*_>`]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();

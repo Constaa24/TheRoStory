@@ -21,6 +21,9 @@ import { toast } from "sonner";
 import { isAbortError } from "@/lib/utils";
 import { COUNTIES, LOCATION_NONE } from "@/lib/constants";
 import { createVideoPosterImageFile } from "@/lib/video-poster";
+import { PlaceTimeFields } from "@/components/organisms/PlaceTimeFields";
+import { StoryNoteFields, EMPTY_NOTE, shouldSendNote, type StoryNoteDraft } from "@/components/organisms/StoryNoteFields";
+import { EMPTY_PLACE_DATE, draftFromArticle, draftToPlaceDate, placeDateErrors, shouldSendPlaceDate, type PlaceDateDraft } from "@/lib/atlas/place-date";
 
 const VideoStoryCreate: React.FC = () => {
   const { user, isAdmin } = useAuth();
@@ -76,8 +79,16 @@ const VideoStoryCreate: React.FC = () => {
   const [videoStoragePath, setVideoStoragePath] = useState<string | null>(null);
   const [posterUrl, setPosterUrl] = useState("");
   const [posterStoragePath, setPosterStoragePath] = useState<string | null>(null);
+  const [placeDate, setPlaceDate] = useState<PlaceDateDraft>(EMPTY_PLACE_DATE);
+  // Whether the story was read with the place/date columns; see
+  // shouldSendPlaceDate().
+  const placeDateSupportedRef = useRef(false);
+  const [note, setNote] = useState<StoryNoteDraft>(EMPTY_NOTE);
+  const noteSupportedRef = useRef(false);
+  const [showPlaceErrors, setShowPlaceErrors] = useState(false);
+  const placeErrors = placeDateErrors(placeDate, language);
 
-  const formSnapshot = JSON.stringify({ titleEn, titleRo, descriptionEn, descriptionRo, categoryId, location, videoUrl, posterUrl });
+  const formSnapshot = JSON.stringify({ titleEn, titleRo, descriptionEn, descriptionRo, categoryId, location, videoUrl, posterUrl, placeDate, note });
   const isDirty = initialSnapshotRef.current !== null && formSnapshot !== initialSnapshotRef.current;
 
   useUnsavedChangesWarning(isDirty && !isSaving);
@@ -130,6 +141,12 @@ const VideoStoryCreate: React.FC = () => {
           setVideoStoragePath(article.mediaUrl ? extractStoragePath(article.mediaUrl, 'articles') : null);
           setPosterStoragePath(article.posterUrl ? extractStoragePath(article.posterUrl, 'articles') : null);
           setIsPublished(!!article.isPublished);
+          const loadedPlaceDate = draftFromArticle(article);
+          setPlaceDate(loadedPlaceDate.draft);
+          placeDateSupportedRef.current = loadedPlaceDate.supported;
+          const loadedNote = { en: article.noteEn ?? '', ro: article.noteRo ?? '' };
+          setNote(loadedNote);
+          noteSupportedRef.current = 'noteEn' in article;
           initialSnapshotRef.current = JSON.stringify({
             titleEn: article.titleEn || '',
             titleRo: article.titleRo || '',
@@ -139,11 +156,13 @@ const VideoStoryCreate: React.FC = () => {
             location: article.location || '',
             videoUrl: article.mediaUrl || '',
             posterUrl: article.posterUrl || '',
+            placeDate: loadedPlaceDate.draft,
+            note: loadedNote,
           });
         } else {
           initialSnapshotRef.current = JSON.stringify({
             titleEn: '', titleRo: '', descriptionEn: '', descriptionRo: '',
-            categoryId: '', location: '', videoUrl: '', posterUrl: '',
+            categoryId: '', location: '', videoUrl: '', posterUrl: '', placeDate: EMPTY_PLACE_DATE, note: EMPTY_NOTE,
           });
         }
       } catch (err) {
@@ -278,6 +297,11 @@ const VideoStoryCreate: React.FC = () => {
       toast.error(language === 'en' ? "Please fill all required fields and upload a video" : "Vă rugăm să completați toate câmpurile obligatorii și să încărcați un video");
       return;
     }
+    if (placeErrors.length) {
+      setShowPlaceErrors(true);
+      toast.error(placeErrors[0].message);
+      return;
+    }
     setIsSaving(true);
     try {
       const payload = {
@@ -290,6 +314,8 @@ const VideoStoryCreate: React.FC = () => {
         location: location || undefined,
         mediaUrl: videoUrl,
         posterUrl: posterUrl || null,
+        ...(shouldSendPlaceDate(placeDate, placeDateSupportedRef.current) ? { placeDate: draftToPlaceDate(placeDate) } : {}),
+        ...(shouldSendNote(note, noteSupportedRef.current) ? { note: { en: note.en, ro: note.ro } } : {}),
       };
       // The visibility checkbox is admin-only; writers pass their story's
       // loaded state through and the DB trigger
@@ -645,6 +671,17 @@ const VideoStoryCreate: React.FC = () => {
                   </p>
                 )}
               </FormBlock>
+
+              <PlaceTimeFields
+                value={placeDate}
+                onChange={setPlaceDate}
+                county={location}
+                onCountyChange={setLocation}
+                errorFor={(field) => (showPlaceErrors ? placeErrors.find((e) => e.field === field)?.message : undefined)}
+                language={language}
+              />
+
+              <StoryNoteFields value={note} onChange={setNote} language={language} />
             </div>
           </div>
         </div>

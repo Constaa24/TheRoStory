@@ -1,7 +1,9 @@
 import React from "react";
 import { useLanguage } from "@/hooks/use-language";
-import { Heart, Globe, Lightbulb, Mountain, Castle } from "lucide-react";
+import { Link } from "react-router-dom";
+import { Heart, Lightbulb, Mountain, Castle } from "lucide-react";
 import { PageHead } from "@/components/layout/PageHead";
+import { Divider, Rosette } from "@/components/story/Ornaments";
 
 const MyStory: React.FC = () => {
   const { language } = useLanguage();
@@ -56,132 +58,104 @@ const MyStory: React.FC = () => {
   };
 
   const t = content[language];
+  const en = language === 'en';
+
+  // A chapter of the letter: a Roman numeral beside its heading.
+  const part = (numeral: string, title: string, className = '') => (
+    <div className={`flex items-baseline gap-3.5 ${className}`}>
+      <span className="sb-numeral" style={{ fontSize: 26 }} aria-hidden="true">{numeral}</span>
+      <h3 className="sb-h3">{title}</h3>
+    </div>
+  );
 
   return (
-    <div className="screen-anim pb-20">
+    <div className="screen-anim">
       <PageHead
         title={t.title}
-        description={language === 'en'
+        description={en
           ? "The story behind The RoStory — why this project exists, who's behind it, and the love for Romania that drives it."
           : "Povestea din spatele The RoStory — de ce există acest proiect, cine este în spatele lui și dragostea pentru România."}
         language={language}
       />
 
-      {/* HERO */}
-      <section className="relative overflow-hidden" style={{ height: '60vh', minHeight: 480, borderBottom: '1px solid var(--line-soft)' }}>
-        <div className="absolute inset-0">
-          <picture>
-            <source type="image/avif" srcSet="/hero/salina.avif" />
-            <source type="image/webp" srcSet="/hero/salina.webp" />
-            <img src="/hero/salina.jpg" alt="" aria-hidden="true" className="w-full h-full object-cover" loading="eager" />
-          </picture>
-          <div className="absolute inset-0" style={{ background: 'var(--scrim-hero-short)' }} />
-        </div>
-        <div className="ed-container relative h-full flex flex-col justify-end pb-16 pt-10">
-          <div className="eyebrow mb-4">{t.subtitle}</div>
-          <h1
-            className="font-display italic font-medium m-0 pb-4"
-            style={{ fontSize: 'clamp(56px, 8vw, 120px)', lineHeight: 1, letterSpacing: '-0.01em', color: '#f4ead7' }}
-          >
-            {t.lead}
-          </h1>
-        </div>
-      </section>
-
-      {/* GREETING + INTRO */}
-      <section style={{ padding: '80px 0 40px' }}>
-        <div className="ed-container">
-          <div className="max-w-[760px] mx-auto text-center">
-            <p className="font-display italic" style={{ fontSize: 32, color: 'var(--gold)', marginBottom: 18 }}>{t.greeting}</p>
-            <p style={{ fontSize: 19, color: 'var(--text-dim)', lineHeight: 1.65, margin: 0 }}>{t.intro}</p>
+      <section className="ed-container" style={{ paddingTop: 'clamp(40px, 6vw, 64px)', paddingBottom: 'clamp(56px, 7vw, 88px)' }}>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16 items-center">
+          <div className="flex flex-col gap-5">
+            <p className="sb-kicker">{t.subtitle}</p>
+            <h1 className="sb-h1">{t.title}</h1>
+            <p className="font-display italic m-0" style={{ fontSize: 26, lineHeight: 1.35, color: 'var(--text)' }}>{t.lead}</p>
           </div>
-        </div>
-      </section>
-
-      {/* MISSION (pull-quote-like) */}
-      <section style={{ padding: '40px 0', borderTop: '1px solid var(--line-soft)', borderBottom: '1px solid var(--line-soft)', background: 'linear-gradient(180deg, transparent, rgba(201,169,110,0.04), transparent)' }}>
-        <div className="ed-container">
-          <div className="max-w-[920px] mx-auto py-16">
-            <div className="flex items-start gap-6">
-              <Globe className="w-7 h-7 shrink-0 mt-3" style={{ color: 'var(--gold)' }} />
-              <div>
-                <div className="eyebrow mb-3">{t.missionTitle}</div>
-                <p className="font-display italic m-0" style={{ fontSize: 'clamp(28px, 3vw, 40px)', lineHeight: 1.25, color: 'var(--parchment)', textWrap: 'balance' as React.CSSProperties['textWrap'] }}>
-                  “{t.mission}”
-                </p>
-              </div>
+          <div className="sb-window w-full max-w-[520px] justify-self-center lg:justify-self-end">
+            <div className="sb-arch" style={{ aspectRatio: '4 / 4.4' }}>
+              <picture>
+                <source type="image/avif" srcSet="/hero/salina.avif" />
+                <source type="image/webp" srcSet="/hero/salina.webp" />
+                <img
+                  src="/hero/salina.jpg"
+                  alt={en ? 'The salt galleries of Salina Turda' : 'Galeriile de sare ale Salinei Turda'}
+                  className="absolute inset-0 w-full h-full object-cover"
+                  loading="eager"
+                />
+              </picture>
             </div>
           </div>
         </div>
       </section>
 
-      {/* PROBLEM */}
-      <section style={{ padding: '80px 0' }}>
-        <div className="ed-container">
-          <div className="max-w-[760px] mx-auto">
-            <div className="eyebrow mb-4">{language === 'en' ? 'The problem' : 'Problema'}</div>
-            <h2 className="font-display italic font-medium m-0 mb-6" style={{ fontSize: 'clamp(32px, 3.4vw, 48px)', lineHeight: 1.15, color: 'var(--parchment)' }}>
-              {t.problemTitle}
-            </h2>
-            <p style={{ fontSize: 18, color: 'var(--text)', lineHeight: 1.75 }}>{t.problem}</p>
+      {/* The letter itself, on paper. */}
+      <section className="ed-container" style={{ paddingBottom: 'clamp(64px, 8vw, 96px)' }}>
+        <article className="sb-paper mx-auto max-w-[820px]" style={{ padding: 'clamp(28px, 6vw, 80px)' }}>
+          <h2 className="sb-h2" style={{ fontSize: 'clamp(34px, 3.6vw, 52px)' }}>{t.greeting}</h2>
+          <div className="sb-prose mt-6">
+            <p className="sb-dropcap">{t.intro}</p>
           </div>
-        </div>
-      </section>
 
-      {/* TRUTHS */}
-      <section style={{ padding: '80px 0', borderTop: '1px solid var(--line-soft)' }}>
-        <div className="ed-container">
-          <div className="eyebrow mb-3.5">{language === 'en' ? 'Four truths' : 'Patru adevăruri'}</div>
-          <h2 className="font-display italic font-medium m-0 mb-12" style={{ fontSize: 'clamp(36px, 5vw, 64px)', lineHeight: 1.05, color: 'var(--parchment)' }}>
-            {t.truthTitle}
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
-            {t.truths.map((truth, i) => (
-              <div key={i} style={{ borderTop: '1px solid var(--line)', paddingTop: 28 }}>
-                <div className="flex items-baseline gap-4 mb-4">
-                  <span className="font-ui text-[12px] uppercase" style={{ letterSpacing: '0.18em', color: 'var(--gold)' }}>
-                    {String(i + 1).padStart(2, '0')}
-                  </span>
-                  <truth.icon className="w-5 h-5" style={{ color: 'var(--gold)' }} />
-                </div>
-                <h3 className="font-display italic font-medium m-0 mb-3" style={{ fontSize: 32, lineHeight: 1.1, color: 'var(--parchment)' }}>
-                  {truth.title}
-                </h3>
-                <p className="m-0" style={{ fontSize: 16, color: 'var(--text-dim)', lineHeight: 1.6 }}>{truth.description}</p>
-              </div>
+          <div className="sb-chapter-head" style={{ marginBlock: 'clamp(44px, 6vw, 64px)' }}>
+            <Rosette />
+            <p className="sb-kicker">{t.missionTitle}</p>
+            <p className="sb-h3 max-w-[640px]" style={{ fontSize: 'clamp(26px, 2.8vw, 38px)', lineHeight: 1.25 }}>
+              {en ? `“${t.mission}”` : `„${t.mission}”`}
+            </p>
+          </div>
+
+          {part('I', t.problemTitle, 'mb-3.5')}
+          <div className="sb-prose">
+            <p>{t.problem}</p>
+          </div>
+
+          {part('II', t.truthTitle, 'mt-14 mb-5')}
+          <ul className="list-none m-0 p-0 grid grid-cols-1 md:grid-cols-2 gap-4">
+            {t.truths.map((truth) => (
+              <li key={truth.title} className="grid gap-4 p-5" style={{ gridTemplateColumns: '48px minmax(0, 1fr)', borderRadius: 18, border: '1px dashed var(--gold-deep)' }}>
+                <span className="grid place-items-center" style={{ width: 48, height: 48, borderRadius: '50%', border: '1px solid var(--line)', color: 'var(--gold)' }}>
+                  <truth.icon className="w-[22px] h-[22px]" aria-hidden="true" />
+                </span>
+                <span className="flex flex-col gap-1.5">
+                  <span className="sb-h4">{truth.title}</span>
+                  <span className="sb-dim" style={{ fontSize: 16.5, lineHeight: 1.55 }}>{truth.description}</span>
+                </span>
+              </li>
             ))}
-          </div>
-        </div>
-      </section>
+          </ul>
 
-      {/* VISION */}
-      <section style={{ padding: '80px 0' }}>
-        <div className="ed-container">
-          <div className="max-w-[760px] mx-auto">
-            <div className="eyebrow mb-4">{language === 'en' ? 'Looking ahead' : 'Privind înainte'}</div>
-            <h2 className="font-display italic font-medium m-0 mb-6" style={{ fontSize: 'clamp(32px, 3.4vw, 48px)', lineHeight: 1.15, color: 'var(--parchment)' }}>
-              {t.visionTitle}
-            </h2>
-            <p style={{ fontSize: 18, color: 'var(--text)', lineHeight: 1.75 }}>{t.vision}</p>
+          {part('III', t.visionTitle, 'mt-14 mb-3.5')}
+          <div className="sb-prose">
+            <p>{t.vision}</p>
           </div>
-        </div>
-      </section>
 
-      {/* CTA */}
-      <section style={{ padding: '80px 0', borderTop: '1px solid var(--line-soft)' }}>
-        <div className="ed-container">
-          <div className="text-center max-w-[720px] mx-auto">
-            <h3 className="font-display italic font-medium m-0" style={{ fontSize: 'clamp(36px, 4.4vw, 60px)', lineHeight: 1.05, color: 'var(--parchment)' }}>
-              {t.callToAction}
-            </h3>
-            <p className="mt-6 mx-auto max-w-[520px]" style={{ fontSize: 18, color: 'var(--text-dim)', lineHeight: 1.65 }}>
-              {t.callToActionText}
-            </p>
-            <p className="font-display italic mt-10" style={{ fontSize: 24, color: 'var(--gold)' }}>
-              {t.signature} <span style={{ color: 'var(--oxblood-2)' }}>❤</span>
-            </p>
+          <Divider style={{ marginBlock: '56px 40px' }} />
+          <h3 className="sb-h2" style={{ fontSize: 'clamp(32px, 3.2vw, 46px)' }}>{t.callToAction}</h3>
+          <div className="sb-prose mt-4">
+            <p>{t.callToActionText}</p>
           </div>
-        </div>
+          <p className="font-display italic mt-10 mb-0" style={{ fontSize: 34, lineHeight: 1.2, color: 'var(--gold)' }}>
+            {t.signature} <span aria-hidden="true" style={{ color: 'var(--oxblood-2)' }}>❤</span>
+          </p>
+          <div className="flex flex-wrap gap-3 mt-10">
+            <Link to="/" className="sb-btn">{en ? 'Begin with a story →' : 'Începe cu o poveste →'}</Link>
+            <Link to="/map" className="sb-btn sb-btn-ghost">{en ? 'Open the map' : 'Deschide harta'}</Link>
+          </div>
+        </article>
       </section>
     </div>
   );

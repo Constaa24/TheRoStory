@@ -7,9 +7,11 @@ import { User, Menu, X, Search, Sun, Moon, Loader2 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import { useTheme } from "next-themes";
-import { Article, Category, searchArticles, fetchCategories, getLocalized, SEARCH_MIN_LENGTH } from "@/lib/supabase";
-import { articleCoverUrl } from "@/lib/article-utils";
+import { Article, Category, searchArticles, fetchCategories, fetchRandomArticle, getLocalized, SEARCH_MIN_LENGTH } from "@/lib/supabase";
+import { articleCoverUrl, countLabel } from "@/lib/article-utils";
+import { kindPhrase, placeAndTime, toRoman } from "@/lib/story-facts";
 import { storageImage } from "@/lib/image-url";
+import { Thread } from "@/components/story/Ornaments";
 
 export const Navbar: React.FC = () => {
   const { user, login, logout, isAdmin, isWriter, signInWithGoogle } = useAuth();
@@ -62,6 +64,7 @@ export const Navbar: React.FC = () => {
   const showDashboard = isAdmin || isWriter;
   const isDark = resolvedTheme !== 'light';
   const toggleTheme = () => setTheme(isDark ? 'light' : 'dark');
+  const themeLabel = isDark ? (language === 'en' ? 'Switch to light mode' : 'Mod luminos') : (language === 'en' ? 'Switch to dark mode' : 'Mod întunecat');
 
   const navLinks = [
     { name: t("nav.home"), path: "/" },
@@ -75,17 +78,35 @@ export const Navbar: React.FC = () => {
   const initial = (user?.displayName || user?.email || 'U').charAt(0).toUpperCase();
   const tier = language === 'en' ? 'Wanderer · Member' : 'Călător · Membru';
 
+  const langSwitch = (
+    <div className="sb-seg" role="group" aria-label={language === 'en' ? 'Language' : 'Limba'}>
+      {(['en', 'ro'] as const).map(L => (
+        <button
+          key={L}
+          type="button"
+          onClick={() => setLanguage(L)}
+          aria-pressed={language === L}
+          lang={L}
+          className="sb-seg-btn"
+          style={{ padding: '6px 12px', minHeight: 32 }}
+        >
+          {L.toUpperCase()}
+        </button>
+      ))}
+    </div>
+  );
+
   return (
-    <header className="ed-nav">
-      <div className="ed-container flex items-center justify-between gap-6" style={{ paddingTop: 18, paddingBottom: 18, minHeight: 76 }}>
+    <header className="ed-nav" style={{ borderBottom: 0 }}>
+      <div className="ed-container flex items-center justify-between gap-6" style={{ paddingTop: 16, paddingBottom: 14, minHeight: 80 }}>
         {/* Logo */}
         <Link to="/" className="flex items-center gap-3 shrink-0">
           <picture>
             <source type="image/webp" srcSet="/logo.webp" />
-            <img src="/logo.png" alt="The RoStory" width={42} height={42} className="h-[42px] w-[42px] object-contain" />
+            <img src="/logo.png" alt="The RoStory" width={44} height={44} className="h-[44px] w-[44px] object-contain" />
           </picture>
           <span
-            className="font-display italic font-semibold text-[23px] whitespace-nowrap hidden sm:inline"
+            className="font-display italic font-semibold text-[25px] whitespace-nowrap hidden sm:inline"
             style={{
               background: 'var(--logo-gradient)',
               WebkitBackgroundClip: 'text',
@@ -99,8 +120,8 @@ export const Navbar: React.FC = () => {
           </span>
         </Link>
 
-        {/* Desktop nav */}
-        <nav className="hidden lg:flex items-center gap-1">
+        {/* Desktop nav: the page you are on is marked with a knot. */}
+        <nav className="hidden lg:flex items-center gap-1" aria-label={language === 'en' ? 'Main' : 'Principal'}>
           {navLinks.map(link => {
             const active = location.pathname === link.path;
             return (
@@ -108,13 +129,11 @@ export const Navbar: React.FC = () => {
                 key={link.path}
                 to={link.path}
                 aria-current={active ? 'page' : undefined}
-                className="px-4 py-2.5 font-display italic font-medium text-[18px] transition-colors"
-                style={{
-                  color: active ? 'var(--gold)' : 'var(--text)',
-                  borderBottom: active ? '1px solid var(--gold)' : '1px solid transparent',
-                }}
+                className="px-3.5 pt-2 pb-1 font-display italic font-medium text-[20px] leading-none transition-colors hover:text-gold flex flex-col items-center gap-2"
+                style={{ color: active ? 'var(--gold)' : 'var(--text)' }}
               >
                 {link.name}
+                <span aria-hidden="true" className="sb-knot sb-knot-sm" style={{ opacity: active ? 1 : 0 }} />
               </Link>
             );
           })}
@@ -123,61 +142,41 @@ export const Navbar: React.FC = () => {
         {/* Right actions */}
         <div className="flex items-center gap-2.5">
           <button
+            type="button"
             onClick={() => setSearchOpen(s => !s)}
             aria-label={language === 'en' ? 'Search' : 'Caută'}
             aria-expanded={searchOpen}
-            className="grid w-10 h-10 rounded-full place-items-center transition-colors hover:text-gold"
-            style={{ border: '1px solid var(--line)', background: 'transparent', color: 'var(--text)' }}
+            className="sb-icon-btn"
+            style={{ width: 42, height: 42 }}
           >
-            <Search className="w-4 h-4" />
+            <Search className="sb-ico" />
           </button>
 
-          {/* Lang toggle */}
-          <div className="hidden md:flex items-center" style={{ border: '1px solid var(--line)', borderRadius: 999, padding: 4 }}>
-            {(['en', 'ro'] as const).map(L => {
-              const active = language === L;
-              return (
-                <button
-                  key={L}
-                  onClick={() => setLanguage(L)}
-                  className="px-3 py-1.5 font-ui font-semibold text-[11px] tracking-[0.18em] rounded-full cursor-pointer transition-colors"
-                  style={{
-                    background: active ? 'var(--gold)' : 'transparent',
-                    color: active ? 'var(--ink)' : 'var(--text-dim)',
-                    border: 0,
-                  }}
-                >
-                  {L.toUpperCase()}
-                </button>
-              );
-            })}
-          </div>
+          <div className="hidden md:flex">{langSwitch}</div>
 
-          {/* Theme toggle */}
           <button
+            type="button"
             onClick={toggleTheme}
-            aria-label={isDark ? (language === 'en' ? 'Switch to light mode' : 'Mod luminos') : (language === 'en' ? 'Switch to dark mode' : 'Mod întunecat')}
-            className="hidden md:grid w-10 h-10 rounded-full place-items-center transition-colors hover:text-gold"
-            style={{ border: '1px solid var(--line)', background: 'transparent', color: 'var(--text)' }}
+            aria-label={themeLabel}
+            className="sb-icon-btn hidden md:grid"
+            style={{ width: 42, height: 42 }}
           >
-            {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+            {isDark ? <Sun className="sb-ico" /> : <Moon className="sb-ico" />}
           </button>
 
           {/* Profile / Account */}
           <div ref={profileRootRef} className="relative">
             <button
+              type="button"
               onClick={(e) => { e.stopPropagation(); setProfileOpen(o => !o); }}
               aria-label={language === 'en' ? 'Account' : 'Cont'}
               aria-expanded={profileOpen}
               aria-haspopup="true"
-              className="grid place-items-center rounded-full transition-colors hover:text-gold"
+              className="sb-icon-btn"
               style={{
-                width: 40,
-                height: 40,
-                border: '1px solid var(--line)',
-                background: user ? 'rgba(201,169,110,0.06)' : 'transparent',
-                color: 'var(--text)',
-                cursor: 'pointer',
+                width: 42,
+                height: 42,
+                background: user ? 'var(--glow)' : 'transparent',
                 overflow: 'hidden',
               }}
             >
@@ -195,7 +194,7 @@ export const Navbar: React.FC = () => {
                   style={{ background: 'linear-gradient(135deg, var(--gold) 0%, var(--gold-deep) 100%)', color: 'var(--ink)' }}
                 >{initial}</span>
               ) : (
-                <User className="w-[15px] h-[15px]" />
+                <User className="sb-ico" />
               )}
             </button>
 
@@ -204,49 +203,48 @@ export const Navbar: React.FC = () => {
                 ref={profileDropdownRef}
                 className="absolute right-0 z-[60] screen-anim"
                 style={{
-                  top: 'calc(100% + 12px)',
-                  width: 320,
+                  top: 'calc(100% + 14px)',
+                  width: 330,
                   background: 'var(--ink-2)',
                   border: '1px solid var(--line)',
-                  borderRadius: 4,
+                  borderRadius: 18,
                   boxShadow: 'var(--shadow-dropdown)',
+                  overflow: 'hidden',
                 }}
               >
                 {user ? (
                   <>
-                    <div className="px-6 pt-6 pb-5" style={{ borderBottom: '1px solid var(--line-soft)' }}>
+                    <div className="px-6 pt-6 pb-5">
                       <div className="flex items-center gap-4">
                         <span
-                          className="grid place-items-center overflow-hidden"
+                          className="sb-arch grid place-items-center overflow-hidden shrink-0"
                           style={{
-                            width: 44,
-                            height: 44,
-                            borderRadius: '50%',
+                            width: 48,
+                            height: 56,
                             background: 'linear-gradient(135deg, var(--gold) 0%, var(--gold-deep) 100%)',
                             color: 'var(--ink)',
                             fontFamily: 'var(--display)',
                             fontStyle: 'italic',
                             fontWeight: 600,
-                            fontSize: 18,
+                            fontSize: 20,
                           }}
                         >
                           {user.avatarUrl ? (
-                            <Avatar className="h-11 w-11">
-                              <AvatarImage src={storageImage(user.avatarUrl, "avatar")} alt={user.displayName || user.email || ''} />
-                              <AvatarFallback className="bg-transparent text-[color:var(--ink)] font-display italic font-semibold">{initial}</AvatarFallback>
+                            <Avatar className="h-full w-full rounded-none">
+                              <AvatarImage src={storageImage(user.avatarUrl, "avatar")} alt={user.displayName || user.email || ''} className="object-cover" />
+                              <AvatarFallback className="bg-transparent rounded-none text-[color:var(--ink)] font-display italic font-semibold">{initial}</AvatarFallback>
                             </Avatar>
                           ) : initial}
                         </span>
                         <div className="min-w-0">
-                          <div className="font-display italic text-[19px] truncate" style={{ color: 'var(--parchment)' }}>
+                          <div className="font-display italic text-[21px] leading-tight truncate" style={{ color: 'var(--parchment)' }}>
                             {user.displayName || user.email}
                           </div>
-                          <div className="font-ui text-[10px] tracking-[0.15em] uppercase mt-0.5" style={{ color: 'var(--gold)' }}>
-                            {tier}
-                          </div>
+                          <div className="sb-kicker-sm mt-0.5" style={{ fontSize: 16 }}>{tier}</div>
                         </div>
                       </div>
                     </div>
+                    <Thread style={{ opacity: 0.3 }} />
                     <div className="py-2">
                       <ProfileRow num={1} to="/profile" label={t('nav.profile')} sub={language === 'en' ? 'Account & settings' : 'Cont și setări'} onNav={() => setProfileOpen(false)} />
                       <ProfileRow num={2} to="/profile?tab=favorites" label={t('nav.favorites')} sub={language === 'en' ? 'Saved stories' : 'Povești salvate'} onNav={() => setProfileOpen(false)} />
@@ -254,62 +252,60 @@ export const Navbar: React.FC = () => {
                         <ProfileRow num={3} to="/admin" label={isAdmin ? t('nav.admin') : t('nav.dashboard')} sub={language === 'en' ? 'Editorial dashboard' : 'Panou editorial'} onNav={() => setProfileOpen(false)} />
                       )}
                     </div>
-                    <div style={{ borderTop: '1px solid var(--line-soft)' }}>
-                      <button
-                        onClick={() => { logout(); setProfileOpen(false); }}
-                        className="w-full text-left px-6 py-3.5 font-ui text-[11px] tracking-[0.18em] uppercase cursor-pointer transition-colors"
-                        style={{ background: 'transparent', border: 0, color: 'var(--oxblood-2)' }}
-                        onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--hover-subtle)')}
-                        onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
-                      >
-                        {t('nav.logout')}
-                      </button>
-                    </div>
+                    <Thread style={{ opacity: 0.3 }} />
+                    <button
+                      type="button"
+                      onClick={() => { logout(); setProfileOpen(false); }}
+                      className="w-full text-left px-6 py-4 font-ui text-[14px] font-semibold cursor-pointer transition-colors"
+                      style={{ background: 'transparent', border: 0, color: 'var(--danger)' }}
+                      onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--hover-subtle)')}
+                      onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                    >
+                      {t('nav.logout')}
+                    </button>
                   </>
                 ) : (
                   <div className="p-6">
-                    <div className="eyebrow mb-2">{language === 'en' ? 'Welcome' : 'Bine ai venit'}</div>
-                    <h4 className="font-display italic font-medium text-[26px] leading-tight m-0 mb-4" style={{ color: 'var(--parchment)' }}>
+                    <p className="sb-kicker mb-1.5">{language === 'en' ? 'Welcome, traveller' : 'Bine ai venit, călătorule'}</p>
+                    <h4 className="sb-h4 mb-3" style={{ fontSize: 27 }}>
                       {language === 'en' ? 'Sign in to The RoStory.' : 'Intră în The RoStory.'}
                     </h4>
-                    <p className="text-ink-dim text-[13px] leading-relaxed m-0 mb-5">
+                    <p className="sb-dim text-[15px] leading-relaxed mb-5">
                       {language === 'en'
-                        ? 'Save stories, leave notes, and follow the field journals of our writers.'
-                        : 'Salvează povești, lasă notițe și urmărește jurnalele de teren ale scriitorilor.'}
+                        ? 'Keep the stories you love on your own shelf, and leave a note for the writers.'
+                        : 'Păstrează poveștile dragi pe raftul tău și lasă o notă scriitorilor.'}
                     </p>
                     <button
+                      type="button"
                       onClick={() => { setProfileOpen(false); login(); }}
-                      className="btn-ed w-full justify-center"
-                      style={{ padding: '12px 20px' }}
+                      className="sb-btn w-full"
                     >
                       {language === 'en' ? 'Continue with email' : 'Continuă cu email'}
                     </button>
-                    <div className="flex items-center gap-2 my-4 font-ui text-[10px] tracking-[0.15em] uppercase" style={{ color: 'var(--text-mute)' }}>
-                      <span style={{ flex: 1, height: 1, background: 'var(--line)' }} />
+                    <div className="flex items-center gap-3 my-4 sb-meta">
+                      <span aria-hidden="true" className="sb-thread" style={{ flex: 1 }} />
                       <span>{language === 'en' ? 'or' : 'sau'}</span>
-                      <span style={{ flex: 1, height: 1, background: 'var(--line)' }} />
+                      <span aria-hidden="true" className="sb-thread" style={{ flex: 1 }} />
                     </div>
                     <button
+                      type="button"
                       onClick={() => {
                         // Actually start the Google OAuth flow — this used to
                         // just navigate to /auth, despite the label.
                         setProfileOpen(false);
                         void signInWithGoogle();
                       }}
-                      className="w-full flex items-center justify-center gap-2.5 py-3 cursor-pointer transition-colors"
-                      style={{ border: '1px solid var(--line)', background: 'transparent', color: 'var(--text)', borderRadius: 4, fontFamily: 'var(--ui)', fontSize: 12, letterSpacing: '0.1em' }}
-                      onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--hover-subtle)')}
-                      onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                      className="sb-btn sb-btn-ghost w-full"
                     >
-                      <span className="w-4 h-4 grid place-items-center font-bold">G</span>
+                      <span className="w-4 h-4 grid place-items-center font-bold" aria-hidden="true">G</span>
                       {language === 'en' ? 'Continue with Google' : 'Continuă cu Google'}
                     </button>
-                    <div className="text-center mt-4 font-ui text-[10px] tracking-[0.15em] uppercase" style={{ color: 'var(--text-mute)' }}>
+                    <p className="text-center mt-4 sb-meta" style={{ color: 'var(--text-dim)' }}>
                       {language === 'en' ? 'New here? ' : 'Nou aici? '}
-                      <Link to="/auth?mode=signup" onClick={() => setProfileOpen(false)} className="text-gold">
+                      <Link to="/auth?mode=signup" onClick={() => setProfileOpen(false)} className="sb-link">
                         {language === 'en' ? 'Create an account' : 'Creează cont'}
                       </Link>
-                    </div>
+                    </p>
                   </div>
                 )}
               </div>
@@ -318,16 +314,18 @@ export const Navbar: React.FC = () => {
 
           {/* Mobile menu toggle */}
           <button
+            type="button"
             onClick={() => setIsMenuOpen(o => !o)}
             aria-label={isMenuOpen ? t('nav.closeMenu') : t('nav.openMenu')}
             aria-expanded={isMenuOpen}
-            className="lg:hidden grid w-10 h-10 rounded-full place-items-center transition-colors hover:text-gold"
-            style={{ border: '1px solid var(--line)', background: 'transparent', color: 'var(--text)' }}
+            className="sb-icon-btn lg:hidden"
+            style={{ width: 42, height: 42 }}
           >
             {isMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
           </button>
         </div>
       </div>
+      <Thread style={{ opacity: 0.28 }} />
 
       {/* Search overlay */}
       {searchOpen && (
@@ -341,10 +339,11 @@ export const Navbar: React.FC = () => {
           role="dialog"
           aria-modal="true"
           aria-label={t('nav.openMenu')}
-          className="lg:hidden border-t screen-anim"
-          style={{ borderColor: 'var(--line-soft)', background: 'var(--overlay-nav)' }}
+          className="lg:hidden screen-anim"
+          style={{ background: 'var(--overlay-nav)' }}
         >
-          <div className="ed-container flex flex-col gap-2" style={{ paddingTop: 96, paddingBottom: 96 }}>
+          <div className="ed-container flex flex-col" style={{ paddingTop: 56, paddingBottom: 72 }}>
+            <p className="sb-kicker text-center mb-6">{language === 'en' ? 'Where to?' : 'Încotro?'}</p>
             {navLinks.map(link => {
               const active = location.pathname === link.path;
               return (
@@ -353,42 +352,26 @@ export const Navbar: React.FC = () => {
                   to={link.path}
                   onClick={() => setIsMenuOpen(false)}
                   aria-current={active ? 'page' : undefined}
-                  className={cn(
-                    'px-4 py-3 font-display italic text-[22px] transition-colors',
-                  )}
+                  className={cn('px-2 py-4 font-display italic text-[28px] leading-none transition-colors flex items-center gap-4')}
                   style={{
-                    color: active ? 'var(--gold)' : 'var(--text)',
-                    borderBottom: '1px solid var(--line-soft)',
+                    color: active ? 'var(--gold)' : 'var(--parchment)',
+                    borderBottom: '1px dashed var(--line)',
                   }}
                 >
+                  <span aria-hidden="true" className="sb-knot sb-knot-sm" style={{ opacity: active ? 1 : 0.35 }} />
                   {link.name}
                 </Link>
               );
             })}
-            <div className="flex items-center justify-center gap-6 pt-10 mt-2">
-              <div className="flex items-center" style={{ border: '1px solid var(--line)', borderRadius: 999, padding: 4 }}>
-                {(['en', 'ro'] as const).map(L => (
-                  <button
-                    key={L}
-                    onClick={() => setLanguage(L)}
-                    className="px-3 py-1.5 font-ui font-semibold text-[11px] tracking-[0.18em] rounded-full cursor-pointer"
-                    style={{
-                      background: language === L ? 'var(--gold)' : 'transparent',
-                      color: language === L ? 'var(--ink)' : 'var(--text-dim)',
-                      border: 0,
-                    }}
-                  >
-                    {L.toUpperCase()}
-                  </button>
-                ))}
-              </div>
+            <div className="flex items-center justify-center gap-4 pt-10">
+              {langSwitch}
               <button
+                type="button"
                 onClick={toggleTheme}
-                aria-label={isDark ? (language === 'en' ? 'Switch to light mode' : 'Mod luminos') : (language === 'en' ? 'Switch to dark mode' : 'Mod întunecat')}
-                className="grid w-10 h-10 rounded-full place-items-center"
-                style={{ border: '1px solid var(--line)', color: 'var(--text)' }}
+                aria-label={themeLabel}
+                className="sb-icon-btn"
               >
-                {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+                {isDark ? <Sun className="sb-ico" /> : <Moon className="sb-ico" />}
               </button>
             </div>
           </div>
@@ -409,6 +392,7 @@ const NavSearchOverlay: React.FC<{ onClose: () => void; language: 'en' | 'ro' }>
   const inputRef = React.useRef<HTMLInputElement>(null);
   const debounceRef = React.useRef<number | undefined>(undefined);
   const reqIdRef = React.useRef(0);
+  const en = language === 'en';
 
   React.useEffect(() => {
     inputRef.current?.focus();
@@ -458,66 +442,89 @@ const NavSearchOverlay: React.FC<{ onClose: () => void; language: 'en' | 'ro' }>
     return () => window.clearTimeout(debounceRef.current);
   }, [query]);
 
+  // Carry the current location through so the article page's Back button
+  // returns the reader where they were. Without the state it fell back to
+  // "/" and silently dropped them on the homepage.
+  const from = `${location.pathname}${location.search}`;
+
   const handleSelect = (article: Article) => {
     onClose();
-    // Carry the current location through so the article page's Back button
-    // returns the reader where they were. Without the state it fell back to
-    // "/" and silently dropped them on the homepage.
-    navigate(`/article/${article.id}`, {
-      state: { from: `${location.pathname}${location.search}` },
-    });
+    navigate(`/article/${article.id}`, { state: { from } });
+  };
+
+  const goTo = (path: string) => {
+    onClose();
+    navigate(path);
+  };
+
+  const handleRandom = async () => {
+    const a = await fetchRandomArticle();
+    if (!a) return;
+    onClose();
+    navigate(`/article/${a.id}`, { state: { from } });
   };
 
   const showResults = query.trim().length > 0;
   const isBelowMinLength = query.trim().length > 0 && query.trim().length < SEARCH_MIN_LENGTH;
+  const quiet = (text: React.ReactNode) => (
+    <p className="px-3 py-6 text-center font-display italic m-0" style={{ color: 'var(--text-dim)', fontSize: 19 }}>{text}</p>
+  );
 
   return (
-    <div className="border-t" style={{ borderColor: 'var(--line-soft)', background: 'var(--overlay-nav)' }}>
-      <div className="ed-container py-6">
-        <div className="max-w-[720px] mx-auto flex flex-col gap-4">
-          <div className="flex items-center gap-4">
-            <span className="eyebrow shrink-0 hidden sm:inline">
-              {language === 'en' ? 'Search the archive' : 'Caută în arhivă'}
-            </span>
-            <div className="relative flex-1 min-w-0">
-              <Search
-                className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none"
-                style={{ color: 'var(--text-mute)' }}
-              />
-              <input
-                ref={inputRef}
-                type="text"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder={language === 'en' ? "Try 'Voroneț', 'salt mines', 'Mărțișor'…" : "Încearcă 'Voroneț', 'saline', 'Mărțișor'…"}
-                className="w-full"
-                style={{
-                  background: 'transparent',
-                  border: 0,
-                  borderBottom: '1px solid var(--gold)',
-                  borderRadius: 0,
-                  padding: '10px 36px 10px 36px',
-                  fontSize: 22,
-                  fontFamily: 'var(--display)',
-                  fontStyle: 'italic',
-                  color: 'var(--parchment)',
-                }}
-              />
-              {isSearching && (
-                <Loader2
-                  className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 animate-spin pointer-events-none"
-                  style={{ color: 'var(--gold)' }}
-                />
-              )}
-            </div>
+    <div className="screen-anim" style={{ background: 'var(--overlay-nav)' }}>
+      <div className="ed-container" style={{ paddingTop: 40, paddingBottom: 56 }}>
+        <div className="max-w-[820px] mx-auto">
+          <div className="flex items-center justify-between gap-4">
+            <p className="sb-kicker m-0" id="nav-search-title">{en ? 'Search the archive' : 'Caută în arhivă'}</p>
             <button
+              type="button"
               onClick={onClose}
-              className="pill cursor-pointer shrink-0"
-              aria-label={language === 'en' ? 'Close search' : 'Închide căutarea'}
+              className="sb-icon-btn"
+              style={{ width: 40, height: 40 }}
+              aria-label={en ? 'Close search' : 'Închide căutarea'}
             >
-              Esc
+              <X className="sb-ico" />
             </button>
           </div>
+          <div className="relative mt-3">
+            <input
+              ref={inputRef}
+              type="text"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              aria-labelledby="nav-search-title"
+              placeholder={en ? "Try 'Voroneț', 'salt mines', 'Mărțișor'…" : "Încearcă 'Voroneț', 'saline', 'Mărțișor'…"}
+              className="w-full text-[30px] sm:text-[44px]"
+              style={{
+                background: 'transparent',
+                border: 0,
+                borderBottom: '2px solid var(--gold-deep)',
+                borderRadius: 0,
+                padding: '10px 48px 14px 2px',
+                fontFamily: 'var(--display)',
+                fontStyle: 'italic',
+                lineHeight: 1.15,
+                color: 'var(--parchment)',
+              }}
+            />
+            {isSearching ? (
+              <Loader2
+                className="absolute right-2 top-1/2 -translate-y-1/2 w-6 h-6 animate-spin pointer-events-none"
+                style={{ color: 'var(--gold)' }}
+              />
+            ) : (
+              <Search
+                aria-hidden="true"
+                className="absolute right-2 top-1/2 -translate-y-1/2 w-6 h-6 pointer-events-none"
+                style={{ color: 'var(--gold)' }}
+              />
+            )}
+          </div>
+          <p className="sb-meta mt-2.5">
+            {en
+              ? `Accents are optional. Type at least ${SEARCH_MIN_LENGTH} letters.`
+              : `Diacriticele sunt opționale. Scrie cel puțin ${SEARCH_MIN_LENGTH} litere.`}
+          </p>
 
           {/* aria-live: results swap in without any focus change, so a
               screen-reader user previously got no signal that the search had
@@ -530,77 +537,85 @@ const NavSearchOverlay: React.FC<{ onClose: () => void; language: 'en' | 'ro' }>
               JAWS report mutations inside a region they are already observing,
               so the region has to be there first. Caught by e2e/keyboard.spec
               once there was finally a browser to catch it in. */}
-            <div
-              className="overflow-hidden"
-              role="status"
-              aria-live="polite"
-              style={showResults ? { border: '1px solid var(--line)', background: 'var(--ink-2)' } : undefined}
-            >
-              {!showResults ? null : isBelowMinLength ? (
-                <div className="px-4 py-5 text-center font-display italic" style={{ color: 'var(--text-dim)', fontSize: 14 }}>
-                  {language === 'en'
-                    ? `Keep typing — at least ${SEARCH_MIN_LENGTH} characters.`
-                    : `Continuă să scrii — cel puțin ${SEARCH_MIN_LENGTH} caractere.`}
-                </div>
-              ) : isSearching && results.length === 0 ? (
-                <div className="px-4 py-5 flex items-center justify-center gap-2 font-display italic" style={{ color: 'var(--text-dim)', fontSize: 14 }}>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  {language === 'en' ? 'Searching…' : 'Se caută…'}
-                </div>
-              ) : fetchError ? (
-                <div className="px-4 py-5 text-center font-display italic" style={{ color: 'var(--text-dim)', fontSize: 14 }}>
-                  {language === 'en' ? 'Search is unavailable right now.' : 'Căutarea nu este disponibilă acum.'}
-                </div>
-              ) : results.length > 0 ? (
-                results.map((article) => {
-                  const cat = categories.find((c) => c.id === article.categoryId);
-                  const thumb = storageImage(articleCoverUrl(article), "thumb");
-                  return (
-                    <button
-                      key={article.id}
-                      onClick={() => handleSelect(article)}
-                      className="w-full flex items-center gap-3 px-4 py-3 transition-colors text-left focus:outline-none"
-                      style={{ borderBottom: '1px solid var(--line-soft)', background: 'transparent' }}
-                      onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--hover-subtle-strong)')}
-                      onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
-                    >
-                      <div className="h-11 w-11 overflow-hidden shrink-0" style={{ border: '1px solid var(--line)' }}>
-                        {thumb && (
-                          <img
-                            src={thumb}
-                            alt=""
-                            aria-hidden="true"
-                            className="h-full w-full object-cover"
-                          />
-                        )}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p
-                          className="font-display italic m-0 truncate"
-                          style={{ color: 'var(--parchment)', fontSize: 17, lineHeight: 1.2 }}
+          <div
+            role="status"
+            aria-live="polite"
+            className="overflow-y-auto"
+            style={{ marginTop: showResults ? 28 : 0, maxHeight: 'min(56vh, 520px)' }}
+          >
+            {!showResults ? null : isBelowMinLength ? (
+              quiet(en
+                ? `Keep typing — at least ${SEARCH_MIN_LENGTH} characters.`
+                : `Continuă să scrii — cel puțin ${SEARCH_MIN_LENGTH} caractere.`)
+            ) : isSearching && results.length === 0 ? (
+              <p className="px-3 py-6 flex items-center justify-center gap-2 font-display italic m-0" style={{ color: 'var(--text-dim)', fontSize: 19 }}>
+                <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
+                {en ? 'Searching…' : 'Se caută…'}
+              </p>
+            ) : fetchError ? (
+              quiet(en ? 'Search is unavailable right now.' : 'Căutarea nu este disponibilă acum.')
+            ) : results.length > 0 ? (
+              <>
+                <p className="sb-kicker-sm mb-2.5" style={{ color: 'var(--text-dim)' }}>
+                  {en
+                    ? `${countLabel(results.length, 'story', 'en')} found`
+                    : `${countLabel(results.length, 'story', 'ro')} găsite`}
+                </p>
+                <Thread style={{ opacity: 0.35 }} />
+                <ul className="list-none m-0 p-0">
+                  {results.map((article) => {
+                    const cat = categories.find((c) => c.id === article.categoryId);
+                    const thumb = storageImage(articleCoverUrl(article), "thumb");
+                    const where = placeAndTime(article, language) || (cat ? getLocalized(cat, 'name', language) : null);
+                    return (
+                      <li key={article.id}>
+                        <button
+                          type="button"
+                          onClick={() => handleSelect(article)}
+                          className="w-full grid items-center gap-4 sm:gap-5 px-2 sm:px-3 py-3.5 text-left transition-colors grid-cols-[60px_minmax(0,1fr)] sm:grid-cols-[68px_minmax(0,1fr)_auto]"
+                          style={{ background: 'transparent', border: 0, borderRadius: 14, cursor: 'pointer' }}
+                          onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--glow)')}
+                          onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
                         >
-                          {getLocalized(article, 'title', language)}
-                        </p>
-                        {cat && (
-                          <p
-                            className="font-ui text-[10px] uppercase mt-1 truncate"
-                            style={{ letterSpacing: '0.18em', color: 'var(--gold)' }}
-                          >
-                            {getLocalized(cat, 'name', language)}
-                          </p>
-                        )}
-                      </div>
-                    </button>
-                  );
-                })
-              ) : (
-                <div className="px-4 py-5 text-center font-display italic" style={{ color: 'var(--text-dim)', fontSize: 14 }}>
-                  {language === 'en' ? 'No stories found.' : 'Nu am găsit povești.'}
-                </div>
-              )}
+                          <span className="sb-arch sb-arch-thumb block" style={{ aspectRatio: '1' }}>
+                            {thumb && <img src={thumb} alt="" aria-hidden="true" />}
+                          </span>
+                          <span className="flex flex-col gap-1 min-w-0">
+                            {where && <span className="sb-kicker-sm truncate" style={{ fontSize: 16 }}>{where}</span>}
+                            <span className="font-display italic" style={{ color: 'var(--parchment)', fontSize: 23, lineHeight: 1.15 }}>
+                              {getLocalized(article, 'title', language)}
+                            </span>
+                          </span>
+                          <span className="sb-meta hidden sm:block whitespace-nowrap">{kindPhrase(article, language)}</span>
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+                <Thread style={{ opacity: 0.35 }} />
+              </>
+            ) : (
+              quiet(en ? 'No stories found.' : 'Nu am găsit povești.')
+            )}
+          </div>
+
+          {(!showResults || (!isSearching && results.length === 0 && !isBelowMinLength)) && (
+            <div className="flex flex-col items-center gap-3.5 mt-10">
+              <p className="sb-kicker-sm m-0" style={{ color: 'var(--text-dim)' }}>{en ? 'Or wander instead' : 'Sau rătăcește puțin'}</p>
+              <div className="flex flex-wrap justify-center gap-2.5">
+                {categories.slice(0, 2).map((c) => (
+                  <button key={c.id} type="button" className="sb-chip" onClick={() => goTo(`/category/${c.id}`)}>
+                    {getLocalized(c, 'name', language)}
+                  </button>
+                ))}
+                <button type="button" className="sb-chip" onClick={() => goTo('/map')}>{en ? 'Open the map' : 'Deschide harta'}</button>
+                <button type="button" className="sb-chip" onClick={handleRandom}>{en ? 'A story at random' : 'O poveste la întâmplare'}</button>
+              </div>
             </div>
+          )}
         </div>
       </div>
+      <Thread style={{ opacity: 0.28 }} />
     </div>
   );
 };
@@ -611,19 +626,16 @@ const ProfileRow: React.FC<{ num: number; to: string; label: string; sub?: strin
     onClick={onNav}
     className="flex items-center gap-4 px-6 py-3 transition-colors"
     style={{ color: 'var(--text)', textDecoration: 'none' }}
-    onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--hover-subtle-strong)')}
+    onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--glow)')}
     onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
   >
-    <span
-      className="font-display italic"
-      style={{ width: 22, textAlign: 'center', color: 'var(--gold)', fontSize: 15 }}
-    >
-      {String(num).padStart(2, '0')}
+    <span className="sb-numeral" style={{ width: 28, textAlign: 'center', fontSize: 16 }}>
+      {toRoman(num)}
     </span>
     <span className="flex-1 min-w-0">
-      <span className="block font-display italic text-[17px] leading-tight" style={{ color: 'var(--parchment)' }}>{label}</span>
-      {sub && <span className="block font-ui text-[10px] tracking-[0.15em] uppercase mt-1" style={{ color: 'var(--text-mute)' }}>{sub}</span>}
+      <span className="block font-display italic text-[19px] leading-tight" style={{ color: 'var(--parchment)' }}>{label}</span>
+      {sub && <span className="block sb-meta mt-0.5">{sub}</span>}
     </span>
-    <span style={{ color: 'var(--text-mute)' }}>›</span>
+    <span aria-hidden="true" style={{ color: 'var(--text-mute)' }}>›</span>
   </Link>
 );

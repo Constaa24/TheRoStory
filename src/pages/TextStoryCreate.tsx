@@ -28,6 +28,9 @@ import { toast } from "sonner";
 import { isAbortError } from "@/lib/utils";
 import { COUNTIES, LOCATION_NONE } from "@/lib/constants";
 import { getArticleKindLabel } from "@/lib/article-utils";
+import { PlaceTimeFields } from "@/components/organisms/PlaceTimeFields";
+import { StoryNoteFields, EMPTY_NOTE, shouldSendNote, type StoryNoteDraft } from "@/components/organisms/StoryNoteFields";
+import { EMPTY_PLACE_DATE, draftFromArticle, draftToPlaceDate, placeDateErrors, shouldSendPlaceDate, type PlaceDateDraft } from "@/lib/atlas/place-date";
 
 const MIN_CHAPTERS = 1;
 const MAX_CHAPTERS = 10;
@@ -97,8 +100,14 @@ const TextStoryCreate: React.FC = () => {
   const [subtype, setSubtype] = useState<ArticleSubtype>("essay");
   const [publishImmediately, setPublishImmediately] = useState(false);
   const [showErrors, setShowErrors] = useState(false);
+  const [placeDate, setPlaceDate] = useState<PlaceDateDraft>(EMPTY_PLACE_DATE);
+  // Whether the story was read with the place/date columns; see
+  // shouldSendPlaceDate().
+  const placeDateSupportedRef = useRef(false);
+  const [note, setNote] = useState<StoryNoteDraft>(EMPTY_NOTE);
+  const noteSupportedRef = useRef(false);
 
-  const formSnapshot = JSON.stringify({ titleEn, titleRo, categoryId, location, mediaUrl, subtype, chaptersEn, chaptersRo });
+  const formSnapshot = JSON.stringify({ titleEn, titleRo, categoryId, location, mediaUrl, subtype, chaptersEn, chaptersRo, placeDate, note });
   const isDirty = initialSnapshotRef.current !== null && formSnapshot !== initialSnapshotRef.current;
 
   useUnsavedChangesWarning(isDirty && !isSaving);
@@ -147,6 +156,12 @@ const TextStoryCreate: React.FC = () => {
           setMediaStoragePath(article.mediaUrl ? extractStoragePath(article.mediaUrl, 'articles') : null);
           setSubtype((article.subtype as ArticleSubtype | null) || 'essay');
           setPublishImmediately(!!article.isPublished);
+          const loadedPlaceDate = draftFromArticle(article);
+          setPlaceDate(loadedPlaceDate.draft);
+          placeDateSupportedRef.current = loadedPlaceDate.supported;
+          const loadedNote = { en: article.noteEn ?? '', ro: article.noteRo ?? '' };
+          setNote(loadedNote);
+          noteSupportedRef.current = 'noteEn' in article;
           const trimTrailing = (arr: string[]): string[] => {
             const out = [...arr];
             while (out.length > 1 && !out[out.length - 1].trim()) out.pop();
@@ -168,11 +183,13 @@ const TextStoryCreate: React.FC = () => {
             subtype: (article.subtype as ArticleSubtype | null) || 'essay',
             chaptersEn: en,
             chaptersRo: ro,
+            placeDate: loadedPlaceDate.draft,
+            note: loadedNote,
           });
         } else {
           initialSnapshotRef.current = JSON.stringify({
             titleEn: '', titleRo: '', categoryId: '', location: '', mediaUrl: '',
-            subtype: 'essay', chaptersEn: [''], chaptersRo: [''],
+            subtype: 'essay', chaptersEn: [''], chaptersRo: [''], placeDate: EMPTY_PLACE_DATE, note: EMPTY_NOTE,
           });
         }
       } catch (err) {
@@ -268,8 +285,8 @@ const TextStoryCreate: React.FC = () => {
     if (!categoryId) errs.push({ field: "category", message: language === "en" ? "Please choose a category" : "Alege o categorie" });
     const hasContent = chaptersEn.some(c => c.trim() !== "") || chaptersRo.some(c => c.trim() !== "");
     if (!hasContent) errs.push({ field: "content", message: language === "en" ? "Write at least one chapter" : "Scrie cel puțin un capitol" });
-    return errs;
-  }, [titleEn, titleRo, categoryId, chaptersEn, chaptersRo, language]);
+    return [...errs, ...placeDateErrors(placeDate, language)];
+  }, [titleEn, titleRo, categoryId, chaptersEn, chaptersRo, placeDate, language]);
 
   const errorFor = (field: string) => validationErrors.find(e => e.field === field);
 
@@ -299,6 +316,8 @@ const TextStoryCreate: React.FC = () => {
         categoryId,
         location: location || undefined,
         mediaUrl: mediaUrl || null,
+        ...(shouldSendPlaceDate(placeDate, placeDateSupportedRef.current) ? { placeDate: draftToPlaceDate(placeDate) } : {}),
+        ...(shouldSendNote(note, noteSupportedRef.current) ? { note: { en: note.en, ro: note.ro } } : {}),
       };
 
       // publishImmediately is loaded from the article and only togglable by
@@ -662,7 +681,7 @@ const TextStoryCreate: React.FC = () => {
                           rows={8}
                           value={chaptersEn[index]}
                           onChange={(e) => updateChapter('en', index, e.target.value)}
-                          placeholder={language === 'en' ? 'Write this chapter in English. Wrap a paragraph with > to make it a pull quote.' : 'Scrie acest capitol în engleză. Începe un paragraf cu > pentru un citat scos în evidență.'}
+                          placeholder={language === 'en' ? 'Write this chapter in English. Start a paragraph with > to make it a pull quote. A first line “# A title” names the chapter.' : 'Scrie acest capitol în engleză. Începe un paragraf cu > pentru un citat scos în evidență. Un prim rând „# Un titlu” denumește capitolul.'}
                           maxLength={PER_CHAPTER_MAX}
                           style={{ resize: 'vertical', fontFamily: 'var(--serif)', fontSize: 15, lineHeight: 1.65 }}
                         />
@@ -675,7 +694,7 @@ const TextStoryCreate: React.FC = () => {
                           rows={8}
                           value={chaptersRo[index]}
                           onChange={(e) => updateChapter('ro', index, e.target.value)}
-                          placeholder={language === 'en' ? 'Write this chapter in Romanian.' : 'Scrie acest capitol în română.'}
+                          placeholder={language === 'en' ? 'Write this chapter in Romanian. A first line “# Un titlu” names it.' : 'Scrie acest capitol în română. Un prim rând „# Un titlu” îl denumește.'}
                           maxLength={PER_CHAPTER_MAX}
                           style={{ resize: 'vertical', fontFamily: 'var(--serif)', fontSize: 15, lineHeight: 1.65 }}
                         />
@@ -693,6 +712,17 @@ const TextStoryCreate: React.FC = () => {
                   ? `Up to ${MAX_CHAPTERS} chapters. Empty trailing chapters are removed automatically on save.`
                   : `Până la ${MAX_CHAPTERS} capitole. Capitolele goale de la final sunt eliminate automat la salvare.`}
               </p>
+
+              <PlaceTimeFields
+                value={placeDate}
+                onChange={setPlaceDate}
+                county={location}
+                onCountyChange={setLocation}
+                errorFor={(field) => (showErrors ? errorFor(field)?.message : undefined)}
+                language={language}
+              />
+
+              <StoryNoteFields value={note} onChange={setNote} language={language} />
             </div>
           </div>
         </div>

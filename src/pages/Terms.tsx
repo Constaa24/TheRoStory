@@ -1,6 +1,7 @@
 import React from "react";
 import { useLanguage } from "@/hooks/use-language";
-import { PageHead } from "@/components/layout/PageHead";
+import { Link } from "react-router-dom";
+import { LegalPage } from "@/components/story/LegalPage";
 
 const Terms: React.FC = () => {
   const { language } = useLanguage();
@@ -134,48 +135,49 @@ const Terms: React.FC = () => {
   };
 
   const c = content[language];
+  const en = language === 'en';
+
+  // Verbatim excerpts — see LegalPage.
+  const glance = en
+    ? [
+        { quote: 'The RoStory is free to read and will stay that way.', from: 'Donations' },
+        { quote: 'When you post a comment, you keep ownership of what you wrote…', from: 'Your content' },
+        { quote: 'You must be at least 13 years old to create an account.', from: 'Your account' },
+      ]
+    : [
+        { quote: 'The RoStory se citește gratuit și așa va rămâne.', from: 'Donații' },
+        { quote: 'Când postezi un comentariu, păstrezi dreptul de proprietate asupra a ceea ce ai scris…', from: 'Conținutul tău' },
+        { quote: 'Trebuie să ai cel puțin 13 ani pentru a crea un cont.', from: 'Contul tău' },
+      ];
 
   return (
-    <div className="screen-anim pb-20">
-      <PageHead title={c.title} description={c.subtitle} language={language} />
-
-      <section style={{ padding: '80px 0 56px', borderBottom: '1px solid var(--line-soft)' }}>
-        <div className="ed-container">
-          <div className="eyebrow mb-4">{language === 'en' ? 'Legal' : 'Legal'}</div>
-          <h1
-            className="font-display italic font-medium m-0"
-            style={{ fontSize: 'clamp(56px, 8vw, 120px)', lineHeight: 0.95, letterSpacing: '-0.01em', color: 'var(--parchment)' }}
-          >
-            {c.title}
-          </h1>
-          <p className="mt-7 max-w-[540px]" style={{ fontSize: 19, color: 'var(--text-dim)', lineHeight: 1.55 }}>
-            {c.subtitle}
-          </p>
-        </div>
-      </section>
-
-      <section style={{ padding: '60px 0 100px' }}>
-        <div className="ed-container">
-          <div className="max-w-[760px] mx-auto">
-            <p className="font-ui text-[11px] uppercase mb-12" style={{ letterSpacing: '0.18em', color: 'var(--gold)' }}>
-              {c.lastUpdated}
-            </p>
-            <div className="flex flex-col gap-12">
-              {c.sections.map((section, i) => (
-                <section key={i}>
-                  <h2 className="font-display italic font-medium m-0 mb-4" style={{ fontSize: 28, lineHeight: 1.15, color: 'var(--parchment)' }}>
-                    {section.heading}
-                  </h2>
-                  <p className="m-0" style={{ fontSize: 17, color: 'var(--text)', lineHeight: 1.75, fontFamily: 'var(--serif)' }}>
-                    {section.body}
-                  </p>
-                </section>
-              ))}
-            </div>
+    <LegalPage
+      language={language}
+      current="terms"
+      title={c.title}
+      subtitle={c.subtitle}
+      lastUpdated={lastUpdated}
+      sections={c.sections}
+      glance={glance}
+      aside={
+        <>
+          <div className="sb-place-card">
+            <p className="sb-kicker-sm">{en ? 'Questions about these terms?' : 'Întrebări despre acești termeni?'}</p>
+            <a href="mailto:support@therostory.com" className="sb-link text-[17px]">support@therostory.com</a>
+            <Link to="/contact-us" className="sb-btn-word" style={{ fontSize: 19 }}>{en ? 'Or write to us →' : 'Sau scrie-ne →'}</Link>
           </div>
-        </div>
-      </section>
-    </div>
+          <div className="sb-place-card">
+            <p className="sb-kicker-sm">{en ? 'Free to read, always' : 'Gratuit de citit, mereu'}</p>
+            <p className="sb-dim text-[16px] leading-relaxed">
+              {en
+                ? 'Donations are voluntary — “Donations” explains what they do and don’t buy.'
+                : 'Donațiile sunt voluntare — „Donații” explică ce cumpără și ce nu.'}
+            </p>
+            <Link to="/support" className="sb-btn sb-btn-ghost justify-self-start">{en ? 'Support the archive' : 'Susține arhiva'}</Link>
+          </div>
+        </>
+      }
+    />
   );
 };
 

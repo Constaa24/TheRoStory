@@ -33,6 +33,17 @@ const COLUMN_MAP: Record<string, string> = {
   location: 'location',
   mediaUrls: 'media_urls',
   mediaCaptions: 'media_captions',
+  placeNameEn: 'place_name_en',
+  placeNameRo: 'place_name_ro',
+  yearStart: 'year_start',
+  yearEnd: 'year_end',
+  eraLabelEn: 'era_label_en',
+  eraLabelRo: 'era_label_ro',
+  introEn: 'intro_en',
+  introRo: 'intro_ro',
+  sortOrder: 'sort_order',
+  noteEn: 'note_en',
+  noteRo: 'note_ro',
 };
 
 const REVERSE_MAP: Record<string, string> = Object.fromEntries(
@@ -91,8 +102,35 @@ export type Article = {
   mediaUrls?: string[];
   mediaCaptions?: MediaCaption[];
   location?: string;
+  // Atlas place and date (migration 20261031120000). Absent — not merely
+  // null — on rows read before that migration ran.
+  lat?: number | null;
+  lng?: number | null;
+  placeNameEn?: string | null;
+  placeNameRo?: string | null;
+  yearStart?: number | null;
+  yearEnd?: number | null;
+  eraLabelEn?: string | null;
+  eraLabelRo?: string | null;
+  timeless?: boolean;
+  // Optional "About this story" note (migration 20261101090000).
+  noteEn?: string | null;
+  noteRo?: string | null;
   createdAt: string;
   updatedAt?: string;
+};
+
+/** A curated walk through stories, shown on the Atlas. */
+export type Journey = {
+  id: string;
+  titleEn: string;
+  titleRo: string;
+  introEn: string;
+  introRo: string;
+  sortOrder: number;
+  isPublished: boolean;
+  /** Article ids in walking order. */
+  stops: string[];
 };
 
 export type Comment = {
@@ -157,6 +195,7 @@ let _categoryCountsCache: { data: Record<string, number>; time: number } | null 
 export const invalidatePublicContentCache = () => {
   _categoriesCache = null;
   _categoryCountsCache = null;
+  _archiveIndexCache = null;
 };
 
 /**
@@ -202,47 +241,229 @@ export const fetchArticleCategoryCounts = async (): Promise<Record<string, numbe
   return counts;
 };
 
-/**
- * Targeted fetcher for the map view. Pulls only the columns the map actually
- * renders (location, type, thumbnails, title) and only rows that have a
- * `location`. Replaces a full all-articles round-trip that was
- * pulling up to 500 articles just to compute county counts.
- *
- * `content_en` / `content_ro` are intentionally NOT selected — the map side
- * panel renders title + thumbnail only, and pulling content was wasting
- * hundreds of KB per page load.
- */
-export const fetchMapArticles = async (): Promise<Article[]> => {
-  // Paged rather than a flat .limit(2000): the map derives per-county counts
-  // from these rows, so a truncated result silently under-reports every
-  // county once the located archive passes the cap — with nothing to signal
-  // it. PostgREST also caps unbounded selects at `max-rows` (1000 by
-  // default), which is below the old limit anyway.
-  const PAGE = 1000;
-  const MAX_PAGES = 50; // 50k located articles; a guard, not a real limit
-  const rows: Record<string, unknown>[] = [];
+export type ArchiveEntry = Pick<Article, 'id' | 'categoryId' | 'location' | 'titleEn' | 'titleRo'>;
 
+let _archiveIndexCache: { data: ArchiveEntry[]; time: number } | null = null;
+
+/**
+ * A one-line index of every published story, newest first: id, shelf,
+ * county and title. What the storybook pages count and quote from ("25
+ * stories, from 16 counties", a shelf's "Inside: …" line) without pulling
+ * covers or content. Paged for the same reason as the counts above.
+ */
+export const fetchArchiveIndex = async (): Promise<ArchiveEntry[]> => {
+  if (_archiveIndexCache && Date.now() - _archiveIndexCache.time < CACHE_TTL) {
+    return _archiveIndexCache.data;
+  }
+  const PAGE = 1000;
+  const MAX_PAGES = 100;
+  const rows: Record<string, unknown>[] = [];
   for (let page = 0; page < MAX_PAGES; page++) {
     const from = page * PAGE;
     const { data, error } = await supabase
       .from('articles')
-      .select('id, title_en, title_ro, type, subtype, media_url, poster_url, media_urls, location, category_id, user_id, is_published, created_at')
+      .select('id, category_id, location, title_en, title_ro')
       .eq('is_published', true)
-      .not('location', 'is', null)
       .order('created_at', { ascending: false })
-      // Tiebreaker on the primary key: created_at is not unique, and rows
-      // sharing a timestamp can land in a different relative order per
-      // query, which lets a row appear twice or not at all across pages.
+      // See PAGINATION_TIEBREAKER note above fetchArticlesPage.
       .order('id', { ascending: true })
       .range(from, from + PAGE - 1);
     if (error) throw error;
-
-    const batch = data || [];
+    const batch = (data || []) as Record<string, unknown>[];
     rows.push(...batch);
     if (batch.length < PAGE) break;
   }
+  const data = toCamelCaseArray<ArchiveEntry>(rows);
+  _archiveIndexCache = { data, time: Date.now() };
+  return data;
+};
 
-  return toCamelCaseArray<Article>(rows);
+const ATLAS_BASE_COLUMNS =
+  'id, title_en, title_ro, type, subtype, media_url, poster_url, media_urls, location, category_id, created_at';
+const ATLAS_PLACE_COLUMNS =
+  'lat, lng, place_name_en, place_name_ro, year_start, year_end, era_label_en, era_label_ro, timeless';
+
+/** Postgres "undefined column": the select named a column the table lacks. */
+const isMissingColumn = (error: unknown): boolean =>
+  (error as { code?: string } | null)?.code === '42703';
+
+/** PostgREST / Postgres "no such table". */
+const isMissingTable = (error: unknown): boolean => {
+  const code = (error as { code?: string } | null)?.code;
+  return code === 'PGRST205' || code === '42P01';
+};
+
+/**
+ * Every published story with what the Atlas draws: title, format, cover,
+ * county, and the exact place and dates when the story has them. Unlike the
+ * old map, stories without a county are included too: a timeless myth told
+ * across the country belongs on the timeline and in the list even with no
+ * pin. `content_en` / `content_ro` are never selected; the card fetches one
+ * story's excerpt on demand (fetchArticleExcerptSource).
+ *
+ * `hasPlaceData` is false when the place/date columns do not exist yet (the
+ * code shipped before migration 20261031120000 ran). The Atlas then pins
+ * every story to its county instead of failing.
+ */
+export const fetchAtlasArticles = async (): Promise<{ articles: Article[]; hasPlaceData: boolean }> => {
+  // Paged: PostgREST caps unbounded selects at `max-rows` (1000 by default)
+  // and truncates silently, which would quietly drop pins from the map.
+  const PAGE = 1000;
+  const MAX_PAGES = 50; // 50k stories; a guard, not a real limit
+
+  const fetchAll = async (columns: string) => {
+    const rows: Record<string, unknown>[] = [];
+    for (let page = 0; page < MAX_PAGES; page++) {
+      const from = page * PAGE;
+      const { data, error } = await supabase
+        .from('articles')
+        .select(columns)
+        .eq('is_published', true)
+        .order('created_at', { ascending: false })
+        // See PAGINATION_TIEBREAKER note above fetchArticlesPage.
+        .order('id', { ascending: true })
+        .range(from, from + PAGE - 1);
+      if (error) throw error;
+      const batch = (data || []) as unknown as Record<string, unknown>[];
+      rows.push(...batch);
+      if (batch.length < PAGE) break;
+    }
+    return toCamelCaseArray<Article>(rows);
+  };
+
+  try {
+    return { articles: await fetchAll(`${ATLAS_BASE_COLUMNS}, ${ATLAS_PLACE_COLUMNS}`), hasPlaceData: true };
+  } catch (error) {
+    if (!isMissingColumn(error)) throw error;
+    return { articles: await fetchAll(ATLAS_BASE_COLUMNS), hasPlaceData: false };
+  }
+};
+
+/**
+ * Both bodies of one published story, for the Atlas card's excerpt. One row
+ * at a time and only when a reader opens that card, so the map itself never
+ * pays for content.
+ */
+export const fetchArticleExcerptSource = async (id: string): Promise<{ en: string; ro: string } | null> => {
+  const { data, error } = await supabase
+    .from('articles')
+    .select('content_en, content_ro')
+    .eq('id', id)
+    .eq('is_published', true)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) return null;
+  return { en: data.content_en || '', ro: data.content_ro || '' };
+};
+
+type JourneyRow = Record<string, unknown> & {
+  journey_stops?: { article_id: string; position: number }[] | null;
+};
+
+const toJourney = (row: JourneyRow): Journey => {
+  const { journey_stops: stops, ...rest } = row;
+  const base = toCamelCase<Omit<Journey, 'stops'>>(rest);
+  return {
+    ...base,
+    stops: (stops || []).slice().sort((a, b) => a.position - b.position).map((s) => s.article_id),
+  };
+};
+
+const JOURNEY_COLUMNS =
+  'id, title_en, title_ro, intro_en, intro_ro, sort_order, is_published, journey_stops(article_id, position)';
+
+/**
+ * Published journeys with their stops in order. RLS only returns stops whose
+ * story is published, so a draft never shows up as a gap mid-journey.
+ * Returns [] when the journeys table does not exist yet.
+ */
+export const fetchJourneys = async (): Promise<Journey[]> => {
+  const { data, error } = await supabase
+    .from('journeys')
+    .select(JOURNEY_COLUMNS)
+    .eq('is_published', true)
+    .order('sort_order', { ascending: true })
+    .order('id', { ascending: true });
+  if (error) {
+    if (isMissingTable(error)) return [];
+    throw error;
+  }
+  return ((data || []) as unknown as JourneyRow[]).map(toJourney);
+};
+
+/**
+ * Every journey, drafts included, for the dashboard. Admin-only by RLS.
+ * Null — not [] — when the journeys table does not exist yet, so the
+ * dashboard can say the migration is missing rather than show an empty list.
+ */
+export const fetchAdminJourneys = async (): Promise<Journey[] | null> => {
+  const { data, error } = await supabase
+    .from('journeys')
+    .select(JOURNEY_COLUMNS)
+    .order('sort_order', { ascending: true })
+    .order('id', { ascending: true });
+  if (error) {
+    if (isMissingTable(error)) return null;
+    throw error;
+  }
+  return ((data || []) as unknown as JourneyRow[]).map(toJourney);
+};
+
+export const JOURNEY_LIMITS = {
+  ID_MAX: 60,
+  TITLE_MAX: 120,
+  INTRO_MAX: 600,
+  STOPS_MAX: 50,
+} as const;
+
+/** The slug shape the journeys table enforces: lowercase words joined by hyphens. */
+export const JOURNEY_ID_PATTERN = /^[a-z0-9]+(-[a-z0-9]+)*$/;
+
+/**
+ * Creates or updates a journey and replaces its stops. `originalId` is the
+ * id the journey was loaded with; a different `id` renames it (the stops
+ * follow through ON UPDATE CASCADE).
+ */
+export const saveJourney = async (journey: Journey, originalId?: string): Promise<void> => {
+  const titleEn = journey.titleEn.trim();
+  const titleRo = journey.titleRo.trim();
+  if (!JOURNEY_ID_PATTERN.test(journey.id) || journey.id.length > JOURNEY_LIMITS.ID_MAX) {
+    throw new Error('Journey id must be lowercase words joined by hyphens');
+  }
+  if (!titleEn || !titleRo) throw new Error('Both titles are required');
+  assertLen(titleEn, JOURNEY_LIMITS.TITLE_MAX, 'Title (English)');
+  assertLen(titleRo, JOURNEY_LIMITS.TITLE_MAX, 'Title (Romanian)');
+  assertLen(journey.introEn, JOURNEY_LIMITS.INTRO_MAX, 'Intro (English)');
+  assertLen(journey.introRo, JOURNEY_LIMITS.INTRO_MAX, 'Intro (Romanian)');
+  if (journey.stops.length > JOURNEY_LIMITS.STOPS_MAX) {
+    throw new Error(`Too many stops (max ${JOURNEY_LIMITS.STOPS_MAX})`);
+  }
+  if (new Set(journey.stops).size !== journey.stops.length) throw new Error('A story can appear only once per journey');
+
+  const row = {
+    id: journey.id,
+    title_en: titleEn,
+    title_ro: titleRo,
+    intro_en: journey.introEn.trim(),
+    intro_ro: journey.introRo.trim(),
+    sort_order: journey.sortOrder,
+    is_published: journey.isPublished,
+  };
+  const { error } = originalId
+    ? await supabase.from('journeys').update(row).eq('id', originalId)
+    : await supabase.from('journeys').insert(row);
+  if (error) throw error;
+
+  const { error: stopsError } = await supabase.rpc('set_journey_stops', {
+    p_journey_id: journey.id,
+    p_article_ids: journey.stops,
+  });
+  if (stopsError) throw stopsError;
+};
+
+export const deleteJourney = async (id: string): Promise<void> => {
+  const { error } = await supabase.from('journeys').delete().eq('id', id);
+  if (error) throw error;
 };
 
 /**
@@ -252,6 +473,58 @@ export const fetchMapArticles = async (): Promise<Article[]> => {
  */
 const ARTICLE_CARD_COLUMNS =
   'id, title_en, title_ro, type, subtype, media_url, poster_url, media_urls, location, category_id, user_id, is_published, created_at';
+
+let placeColumnsProbe: Promise<boolean> | null = null;
+
+/**
+ * Whether the articles table has the place/date columns yet (migration
+ * 20261031120000). Asked once per page load, with the cheapest possible
+ * query; a transient failure is not remembered, so the next caller asks
+ * again rather than hiding every card's place for the rest of the visit.
+ */
+export const hasPlaceColumns = (): Promise<boolean> => {
+  placeColumnsProbe ??= (async () => {
+    const { error } = await supabase.from('articles').select('timeless').limit(1);
+    if (!error) return true;
+    if (!isMissingColumn(error)) placeColumnsProbe = null;
+    return false;
+  })();
+  return placeColumnsProbe;
+};
+
+/** Card columns, plus place and date when the database has them. */
+const cardColumns = async (): Promise<string> =>
+  (await hasPlaceColumns()) ? `${ARTICLE_CARD_COLUMNS}, ${ATLAS_PLACE_COLUMNS}` : ARTICLE_CARD_COLUMNS;
+
+/**
+ * Published stories from the same county as the one being read — the story
+ * page's "nearby" card. Newest first.
+ */
+export const fetchNearbyArticles = async (location: string, excludeId: string, limit = 2): Promise<Article[]> => {
+  const { data, error } = await supabase
+    .from('articles')
+    .select(await cardColumns())
+    .eq('is_published', true)
+    .eq('location', location)
+    .neq('id', excludeId)
+    .order('created_at', { ascending: false })
+    .order('id', { ascending: true })
+    .limit(limit);
+  if (error) throw error;
+  return toCamelCaseArray<Article>((data || []) as unknown as Record<string, unknown>[]);
+};
+
+/** Card rows for specific published stories (a journey's neighbouring stops). */
+export const fetchArticleCardsByIds = async (ids: string[]): Promise<Article[]> => {
+  if (!ids.length) return [];
+  const { data, error } = await supabase
+    .from('articles')
+    .select(await cardColumns())
+    .eq('is_published', true)
+    .in('id', ids);
+  if (error) throw error;
+  return toCamelCaseArray<Article>((data || []) as unknown as Record<string, unknown>[]);
+};
 
 /**
  * Fetches up to `limit` published articles related to the given one.
@@ -267,18 +540,19 @@ export const fetchRelatedArticles = async (
 ): Promise<Article[]> => {
   if (limit <= 0) return [];
   try {
+    const columns = await cardColumns();
     let sameCategory: Article[] = [];
     if (categoryId) {
       const { data, error } = await supabase
         .from('articles')
-        .select(ARTICLE_CARD_COLUMNS)
+        .select(columns)
         .eq('is_published', true)
         .eq('category_id', categoryId)
         .neq('id', excludeId)
         .order('created_at', { ascending: false })
         .limit(limit);
       if (error) throw error;
-      sameCategory = toCamelCaseArray<Article>(data || []);
+      sameCategory = toCamelCaseArray<Article>((data || []) as unknown as Record<string, unknown>[]);
     }
 
     const remaining = limit - sameCategory.length;
@@ -288,7 +562,7 @@ export const fetchRelatedArticles = async (
     // the category we already pulled from, so we don't risk dupes.
     let supplementalQuery = supabase
       .from('articles')
-      .select(ARTICLE_CARD_COLUMNS)
+      .select(columns)
       .eq('is_published', true)
       .neq('id', excludeId)
       .order('created_at', { ascending: false })
@@ -298,7 +572,7 @@ export const fetchRelatedArticles = async (
     }
     const { data: supplementalData, error: supplementalError } = await supplementalQuery;
     if (supplementalError) throw supplementalError;
-    return [...sameCategory, ...toCamelCaseArray<Article>(supplementalData || [])];
+    return [...sameCategory, ...toCamelCaseArray<Article>((supplementalData || []) as unknown as Record<string, unknown>[])];
   } catch (error) {
     if (!isAbortError(error)) {
       console.error('Error fetching related articles:', error);
@@ -314,14 +588,14 @@ export const fetchRelatedArticles = async (
 export const fetchLatestArticleCards = async (limit: number): Promise<Article[]> => {
   const { data, error } = await supabase
     .from('articles')
-    .select(ARTICLE_CARD_COLUMNS)
+    .select(await cardColumns())
     .eq('is_published', true)
     .order('created_at', { ascending: false })
     // See PAGINATION_TIEBREAKER note above fetchArticlesPage.
     .order('id', { ascending: true })
     .limit(limit);
   if (error) throw error;
-  return toCamelCaseArray<Article>(data || []);
+  return toCamelCaseArray<Article>((data || []) as unknown as Record<string, unknown>[]);
 };
 
 /**
@@ -385,6 +659,108 @@ export type NewArticleInput = {
   posterUrl?: string | null;
   mediaUrls?: string[];
   mediaCaptions?: MediaCaption[];
+  /**
+   * Atlas place and date. Omit to leave the columns untouched — which is
+   * also what keeps saves working against a database that predates them.
+   */
+  placeDate?: ArticlePlaceDate;
+  /**
+   * "About this story". Omit to leave the columns untouched, for the same
+   * reason as placeDate.
+   */
+  note?: { en: string | null; ro: string | null };
+};
+
+export type ArticlePlaceDate = {
+  lat: number | null;
+  lng: number | null;
+  placeNameEn: string | null;
+  placeNameRo: string | null;
+  yearStart: number | null;
+  yearEnd: number | null;
+  eraLabelEn: string | null;
+  eraLabelRo: string | null;
+  timeless: boolean;
+};
+
+/**
+ * The same rules the articles table's CHECK constraints enforce
+ * (migration 20261031120000), so a bad value fails here with a readable
+ * message instead of as a constraint name from Postgres.
+ */
+export const PLACE_DATE_LIMITS = {
+  PLACE_NAME_MAX: 120,
+  ERA_LABEL_MAX: 80,
+  YEAR_MIN: -3000,
+  YEAR_MAX: 2100,
+  // A box around Romania. The Atlas draws nothing else, and the box
+  // catches swapped coordinates.
+  LAT_MIN: 43.5,
+  LAT_MAX: 48.5,
+  LNG_MIN: 20,
+  LNG_MAX: 30.5,
+} as const;
+
+export const validatePlaceDate = (p: ArticlePlaceDate): void => {
+  const L = PLACE_DATE_LIMITS;
+  if ((p.lat == null) !== (p.lng == null)) throw new Error('Set both latitude and longitude, or neither');
+  if (p.lat != null && p.lng != null) {
+    if (!Number.isFinite(p.lat) || p.lat < L.LAT_MIN || p.lat > L.LAT_MAX) throw new Error(`Latitude must be between ${L.LAT_MIN} and ${L.LAT_MAX}`);
+    if (!Number.isFinite(p.lng) || p.lng < L.LNG_MIN || p.lng > L.LNG_MAX) throw new Error(`Longitude must be between ${L.LNG_MIN} and ${L.LNG_MAX}`);
+  }
+  if (p.placeNameEn) assertLen(p.placeNameEn, L.PLACE_NAME_MAX, 'Place name (English)');
+  if (p.placeNameRo) assertLen(p.placeNameRo, L.PLACE_NAME_MAX, 'Place name (Romanian)');
+  if (p.eraLabelEn) assertLen(p.eraLabelEn, L.ERA_LABEL_MAX, 'Period label (English)');
+  if (p.eraLabelRo) assertLen(p.eraLabelRo, L.ERA_LABEL_MAX, 'Period label (Romanian)');
+  const isYear = (y: number) => Number.isInteger(y) && y >= L.YEAR_MIN && y <= L.YEAR_MAX;
+  if (p.yearStart != null && !isYear(p.yearStart)) throw new Error(`Start year must be a whole year between ${L.YEAR_MIN} and ${L.YEAR_MAX}`);
+  if (p.yearEnd != null) {
+    if (p.yearStart == null) throw new Error('An end year needs a start year');
+    if (!isYear(p.yearEnd) || p.yearEnd < p.yearStart) throw new Error('End year must not be before the start year');
+  }
+  if (p.timeless && (p.yearStart != null || p.yearEnd != null)) throw new Error('A timeless story has no years');
+};
+
+const placeDateRow = (p: ArticlePlaceDate): Record<string, unknown> => {
+  validatePlaceDate(p);
+  const text = (v: string | null) => v?.trim() || null;
+  return {
+    lat: p.lat,
+    lng: p.lng,
+    place_name_en: text(p.placeNameEn),
+    place_name_ro: text(p.placeNameRo),
+    year_start: p.yearStart,
+    year_end: p.yearEnd,
+    era_label_en: text(p.eraLabelEn),
+    era_label_ro: text(p.eraLabelRo),
+    timeless: p.timeless,
+  };
+};
+
+/**
+ * PostgREST answers a write naming an unknown column with PGRST204. Before
+ * the Atlas migration has run that is the only way a place/date save can
+ * fail, so say what is actually wrong.
+ */
+const explainPlaceDateError = (error: unknown): unknown => {
+  const e = error as { code?: string; message?: string } | null;
+  if (e?.code === 'PGRST204' && /lat|lng|place_name|year_|era_label|timeless/.test(e.message || '')) {
+    return new Error('Place and date can be saved once the Atlas database update (migration 20261031120000) has been applied.');
+  }
+  if (e?.code === 'PGRST204' && /note_/.test(e.message || '')) {
+    return new Error('“About this story” can be saved once the database update (migration 20261101090000) has been applied.');
+  }
+  return error;
+};
+
+export const NOTE_MAX = 800;
+
+const noteRow = (note: { en: string | null; ro: string | null }): Record<string, unknown> => {
+  const en = note.en?.trim() || null;
+  const ro = note.ro?.trim() || null;
+  if (en) assertLen(en, NOTE_MAX, 'About this story (English)');
+  if (ro) assertLen(ro, NOTE_MAX, 'About this story (Romanian)');
+  return { note_en: en, note_ro: ro };
 };
 
 // Article field caps. The DB has no length constraints, so a malicious or
@@ -463,10 +839,12 @@ export const createArticle = async (input: NewArticleInput): Promise<{ id: strin
     // publishes as an article:modified_time *earlier* than its
     // article:published_time. It also made the archive's sort key
     // client-controlled for no benefit.
+    ...(input.placeDate ? placeDateRow(input.placeDate) : {}),
+    ...(input.note ? noteRow(input.note) : {}),
   };
 
   const { error } = await supabase.from('articles').insert(row);
-  if (error) throw error;
+  if (error) throw explainPlaceDateError(error);
 
   invalidatePublicContentCache();
   return { id };
@@ -518,10 +896,12 @@ export const updateArticle = async (input: UpdateArticleInput): Promise<void> =>
     media_captions: input.mediaCaptions ?? null,
     subtype: input.type === 'text' ? (input.subtype ?? null) : null,
     is_published: input.isPublished,
+    ...(input.placeDate ? placeDateRow(input.placeDate) : {}),
+    ...(input.note ? noteRow(input.note) : {}),
   };
 
   const { error } = await supabase.from('articles').update(updates).eq('id', input.id);
-  if (error) throw error;
+  if (error) throw explainPlaceDateError(error);
 
   invalidatePublicContentCache();
 };

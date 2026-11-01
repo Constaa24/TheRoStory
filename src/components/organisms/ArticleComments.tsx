@@ -11,8 +11,6 @@ import {
 } from "@/lib/supabase";
 import { isAbortError } from "@/lib/utils";
 import { formatArticleDate, countLabel } from "@/lib/article-utils";
-import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -24,7 +22,8 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
-import { Send, MessageSquare, Pencil, Trash2, Check, X } from "lucide-react";
+import { Send, Pencil, Trash2, Check, X } from "lucide-react";
+import { Divider } from "@/components/story/Ornaments";
 
 interface Props {
   articleId: string;
@@ -299,152 +298,99 @@ export const ArticleComments: React.FC<Props> = ({ articleId }) => {
     }
   };
 
+  const en = language === "en";
+  const composeId = `note-${articleId}`;
+
   return (
-    <section className="no-print" style={{ padding: "80px 0", borderTop: "1px solid var(--line-soft)" }}>
-      <div className="ed-container">
-        <div className="max-w-[760px] mx-auto">
-          <div className="flex items-center gap-3 mb-3">
-            <MessageSquare className="w-4 h-4" style={{ color: "var(--gold)" }} />
-            <div className="eyebrow">
-              {language === "en" ? "The conversation" : "Conversația"}
-            </div>
-          </div>
-          <h2
-            className="font-display italic font-medium m-0"
-            style={{
-              fontSize: "clamp(32px, 4vw, 48px)",
-              lineHeight: 1.05,
-              color: "var(--parchment)",
-            }}
-          >
+    <section className="no-print sb-band">
+      <div className="ed-container" style={{ paddingTop: "clamp(64px, 8vw, 88px)", paddingBottom: "clamp(64px, 8vw, 88px)" }}>
+        <div className="sb-measure flex flex-col gap-6">
+          <p className="sb-kicker">{en ? "Notes from readers" : "Note de la cititori"}</p>
+          <h2 className="sb-h2" style={{ fontSize: "clamp(30px, 3.2vw, 44px)" }}>
             {commentsTotal === 0
-              ? language === "en"
-                ? "No replies yet."
-                : "Niciun răspuns încă."
-              : countLabel(commentsTotal, "reply", language)}
+              ? (en ? "Leave the first note." : "Lasă prima notă.")
+              : countLabel(commentsTotal, "note", language)}
           </h2>
 
           {/* Compose */}
-          <div className="mt-10">
-            {user ? (
-              <div
-                className="p-6"
-                style={{
-                  border: "1px solid var(--line)",
-                  background: "var(--overlay-panel-soft)",
-                }}
-              >
-                <Textarea
-                  placeholder={
-                    language === "en"
-                      ? "Share your thoughts on this story…"
-                      : "Împărtășește-ți gândurile despre această poveste…"
-                  }
+          {user ? (
+            <div className="grid gap-3">
+              <div className="sb-field">
+                <label htmlFor={composeId} className="sb-label">
+                  {en ? "Leave a note for the next reader" : "Lasă o notă pentru următorul cititor"}
+                </label>
+                <textarea
+                  id={composeId}
+                  className="sb-input"
+                  placeholder={en ? "A memory, a detail we missed, a question…" : "O amintire, un detaliu care ne-a scăpat, o întrebare…"}
                   value={newComment}
                   onChange={(e) => setNewComment(e.target.value)}
-                  className="bg-transparent border-line min-h-[100px] font-serif"
+                  style={{ minHeight: 130 }}
                   maxLength={2000}
                 />
-                <div className="flex items-center justify-between mt-3">
-                  <span
-                    className="font-ui text-[11px]"
-                    style={{ color: "var(--text-mute)", letterSpacing: "0.12em" }}
-                  >
-                    {newComment.length}/2000
-                  </span>
-                  <Button
-                    onClick={handlePost}
-                    disabled={isPosting || !newComment.trim()}
-                    className="rounded-full font-display italic"
-                    size="sm"
-                  >
-                    {isPosting
-                      ? language === "en"
-                        ? "Posting…"
-                        : "Se postează…"
-                      : language === "en"
-                      ? "Post comment"
-                      : "Postează"}
-                    <Send className="ml-2 h-3.5 w-3.5" />
-                  </Button>
-                </div>
               </div>
-            ) : (
-              <div
-                className="p-6 flex flex-wrap items-center justify-between gap-4"
-                style={{
-                  border: "1px solid var(--line)",
-                  background: "var(--overlay-panel-soft)",
-                }}
-              >
-                <p
-                  className="font-display italic m-0"
-                  style={{ fontSize: 18, color: "var(--text-dim)" }}
-                >
-                  {language === "en"
-                    ? "Sign in to join the conversation."
-                    : "Autentifică-te pentru a te alătura conversației."}
+              <div className="flex flex-wrap items-center justify-between gap-3.5">
+                <p className="sb-meta">
+                  {en ? "Signed in as " : "Autentificat ca "}{user.displayName || user.email}
+                  {en ? " · notes are public" : " · notele sunt publice"}
+                  {" · "}{newComment.length}/2000
                 </p>
-                <Button onClick={login} className="rounded-full font-display italic" size="sm">
-                  {language === "en" ? "Sign in" : "Autentificare"}
-                </Button>
+                <button type="button" className="sb-btn" onClick={handlePost} disabled={isPosting || !newComment.trim()}>
+                  {isPosting ? (en ? "Leaving it…" : "Se lasă…") : (en ? "Leave the note" : "Lasă nota")}
+                  <Send className="sb-ico" aria-hidden="true" />
+                </button>
               </div>
-            )}
-          </div>
+            </div>
+          ) : (
+            <div className="sb-place-card sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+              <p className="font-display italic m-0" style={{ fontSize: 19, color: "var(--text-dim)" }}>
+                {en ? "Sign in to leave a note for the next reader." : "Autentifică-te ca să lași o notă pentru următorul cititor."}
+              </p>
+              <button type="button" onClick={login} className="sb-btn justify-self-start">
+                {en ? "Sign in" : "Autentificare"}
+              </button>
+            </div>
+          )}
 
-          {/* List */}
-          <div className="mt-10 flex flex-col gap-6">
+          {/* The notes */}
+          <div className="flex flex-col gap-5 mt-2">
             {loadError && (
-              <p
-                className="font-serif italic text-center py-4"
-                style={{ color: "var(--oxblood-2)" }}
-              >
+              <p className="font-display italic text-center py-4 m-0" style={{ color: "var(--danger)" }}>
                 {loadError}
               </p>
             )}
             {!loadError && comments.length === 0 && commentsTotal === 0 && (
-              <p
-                className="font-display italic text-center py-6"
-                style={{ color: "var(--text-mute)" }}
-              >
-                {language === "en"
-                  ? "Be the first to start the conversation."
-                  : "Fii primul care începe conversația."}
-              </p>
+              <>
+                <Divider />
+                <p className="sb-kicker-sm text-center" style={{ color: "var(--text-dim)" }}>
+                  {en ? "No notes yet — be the first to leave one." : "Nicio notă încă — fii primul care lasă una."}
+                </p>
+              </>
             )}
             {comments.map((comment) => {
               const isOwn = user?.id === comment.userId;
               const isEditing = editingCommentId === comment.id;
               const displayName =
                 comment.userDisplayName?.trim() ||
-                (language === "en" ? "Anonymous" : "Anonim");
+                (en ? "Anonymous" : "Anonim");
               const initial = displayName.charAt(0).toUpperCase();
               return (
-                <div
+                <article
                   key={comment.id}
-                  className="group p-6"
-                  style={{
-                    border: "1px solid var(--line-soft)",
-                    background: "var(--overlay-panel-soft)",
-                  }}
+                  className="group"
+                  style={{ padding: "20px 22px", borderRadius: 18, background: "var(--paper)", border: "1px solid var(--line-soft)" }}
                 >
                   <div className="flex items-start gap-4">
                     <div
-                      className="h-10 w-10 rounded-full grid place-items-center font-display italic shrink-0"
-                      style={{
-                        border: "1px solid var(--gold)",
-                        background: "var(--ink-2)",
-                        color: "var(--gold)",
-                      }}
+                      className="sb-arch grid place-items-center font-display italic shrink-0"
+                      style={{ width: 40, height: 46, border: "1px solid var(--gold-deep)", background: "var(--glow)", color: "var(--gold)", fontSize: 19 }}
+                      aria-hidden="true"
                     >
                       {initial}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between flex-wrap gap-2">
-                        <span
-                          className="font-display italic"
-                          style={{ fontSize: 18, color: "var(--parchment)" }}
-                        >
+                        <span className="font-display italic" style={{ fontSize: 19, color: "var(--parchment)" }}>
                           {displayName}
                         </span>
                         <div className="flex items-center gap-2">
@@ -454,103 +400,81 @@ export const ArticleComments: React.FC<Props> = ({ articleId }) => {
                             // left focused-but-invisible buttons.
                             <div className="flex items-center gap-1 md:opacity-0 md:group-hover:opacity-100 md:focus-within:opacity-100 transition-opacity">
                               <button
+                                type="button"
                                 onClick={() => handleStartEdit(comment)}
-                                aria-label={language === "en" ? "Edit" : "Editează"}
-                                className="p-1 rounded-full transition-colors"
+                                aria-label={en ? "Edit" : "Editează"}
+                                className="p-1.5 rounded-full transition-colors hover:text-gold"
                                 style={{ color: "var(--text-mute)" }}
                               >
                                 <Pencil className="h-3.5 w-3.5" />
                               </button>
                               <button
+                                type="button"
                                 onClick={() => setConfirmDeleteId(comment.id)}
                                 disabled={isDeleting === comment.id}
-                                aria-label={language === "en" ? "Delete" : "Șterge"}
-                                className="p-1 rounded-full transition-colors disabled:opacity-50"
+                                aria-label={en ? "Delete" : "Șterge"}
+                                className="p-1.5 rounded-full transition-colors disabled:opacity-50 hover:text-gold"
                                 style={{ color: "var(--text-mute)" }}
                               >
                                 <Trash2 className="h-3.5 w-3.5" />
                               </button>
                             </div>
                           )}
-                          <span
-                            className="font-ui text-[10px] uppercase"
-                            style={{
-                              letterSpacing: "0.18em",
-                              color: "var(--text-mute)",
-                            }}
-                          >
+                          <span className="sb-meta">
                             {formatArticleDate(comment.createdAt, language, "short")}
                           </span>
                         </div>
                       </div>
                       {isEditing ? (
-                        <div className="mt-3 space-y-2">
-                          <Textarea
+                        <div className="mt-3 grid gap-2.5">
+                          <textarea
                             value={editContent}
                             onChange={(e) => setEditContent(e.target.value)}
-                            className="bg-transparent border-line min-h-[80px] font-serif"
+                            className="sb-input"
+                            style={{ minHeight: 96 }}
                             maxLength={2000}
+                            aria-label={en ? "Edit your note" : "Editează nota"}
                           />
                           <div className="flex items-center gap-2 justify-end">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={handleCancelEdit}
-                              className="text-xs font-display italic"
-                            >
-                              <X className="h-3 w-3 mr-1" />
-                              {language === "en" ? "Cancel" : "Anulează"}
-                            </Button>
-                            <Button
-                              size="sm"
+                            <button type="button" onClick={handleCancelEdit} className="sb-btn sb-btn-ghost" style={{ minHeight: 38, padding: "8px 16px" }}>
+                              <X className="h-3.5 w-3.5" aria-hidden="true" />
+                              {en ? "Cancel" : "Anulează"}
+                            </button>
+                            <button
+                              type="button"
                               onClick={() => handleSaveEdit(comment.id)}
                               disabled={isPosting || !editContent.trim()}
-                              className="text-xs font-display italic"
+                              className="sb-btn"
+                              style={{ minHeight: 38, padding: "8px 16px" }}
                             >
-                              <Check className="h-3 w-3 mr-1" />
-                              {isPosting
-                                ? "…"
-                                : language === "en"
-                                ? "Save"
-                                : "Salvează"}
-                            </Button>
+                              <Check className="h-3.5 w-3.5" aria-hidden="true" />
+                              {isPosting ? "…" : en ? "Save" : "Salvează"}
+                            </button>
                           </div>
                         </div>
                       ) : (
                         <p
-                          className="m-0 mt-2 font-serif"
-                          style={{
-                            fontSize: 17,
-                            lineHeight: 1.65,
-                            color: "var(--text)",
-                            whiteSpace: "pre-wrap",
-                          }}
+                          className="m-0 mt-2"
+                          style={{ fontSize: 17, lineHeight: 1.65, color: "var(--text)", whiteSpace: "pre-wrap" }}
                         >
                           {comment.content}
                         </p>
                       )}
                     </div>
                   </div>
-                </div>
+                </article>
               );
             })}
 
             {comments.length > 0 && comments.length < commentsTotal && (
-              <div className="flex justify-center pt-4">
-                <Button
-                  variant="ghost"
-                  onClick={loadMore}
-                  disabled={isLoadingMore}
-                  className="font-display italic"
-                >
+              <div className="flex justify-center pt-2">
+                <button type="button" onClick={loadMore} disabled={isLoadingMore} className="sb-btn sb-btn-ghost">
                   {isLoadingMore
-                    ? language === "en"
-                      ? "Loading…"
-                      : "Se încarcă…"
-                    : language === "en"
-                    ? `Load more (${commentsTotal - comments.length} remaining)`
-                    : `Încarcă mai multe (${commentsTotal - comments.length} rămase)`}
-                </Button>
+                    ? (en ? "Loading…" : "Se încarcă…")
+                    : en
+                      ? `Read more notes (${commentsTotal - comments.length} more)`
+                      : `Citește mai multe note (încă ${commentsTotal - comments.length})`}
+                </button>
               </div>
             )}
           </div>

@@ -1,6 +1,7 @@
 import React from "react";
 import { useLanguage } from "@/hooks/use-language";
-import { PageHead } from "@/components/layout/PageHead";
+import { Link } from "react-router-dom";
+import { LegalPage } from "@/components/story/LegalPage";
 
 const Privacy: React.FC = () => {
   const { language } = useLanguage();
@@ -154,48 +155,50 @@ const Privacy: React.FC = () => {
   };
 
   const c = content[language];
+  const en = language === 'en';
+
+  // Verbatim excerpts — see LegalPage.
+  const glance = en
+    ? [
+        { quote: 'We do not sell, rent, or trade your data.', from: 'What we do not collect' },
+        { quote: 'It is cookieless: nothing is written to your device…', from: 'Audience measurement' },
+        { quote: 'You can permanently delete your account and all associated content…', from: 'Your rights' },
+      ]
+    : [
+        { quote: 'Nu vindem, închiriem sau schimbăm datele tale.', from: 'Ce nu colectăm' },
+        { quote: 'Nu folosește cookie-uri: nu se scrie nimic pe dispozitivul tău…', from: 'Măsurarea audienței' },
+        { quote: 'Îți poți șterge permanent contul și tot conținutul asociat…', from: 'Drepturile tale' },
+      ];
 
   return (
-    <div className="screen-anim pb-20">
-      <PageHead title={c.title} description={c.subtitle} language={language} />
-
-      <section style={{ padding: '80px 0 56px', borderBottom: '1px solid var(--line-soft)' }}>
-        <div className="ed-container">
-          <div className="eyebrow mb-4">{language === 'en' ? 'Legal' : 'Legal'}</div>
-          <h1
-            className="font-display italic font-medium m-0"
-            style={{ fontSize: 'clamp(56px, 8vw, 120px)', lineHeight: 0.95, letterSpacing: '-0.01em', color: 'var(--parchment)' }}
-          >
-            {c.title}
-          </h1>
-          <p className="mt-7 max-w-[540px]" style={{ fontSize: 19, color: 'var(--text-dim)', lineHeight: 1.55 }}>
-            {c.subtitle}
-          </p>
-        </div>
-      </section>
-
-      <section style={{ padding: '60px 0 100px' }}>
-        <div className="ed-container">
-          <div className="max-w-[760px] mx-auto">
-            <p className="font-ui text-[11px] uppercase mb-12" style={{ letterSpacing: '0.18em', color: 'var(--gold)' }}>
-              {c.lastUpdated}
+    <LegalPage
+      language={language}
+      current="privacy"
+      title={c.title}
+      subtitle={c.subtitle}
+      lastUpdated={lastUpdated}
+      sections={c.sections}
+      glance={glance}
+      aside={
+        <>
+          <div className="sb-place-card">
+            <p className="sb-kicker-sm">{en ? 'Your data, your controls' : 'Datele tale, sub controlul tău'}</p>
+            <p className="sb-dim text-[16px] leading-relaxed">
+              {en
+                ? 'Everything in “Your rights” is one click away on your profile.'
+                : 'Tot ce scrie la „Drepturile tale” e la un clic distanță, în profilul tău.'}
             </p>
-            <div className="flex flex-col gap-12">
-              {c.sections.map((section, i) => (
-                <section key={i}>
-                  <h2 className="font-display italic font-medium m-0 mb-4" style={{ fontSize: 28, lineHeight: 1.15, color: 'var(--parchment)' }}>
-                    {section.heading}
-                  </h2>
-                  <p className="m-0" style={{ fontSize: 17, color: 'var(--text)', lineHeight: 1.75, fontFamily: 'var(--serif)' }}>
-                    {section.body}
-                  </p>
-                </section>
-              ))}
-            </div>
+            <Link to="/profile" className="sb-btn sb-btn-ghost justify-self-start">{en ? 'Download my data' : 'Descarcă datele mele'}</Link>
+            <Link to="/profile" className="sb-btn sb-btn-ghost sb-btn-danger justify-self-start">{en ? 'Delete my account' : 'Șterge contul meu'}</Link>
           </div>
-        </div>
-      </section>
-    </div>
+          <div className="sb-place-card">
+            <p className="sb-kicker-sm">{en ? 'Questions about your data?' : 'Întrebări despre datele tale?'}</p>
+            <a href="mailto:support@therostory.com" className="sb-link text-[17px]">support@therostory.com</a>
+            <Link to="/contact-us" className="sb-btn-word" style={{ fontSize: 19 }}>{en ? 'Or write to us →' : 'Sau scrie-ne →'}</Link>
+          </div>
+        </>
+      }
+    />
   );
 };
 

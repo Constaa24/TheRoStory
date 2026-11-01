@@ -156,11 +156,18 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks(id: string) {
+          // The Atlas's geometry (~330 KB of county, border and river paths)
+          // is shared by the map page and the story editors' pin picker.
+          // Naming its chunk `map` keeps it under the globIgnores rule above,
+          // so it is fetched on first use rather than precached for every
+          // visitor. Only the geometry: the projection (plate.json, ~1 KB)
+          // also serves the story pages' small "where" map and must not drag
+          // the geometry along with it.
+          if (/[\\/]src[\\/]lib[\\/]atlas[\\/]atlas-geo\.json/.test(id)) return 'map';
           if (!id.includes('node_modules')) return undefined;
 
           // Heavy or feature-scoped libraries get their own chunks so the
           // landing page doesn't pay for them up-front.
-          if (id.includes('d3-') || id.includes('topojson-client')) return 'map';
           if (id.includes('framer-motion')) return 'motion';
           if (id.includes('lucide-react')) return 'icons';
           if (id.includes('@radix-ui')) return 'radix';

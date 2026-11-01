@@ -38,6 +38,17 @@ const settle = async (page: Page) => {
   await expect(page.locator('main')).toBeVisible({ timeout: 15_000 });
   // Let lazy chunks and the first data round-trip land.
   await page.waitForLoadState('networkidle', { timeout: 15_000 }).catch(() => {});
+  // And let the page's fade-in finish: measured mid-fade, muted text blends
+  // toward the background and reads as a contrast failure it doesn't have.
+  // Endless animations (the ticker) are left running.
+  await page.evaluate(() =>
+    Promise.all(
+      document
+        .getAnimations()
+        .filter((a) => a.effect?.getComputedTiming().iterations !== Infinity)
+        .map((a) => a.finished.catch(() => {}))
+    )
+  );
 };
 
 const report = (violations: Awaited<ReturnType<AxeBuilder['analyze']>>['violations']) =>

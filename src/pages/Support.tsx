@@ -9,7 +9,9 @@ import {
   DialogTrigger,
   DialogDescription,
 } from "@/components/ui/dialog";
+import { Link } from "react-router-dom";
 import { PageHead } from "@/components/layout/PageHead";
+import { ChapterHead, Divider, Motif } from "@/components/story/Ornaments";
 import { toast } from "sonner";
 
 const RevolutIcon = ({ className }: { className?: string }) => (
@@ -97,261 +99,415 @@ const Support: React.FC = () => {
     }
   };
 
+  const en = language === 'en';
+
+
+
   const tiers = [
+
     {
+
       label: t.revolut,
-      icon: <RevolutIcon className="w-7 h-7" />,
+
+      icon: <RevolutIcon className="w-6 h-6" />,
+
       desc: t.revolutDesc,
+
+      cta: en ? 'Give with Revolut' : 'Contribuie prin Revolut',
+
       onClick: () => window.open("https://revolut.me/manu2492", "_blank", "noopener,noreferrer"),
+
       // Our recommendation, and labelled as one. The badge used to say "Most
+
       // chosen" — a claim about other readers that nothing measured.
+
       recommended: true,
+
     },
+
     {
+
       label: t.paypal,
-      icon: <CreditCard className="w-7 h-7" />,
+
+      icon: <CreditCard className="w-6 h-6" />,
+
       desc: t.paypalDesc,
+
+      cta: en ? 'Give with PayPal' : 'Contribuie prin PayPal',
+
       onClick: () => window.open("https://paypal.me/Constaa24?locale.x=ro_RO&country.x=RO", "_blank", "noopener,noreferrer"),
+
     },
+
     {
+
       label: t.bankTransfer,
-      icon: <Landmark className="w-7 h-7" />,
+
+      icon: <Landmark className="w-6 h-6" />,
+
       desc: t.bankDesc,
+
+      cta: en ? 'Show bank details' : 'Arată detaliile bancare',
+
       isDialog: true,
+
     },
+
   ];
 
+
+
   return (
-    <div className="screen-anim pb-20">
+
+    <div className="screen-anim">
+
       <PageHead title={t.subtitle} description={t.intro} language={language} />
 
-      {/* Page hero */}
-      <section style={{ padding: '80px 0 56px', borderBottom: '1px solid var(--line-soft)' }}>
-        <div className="ed-container">
-          <div className="eyebrow mb-4">{t.subtitle}</div>
-          <h1
-            className="font-display italic font-medium m-0"
-            style={{
-              fontSize: 'clamp(56px, 8vw, 120px)',
-              lineHeight: 0.95,
-              letterSpacing: '-0.01em',
-              color: 'var(--parchment)',
-              textWrap: 'balance' as React.CSSProperties['textWrap'],
-              whiteSpace: 'pre-line',
-            }}
-          >
-            {t.title}
-          </h1>
-          <p className="mt-7 max-w-[540px]" style={{ fontSize: 19, color: 'var(--text-dim)', lineHeight: 1.55 }}>
-            {t.intro}
-          </p>
-        </div>
+
+
+      <section className="ed-container" style={{ paddingTop: 'clamp(48px, 7vw, 80px)', paddingBottom: 'clamp(48px, 6vw, 72px)' }}>
+
+        <ChapterHead as="h1" kicker={t.subtitle} title={t.title.replace('\n', ' ')} rosetteSize="lg">
+
+          <p className="sb-lede max-w-[620px]">{t.intro}</p>
+
+        </ChapterHead>
+
       </section>
 
-      {/* Tiers (donation methods styled as editorial cards) */}
-      <section style={{ padding: '60px 0 80px' }}>
-        <div className="ed-container">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-7">
-            {tiers.map((tier, i) => {
-              const card = (
-                <div
-                  className="relative cursor-pointer transition-colors group"
-                  style={{
-                    padding: '40px 32px',
-                    border: tier.recommended ? '1px solid var(--gold)' : '1px solid var(--line)',
-                    background: tier.recommended ? 'linear-gradient(180deg, rgba(201,169,110,0.06), transparent)' : 'var(--overlay-panel-soft)',
-                  }}
-                >
-                  {tier.recommended && (
-                    <span
-                      className="pill absolute"
-                      style={{
-                        top: -14,
-                        left: 24,
-                        background: 'var(--ink)',
-                        color: 'var(--gold)',
-                        borderColor: 'var(--gold)',
-                      }}
-                    >
-                      {language === 'en' ? 'Recommended' : 'Recomandat'}
-                    </span>
-                  )}
-                  <div className="grid place-items-center mb-5" style={{ width: 56, height: 56, borderRadius: '50%', background: 'rgba(201,169,110,0.12)', color: 'var(--gold)' }}>
-                    {tier.icon}
-                  </div>
-                  <h3
-                    className="font-display italic font-medium m-0"
-                    style={{ fontSize: 36, lineHeight: 1.05, color: 'var(--parchment)' }}
-                  >
-                    {tier.label}
-                  </h3>
-                  <p className="mt-3 mb-7" style={{ color: 'var(--text-dim)', fontSize: 15, lineHeight: 1.55 }}>
-                    {tier.desc}
-                  </p>
-                  <div className="btn-ed w-full justify-center" style={{ background: tier.recommended ? 'var(--gold)' : 'transparent', color: tier.recommended ? 'var(--ink)' : 'var(--gold)' }}>
-                    {language === 'en' ? `Donate via ${tier.label}` : `Donează prin ${tier.label}`}
-                  </div>
-                </div>
-              );
 
-              if (tier.isDialog) {
-                return (
-                  <Dialog key={i}>
-                    <DialogTrigger asChild>
-                      <button className="text-left p-0" style={{ background: 'transparent', border: 0 }}>
-                        {card}
-                      </button>
-                    </DialogTrigger>
+
+      {/* Three ways to give */}
+
+      <section className="ed-container" style={{ paddingBottom: 'clamp(72px, 9vw, 104px)' }}>
+
+        <ul className="list-none m-0 p-0 grid grid-cols-1 md:grid-cols-3 gap-7 pt-4">
+
+          {tiers.map((tier) => {
+
+            const button = (
+
+              <button
+
+                type="button"
+
+                onClick={tier.onClick}
+
+                className={tier.recommended ? 'sb-btn justify-self-start mt-2' : 'sb-btn sb-btn-ghost justify-self-start mt-2'}
+
+              >
+
+                {tier.cta}
+
+              </button>
+
+            );
+
+            return (
+
+              <li
+
+                key={tier.label}
+
+                className="relative grid gap-4 content-start"
+
+                style={{
+
+                  padding: '36px 30px 30px',
+
+                  borderRadius: 24,
+
+                  background: 'var(--paper)',
+
+                  border: `1px solid ${tier.recommended ? 'var(--gold-deep)' : 'var(--line-soft)'}`,
+
+                }}
+
+              >
+
+                {tier.recommended && (
+
+                  <span className="sb-tag absolute" style={{ top: -16, left: 30, background: 'var(--gold)', color: 'var(--on-gold)', borderColor: 'var(--gold)' }}>
+
+                    {en ? 'Recommended' : 'Recomandat'}
+
+                  </span>
+
+                )}
+
+                <span className="grid place-items-center" style={{ width: 56, height: 56, borderRadius: '50%', border: '1px solid var(--line)', color: 'var(--gold)' }} aria-hidden="true">
+
+                  {tier.icon}
+
+                </span>
+
+                <h2 className="sb-h3">{tier.label}</h2>
+
+                <p className="sb-dim text-[17px] leading-relaxed">{tier.desc}</p>
+
+                {tier.isDialog ? (
+
+                  <Dialog>
+
+                    <DialogTrigger asChild>{button}</DialogTrigger>
+
                     <DialogContent
+
                       className="sm:max-w-md p-0 overflow-hidden"
+
                       style={{
+
                         border: '1px solid var(--line)',
-                        background: 'var(--ink-2)',
-                        borderRadius: 4,
+
+                        background: 'var(--paper)',
+
+                        borderRadius: 24,
+
                         color: 'var(--text)',
+
                       }}
+
                     >
+
                       <DialogHeader className="px-7 pt-9 pb-3 space-y-3">
-                        <div className="grid place-items-center mx-auto" style={{ width: 56, height: 56, borderRadius: '50%', background: 'rgba(201,169,110,0.12)', color: 'var(--gold)' }}>
-                          <Landmark className="w-6 h-6" />
+
+                        <div className="grid place-items-center mx-auto" style={{ width: 56, height: 56, borderRadius: '50%', border: '1px solid var(--line)', color: 'var(--gold)' }}>
+
+                          <Landmark className="w-6 h-6" aria-hidden="true" />
+
                         </div>
-                        <DialogTitle
-                          className="font-display italic text-center m-0"
-                          style={{ fontSize: 28, lineHeight: 1.1, color: 'var(--parchment)' }}
-                        >
+
+                        <DialogTitle className="sb-h3 text-center" style={{ fontSize: 30 }}>
+
                           {t.bankDetails.title}
+
                         </DialogTitle>
-                        <div className="rule-gold mx-auto" style={{ width: 80 }} />
-                        <DialogDescription className="text-center font-display italic" style={{ color: 'var(--text-dim)' }}>
+
+                        <Divider className="mx-auto" style={{ width: 120 }} />
+
+                        <DialogDescription className="text-center font-display italic text-[18px]" style={{ color: 'var(--text-dim)' }}>
+
                           {t.bankDetails.subtitle}
+
                         </DialogDescription>
+
                       </DialogHeader>
 
+
+
                       <div className="px-7 pb-8 space-y-5">
+
                         <DetailRow icon={<User className="w-3.5 h-3.5" />} label={t.bankDetails.beneficiaryLabel} value={t.bankDetails.beneficiaryValue} />
 
-                        <div className="rounded-sm p-5 space-y-3" style={{ background: 'rgba(201,169,110,0.06)', border: '1px solid var(--line)' }}>
+
+
+                        <div className="p-5 space-y-3" style={{ borderRadius: 16, background: 'var(--glow)', border: '1px solid var(--line)' }}>
+
                           <div className="flex items-center justify-between gap-3">
-                            <div className="eyebrow">{t.bankDetails.ibanLabel}</div>
+
+                            <p className="sb-kicker-sm">{t.bankDetails.ibanLabel}</p>
+
                             <CopyButton
+
                               copied={copiedField === 'iban'}
+
                               onClick={() => handleCopy(t.bankDetails.ibanValue.replace(/\s+/g, ''), 'iban')}
+
                               copy={t.bankDetails.copy}
+
                               copiedLabel={t.bankDetails.copied}
+
                             />
+
                           </div>
+
                           <p className="font-mono break-all select-all" style={{ fontSize: 15, color: 'var(--parchment)', lineHeight: 1.6, margin: 0 }}>
+
                             {t.bankDetails.ibanValue}
+
                           </p>
+
                         </div>
+
+
 
                         <DetailRow icon={<Building2 className="w-3.5 h-3.5" />} label={t.bankDetails.bankLabel} value={t.bankDetails.bankValue} />
 
-                        <div className="rounded-sm p-5 space-y-2" style={{ background: 'rgba(138,42,42,0.07)', border: '1px solid var(--line)' }}>
+
+
+                        <div className="p-5 space-y-2" style={{ borderRadius: 16, border: '1px dashed var(--gold-deep)' }}>
+
                           <div className="flex items-center justify-between gap-3">
-                            <div className="eyebrow flex items-center gap-2"><FileText className="w-3.5 h-3.5" /> {t.bankDetails.referenceLabel}</div>
+
+                            <p className="sb-kicker-sm flex items-center gap-2"><FileText className="w-3.5 h-3.5" aria-hidden="true" /> {t.bankDetails.referenceLabel}</p>
+
                             <CopyButton
+
                               copied={copiedField === 'reference'}
+
                               onClick={() => handleCopy(t.bankDetails.referenceValue, 'reference')}
+
                               copy={t.bankDetails.copy}
+
                               copiedLabel={t.bankDetails.copied}
+
                             />
+
                           </div>
-                          <p className="font-display italic font-medium select-all" style={{ fontSize: 18, color: 'var(--gold)', margin: 0 }}>
+
+                          <p className="font-display italic font-medium select-all" style={{ fontSize: 19, color: 'var(--gold)', margin: 0 }}>
+
                             {t.bankDetails.referenceValue}
+
                           </p>
+
                         </div>
+
                       </div>
+
                     </DialogContent>
+
                   </Dialog>
-                );
-              }
 
-              return (
-                <button key={i} onClick={tier.onClick} className="text-left p-0" style={{ background: 'transparent', border: 0 }}>
-                  {card}
-                </button>
-              );
-            })}
-          </div>
-        </div>
+                ) : button}
+
+              </li>
+
+            );
+
+          })}
+
+        </ul>
+
       </section>
 
-      {/* Where it goes */}
-      <section style={{ padding: '80px 0', borderTop: '1px solid var(--line-soft)' }}>
-        <div className="ed-container">
-          <div className="grid grid-cols-1 md:grid-cols-[1fr_1.5fr] gap-20 items-start">
-            <div>
-              <div className="eyebrow mb-3.5">{t.whereTitle}</div>
-              <h3
-                className="font-display italic font-medium m-0"
-                style={{ fontSize: 'clamp(32px, 3.4vw, 48px)', lineHeight: 1.1, color: 'var(--parchment)' }}
-              >
-                {t.whereLead}
-              </h3>
+
+
+      {/* Where it goes — a ledger drawn in thread */}
+
+      <section className="sb-band">
+
+        <div className="ed-container sb-section">
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20 items-start">
+
+            <div className="flex flex-col gap-4">
+
+              <p className="sb-kicker">{t.whereTitle}</p>
+
+              <h2 className="sb-h2" style={{ fontSize: 'clamp(30px, 3.6vw, 52px)' }}>{t.whereLead}</h2>
+
             </div>
-            <div className="flex flex-col gap-5">
-              {t.whereRows.map((row, i) => (
-                <div key={i}>
-                  <div className="flex justify-between mb-2">
-                    <span className="font-display italic" style={{ fontSize: 19 }}>{row.label}</span>
-                    <span className="font-ui text-[11px]" style={{ letterSpacing: '0.15em', color: 'var(--gold)' }}>{row.pct}%</span>
+
+            <ul className="list-none m-0 p-0 grid gap-6">
+
+              {t.whereRows.map((row) => (
+
+                <li key={row.label} className="flex flex-col gap-2.5">
+
+                  <div className="flex justify-between items-baseline gap-3">
+
+                    <span className="font-display italic text-[22px] leading-tight" style={{ color: 'var(--parchment)' }}>{row.label}</span>
+
+                    <span className="sb-numeral" style={{ fontSize: 22 }}>{row.pct}%</span>
+
                   </div>
-                  <div style={{ height: 1, background: 'var(--line)', position: 'relative' }}>
-                    <div style={{ position: 'absolute', left: 0, top: -1, height: 3, width: row.pct + '%', background: 'var(--gold)' }} />
+
+                  <div className="relative" style={{ height: 8 }} aria-hidden="true">
+
+                    <span className="sb-thread absolute left-0 right-0" style={{ top: 3 }} />
+
+                    <span className="absolute left-0 top-0 bottom-0" style={{ width: `${row.pct}%`, borderRadius: 999, background: 'var(--gold)' }} />
+
                   </div>
-                </div>
+
+                </li>
+
               ))}
-            </div>
+
+            </ul>
+
           </div>
+
         </div>
+
       </section>
+
+
 
       {/* Thank you */}
-      <section style={{ padding: '80px 0' }}>
-        <div className="ed-container">
-          <div className="text-center max-w-[600px] mx-auto py-12 px-6" style={{ border: '1px dashed var(--line)' }}>
-            <div className="eyebrow mb-4">{t.thank}</div>
-            <p className="font-display italic m-0" style={{ fontSize: 'clamp(22px, 2.4vw, 30px)', lineHeight: 1.3, color: 'var(--parchment)' }}>
-              {t.thankMsg}
-            </p>
-          </div>
+
+      <section className="ed-container" style={{ paddingBlock: 'clamp(72px, 9vw, 104px)' }}>
+
+        <div className="sb-chapter-head">
+
+          <Motif style={{ width: 260 }} />
+
+          <h2 className="sb-h2">{t.thank}</h2>
+
+          <p className="sb-lede max-w-[560px]">{t.thankMsg}</p>
+
+          <Link to="/" className="sb-btn sb-btn-ghost mt-2.5">{en ? 'Back to the stories' : 'Înapoi la povești'}</Link>
+
         </div>
+
       </section>
+
     </div>
+
   );
+
 };
 
+
+
 const DetailRow: React.FC<{ icon: React.ReactNode; label: string; value: string }> = ({ icon, label, value }) => (
+
   <div className="flex items-start gap-3">
-    <div className="grid place-items-center shrink-0" style={{ width: 32, height: 32, borderRadius: '50%', background: 'rgba(201,169,110,0.10)', color: 'var(--gold)', marginTop: 2 }}>
+
+    <div className="grid place-items-center shrink-0" style={{ width: 32, height: 32, borderRadius: '50%', border: '1px solid var(--line)', color: 'var(--gold)', marginTop: 2 }} aria-hidden="true">
+
       {icon}
+
     </div>
+
     <div className="flex-1 min-w-0">
-      <div className="eyebrow">{label}</div>
-      <p className="font-display italic" style={{ fontSize: 17, color: 'var(--parchment)', margin: '4px 0 0' }}>{value}</p>
+
+      <p className="sb-kicker-sm">{label}</p>
+
+      <p className="font-display italic" style={{ fontSize: 18, color: 'var(--parchment)', margin: '2px 0 0' }}>{value}</p>
+
     </div>
+
   </div>
+
 );
+
+
 
 const CopyButton: React.FC<{ copied: boolean; onClick: () => void; copy: string; copiedLabel: string }> = ({ copied, onClick, copy, copiedLabel }) => (
+
   <button
+
     type="button"
+
     onClick={onClick}
-    className="flex items-center gap-1.5 font-ui text-[10px] uppercase font-bold transition-colors"
-    style={{
-      letterSpacing: '0.15em',
-      color: copied ? 'var(--gold)' : 'var(--text-dim)',
-      background: 'transparent',
-      border: '1px solid var(--line)',
-      padding: '5px 10px',
-      borderRadius: 999,
-      cursor: 'pointer',
-    }}
+
+    className="sb-seg-btn"
+
+    style={{ minHeight: 32, padding: '6px 12px', border: '1px solid var(--line)', gap: 6, color: copied ? 'var(--gold)' : undefined }}
+
   >
-    {copied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+
+    {copied ? <Check className="w-3 h-3" aria-hidden="true" /> : <Copy className="w-3 h-3" aria-hidden="true" />}
+
     {copied ? copiedLabel : copy}
+
   </button>
+
 );
 
+
+
 export default Support;
+

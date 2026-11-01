@@ -21,6 +21,8 @@
     --gold-deep: #8c6f3e;
 
     --oxblood-2: #a83c3c;
+    /* Red for words: #a83c3c is under 3:1 on the dark paper. ~6:1 here. */
+    --danger: #dc8070;
 
     --parchment: #f4ead7;
 
@@ -55,6 +57,15 @@
     --scrim-hero-short: linear-gradient(180deg, rgba(13,11,8,0.45) 0%, rgba(13,11,8,0.3) 40%, rgba(13,11,8,0.95) 100%);
     --scrim-cinematic: linear-gradient(180deg, rgba(13,11,8,0.55) 0%, rgba(13,11,8,0.2) 30%, rgba(13,11,8,0.85) 100%);
 
+    /* Storybook surfaces (styles/storybook.css). Derived from the palette
+       above, not new colours: --paper is the page a card or letter sits on,
+       --glow the faint gold wash behind a pressed chip or a lit window, and
+       --on-gold the text colour on a gold button. */
+    --paper: #17130d;
+    --glow: rgba(201, 169, 110, 0.12);
+    --on-gold: #0d0b08;
+    --shadow-soft: 0 30px 70px rgba(0, 0, 0, 0.5);
+
     /* shadcn-compatible HSL tokens, mapped to the editorial palette */
     --background: 36 25% 5%;            /* ~ink */
     --foreground: 42 50% 85%;           /* ~text */
@@ -82,6 +93,7 @@
 
   /* Light mode — parchment / cream variant */
   .light {
+    --danger: #8f2f2f;
     --ink: #f6f1e6;
     --ink-2: #ede2cb;
     --line: rgba(80, 60, 30, 0.20);
@@ -127,6 +139,11 @@
        element on the page. It clears AA-large either way (it is 23px+ display
        type), but it should match the palette it sits in. */
     --logo-gradient: linear-gradient(180deg, #4a3610 0%, #6e501a 100%);
+    /* --text-mute holds 5.4:1 on this paper, --gold 5.5:1. */
+    --paper: #efe6d2;
+    --glow: rgba(110, 80, 26, 0.10);
+    --on-gold: #f6f1e6;
+    --shadow-soft: 0 30px 60px rgba(80, 60, 30, 0.18);
     --scrim-card: linear-gradient(180deg, rgba(246,241,230,0.0) 40%, rgba(42,31,16,0.5) 100%);
     --scrim-hero: linear-gradient(180deg, rgba(42,31,16,0.3) 0%, rgba(42,31,16,0.15) 40%, rgba(42,31,16,0.85) 100%);
     --scrim-hero-short: linear-gradient(180deg, rgba(42,31,16,0.35) 0%, rgba(42,31,16,0.2) 40%, rgba(42,31,16,0.85) 100%);
@@ -648,6 +665,7 @@ main:focus-visible {
   :root, .light, .dark {
     --ink: #fff;
     --ink-2: #fff;
+    --paper: #fff;
     --text: #000;
     --text-dim: #1a1a1a;
     --text-mute: #333;
@@ -655,6 +673,7 @@ main:focus-visible {
     --gold: #000;
     --gold-2: #000;
     --gold-deep: #000;
+    --danger: #000;
     --line: rgba(0, 0, 0, 0.28);
     --line-soft: rgba(0, 0, 0, 0.14);
   }

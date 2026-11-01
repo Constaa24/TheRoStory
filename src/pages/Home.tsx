@@ -1,9 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Category, Article, getLocalized, fetchCategories, fetchArticlesPage, fetchRandomArticle, fetchLatestArticleCards, supabase } from "@/lib/supabase";
+import { Category, Article, ArchiveEntry, getLocalized, fetchCategories, fetchArticlesPage, fetchRandomArticle, fetchLatestArticleCards, fetchArchiveIndex, supabase } from "@/lib/supabase";
 import { useLanguage } from "@/hooks/use-language";
 import { useFavorites } from "@/hooks/use-favorites";
 import { useCooldown } from "@/hooks/use-cooldown";
-import { ChevronRight, ChevronLeft, ArrowRight } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { isAbortError, toJsonLd } from "@/lib/utils";
 import { toast } from "sonner";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
@@ -12,7 +12,10 @@ import { StoryCard } from "@/components/ui/story-card";
 import { SITE_NAME, SITE_URL } from "@/lib/constants";
 import { localizedPath } from "@/lib/locale";
 import { storageImage } from "@/lib/image-url";
-import { toneFor, readMinutes, placeLabel, articleExcerpt, articleCoverUrl } from "@/lib/article-utils";
+import { toneFor, articleExcerpt, articleCoverUrl, countLabel } from "@/lib/article-utils";
+import { kindPhrase, placeAndTime, placeOf, splitOpening } from "@/lib/story-facts";
+import { countyCentre } from "@/lib/atlas/projection";
+import { ChapterHead, Divider, Knot, Motif, Thread } from "@/components/story/Ornaments";
 
 const PAGE_SIZE = 9;
 
@@ -55,25 +58,21 @@ const NewsletterForm: React.FC<{ language: 'en' | 'ro' }> = ({ language }) => {
   };
 
   return (
-    <form
-      className="ed-form w-full"
-      style={{ flex: '1 1 260px', maxWidth: 520 }}
-      onSubmit={onSubmit}
-    >
-      <div className="flex gap-2">
-        <div className="sr-only" aria-hidden="true">
-          <label htmlFor="nl-website">Website</label>
-          <input
-            id="nl-website"
-            tabIndex={-1}
-            autoComplete="off"
-            value={website}
-            onChange={(e) => setWebsite(e.target.value)}
-          />
-        </div>
-        <label htmlFor="nl-email" className="sr-only">
-          {language === 'en' ? 'Email address' : 'Adresă de email'}
-        </label>
+    <form className="flex flex-col gap-3" onSubmit={onSubmit}>
+      <div className="sr-only" aria-hidden="true">
+        <label htmlFor="nl-website">Website</label>
+        <input
+          id="nl-website"
+          tabIndex={-1}
+          autoComplete="off"
+          value={website}
+          onChange={(e) => setWebsite(e.target.value)}
+        />
+      </div>
+      <label htmlFor="nl-email" className="sb-label">
+        {language === 'en' ? 'Your email address' : 'Adresa ta de email'}
+      </label>
+      <div className="flex flex-wrap gap-2.5">
         <input
           id="nl-email"
           type="email"
@@ -81,27 +80,28 @@ const NewsletterForm: React.FC<{ language: 'en' | 'ro' }> = ({ language }) => {
           maxLength={254}
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          placeholder={language === 'en' ? 'your@email.com' : 'email@tau.ro'}
-          style={{ flex: 1, background: 'transparent', borderRadius: 999, padding: '16px 22px' }}
+          placeholder={language === 'en' ? 'you@example.com' : 'tu@exemplu.ro'}
+          className="sb-input"
+          style={{ flex: '1 1 240px', width: 'auto' }}
         />
         <button
           type="submit"
-          className="btn-ed"
+          className="sb-btn"
           disabled={isSubmitting || cooldown > 0}
-          style={{ opacity: isSubmitting || cooldown > 0 ? 0.6 : 1 }}
+          style={{ minHeight: 50 }}
         >
           {isSubmitting
             ? (language === 'en' ? 'Sending…' : 'Se trimite…')
             : cooldown > 0
               ? (language === 'en' ? `Wait ${cooldown}s` : `Așteaptă ${cooldown}s`)
-              : (language === 'en' ? 'Subscribe' : 'Abonează-te')}
+              : (language === 'en' ? 'Send me the letters' : 'Trimite-mi scrisorile')}
         </button>
       </div>
-      <p className="font-ui text-[11px] mt-2 m-0" style={{ color: 'var(--text-mute)', lineHeight: 1.6 }}>
+      <p className="sb-meta">
         {language === 'en'
-          ? 'Double opt-in — confirm via email. Unsubscribe anytime. '
-          : 'Dublă confirmare prin email. Te poți dezabona oricând. '}
-        <Link to="/privacy" className="underline" style={{ color: 'var(--gold)' }}>
+          ? 'We’ll send a link to confirm first. Leave any time. '
+          : 'Îți trimitem întâi un link de confirmare. Pleci oricând. '}
+        <Link to="/privacy" className="sb-link">
           {language === 'en' ? 'Privacy' : 'Confidențialitate'}
         </Link>.
       </p>
@@ -221,6 +221,28 @@ const Home: React.FC = () => {
     return () => { cancelled = true; };
   }, [currentPage, selectedCategory]);
 
+  // The light index of every published story: the facts line under the
+  // hero, the counts on the shelf chips, and the castle picture's own story.
+  const [archiveIndex, setArchiveIndex] = useState<ArchiveEntry[] | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    fetchArchiveIndex()
+      .then((rows) => { if (!cancelled) setArchiveIndex(rows); })
+      .catch((error) => { if (!isAbortError(error)) console.error('Error fetching the archive index:', error); });
+    return () => { cancelled = true; };
+  }, []);
+
+  const facts = useMemo(() => {
+    if (!archiveIndex?.length) return null;
+    const counties = new Set(archiveIndex.map((a) => a.location).filter((l): l is string => !!l && !!countyCentre(l)));
+    const byCategory = new Map<string, number>();
+    archiveIndex.forEach((a) => byCategory.set(a.categoryId, (byCategory.get(a.categoryId) || 0) + 1));
+    // The hero shows Peleș, so its caption leads to Peleș's story — when
+    // the archive has one.
+    const peles = archiveIndex.find((a) => /pele[sș]/i.test(`${a.titleEn} ${a.titleRo}`));
+    return { total: archiveIndex.length, counties: counties.size, byCategory, pelesId: peles?.id ?? null };
+  }, [archiveIndex]);
+
   const pageTitle = language === 'en' ? 'Stories of Romania' : 'Povești din România';
   const pageDescription = language === 'en'
     ? 'Discover the culture, history, and traditions of Romania through visual stories — articles, videos, and photo galleries from every region.'
@@ -239,30 +261,45 @@ const Home: React.FC = () => {
     ],
   };
 
-  // The magazine-style spread shows the three newest stories — only meaningful
-  // when viewing the full archive. When a category is selected, treat the
-  // request as a filter and route every article into the explore grid so users
-  // don't get an empty section.
+  // The spread shows the three newest stories — only meaningful when viewing
+  // the full archive. When a category is selected, treat the request as a
+  // filter and route every article into the archive grid so users don't get
+  // an empty section.
   //
-  // It is labelled as what it is. It used to say "Featured this season",
-  // "Editorial selection" and "Three deep readings" over what is simply the
-  // newest three — the lead often a one-minute visual essay. An editorial
-  // pick needs a featured flag on the article, which does not exist yet.
-  // The featured spread needs a full set of three. With fewer published
-  // stories than that, promoting them all left the "Latest stories" section
-  // below rendering as a bare heading with no cards, no pager, and no empty
-  // state (that message is gated on articles.length > 0) — so a young archive
-  // showed a visibly broken section. Below the threshold, everything goes to
-  // the grid instead.
+  // It is labelled as what it is ("Just added"). An editorial pick needs a
+  // featured flag on the article, which does not exist yet. The spread needs
+  // a full set of three: with fewer published stories than that, promoting
+  // them all left the archive below as a bare heading with no cards, no
+  // pager, and no empty state — so a young archive showed a visibly broken
+  // section. Below the threshold, everything goes to the grid instead.
   const FEATURED_COUNT = 3;
   const showFeatured =
     selectedCategory === null && currentPage === 1 && articles.length > FEATURED_COUNT;
   const featured = showFeatured ? articles[0] : undefined;
   const second = showFeatured ? articles[1] : undefined;
   const third = showFeatured ? articles[2] : undefined;
-  // Articles shown in the featured spread are excluded from the grid below
-  // so page 1 doesn't render the same three stories twice.
+  // Articles shown in the spread are excluded from the grid below so page 1
+  // doesn't render the same three stories twice.
   const latest = showFeatured ? articles.slice(FEATURED_COUNT) : articles;
+
+  const en = language === 'en';
+  const featuredWhere = featured ? placeAndTime(featured, language) : null;
+  const featuredOpening = featured ? splitOpening(articleExcerpt(featured, language, 240), 3) : null;
+  const featuredKind = featured ? kindPhrase(featured, language) : '';
+  const scrollToArchive = () => document.getElementById('explore')?.scrollIntoView({ behavior: 'smooth' });
+
+  const chip = (id: string | null, name: string, n: number | undefined) => (
+    <button
+      key={id ?? 'all'}
+      type="button"
+      onClick={() => handleCategoryChange(id)}
+      aria-pressed={selectedCategory === id}
+      className="sb-chip shrink-0"
+    >
+      {name}
+      {n != null && <span className="sb-chip-n">{n}</span>}
+    </button>
+  );
 
   return (
     <>
@@ -277,224 +314,179 @@ const Home: React.FC = () => {
       </PageHead>
 
       <div className="screen-anim">
-        {/* CINEMATIC HERO */}
-        <section
-          className="relative overflow-hidden"
-          style={{ minHeight: 'min(calc(100dvh - 76px), 760px)', borderBottom: '1px solid var(--line-soft)' }}
-        >
-          <div className="absolute inset-0">
-            <picture>
-              <source type="image/avif" srcSet="/hero/castle.avif" />
-              <source type="image/webp" srcSet="/hero/castle.webp" />
-              <img
-                src="/hero/castle.jpg"
-                alt=""
-                aria-hidden="true"
-                className="w-full h-full object-cover"
-                loading="eager"
-                fetchPriority="high"
-                decoding="async"
-                style={{ filter: 'grayscale(0.1) contrast(1.05)' }}
-              />
-            </picture>
-            <div
-              className="absolute inset-0"
-              style={{
-                background:
-                  'var(--scrim-hero)',
-              }}
-            />
-          </div>
-
-          <div className="ed-container relative h-full flex flex-col justify-between" style={{ paddingTop: 64, paddingBottom: 56 }}>
-            <div className="flex items-start justify-between gap-4">
-              <div className="pill">
-                <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--gold)', boxShadow: '0 0 8px var(--gold)' }} />
-                {language === 'en' ? 'An archive of the Romanian imagination' : 'O arhivă a imaginației românești'}
-              </div>
-              {/* Sits over the weakest part of the hero scrim (0.35 → 0.2),
-                  against the bright sky of the castle photo. The shadow was
-                  only on the second line, leaving the first hard to read
-                  there — apply it to both and lift the opacity.
-
-                  Hidden on phones: the pill beside it wraps to two lines
-                  there and ran straight into it. */}
-              <div
-                className="hidden sm:block text-right font-ui text-[11px] uppercase shrink-0 whitespace-nowrap"
-                style={{
-                  letterSpacing: '0.18em',
-                  color: 'rgba(255, 255, 255, 0.85)',
-                  textShadow: '0 1px 3px rgba(0,0,0,0.8)',
-                }}
-              >
-                <div>{language === 'en' ? 'Stories' : 'Povești'}</div>
-                <div className="mt-1.5" style={{ color: '#f0e3c2' }}>
-                  Online · 2026
-                </div>
-              </div>
-            </div>
-
-            <div style={{ maxWidth: 980 }}>
-              {/* Sized against the viewport's height as well as its width.
-                  At 10vw alone, a 1440x900 laptop set the headline in four
-                  156px-ish lines and pushed the three buttons onto the bottom
-                  edge of the screen. Capping at 13.5vh keeps them on the first
-                  screen there and on 1366x768; phones and tablets are
-                  unchanged, since 10vw is the smaller term for them. */}
-              <h1
-                className="font-display italic font-medium m-0"
-                style={{
-                  fontSize: 'clamp(64px, min(10vw, 13.5vh), 156px)',
-                  lineHeight: 0.92,
-                  letterSpacing: '-0.02em',
-                  color: '#f4ead7',
-                  textWrap: 'balance' as React.CSSProperties['textWrap'],
-                  whiteSpace: 'pre-line',
-                }}
-              >
-                {language === 'en'
-                  ? 'The land remembers,\nin a hundred quiet voices.'
-                  : 'Pământul își amintește,\nîn o sută de voci tăcute.'}
+        {/* I. THE TITLE PAGE — the words on one side, the castle in a lit
+            window on the other (above the words on a phone). */}
+        <section className="ed-container" style={{ paddingTop: 'clamp(32px, 6vw, 72px)', paddingBottom: 'clamp(56px, 7vw, 96px)' }}>
+          <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)] gap-10 lg:gap-16 items-center">
+            <div className="flex flex-col gap-6">
+              <p className="sb-kicker">{en ? 'An archive of the Romanian imagination' : 'O arhivă a imaginației românești'}</p>
+              {/* Sized against the viewport's height as well as its width, so
+                  the buttons stay on the first screen of a 1366x768 laptop. */}
+              <h1 className="sb-h1" style={{ fontSize: 'clamp(46px, min(6.4vw, 11vh), 100px)' }}>
+                {en ? 'The land remembers, in a hundred quiet voices.' : 'Pământul își amintește, în o sută de voci tăcute.'}
               </h1>
-              <p
-                className="mt-8 max-w-[560px]"
-                style={{ fontSize: 20, lineHeight: 1.55, color: 'rgba(255, 255, 255, 0.7)' }}
-              >
-                {language === 'en'
+              <p className="sb-lede max-w-[540px]">
+                {en
                   ? 'A living archive of histories, traditions, and visual stories — gathered village by village, century by century, across the country we call home.'
                   : 'O arhivă vie de istorii, tradiții și povești vizuale — adunate sat cu sat, secol cu secol, prin țara pe care o numim acasă.'}
               </p>
-              <div className="flex items-center gap-3.5 mt-9 flex-wrap">
-                <button className="btn-ed" onClick={() => navigate('/map')}>
-                  {language === 'en' ? 'Open the map' : 'Deschide harta'}
-                  <ArrowRight className="w-3.5 h-3.5" />
+              <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-3 mt-1.5">
+                <button type="button" className="sb-btn" onClick={() => navigate('/map')}>
+                  {en ? 'Open the map' : 'Deschide harta'}
+                  <ArrowRight className="sb-ico" aria-hidden="true" />
                 </button>
-                <button className="btn-ed btn-ed-ghost" onClick={() => document.getElementById('explore')?.scrollIntoView({ behavior: 'smooth' })}>
-                  {language === 'en' ? 'Browse the archive' : 'Explorează arhiva'}
+                <button type="button" className="sb-btn sb-btn-ghost" onClick={scrollToArchive}>
+                  {en ? 'Browse the archive' : 'Explorează arhiva'}
                 </button>
-                <button className="btn-ed btn-ed-ghost" onClick={handleRandomStory}>
-                  {language === 'en' ? 'Random story' : 'Poveste aleatorie'}
+                <button type="button" className="sb-btn-word self-center sm:ml-2" onClick={handleRandomStory}>
+                  {en ? 'Tell me a story at random' : 'Spune-mi o poveste la întâmplare'}
+                  <Knot style={{ width: 8, height: 8 }} />
                 </button>
               </div>
+              {facts && (
+                <div className="flex items-center gap-3.5 mt-4 justify-center sm:justify-start">
+                  <Thread className="hidden sm:block" style={{ width: 56 }} />
+                  <p className="sb-meta">
+                    {en
+                      ? `${countLabel(facts.total, 'story', 'en')}, from ${facts.counties} of Romania’s 42 counties`
+                      : `${countLabel(facts.total, 'story', 'ro')}, din ${facts.counties} dintre cele 42 de județe ale României`}
+                  </p>
+                </div>
+              )}
             </div>
-          </div>
-
-          <div
-            className="absolute hidden md:block font-ui text-[10px] uppercase"
-            style={{
-              right: 'var(--gutter)', bottom: 140,
-              letterSpacing: '0.22em', color: 'rgba(255, 255, 255, 0.5)',
-              writingMode: 'vertical-rl', transform: 'rotate(180deg)',
-            }}
-          >
-            {/* Names what the picture shows. It used to read "Photograph ·
-                The RoStory · Spring 2026", a claim about medium and date the
-                page has no way to back. */}
-            {language === 'en' ? 'Peleș Castle · Sinaia' : 'Castelul Peleș · Sinaia'}
+            <figure className="m-0 w-full max-w-[520px] justify-self-center lg:justify-self-end">
+              <div className="sb-window">
+                <div className="sb-arch" style={{ aspectRatio: '4 / 5' }}>
+                  <picture>
+                    <source type="image/avif" srcSet="/hero/castle.avif" />
+                    <source type="image/webp" srcSet="/hero/castle.webp" />
+                    <img
+                      src="/hero/castle.jpg"
+                      alt={en ? 'Peleș Castle among the fir forests of Sinaia' : 'Castelul Peleș printre brazii Sinaiei'}
+                      className="absolute inset-0 w-full h-full object-cover"
+                      loading="eager"
+                      fetchPriority="high"
+                      decoding="async"
+                    />
+                  </picture>
+                </div>
+              </div>
+              <figcaption className="flex flex-wrap justify-between items-baseline gap-x-3 gap-y-1 mt-4 px-2.5">
+                <span className="sb-kicker-sm" style={{ color: 'var(--text-dim)' }}>{en ? 'Peleș Castle, Sinaia' : 'Castelul Peleș, Sinaia'}</span>
+                {facts?.pelesId && (
+                  <Link to={`/article/${facts.pelesId}`} state={HOME_LINK_STATE} className="sb-btn-word" style={{ fontSize: 19 }}>
+                    {en ? 'Read where a king built a dream →' : 'Citește unde un rege și-a clădit visul →'}
+                  </Link>
+                )}
+              </figcaption>
+            </figure>
           </div>
         </section>
 
-        {/* TICKER — the newest stories, each a link. It used to be six
-            hard-coded phrases, some naming things the archive has no story
-            about (the wooden churches of Maramureș), and none went anywhere.
-
-            Two copies of the list, each carrying its own trailing gap, make
-            the -50% loop seamless. Only the first occurrence of each story is
-            exposed: the second copy and any padding repeats are hidden from
-            assistive tech and the tab order, so each story is announced and
-            reachable once. The strip holds its height while loading and is
-            removed only when there is nothing to show. */}
+        {/* TICKER — the newest stories, each a link. Two copies of the list,
+            each carrying its own trailing gap, make the -50% loop seamless.
+            Only the first occurrence of each story is exposed: the second copy
+            and any padding repeats are hidden from assistive tech and the tab
+            order, so each story is announced and reachable once. The strip
+            holds its height while loading and is removed only when there is
+            nothing to show. */}
         {tickerStories?.length !== 0 && (
-          <section
-            className="ticker overflow-hidden"
-            aria-label={language === 'en' ? 'Newest stories' : 'Cele mai noi povești'}
-            style={{ borderBottom: '1px solid var(--line-soft)', padding: '22px 0', background: 'var(--overlay-ticker)', minHeight: 81 }}
-          >
-            {tickerStories && (
-              <div className="ticker-track" style={{ gap: 0 }}>
-                {[0, 1].map((copy) => (
-                  <div key={copy} className="flex gap-12 pr-12" aria-hidden={copy === 1 ? true : undefined}>
-                    {tickerLoop.map((story, i) => {
-                      const isRepeat = copy === 1 || i >= tickerStories.length;
-                      return (
-                        <div
-                          key={`${story.id}-${i}`}
-                          className="flex items-center gap-12 whitespace-nowrap"
-                          aria-hidden={isRepeat && copy === 0 ? true : undefined}
-                          style={{ fontFamily: 'var(--display)', fontStyle: 'italic', fontSize: 22 }}
-                        >
-                          <Link
-                            to={`/article/${story.id}`}
-                            state={HOME_LINK_STATE}
-                            tabIndex={isRepeat ? -1 : undefined}
-                            className="transition-opacity hover:opacity-75"
-                            style={{ color: 'var(--gold)' }}
-                          >
-                            {story.location && <span style={{ color: 'var(--text-mute)' }}>{story.location} · </span>}
-                            {getLocalized(story, 'title', language)}
-                          </Link>
-                          <span aria-hidden="true" style={{ color: 'var(--text-mute)' }}>✦</span>
-                        </div>
-                      );
-                    })}
+          <section aria-label={en ? 'Recently told' : 'Povestite de curând'}>
+            <Thread style={{ opacity: 0.3 }} />
+            <div className="flex items-center" style={{ minHeight: 72 }}>
+              <p className="sb-kicker-sm shrink-0 pl-[var(--gutter)] pr-6 hidden sm:block" style={{ color: 'var(--text-mute)' }}>
+                {en ? 'Recently told' : 'Povestite de curând'}
+              </p>
+              <div className="ticker overflow-hidden flex-1 min-w-0" style={{ padding: '20px 0' }}>
+                {tickerStories && (
+                  <div className="ticker-track" style={{ gap: 0 }}>
+                    {[0, 1].map((copy) => (
+                      <div key={copy} className="flex gap-7 pr-7" aria-hidden={copy === 1 ? true : undefined}>
+                        {tickerLoop.map((story, i) => {
+                          const isRepeat = copy === 1 || i >= tickerStories.length;
+                          const place = placeOf(story, language);
+                          return (
+                            <div
+                              key={`${story.id}-${i}`}
+                              className="flex items-center gap-7 whitespace-nowrap"
+                              aria-hidden={isRepeat && copy === 0 ? true : undefined}
+                              style={{ fontFamily: 'var(--display)', fontStyle: 'italic', fontSize: 22 }}
+                            >
+                              <Link
+                                to={`/article/${story.id}`}
+                                state={HOME_LINK_STATE}
+                                tabIndex={isRepeat ? -1 : undefined}
+                                className="transition-opacity hover:opacity-75"
+                                style={{ color: 'var(--gold)' }}
+                              >
+                                {place && <span style={{ color: 'var(--text-mute)' }}>{place} · </span>}
+                                {getLocalized(story, 'title', language)}
+                              </Link>
+                              <Knot small style={{ opacity: 0.7 }} />
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ))}
                   </div>
-                ))}
+                )}
               </div>
-            )}
+            </div>
+            <Thread style={{ opacity: 0.3 }} />
           </section>
         )}
 
-        {/* FEATURED — magazine-style spread */}
-        {featured && (
-          <section style={{ padding: '120px 0 80px' }}>
+        {/* II. NEWLY TOLD */}
+        {featured && featuredOpening && (
+          <section className="sb-section">
             <div className="ed-container">
-              <SectionHeader
-                eyebrow={language === 'en' ? 'Just added' : 'Abia adăugate'}
-                title={language === 'en' ? 'Three new stories\nfrom the archive.' : 'Trei povești noi\ndin arhivă.'}
+              <ChapterHead
+                className="mb-12 md:mb-16"
+                kicker={en ? 'Just added' : 'Abia adăugate'}
+                title={en ? 'Three new stories from the archive.' : 'Trei povești noi din arhivă.'}
               />
-
-              <div className="grid grid-cols-1 lg:grid-cols-[1.6fr_1fr] gap-14 items-stretch">
-                <Link to={`/article/${featured.id}`} state={{ from: '/' }} className="block" style={{ color: 'inherit', textDecoration: 'none' }}>
-                  <div className="ph relative" data-tone={toneFor(featured.id)} data-label={placeLabel(featured)} style={{ aspectRatio: '5/6' }}>
-                    {/* articleCoverUrl never returns the raw video file for
-                        films — posterUrl || mediaUrl rendered a broken <img>
-                        when a video had no poster. */}
-                    {articleCoverUrl(featured) && (
-                      <img src={storageImage(articleCoverUrl(featured), 'feature')} alt={getLocalized(featured, 'title', language)} className="absolute inset-0 w-full h-full object-cover" loading="lazy" />
-                    )}
-                    <div className="absolute left-6 top-6">
-                      <span className="pill" style={{ background: 'var(--overlay-deep)' }}>{language === 'en' ? 'Newest' : 'Cea mai nouă'}</span>
+              <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)] gap-14 lg:gap-[72px] items-start">
+                <Link to={`/article/${featured.id}`} state={HOME_LINK_STATE} className="sb-card grid gap-5">
+                  <div className="sb-window-shallow">
+                    <div className="sb-arch sb-arch-shallow sb-card-media" style={{ aspectRatio: '5 / 4' }}>
+                      {/* articleCoverUrl never returns the raw video file for
+                          films — posterUrl || mediaUrl rendered a broken <img>
+                          when a video had no poster. */}
+                      {articleCoverUrl(featured) ? (
+                        <img src={storageImage(articleCoverUrl(featured), 'feature')} alt="" loading="lazy" />
+                      ) : (
+                        <div className="ph absolute inset-0" data-tone={toneFor(featured.id)} style={{ border: 0 }} />
+                      )}
+                      <div className="sb-scrim" />
+                      <span className="sb-tag" style={{ position: 'absolute', left: 22, bottom: 22, marginRight: 22 }}>
+                        {en ? 'The newest' : 'Cea mai nouă'} · {featuredKind.charAt(0).toLowerCase() + featuredKind.slice(1)}
+                      </span>
                     </div>
                   </div>
-                  <div className="pt-7">
-                    <div className="eyebrow">
-                      {categoryMap.get(featured.categoryId) ? getLocalized(categoryMap.get(featured.categoryId)!, 'name', language) : ''}
-                      {featured.type !== 'video' && <> · {readMinutes(featured, language)} {language === 'en' ? 'min read' : 'min citire'}</>}
-                    </div>
-                    <h3
-                      className="font-display italic font-medium m-0 mb-3.5 mt-5"
-                      style={{ fontSize: 'clamp(40px, 4.4vw, 60px)', lineHeight: 1.05, color: 'var(--parchment)', textWrap: 'balance' as React.CSSProperties['textWrap'] }}
-                    >
-                      {getLocalized(featured, 'title', language)}
-                    </h3>
-                    <p className="text-ink-dim m-0 max-w-[620px]" style={{ fontSize: 19, lineHeight: 1.55 }}>
-                      {articleExcerpt(featured, language, 220)}
+                  {featuredWhere && <p className="sb-kicker mt-2">{featuredWhere}</p>}
+                  <h3 className="sb-h2" style={{ fontSize: 'clamp(36px, 4vw, 58px)' }}>{getLocalized(featured, 'title', language)}</h3>
+                  {featuredOpening[0] && (
+                    <p className="sb-lede max-w-[620px]">
+                      <span className="sb-incipit">{featuredOpening[0]}</span>{featuredOpening[1]}
                     </p>
-                  </div>
+                  )}
+                  <span className="sb-btn-word">{en ? 'Begin the story →' : 'Începe povestea →'}</span>
                 </Link>
 
-                <div className="flex flex-col gap-12 justify-between">
-                  {[second, third].filter(Boolean).map(s => (
-                    <StoryCard
-                      key={s!.id}
-                      article={s!}
-                      category={categoryMap.get(s!.categoryId)}
-                      language={language}
-                      size="wide"
-                      linkState={HOME_LINK_STATE}
-                      isArticleFavorited={isFavorited(s!.id)}
-                      onFavoriteToggle={handleFavoriteToggle}
-                    />
+                <div className="flex flex-col gap-12 lg:pt-3">
+                  {[second, third].filter((s): s is Article => !!s).map((s, i) => (
+                    <React.Fragment key={s.id}>
+                      {i > 0 && <Divider />}
+                      <StoryCard
+                        article={s}
+                        category={categoryMap.get(s.categoryId)}
+                        language={language}
+                        size="wide"
+                        linkState={HOME_LINK_STATE}
+                        isArticleFavorited={isFavorited(s.id)}
+                        onFavoriteToggle={handleFavoriteToggle}
+                      />
+                    </React.Fragment>
                   ))}
                 </div>
               </div>
@@ -502,78 +494,56 @@ const Home: React.FC = () => {
           </section>
         )}
 
-        {/* PULL QUOTE BREAK */}
-        <section style={{ padding: '60px 0', borderTop: '1px solid var(--line-soft)', borderBottom: '1px solid var(--line-soft)', background: 'linear-gradient(180deg, transparent, rgba(201,169,110,0.04), transparent)' }}>
+        {/* THE EPIGRAPH */}
+        <section className="text-center" style={{ paddingTop: 'clamp(56px, 7vw, 88px)', paddingBottom: 'clamp(64px, 8vw, 104px)' }}>
           <div className="ed-container">
-            <div className="flex items-center gap-12">
-              <div className="hidden md:block font-display italic" style={{ flex: '0 0 auto', fontSize: 64, color: 'var(--gold)', lineHeight: 1 }}>“</div>
-              <p
-                className="m-0 font-display italic"
-                style={{ fontSize: 'clamp(28px, 3vw, 40px)', lineHeight: 1.25, color: 'var(--parchment)', textWrap: 'balance' as React.CSSProperties['textWrap'] }}
-              >
-                {language === 'en'
-                  ? "We don't keep an archive because the past is finished. We keep one because it isn't."
-                  : 'Nu ținem o arhivă pentru că trecutul s-a încheiat. O ținem pentru că nu s-a încheiat.'}
+            <Motif className="mx-auto mb-11" style={{ maxWidth: 320 }} />
+            <blockquote className="m-0 mx-auto max-w-[920px]">
+              <p className="sb-h2" style={{ fontSize: 'clamp(28px, 3.4vw, 46px)', lineHeight: 1.22 }}>
+                {en
+                  ? '“We don’t keep an archive because the past is finished. We keep one because it isn’t.”'
+                  : '„Nu ținem o arhivă pentru că trecutul s-a încheiat. O ținem pentru că nu s-a încheiat.”'}
               </p>
-            </div>
+            </blockquote>
+            <Motif className="mx-auto mt-11" style={{ maxWidth: 320 }} />
           </div>
         </section>
 
-        {/* LATEST GRID */}
-        <section id="explore" style={{ padding: '120px 0 60px' }}>
+        {/* III. THE ARCHIVE */}
+        <section id="explore" className="sb-section sb-band">
           <div className="ed-container">
-            <SectionHeader
-              eyebrow={language === 'en' ? 'The archive' : 'Arhiva'}
-              title={language === 'en' ? 'From the field.' : 'Din teren.'}
-              sub={language === 'en' ? 'Every story, newest first.' : 'Toate poveștile, începând cu cele mai noi.'}
-              action={
-                <button className="btn-ed btn-ed-ghost" onClick={() => navigate('/categories')}>
-                  {language === 'en' ? 'All categories →' : 'Toate categoriile →'}
-                </button>
-              }
-            />
-
-            {/* Category filter pills */}
-            <div className="flex flex-wrap gap-2 mb-12">
-              <button
-                onClick={() => handleCategoryChange(null)}
-                className="px-3.5 py-2 font-ui text-[11px] uppercase rounded-full cursor-pointer transition-colors"
-                style={{
-                  letterSpacing: '0.15em',
-                  border: '1px solid var(--line)',
-                  background: selectedCategory === null ? 'var(--gold)' : 'transparent',
-                  color: selectedCategory === null ? 'var(--ink)' : 'var(--text-dim)',
-                }}
-              >
-                {language === 'en' ? 'All' : 'Toate'}
+            <div className="flex flex-wrap justify-between items-end gap-6 mb-9">
+              <div className="flex flex-col gap-3">
+                <p className="sb-kicker">{en ? 'The archive' : 'Arhiva'}</p>
+                <h2 className="sb-h2">{en ? 'From the field.' : 'Din teren.'}</h2>
+                <p className="sb-dim text-[19px]">{en ? 'Every story, newest first.' : 'Toate poveștile, începând cu cele mai noi.'}</p>
+              </div>
+              <button type="button" className="sb-btn sb-btn-ghost" onClick={() => navigate('/categories')}>
+                {en ? 'All categories →' : 'Toate categoriile →'}
               </button>
-              {categories.map(c => (
-                <button
-                  key={c.id}
-                  onClick={() => handleCategoryChange(c.id)}
-                  className="px-3.5 py-2 font-ui text-[11px] uppercase rounded-full cursor-pointer transition-colors"
-                  style={{
-                    letterSpacing: '0.15em',
-                    border: '1px solid var(--line)',
-                    background: selectedCategory === c.id ? 'var(--gold)' : 'transparent',
-                    color: selectedCategory === c.id ? 'var(--ink)' : 'var(--text-dim)',
-                  }}
-                >
-                  {getLocalized(c, 'name', language)}
-                </button>
-              ))}
+            </div>
+
+            {/* The shelves as chips, each with how many stories it holds —
+                one row that scrolls sideways on a phone. */}
+            <div
+              role="group"
+              aria-label={en ? 'Show stories from' : 'Arată poveștile din'}
+              className="flex gap-2.5 mb-14 overflow-x-auto sm:flex-wrap sm:overflow-visible pb-1"
+            >
+              {chip(null, en ? 'All' : 'Toate', facts?.total)}
+              {categories.map((c) => chip(c.id, getLocalized(c, 'name', language), facts ? facts.byCategory.get(c.id) || 0 : undefined))}
             </div>
 
             {isLoading ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-12 gap-y-10 md:gap-y-[72px]">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-12 gap-y-14 md:gap-y-[72px]">
                 {[1, 2, 3, 4, 5, 6].map(i => (
-                  <div key={i} style={{ aspectRatio: '3/4', border: '1px solid var(--line)', background: 'var(--ink-2)' }} className="animate-pulse" />
+                  <div key={i} className="sb-frame animate-pulse" style={{ aspectRatio: '4/5' }} />
                 ))}
               </div>
             ) : (articles.length > 0 ? (
               <>
                 {latest.length > 0 && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-12 gap-y-10 md:gap-y-[72px]">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-12 gap-y-14 md:gap-y-[72px]">
                     {latest.map(article => (
                       <StoryCard
                         key={article.id}
@@ -590,93 +560,72 @@ const Home: React.FC = () => {
                 )}
 
                 {totalPages > 1 && (
-                  <div className="flex items-center justify-center gap-6 pt-12 mt-4">
+                  <nav aria-label={en ? 'Pages' : 'Pagini'} className="flex items-center justify-between sm:justify-center gap-4 sm:gap-6 mt-16 md:mt-20">
                     <button
-                      className="btn-ed btn-ed-ghost"
+                      type="button"
+                      className="sb-btn sb-btn-ghost"
                       onClick={() => goToPage(currentPage - 1)}
                       disabled={currentPage === 1}
-                      style={{ opacity: currentPage === 1 ? 0.4 : 1 }}
                     >
-                      <ChevronLeft className="w-3.5 h-3.5" />
-                      {language === 'en' ? 'Previous' : 'Anterior'}
+                      {en ? '← Newer' : '← Mai noi'}
                     </button>
-                    <span className="font-ui text-[11px] uppercase" style={{ letterSpacing: '0.18em', color: 'var(--text-mute)' }}>
-                      {language === 'en' ? `Page ${currentPage} of ${totalPages}` : `Pagina ${currentPage} din ${totalPages}`}
-                    </span>
+                    <p className="sb-kicker-sm text-center" style={{ color: 'var(--text-dim)' }}>
+                      {en ? `Page ${currentPage} of ${totalPages}` : `Pagina ${currentPage} din ${totalPages}`}
+                    </p>
                     <button
-                      className="btn-ed btn-ed-ghost"
+                      type="button"
+                      className="sb-btn sb-btn-ghost"
                       onClick={() => goToPage(currentPage + 1)}
                       disabled={currentPage === totalPages}
-                      style={{ opacity: currentPage === totalPages ? 0.4 : 1 }}
                     >
-                      {language === 'en' ? 'Next' : 'Următor'}
-                      <ChevronRight className="w-3.5 h-3.5" />
+                      {en ? 'Earlier stories →' : 'Povești mai vechi →'}
                     </button>
-                  </div>
+                  </nav>
                 )}
               </>
             ) : (
               <div className="py-24 text-center">
-                <div className="font-display italic text-2xl text-ink-dim">{t('articles.noArticles')}</div>
+                <p className="font-display italic text-2xl sb-dim">{t('articles.noArticles')}</p>
               </div>
             ))}
           </div>
         </section>
 
-        {/* NEWSLETTER STRIP */}
-        <section
-          style={{
-            padding: '80px 0',
-            marginTop: 60,
-            background: 'linear-gradient(180deg, rgba(201,169,110,0.05), rgba(138,42,42,0.04))',
-            borderTop: '1px solid var(--line-soft)',
-            borderBottom: '1px solid var(--line-soft)',
-          }}
-        >
+        {/* IV. THE DISPATCH — a letter, with the logo as its stamp. */}
+        <section className="sb-section">
           <div className="ed-container">
-            <div className="flex flex-wrap items-center justify-between gap-10">
-              <div style={{ maxWidth: 540 }}>
-                <div className="eyebrow mb-3.5">{language === 'en' ? 'The dispatch' : 'Buletinul'}</div>
-                <h3
-                  className="font-display italic font-medium m-0"
-                  style={{ fontSize: 'clamp(28px, 3vw, 44px)', lineHeight: 1.1, color: 'var(--parchment)' }}
-                >
-                  {language === 'en' ? 'One letter a month, from the road.' : 'O scrisoare pe lună, de pe drum.'}
-                </h3>
-                <p className="text-ink-dim mt-3" style={{ fontSize: 16 }}>
-                  {language === 'en' ? 'Field notes, photographs, and the occasional recipe. Free.' : 'Note de teren, fotografii și, ocazional, o rețetă. Gratuit.'}
-                </p>
+            <div
+              className="relative"
+              style={{ border: '1.5px dashed var(--gold-deep)', borderRadius: 24, padding: 'clamp(28px, 5vw, 64px)', background: 'var(--paper)' }}
+            >
+              <div
+                aria-hidden="true"
+                className="absolute hidden sm:grid place-items-center"
+                style={{ top: -22, right: 40, width: 92, height: 108, background: 'var(--ink-2)', border: '2px dotted var(--gold-deep)', borderRadius: 6, transform: 'rotate(5deg)' }}
+              >
+                <picture>
+                  <source type="image/webp" srcSet="/logo.webp" />
+                  <img src="/logo.png" alt="" width={60} height={60} className="w-[60px] h-auto" />
+                </picture>
               </div>
-              <NewsletterForm language={language} />
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-12 items-center">
+                <div className="flex flex-col gap-3.5">
+                  <p className="sb-kicker">{en ? 'The dispatch' : 'Buletinul'}</p>
+                  <h2 className="sb-h2" style={{ fontSize: 'clamp(32px, 3.6vw, 50px)' }}>
+                    {en ? 'One letter a month, from the road.' : 'O scrisoare pe lună, de pe drum.'}
+                  </h2>
+                  <p className="sb-dim text-[19px]">
+                    {en ? 'Field notes, photographs, and the occasional recipe. Free.' : 'Note de teren, fotografii și, ocazional, o rețetă. Gratuit.'}
+                  </p>
+                </div>
+                <NewsletterForm language={language} />
+              </div>
             </div>
           </div>
         </section>
       </div>
-
     </>
   );
 };
-
-const SectionHeader: React.FC<{ eyebrow?: string; title: string; sub?: string; action?: React.ReactNode }> = ({ eyebrow, title, sub, action }) => (
-  <div className="flex flex-wrap justify-between items-end gap-6 mb-12">
-    <div style={{ maxWidth: 720 }}>
-      {eyebrow && <div className="eyebrow mb-3.5">{eyebrow}</div>}
-      <h2
-        className="font-display italic font-medium m-0"
-        style={{
-          fontSize: 'clamp(36px, 5vw, 64px)',
-          lineHeight: 1.05,
-          color: 'var(--parchment)',
-          textWrap: 'balance' as React.CSSProperties['textWrap'],
-          whiteSpace: 'pre-line',
-        }}
-      >
-        {title}
-      </h2>
-      {sub && <p className="text-ink-dim mt-4 max-w-[600px]" style={{ fontSize: 18 }}>{sub}</p>}
-    </div>
-    {action}
-  </div>
-);
 
 export default Home;

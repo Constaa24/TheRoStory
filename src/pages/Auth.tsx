@@ -5,13 +5,14 @@ import { useNavigate, useSearchParams, useLocation, Navigate } from "react-route
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardFooter } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PageHead } from "@/components/layout/PageHead";
 import { toast } from "sonner";
 import { Loader2, Mail, Lock, User, Eye, EyeOff } from "lucide-react";
 import { motion } from "framer-motion";
 import { ReducedMotionConfig } from "@/components/ui/reduced-motion-config";
+import { Rosette, Thread } from "@/components/story/Ornaments";
 
 const GoogleIcon: React.FC = () => (
   <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24">
@@ -20,6 +21,39 @@ const GoogleIcon: React.FC = () => (
     <path fill="currentColor" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
     <path fill="currentColor" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
   </svg>
+);
+
+// The storybook's button voices, applied over the shadcn Button's defaults
+// (cn merges them, so these win over the variant classes).
+const PRIMARY = "w-full rounded-full h-12 font-ui font-semibold text-[15px] bg-[color:var(--gold)] text-[color:var(--on-gold)] hover:bg-[color:var(--gold-2)]";
+const GHOST = "w-full rounded-full h-12 font-ui font-semibold text-[15px] border border-[color:var(--line)] bg-transparent text-[color:var(--parchment)] hover:bg-[color:var(--glow)] hover:text-[color:var(--parchment)]";
+const QUIET = "w-full rounded-full h-11 font-display italic text-[19px] text-[color:var(--gold)] hover:bg-transparent hover:text-[color:var(--gold-2)]";
+const CARD = "border-[color:var(--line-soft)] bg-[color:var(--paper)] shadow-none rounded-[26px]";
+const INPUT = "h-[50px] rounded-xl bg-[color:var(--ink-2)] border-[color:var(--line)] text-[16px]";
+
+/** Every view of this page: the reading room in an arch, beside the card. */
+const AuthFrame: React.FC<{ language: "en" | "ro"; children: React.ReactNode }> = ({ language, children }) => (
+  <div className="ed-container" style={{ paddingTop: "clamp(40px, 6vw, 64px)", paddingBottom: "clamp(64px, 8vw, 96px)" }}>
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-center min-h-[70vh]">
+      <figure className="m-0 w-full max-w-[520px] justify-self-center hidden lg:block">
+        <div className="sb-window">
+          <div className="sb-arch" style={{ aspectRatio: "4 / 4.6" }}>
+            <picture>
+              <source type="image/avif" srcSet="/bucharest_reading_room.avif" />
+              <source type="image/webp" srcSet="/bucharest_reading_room.webp" />
+              <img src="/bucharest_reading_room.jpg" alt="" width={1024} height={1024} decoding="async" className="absolute inset-0 w-full h-full object-cover" />
+            </picture>
+          </div>
+        </div>
+        <figcaption className="sb-kicker-sm text-center mt-4" style={{ color: "var(--text-dim)" }}>
+          {language === "en"
+            ? "Save the stories you love, and leave notes for other readers."
+            : "Păstrează poveștile dragi și lasă note pentru alți cititori."}
+        </figcaption>
+      </figure>
+      <div className="w-full flex justify-center lg:justify-start">{children}</div>
+    </div>
+  </div>
 );
 
 const Auth: React.FC = () => {
@@ -280,24 +314,24 @@ const Auth: React.FC = () => {
     const isUnconfirmedLogin = verificationReason === "unconfirmed-login";
 
     return (
-      <div className="ed-container py-20 flex justify-center items-center min-h-[70vh]">
+      <AuthFrame language={language}>
         {pageHead}
         <motion.div
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
           className="max-w-md w-full"
         >
-          <Card className="border-line bg-[color:var(--ink-2)]/60 backdrop-blur-md text-center rounded-sm">
+          <Card className={`${CARD} text-center`}>
             <CardHeader>
               <div className="flex justify-center mb-4">
-                <div className="h-16 w-16 bg-accent/10 rounded-full flex items-center justify-center text-accent">
+                <div className="h-16 w-16 rounded-full flex items-center justify-center" style={{ border: "1px solid var(--line)", color: "var(--gold)" }}>
                   <Mail className="h-8 w-8" />
                 </div>
               </div>
-              <CardTitle className="text-3xl font-display italic text-[color:var(--parchment)]">
+              <h1 className="sb-h3" style={{ fontSize: 34 }}>
                 {isUnconfirmedLogin ? t("auth.emailNotConfirmedTitle") : t("auth.checkEmail")}
-              </CardTitle>
-              <CardDescription className="text-muted-foreground font-serif italic text-lg">
+              </h1>
+              <CardDescription className="font-display italic text-[19px] text-[color:var(--text-dim)]">
                 {isUnconfirmedLogin
                   ? t("auth.emailNotConfirmedDesc")
                   : `${t("auth.verificationSentTo")} ${email}`}
@@ -309,7 +343,7 @@ const Auth: React.FC = () => {
               </p>
               <Button
                 type="button"
-                className="w-full rounded-full h-12 font-serif italic"
+                className={PRIMARY}
                 onClick={handleResend}
                 disabled={isResending || !email.trim()}
               >
@@ -322,7 +356,7 @@ const Auth: React.FC = () => {
               <Button
                 variant="outline"
                 type="button"
-                className="w-full rounded-full h-12 font-serif italic"
+                className={GHOST}
                 onClick={() => navigate("/")}
               >
                 {t("auth.goHome")}
@@ -330,39 +364,39 @@ const Auth: React.FC = () => {
             </CardContent>
           </Card>
         </motion.div>
-      </div>
+      </AuthFrame>
     );
   }
 
   if (view === "forgot-password") {
     return (
-      <div className="ed-container py-20 flex justify-center items-center min-h-[80vh]">
+      <AuthFrame language={language}>
         {pageHead}
         <motion.div 
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
           className="max-w-md w-full"
         >
-          <Card className="border-line bg-[color:var(--ink-2)]/60 backdrop-blur-md shadow-2xl rounded-sm">
+          <Card className={`${CARD}`}>
             <CardHeader className="text-center">
-              <CardTitle className="text-3xl font-display italic text-[color:var(--parchment)]">
+              <h1 className="sb-h3" style={{ fontSize: 34 }}>
                 {t("auth.resetPassword")}
-              </CardTitle>
-              <CardDescription className="text-muted-foreground font-serif italic">
+              </h1>
+              <CardDescription className="font-display italic text-[19px] text-[color:var(--text-dim)]">
                 {t("auth.resetPasswordDesc")}
               </CardDescription>
             </CardHeader>
             <CardContent>
               <form onSubmit={handleForgotPassword} className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="reset-email">Email</Label>
+                  <Label className="sb-label" htmlFor="reset-email">Email</Label>
                   <div className="relative">
-                    <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                    <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" aria-hidden="true" />
                     <Input
                       id="reset-email"
                       type="email"
                       placeholder="email@example.com"
-                      className="pl-10 bg-background/50"
+                      className={`pl-10 ${INPUT}`}
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       required
@@ -370,13 +404,13 @@ const Auth: React.FC = () => {
                     />
                   </div>
                 </div>
-                <Button type="submit" className="w-full rounded-full h-12 text-lg font-serif italic" disabled={isLoading}>
+                <Button type="submit" className={PRIMARY} disabled={isLoading}>
                   {isLoading ? <Loader2 className="animate-spin h-5 w-5" /> : t("auth.sendLink")}
                 </Button>
                 <Button
                   type="button"
                   variant="ghost"
-                  className="w-full rounded-full font-serif italic"
+                  className={QUIET}
                   onClick={() => setView("auth")}
                 >
                   {t("auth.backToLogin")}
@@ -385,7 +419,7 @@ const Auth: React.FC = () => {
             </CardContent>
           </Card>
         </motion.div>
-      </div>
+      </AuthFrame>
     );
   }
 
@@ -393,19 +427,19 @@ const Auth: React.FC = () => {
     // If user has no session and not coming from reset mode, show error state
     if (!isResetMode && !user) {
       return (
-        <div className="ed-container py-20 flex justify-center items-center min-h-[80vh]">
+        <AuthFrame language={language}>
         {pageHead}
           <motion.div 
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
             className="max-w-md w-full"
           >
-            <Card className="border-line bg-[color:var(--ink-2)]/60 backdrop-blur-md shadow-2xl rounded-sm">
+            <Card className={`${CARD}`}>
               <CardHeader className="text-center">
-                <CardTitle className="text-3xl font-display italic text-[color:var(--parchment)]">
+                <h1 className="sb-h3" style={{ fontSize: 34 }}>
                   {t("auth.invalidResetLink")}
-                </CardTitle>
-                <CardDescription className="text-muted-foreground font-serif italic">
+                </h1>
+                <CardDescription className="font-display italic text-[19px] text-[color:var(--text-dim)]">
                   {t("auth.invalidResetLinkDesc")}
                 </CardDescription>
               </CardHeader>
@@ -414,7 +448,7 @@ const Auth: React.FC = () => {
                   {t("auth.invalidResetLinkHelp")}
                 </p>
                 <Button
-                  className="w-full rounded-full h-12 text-lg font-serif italic"
+                  className={PRIMARY}
                   onClick={async () => {
                     setView("forgot-password");
                     await leaveRecoveryMode("/auth");
@@ -425,7 +459,7 @@ const Auth: React.FC = () => {
                 <Button
                   type="button"
                   variant="ghost"
-                  className="w-full rounded-full font-serif italic"
+                  className={QUIET}
                   onClick={async () => {
                     setView("auth");
                     await leaveRecoveryMode("/auth");
@@ -436,37 +470,37 @@ const Auth: React.FC = () => {
               </CardContent>
             </Card>
           </motion.div>
-        </div>
+        </AuthFrame>
       );
     }
 
     return (
-      <div className="ed-container py-20 flex justify-center items-center min-h-[80vh]">
+      <AuthFrame language={language}>
         {pageHead}
         <motion.div 
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
           className="max-w-md w-full"
         >
-          <Card className="border-line bg-[color:var(--ink-2)]/60 backdrop-blur-md shadow-2xl rounded-sm">
+          <Card className={`${CARD}`}>
             <CardHeader className="text-center">
-              <CardTitle className="text-3xl font-display italic text-[color:var(--parchment)]">
+              <h1 className="sb-h3" style={{ fontSize: 34 }}>
                 {t("auth.newPassword")}
-              </CardTitle>
-              <CardDescription className="text-muted-foreground font-serif italic">
+              </h1>
+              <CardDescription className="font-display italic text-[19px] text-[color:var(--text-dim)]">
                 {t("auth.newPasswordDesc")}
               </CardDescription>
             </CardHeader>
             <CardContent>
               <form onSubmit={handleResetPassword} className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="new-password">{t("auth.newPassword")}</Label>
+                  <Label className="sb-label" htmlFor="new-password">{t("auth.newPassword")}</Label>
                   <div className="relative">
-                    <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                    <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" aria-hidden="true" />
                     <Input
                       id="new-password"
                       type={showNewPwd ? "text" : "password"}
-                      className="pl-10 pr-11 bg-background/50"
+                      className={`pl-10 pr-11 ${INPUT}`}
                       value={newPassword}
                       onChange={(e) => setNewPassword(e.target.value)}
                       required
@@ -484,13 +518,13 @@ const Auth: React.FC = () => {
                     </button>
                   </div>
                 </div>
-                <Button type="submit" className="w-full rounded-full h-12 text-lg font-serif italic" disabled={isLoading}>
+                <Button type="submit" className={PRIMARY} disabled={isLoading}>
                   {isLoading ? <Loader2 className="animate-spin h-5 w-5" /> : t("auth.resetPassword")}
                 </Button>
                 <Button
                   type="button"
                   variant="ghost"
-                  className="w-full rounded-full font-serif italic"
+                  className={QUIET}
                   onClick={async () => {
                     setView("auth");
                     await leaveRecoveryMode("/auth");
@@ -502,53 +536,43 @@ const Auth: React.FC = () => {
             </CardContent>
           </Card>
         </motion.div>
-      </div>
+      </AuthFrame>
     );
   }
 
   return (
-    <div className="ed-container py-20 flex justify-center items-center min-h-[80vh]">
+    <AuthFrame language={language}>
       {pageHead}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         className="max-w-md w-full"
       >
-        <Card className="border-line bg-[color:var(--ink-2)]/60 backdrop-blur-md shadow-2xl rounded-sm">
-          <CardHeader className="text-center">
-            <CardTitle
-              className="text-4xl font-display italic font-semibold px-2 pb-1"
-              style={{
-                background: 'var(--logo-gradient)',
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent',
-                letterSpacing: '-0.01em',
-              }}
-            >
-              The RoStory
-            </CardTitle>
-            <CardDescription className="text-muted-foreground font-serif italic">
+        <Card className={`${CARD}`}>
+          <CardHeader className="gap-2">
+            <Rosette size="sm" />
+            <h1 className="sb-h2" style={{ fontSize: "clamp(32px, 3.4vw, 44px)" }}>
               {activeTab === "login" ? t("auth.continueJourney") : t("auth.startStory")}
-            </CardDescription>
+            </h1>
           </CardHeader>
           <CardContent>
             <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-              <TabsList className="grid w-full grid-cols-2 rounded-full p-1 h-12 bg-[color:var(--ink)]/40 border border-line">
-                <TabsTrigger value="login" className="rounded-full font-display italic data-[state=active]:bg-[color:var(--gold)] data-[state=active]:text-[color:var(--ink)]">{t("auth.loginTab")}</TabsTrigger>
-                <TabsTrigger value="signup" className="rounded-full font-display italic data-[state=active]:bg-[color:var(--gold)] data-[state=active]:text-[color:var(--ink)]">{t("auth.signupTab")}</TabsTrigger>
+              <TabsList className="grid w-full grid-cols-2 rounded-full p-1 h-12 bg-transparent border border-[color:var(--line)]">
+                <TabsTrigger value="login" className="rounded-full font-ui font-semibold text-[14px] data-[state=active]:bg-[color:var(--gold)] data-[state=active]:text-[color:var(--on-gold)]">{t("auth.loginTab")}</TabsTrigger>
+                <TabsTrigger value="signup" className="rounded-full font-ui font-semibold text-[14px] data-[state=active]:bg-[color:var(--gold)] data-[state=active]:text-[color:var(--on-gold)]">{t("auth.signupTab")}</TabsTrigger>
               </TabsList>
               
               <TabsContent value="login">
                 <form onSubmit={handleSignIn} className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="email">Email</Label>
+                    <Label className="sb-label" htmlFor="email">Email</Label>
                     <div className="relative">
-                      <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                      <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" aria-hidden="true" />
                       <Input
                         id="email"
                         type="email"
                         placeholder="email@example.com"
-                        className="pl-10 bg-background/50"
+                        className={`pl-10 ${INPUT}`}
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
                         required
@@ -557,13 +581,13 @@ const Auth: React.FC = () => {
                     </div>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="password">{t("auth.password")}</Label>
+                    <Label className="sb-label" htmlFor="password">{t("auth.password")}</Label>
                     <div className="relative">
-                      <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                      <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" aria-hidden="true" />
                       <Input
                         id="password"
                         type={showLoginPwd ? "text" : "password"}
-                        className="pl-10 pr-11 bg-background/50"
+                        className={`pl-10 pr-11 ${INPUT}`}
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
                         required
@@ -583,33 +607,33 @@ const Auth: React.FC = () => {
                   <div className="flex justify-end">
                     <Button 
                       variant="link" 
-                      className="px-0 font-serif italic text-muted-foreground h-auto text-xs"
+                      className="px-0 h-auto font-display italic text-[16px] text-[color:var(--gold)] underline underline-offset-4"
                       onClick={() => setView("forgot-password")}
                       type="button"
                     >
                       {t("auth.forgotPassword")}
                     </Button>
                   </div>
-                  <Button type="submit" className="w-full rounded-full h-12 text-lg font-serif italic" disabled={isLoading}>
+                  <Button type="submit" className={PRIMARY} disabled={isLoading}>
                     {isLoading ? <Loader2 className="animate-spin h-5 w-5" /> : t("auth.loginTab")}
                   </Button>
                   
-                  <div className="relative my-4 flex justify-center text-xs uppercase">
-                    <span className="text-muted-foreground font-serif italic">
-                      {t("auth.orContinueWith")}
-                    </span>
+                  <div className="flex items-center gap-3 my-4">
+                    <Thread className="flex-1" />
+                    <span className="sb-meta">{t("auth.orContinueWith")}</span>
+                    <Thread className="flex-1" />
                   </div>
 
                   <div className="flex justify-center">
                     <Button
                       type="button"
                       variant="outline"
-                      className="rounded-full h-11 font-serif italic w-full"
+                      className={GHOST}
                       onClick={handleGoogleSignIn}
                       disabled={isLoading}
                     >
                       <GoogleIcon />
-                      Google
+                      {language === "en" ? "Continue with Google" : "Continuă cu Google"}
                     </Button>
                   </div>
                 </form>
@@ -618,13 +642,13 @@ const Auth: React.FC = () => {
               <TabsContent value="signup">
                 <form onSubmit={handleSignUp} className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="name">{t("auth.displayName")}</Label>
+                    <Label className="sb-label" htmlFor="name">{t("auth.displayName")}</Label>
                     <div className="relative">
-                      <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                      <User className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" aria-hidden="true" />
                       <Input
                         id="name"
                         placeholder="Ion Popescu"
-                        className="pl-10 bg-background/50"
+                        className={`pl-10 ${INPUT}`}
                         value={displayName}
                         onChange={(e) => setDisplayName(e.target.value)}
                         required
@@ -633,14 +657,14 @@ const Auth: React.FC = () => {
                     </div>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="signup-email">Email</Label>
+                    <Label className="sb-label" htmlFor="signup-email">Email</Label>
                     <div className="relative">
-                      <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                      <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" aria-hidden="true" />
                       <Input
                         id="signup-email"
                         type="email"
                         placeholder="email@example.com"
-                        className="pl-10 bg-background/50"
+                        className={`pl-10 ${INPUT}`}
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
                         required
@@ -649,13 +673,13 @@ const Auth: React.FC = () => {
                     </div>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="signup-password">{t("auth.password")}</Label>
+                    <Label className="sb-label" htmlFor="signup-password">{t("auth.password")}</Label>
                     <div className="relative">
-                      <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                      <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" aria-hidden="true" />
                       <Input
                         id="signup-password"
                         type={showSignupPwd ? "text" : "password"}
-                        className="pl-10 pr-11 bg-background/50"
+                        className={`pl-10 pr-11 ${INPUT}`}
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
                         required
@@ -673,26 +697,26 @@ const Auth: React.FC = () => {
                       </button>
                     </div>
                   </div>
-                  <Button type="submit" className="w-full rounded-full h-12 text-lg font-serif italic" disabled={isLoading}>
+                  <Button type="submit" className={PRIMARY} disabled={isLoading}>
                     {isLoading ? <Loader2 className="animate-spin h-5 w-5" /> : t("auth.createAccount")}
                   </Button>
                   
-                  <div className="relative my-4 flex justify-center text-xs uppercase">
-                    <span className="text-muted-foreground font-serif italic">
-                      {t("auth.orContinueWith")}
-                    </span>
+                  <div className="flex items-center gap-3 my-4">
+                    <Thread className="flex-1" />
+                    <span className="sb-meta">{t("auth.orContinueWith")}</span>
+                    <Thread className="flex-1" />
                   </div>
                   
                   <div className="flex justify-center">
                     <Button 
                       type="button" 
                       variant="outline" 
-                      className="rounded-full h-11 font-serif italic w-full" 
+                      className={GHOST} 
                       onClick={handleGoogleSignIn}
                       disabled={isLoading}
                     >
                       <GoogleIcon />
-                      Google
+                      {language === "en" ? "Continue with Google" : "Continuă cu Google"}
                     </Button>
                   </div>
                 </form>
@@ -700,14 +724,14 @@ const Auth: React.FC = () => {
             </Tabs>
           </CardContent>
           <CardFooter className="flex flex-col justify-center py-4 relative border-t-0">
-            <div className="absolute top-0 left-8 right-8 h-px opacity-70" style={{ background: 'linear-gradient(90deg, transparent, var(--line), transparent)' }} />
-            <p className="text-xs text-muted-foreground text-center px-4 italic font-serif">
+            <Thread className="absolute top-0 left-8 right-8" style={{ opacity: 0.3 }} />
+            <p className="sb-meta text-center px-4">
               {t("auth.agreement")}
             </p>
           </CardFooter>
         </Card>
       </motion.div>
-    </div>
+    </AuthFrame>
   );
 };
 

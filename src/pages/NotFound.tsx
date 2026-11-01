@@ -25,24 +25,29 @@ const NotFound: React.FC = () => {
         <meta name="robots" content="noindex, follow" />
       </PageHead>
 
-      <section className="ed-container" style={{ padding: "120px 0 140px", textAlign: "center" }}>
-        <div className="eyebrow mb-4">404</div>
-        <h1
-          className="font-display italic font-medium m-0"
-          style={{ fontSize: "clamp(56px, 9vw, 140px)", lineHeight: 0.95, letterSpacing: "-0.01em", color: "var(--parchment)" }}
-        >
-          {language === "en" ? "Lost the thread." : "Firul s-a pierdut."}
-        </h1>
-        <p className="mt-6 mx-auto" style={{ maxWidth: 520, fontSize: 19, color: "var(--text-dim)", lineHeight: 1.55 }}>
+      <section className="ed-container text-center" style={{ paddingTop: 'clamp(72px, 10vw, 120px)', paddingBottom: 'clamp(88px, 11vw, 140px)' }}>
+        {/* The thread, snapped: it runs in from the left, frays at a knot,
+            and picks up again further on. */}
+        <div aria-hidden="true" className="flex items-center justify-center mx-auto mb-14" style={{ maxWidth: 620 }}>
+          <span className="sb-thread" style={{ flex: 1, opacity: 0.7 }} />
+          <span className="sb-knot" style={{ marginInline: 14 }} />
+          <span className="sb-thread" style={{ width: 70, opacity: 0.7, transform: 'rotate(-14deg)', transformOrigin: 'left center' }} />
+          <span style={{ width: 'clamp(40px, 18vw, 150px)' }} />
+          <span className="sb-thread" style={{ width: 70, opacity: 0.35, transform: 'rotate(10deg)', transformOrigin: 'right center' }} />
+          <span className="sb-thread" style={{ flex: 1, opacity: 0.35 }} />
+        </div>
+        <p className="sb-kicker">{language === "en" ? "404 · this page is not in the archive" : "404 · această pagină nu e în arhivă"}</p>
+        <h1 className="sb-h1 mt-4">{language === "en" ? "Lost the thread." : "Firul s-a pierdut."}</h1>
+        <p className="sb-lede mx-auto mt-6" style={{ maxWidth: 540 }}>
           {language === "en"
             ? "This page doesn't exist — it may have moved, or the link is mistyped. Let's get you back to the archive."
             : "Această pagină nu există — poate a fost mutată sau linkul este greșit. Hai înapoi la arhivă."}
         </p>
-        <div className="flex items-center justify-center gap-3.5 mt-10 flex-wrap">
-          <Link to="/" className="btn-ed">
+        <div className="flex items-center justify-center gap-3 mt-11 flex-wrap">
+          <Link to="/" className="sb-btn">
             {language === "en" ? "Back to home" : "Înapoi acasă"}
           </Link>
-          <Link to="/categories" className="btn-ed btn-ed-ghost">
+          <Link to="/categories" className="sb-btn sb-btn-ghost">
             {language === "en" ? "Browse the archive" : "Explorează arhiva"}
           </Link>
         </div>

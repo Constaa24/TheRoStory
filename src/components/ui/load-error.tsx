@@ -10,9 +10,9 @@ import { useLanguage } from "@/hooks/use-language";
  * A reader hitting a transient Supabase blip was told, in effect, that the
  * archive was empty. This says what happened and offers the retry.
  *
- * Deliberately not Profile's shadcn <Card>: these three pages are in the
- * editorial language (.ed-container, .btn-ed, the gold/parchment tokens), and
- * a card from the admin surface would read as a different site. Shared rather
+ * Deliberately not a shadcn <Card>: these pages are in the storybook's
+ * language (.ed-container, .sb-btn, the gold/parchment tokens), and a card
+ * from the admin surface would read as a different site. Shared rather
  * than copied three times, because the thing this whole audit kept finding was
  * the same value drifting between the places that duplicated it.
  */
@@ -43,7 +43,7 @@ export const LoadError: React.FC<{
         {text}
       </p>
       {onRetry && (
-        <button className="btn-ed btn-ed-ghost" onClick={onRetry}>
+        <button type="button" className="sb-btn sb-btn-ghost" onClick={onRetry}>
           {language === "en" ? "Try again" : "Încearcă din nou"}
         </button>
       )}

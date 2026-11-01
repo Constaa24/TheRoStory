@@ -24,11 +24,14 @@ const SOCIAL_LINKS = [
 interface SocialLinksProps {
   iconSize?: string;
   className?: string;
+  /** Replaces the default link styling (the footer draws them as rings). */
+  linkClassName?: string;
 }
 
 export const SocialLinks: React.FC<SocialLinksProps> = ({
   iconSize = "h-5 w-5",
   className,
+  linkClassName,
 }) => (
   <div className={cn("flex items-center gap-4", className)}>
     {SOCIAL_LINKS.map(({ label, href, icon }) => (
@@ -37,8 +40,8 @@ export const SocialLinks: React.FC<SocialLinksProps> = ({
         href={href}
         target="_blank"
         rel="noopener noreferrer"
-        aria-label={label}
-        className="text-muted-foreground hover:text-accent transition-colors duration-200"
+        aria-label={`The RoStory on ${label}`}
+        className={linkClassName ?? "text-muted-foreground hover:text-accent transition-colors duration-200"}
       >
         {icon(iconSize)}
       </a>
