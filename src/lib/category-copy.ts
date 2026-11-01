@@ -57,7 +57,7 @@ export const categoryDescription = (
 };
 
 // Extension-less base paths — each has a .avif, .webp and .jpg sibling, served
-// through <picture> below. They shipped as ~800 KB files named .png that were
+// through <picture> on the Categories and category pages. They shipped as ~800 KB files named .png that were
 // actually JPEGs inside; the same AVIF/WebP treatment the hero images already
 // get takes the eight of them from 6.3 MB to about 450 KB.
 const CATEGORY_IMAGES: Record<string, string> = {

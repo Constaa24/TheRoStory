@@ -47,7 +47,7 @@ const RENDER_MARKER = '/storage/v1/render/image/public/';
 export const IMAGE_WIDTHS = {
   /** 40-44px avatar circles in the nav, profile and admin table. */
   avatar: 96,
-  /** Small thumbs: nav search results, map side panel, story-thumbnail. */
+  /** Small thumbs: search results, the Atlas panel, contents rows. */
   thumb: 200,
   /** Grid cards, related-reading strip, favourites, editor previews. */
   card: 800,

@@ -102,7 +102,9 @@ export const StoryScenes: React.FC<{ chapters: StoryChapter[]; ids: string[]; la
           {blocks.map((b, j) => {
             if (b.quote) return <PullQuote key={j} text={b.text} language={language} />;
             if (j !== firstText) return <p key={j}>{b.text}</p>;
-            if (i > 0) return <OpeningParagraph key={j} text={b.text} />;
+            // A scene that opens on punctuation (a quotation mark, a dash)
+            // has no letter to illuminate; it opens like the later scenes.
+            if (i > 0 || !/^[\p{L}\p{N}]/u.test(b.text)) return <OpeningParagraph key={j} text={b.text} />;
             // The illuminated initial is drawn, not read: assistive tech gets
             // the opening words whole, the eye gets the initial in its frame.
             const [open, rest] = splitOpening(b.text, 4);

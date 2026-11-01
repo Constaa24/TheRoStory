@@ -676,7 +676,30 @@ main:focus-visible {
     --danger: #000;
     --line: rgba(0, 0, 0, 0.28);
     --line-soft: rgba(0, 0, 0, 0.14);
+    /* The shadcn surface tokens too: the app's outer wrapper is
+       `bg-background`, and left alone it painted the screen's near-black
+       behind the now-black text. */
+    --background: 0 0% 100%;
+    --foreground: 0 0% 0%;
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 0%;
   }
+
+  /* Controls have nothing to do on paper; a solid gold button would print
+     as a black slab. */
+  .sb-btn,
+  .sb-icon-btn,
+  .sb-seg,
+  .sb-chip {
+    display: none !important;
+  }
+
+  /* A visual essay's cover: its words over the photograph read as black on
+     a dark picture once inked. On paper the words stand alone. */
+  .sb-cover-art { display: none !important; }
+  .sb-cover > div { min-height: 0 !important; }
+  .sb-cover,
+  .sb-cover * { color: #000 !important; }
 
   html, body {
     background: #fff !important;

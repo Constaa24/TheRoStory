@@ -239,7 +239,7 @@ const Home: React.FC = () => {
     archiveIndex.forEach((a) => byCategory.set(a.categoryId, (byCategory.get(a.categoryId) || 0) + 1));
     // The hero shows Peleș, so its caption leads to Peleș's story — when
     // the archive has one.
-    const peles = archiveIndex.find((a) => /pele[sș]/i.test(`${a.titleEn} ${a.titleRo}`));
+    const peles = archiveIndex.find((a) => /pele[sșş]/i.test(`${a.titleEn} ${a.titleRo}`));
     return { total: archiveIndex.length, counties: counties.size, byCategory, pelesId: peles?.id ?? null };
   }, [archiveIndex]);
 

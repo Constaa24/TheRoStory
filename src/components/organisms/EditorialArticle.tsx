@@ -65,7 +65,11 @@ export const EditorialArticle: React.FC<Props> = ({ article, views }) => {
   const here = `/article/${article.id}`;
   const linkState = useMemo(() => ({ from: here }), [here]);
 
-  const onBack = () => (window.history.length > 1 ? navigate(-1) : navigate('/'));
+  // React Router numbers each in-app history entry (history.state.idx). At 0
+  // the reader arrived on this story first — from a shared link or a search
+  // engine — and history.length > 1 would have sent "Back to the stories"
+  // off the site, back to wherever they came from.
+  const onBack = () => ((window.history.state as { idx?: number } | null)?.idx ? navigate(-1) : navigate('/'));
   const onShare = () => {
     const url = window.location.href;
     if (navigator.share) {
@@ -467,8 +471,8 @@ const VisualStory: React.FC<StoryProps> = (props) => {
 
   return (
     <article>
-      <header className="relative overflow-hidden">
-        <div className="absolute inset-0">
+      <header className="sb-cover relative overflow-hidden">
+        <div className="sb-cover-art absolute inset-0">
           {hero
             ? <img src={hero} alt="" className="w-full h-full object-cover" style={{ objectPosition: '50% 40%' }} />
             : <div className="ph w-full h-full" data-tone={toneFor(article.id)} style={{ border: 0 }} />}

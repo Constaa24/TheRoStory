@@ -222,8 +222,9 @@ export const ChapterPill: React.FC<{
   const total = toRoman(chapters.length);
 
   return createPortal(
-    <div
+    <nav
       className="sb-chapter-pill no-print xl:hidden"
+      aria-label={en ? "Chapters" : "Capitole"}
       data-visible={visible}
       aria-hidden={!visible}
       inert={!visible}
@@ -261,7 +262,7 @@ export const ChapterPill: React.FC<{
           {en ? "Chapters" : "Capitole"} {open ? "▴" : "▾"}
         </button>
       </div>
-    </div>,
+    </nav>,
     document.body,
   );
 };

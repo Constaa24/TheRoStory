@@ -961,7 +961,36 @@ export const searchArticles = async (query: string, limit = 6): Promise<Article[
     p_limit: limit,
   });
   if (error) throw error;
-  return toCamelCaseArray<Article>(data || []);
+  const results = toCamelCaseArray<Article>(data || []);
+  return withPlaceAndDate(results);
+};
+
+/**
+ * Adds each story's place and date (the Atlas columns) to rows that were
+ * selected without them. search_articles returns a fixed column set from
+ * before the Atlas, and the search results lead with "place · when" like
+ * every other story card. One small query for at most a handful of ids; on
+ * any failure the rows come back as they were, county and all.
+ */
+const withPlaceAndDate = async (rows: Article[]): Promise<Article[]> => {
+  if (!rows.length || !(await hasPlaceColumns())) return rows;
+  try {
+    const cards = await fetchArticleCardsByIds(rows.map((r) => r.id));
+    const byId = new Map(cards.map((c) => [c.id, c]));
+    return rows.map((r) => {
+      const c = byId.get(r.id);
+      return c
+        ? {
+            ...r,
+            lat: c.lat, lng: c.lng, placeNameEn: c.placeNameEn, placeNameRo: c.placeNameRo,
+            yearStart: c.yearStart, yearEnd: c.yearEnd, eraLabelEn: c.eraLabelEn, eraLabelRo: c.eraLabelRo,
+            timeless: c.timeless,
+          }
+        : r;
+    });
+  } catch {
+    return rows;
+  }
 };
 
 /**
