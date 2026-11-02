@@ -136,6 +136,12 @@ const AtlasTimeline: React.FC<Props> = ({
               const short = pick(era.short, lang);
               const px = ((xOf(scale, era.to) - xOf(scale, era.from)) / 100) * width;
               const title = `${long} · ${formatYear(era.from, lang)}–${era.to >= scale.end ? copy.today : formatYear(era.to, lang)}`;
+              const shown = fits(long, px) ? long : fits(short, px) ? short : '';
+              // The accessible name starts with the words on the button
+              // (WCAG 2.5.3, Label in Name): a narrow era shows "Now" or
+              // "Med.", and a voice-control user saying "click Now" found
+              // nothing while the name was only "Today · 2000–today".
+              const label = shown && shown !== long ? `${shown}: ${title}` : title;
               const pressed = a === era.from && b === era.to;
               return (
                 <button
@@ -145,11 +151,11 @@ const AtlasTimeline: React.FC<Props> = ({
                   data-era={era.id}
                   style={{ left: `${xOf(scale, era.from)}%`, width: `${xOf(scale, era.to) - xOf(scale, era.from)}%` }}
                   title={title}
-                  aria-label={title}
+                  aria-label={label}
                   aria-pressed={pressed}
                   onClick={() => onRange(pressed ? [scale.start, scale.end] : [era.from, era.to])}
                 >
-                  {fits(long, px) ? long : fits(short, px) ? short : ''}
+                  {shown}
                 </button>
               );
             })}

@@ -7,6 +7,12 @@
         "ignoreAtRules": ["tailwind", "apply", "layer", "config"]
       }
     ],
+    "at-rule-prelude-no-invalid": [
+      true,
+      {
+        "ignoreAtRules": ["tailwind", "apply", "layer", "config"]
+      }
+    ],
     "import-notation": null,
 
     "color-function-notation": "legacy",

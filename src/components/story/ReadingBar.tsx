@@ -143,7 +143,9 @@ export const ReadingBar: React.FC<{
             onClick={onOtherLanguage}
             className="sb-icon-btn md:hidden font-ui font-bold"
             style={{ width: 40, height: 40, fontSize: 12 }}
-            aria-label={otherLabel}
+            // Starts with the letters on the button (WCAG 2.5.3, Label in
+            // Name), so "click RO" works for a voice-control user.
+            aria-label={`${en ? "RO" : "EN"}: ${otherLabel}`}
           >
             {en ? "RO" : "EN"}
           </button>
