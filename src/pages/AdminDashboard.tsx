@@ -511,10 +511,10 @@ const AdminDashboard: React.FC = () => {
     <div className="container mx-auto px-3 sm:px-4 pt-28 pb-8 sm:pt-32 sm:pb-12 max-w-6xl animate-fade-in">
       {pageHead}
       <header className="mb-8 sm:mb-12 space-y-4">
-        <h1 className="text-2xl sm:text-4xl font-serif font-black text-primary italic">
+        <h1 className="sb-h2" style={{ fontSize: 'clamp(34px, 4vw, 52px)' }}>
           {t("admin.title")}
         </h1>
-        <div className="h-1 w-32 bg-accent" />
+        <span aria-hidden="true" className="sb-thread block" style={{ width: 128 }} />
       </header>
 
       <Tabs defaultValue="articles" className="space-y-8">
@@ -717,7 +717,7 @@ const AdminDashboard: React.FC = () => {
                     <div className="space-y-4">
                       {orphanReports.filter((r) => r.count > 0).map((report) => (
                         <div key={report.bucket}>
-                          <p className="font-mono text-xs uppercase tracking-wider text-muted-foreground mb-2">
+                          <p className="font-mono text-xs text-muted-foreground mb-2">
                             {report.bucket} · {report.count} · {formatBytes(report.totalBytes)}
                           </p>
                           <ul className="space-y-1 max-h-48 overflow-y-auto text-muted-foreground font-mono text-xs">
@@ -991,7 +991,7 @@ const AdminDashboard: React.FC = () => {
               <h3 className="text-xl font-serif italic mb-6">{t("admin.categories.add")}</h3>
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <label htmlFor="cat-name-en" className="text-xs font-bold uppercase text-muted-foreground">{t("admin.categories.nameEn")}</label>
+                  <label htmlFor="cat-name-en" className="text-[13px] font-semibold text-muted-foreground">{t("admin.categories.nameEn")}</label>
                   <Input
                     id="cat-name-en"
                     value={newCategory.nameEn}
@@ -999,7 +999,7 @@ const AdminDashboard: React.FC = () => {
                   />
                 </div>
                 <div className="space-y-2">
-                  <label htmlFor="cat-name-ro" className="text-xs font-bold uppercase text-muted-foreground">{t("admin.categories.nameRo")}</label>
+                  <label htmlFor="cat-name-ro" className="text-[13px] font-semibold text-muted-foreground">{t("admin.categories.nameRo")}</label>
                   <Input
                     id="cat-name-ro"
                     value={newCategory.nameRo}
@@ -1007,7 +1007,7 @@ const AdminDashboard: React.FC = () => {
                   />
                 </div>
                 <div className="space-y-2">
-                  <label htmlFor="cat-slug" className="text-xs font-bold uppercase text-muted-foreground">{t("admin.categories.slug")}</label>
+                  <label htmlFor="cat-slug" className="text-[13px] font-semibold text-muted-foreground">{t("admin.categories.slug")}</label>
                   <Input
                     id="cat-slug"
                     placeholder={t("admin.categories.slugPlaceholder")}
@@ -1144,7 +1144,7 @@ const AdminDashboard: React.FC = () => {
                             <TooltipTrigger asChild>
                               <span
                                 tabIndex={0}
-                                className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded-full border border-amber-500/40 text-amber-500 font-ui cursor-help"
+                                className="text-[11px] px-1.5 py-0.5 rounded-full border border-amber-500/40 text-amber-500 font-ui cursor-help"
                               >
                                 {t("admin.users.unverified")}
                               </span>
@@ -1220,7 +1220,7 @@ const AdminDashboard: React.FC = () => {
                               <TooltipTrigger asChild>
                                 <span
                                   tabIndex={0}
-                                  className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded-full border border-amber-500/40 text-amber-500 font-ui shrink-0 cursor-help"
+                                  className="text-[11px] px-1.5 py-0.5 rounded-full border border-amber-500/40 text-amber-500 font-ui shrink-0 cursor-help"
                                 >
                                   {t("admin.users.unverified")}
                                 </span>

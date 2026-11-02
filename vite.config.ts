@@ -11,6 +11,10 @@ export default defineConfig({
       // without a user prompt. Acceptable here because the SW only caches
       // static shell + a small Supabase storage allowlist; no offline data.
       registerType: 'autoUpdate',
+      // `defer`: the registration script used to load as a plain <script> in
+      // <head>, render-blocking (~150 ms on a throttled phone) for something
+      // that only needs to run after the page is up.
+      injectRegister: 'script-defer',
       // The site already ships /site.webmanifest at the root and links to it
       // from index.html. Don't generate another one.
       manifest: false,
@@ -18,6 +22,9 @@ export default defineConfig({
         // Pre-cache hashed app shell assets only. Images/videos are pulled
         // at runtime — see runtimeCaching below.
         globPatterns: ['**/*.{js,css,html,ico,svg,woff2}'],
+        // The self-hosted fonts (public/fonts) are cached on first use by the
+        // rule below instead: precaching would download all ten files —
+        // every style and subset, ~650 KB — for a reader who needs three.
         // ...but not the whole application. The pattern above matches every
         // emitted chunk, so a first visit quietly downloaded all 41 of them
         // (~1.3 MB) in the background — including the editorial back office
@@ -41,6 +48,7 @@ export default defineConfig({
           '**/Map-*.js',
           '**/map-*.js',
           '**/motion-*.js',
+          'fonts/**',
         ],
         // The auth callback exchanges PKCE codes against Supabase and must
         // hit the network — never serve a cached HTML shell here. Same for
@@ -116,22 +124,14 @@ export default defineConfig({
             },
           },
           {
-            // Google fonts CSS — small and rarely changing.
-            urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/,
-            handler: 'StaleWhileRevalidate',
-            options: {
-              cacheName: 'google-fonts-css',
-              // Don't cache 5xx responses — match the gstatic rule for consistency.
-              cacheableResponse: { statuses: [0, 200] },
-            },
-          },
-          {
-            // Google fonts files — long-lived, immutable.
-            urlPattern: /^https:\/\/fonts\.gstatic\.com\/.*/,
+            // The self-hosted fonts. Their names carry the font's version
+            // (scripts/fetch-fonts.mjs), so a cached file is never stale.
+            urlPattern: ({ url, sameOrigin }) =>
+              !!sameOrigin && /^\/fonts\/.*\.woff2$/.test(url.pathname),
             handler: 'CacheFirst',
             options: {
-              cacheName: 'google-fonts-files',
-              expiration: { maxEntries: 30, maxAgeSeconds: 60 * 60 * 24 * 365 },
+              cacheName: 'fonts',
+              expiration: { maxEntries: 20, maxAgeSeconds: 60 * 60 * 24 * 365 },
               cacheableResponse: { statuses: [0, 200] },
             },
           },

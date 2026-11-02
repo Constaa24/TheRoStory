@@ -91,3 +91,15 @@ export const getCategoryImage = (slug: string) => {
   for (let i = 0; i < slug.length; i++) h = ((h << 5) - h) + slug.charCodeAt(i);
   return FALLBACK_IMAGES[Math.abs(h) % FALLBACK_IMAGES.length];
 };
+
+/**
+ * Responsive sources for a shelf artwork from getCategoryImage(): 480px and
+ * 768px variants beside the 1024px original (scripts/generate-category-
+ * images.mjs), so a thumbnail is not a 1024px download. Pair with a `sizes`
+ * that describes the slot.
+ */
+export const categoryImageSources = (base: string) => ({
+  avif: `${base}-480.avif 480w, ${base}-768.avif 768w, ${base}.avif 1024w`,
+  webp: `${base}-480.webp 480w, ${base}-768.webp 768w, ${base}.webp 1024w`,
+  jpg: `${base}.jpg`,
+});

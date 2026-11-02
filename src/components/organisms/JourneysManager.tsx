@@ -22,7 +22,7 @@ const EMPTY: Journey = { id: "", titleEn: "", titleRo: "", introEn: "", introRo:
 const slugify = (s: string) =>
   s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, JOURNEY_LIMITS.ID_MAX);
 
-const label = "text-xs font-bold uppercase text-muted-foreground";
+const label = "text-[13px] font-semibold text-muted-foreground";
 
 /**
  * The dashboard's Journeys tab: curated walks through published stories,

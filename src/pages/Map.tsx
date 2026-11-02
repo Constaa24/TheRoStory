@@ -475,7 +475,7 @@ const MapPage: React.FC = () => {
         {!data && !loadFailed && (
           <div className="at-loading">
             <div className="flex flex-col items-center gap-4">
-              <div className="h-10 w-10 border-4 rounded-full animate-spin" style={{ borderColor: "var(--gold)", borderTopColor: "transparent" }} />
+              <span aria-hidden="true" className="sb-rosette sb-rosette-lg sb-rosette-turn" />
               <p className="font-display italic text-gold">{copy.loading}</p>
             </div>
           </div>

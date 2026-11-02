@@ -7,7 +7,7 @@ import React from "react";
  */
 
 export const FormBlock: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => (
-  <div className="flex flex-col gap-4 p-6" style={{ border: '1px solid var(--line)', background: 'var(--overlay-panel-soft)' }}>
+  <div className="flex flex-col gap-4 p-6" style={{ border: '1px solid var(--line-soft)', background: 'var(--paper)', borderRadius: 18 }}>
     <div className="eyebrow">{title}</div>
     {children}
   </div>
@@ -48,11 +48,11 @@ export const Field: React.FC<{
     <div className={compact ? '' : 'flex flex-col'}>
       <label htmlFor={controlId} style={{ marginBottom: compact ? 4 : 8 }}>
         {label}
-        {required && <span style={{ color: 'var(--oxblood-2)', marginLeft: 4 }}>*</span>}
+        {required && <span style={{ color: 'var(--danger)', marginLeft: 4 }}>*</span>}
       </label>
       {wired}
       {error && (
-        <p className="font-ui text-[10px] uppercase mt-1.5" style={{ letterSpacing: '0.15em', color: 'var(--oxblood-2)' }}>
+        <p className="sb-error mt-1.5">
           {error}
         </p>
       )}

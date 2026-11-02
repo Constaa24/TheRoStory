@@ -4,7 +4,6 @@ import { useAuth } from "@/hooks/use-auth";
 import { useLanguage } from "@/hooks/use-language";
 import { useFocusTrap } from "@/hooks/use-focus-trap";
 import { User, Menu, X, Search, Sun, Moon, Loader2 } from "lucide-react";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import { useTheme } from "next-themes";
 import { Article, Category, searchArticles, fetchCategories, fetchRandomArticle, getLocalized, SEARCH_MIN_LENGTH } from "@/lib/supabase";
@@ -100,13 +99,13 @@ export const Navbar: React.FC = () => {
     <header className="ed-nav" style={{ borderBottom: 0 }}>
       <div className="ed-container flex items-center justify-between gap-6" style={{ paddingTop: 16, paddingBottom: 14, minHeight: 80 }}>
         {/* Logo */}
-        <Link to="/" className="flex items-center gap-3 shrink-0">
+        <Link to="/" className="flex items-center gap-3 shrink-0" aria-label={language === 'en' ? 'The RoStory, home' : 'The RoStory, acasă'}>
           <picture>
-            <source type="image/webp" srcSet="/logo.webp" />
-            <img src="/logo.png" alt="The RoStory" width={44} height={44} className="h-[44px] w-[44px] object-contain" />
+            <source type="image/webp" srcSet="/logo-128.webp" />
+            <img src="/logo-128.png" alt="" width={44} height={44} className="h-[44px] w-[44px] object-contain" />
           </picture>
           <span
-            className="font-display italic font-semibold text-[25px] whitespace-nowrap hidden sm:inline"
+            className="font-display italic font-semibold text-[25px] whitespace-nowrap hidden sm:inline lg:hidden xl:inline"
             style={{
               background: 'var(--logo-gradient)',
               WebkitBackgroundClip: 'text',
@@ -129,7 +128,7 @@ export const Navbar: React.FC = () => {
                 key={link.path}
                 to={link.path}
                 aria-current={active ? 'page' : undefined}
-                className="px-3.5 pt-2 pb-1 font-display italic font-medium text-[20px] leading-none transition-colors hover:text-gold flex flex-col items-center gap-2"
+                className="px-2.5 xl:px-3.5 pt-2 pb-1 font-display italic font-medium text-[19px] xl:text-[20px] leading-none whitespace-nowrap transition-colors hover:text-gold flex flex-col items-center gap-2"
                 style={{ color: active ? 'var(--gold)' : 'var(--text)' }}
               >
                 {link.name}
@@ -180,19 +179,8 @@ export const Navbar: React.FC = () => {
                 overflow: 'hidden',
               }}
             >
-              {user?.avatarUrl ? (
-                <Avatar className="h-full w-full">
-                  <AvatarImage src={storageImage(user.avatarUrl, "avatar")} alt={user.displayName || user.email || ''} />
-                  <AvatarFallback
-                    className="text-xs bg-transparent font-display italic font-semibold"
-                    style={{ background: 'linear-gradient(135deg, var(--gold) 0%, var(--gold-deep) 100%)', color: 'var(--ink)' }}
-                  >{initial}</AvatarFallback>
-                </Avatar>
-              ) : user ? (
-                <span
-                  className="grid place-items-center w-full h-full font-display italic font-semibold text-sm"
-                  style={{ background: 'linear-gradient(135deg, var(--gold) 0%, var(--gold-deep) 100%)', color: 'var(--ink)' }}
-                >{initial}</span>
+              {user ? (
+                <UserPicture src={user.avatarUrl} alt={user.displayName || user.email || ''} initial={initial} className="text-sm" />
               ) : (
                 <User className="sb-ico" />
               )}
@@ -229,12 +217,7 @@ export const Navbar: React.FC = () => {
                             fontSize: 20,
                           }}
                         >
-                          {user.avatarUrl ? (
-                            <Avatar className="h-full w-full rounded-none">
-                              <AvatarImage src={storageImage(user.avatarUrl, "avatar")} alt={user.displayName || user.email || ''} className="object-cover" />
-                              <AvatarFallback className="bg-transparent rounded-none text-[color:var(--ink)] font-display italic font-semibold">{initial}</AvatarFallback>
-                            </Avatar>
-                          ) : initial}
+                          <UserPicture src={user.avatarUrl} alt={user.displayName || user.email || ''} initial={initial} />
                         </span>
                         <div className="min-w-0">
                           <div className="font-display italic text-[21px] leading-tight truncate" style={{ color: 'var(--parchment)' }}>
@@ -617,6 +600,29 @@ const NavSearchOverlay: React.FC<{ onClose: () => void; language: 'en' | 'ro' }>
       </div>
       <Thread style={{ opacity: 0.28 }} />
     </div>
+  );
+};
+
+/**
+ * The reader's picture, or their initial when there is none or it fails to
+ * load. Deliberately not the shadcn <Avatar>: that is Radix, and Radix is
+ * bundled as one chunk, so the navbar — on every page — made every first
+ * visit download all of it (~88 KB) for one round picture. Dialogs and
+ * menus that need Radix load it with the pages that use them.
+ */
+const UserPicture: React.FC<{ src?: string; alt: string; initial: string; className?: string }> = ({ src, alt, initial, className }) => {
+  const [failed, setFailed] = React.useState(false);
+  React.useEffect(() => setFailed(false), [src]);
+  if (src && !failed) {
+    return <img src={storageImage(src, "avatar")} alt={alt} className="w-full h-full object-cover" onError={() => setFailed(true)} />;
+  }
+  return (
+    <span
+      className={cn("grid place-items-center w-full h-full font-display italic font-semibold", className)}
+      style={{ background: 'linear-gradient(135deg, var(--gold) 0%, var(--gold-deep) 100%)', color: 'var(--ink)' }}
+    >
+      {initial}
+    </span>
   );
 };
 

@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   storageImage,
   storageOgImage,
+  storageSrcSet,
   IMAGE_WIDTHS,
   OG_IMAGE_WIDTH,
   OG_IMAGE_HEIGHT,
@@ -133,5 +134,28 @@ describe('storageOgImage', () => {
     expect(storageOgImage(undefined)).toBeUndefined();
     const v = 'https://abc.supabase.co/storage/v1/object/public/article-media/film.mp4';
     expect(storageOgImage(v)).toBe(v);
+  });
+});
+
+describe('storageSrcSet', () => {
+  it('offers each requested width, smallest first, with its w descriptor', () => {
+    const set = storageSrcSet(OBJECT)!;
+    const entries = set.split(', ').map((e) => e.split(' '));
+    expect(entries.map(([, w]) => w)).toEqual(['800w', '1600w', '1920w']);
+    for (const [url, w] of entries) {
+      expect(url).toContain(RENDER);
+      expect(params(url).width).toBe(w.replace('w', ''));
+    }
+  });
+
+  it('takes the surfaces a slot needs', () => {
+    expect(storageSrcSet(OBJECT, ['card', 'feature'])!.split(', ')).toHaveLength(2);
+  });
+
+  it('gives nothing to resize for non-storage, video, missing or already-rendered URLs', () => {
+    expect(storageSrcSet('/hero/castle.jpg')).toBeUndefined();
+    expect(storageSrcSet('https://abc.supabase.co/storage/v1/object/public/article-media/film.mp4')).toBeUndefined();
+    expect(storageSrcSet(undefined)).toBeUndefined();
+    expect(storageSrcSet(storageImage(OBJECT, 'card'))).toBeUndefined();
   });
 });

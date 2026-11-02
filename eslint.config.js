@@ -39,6 +39,9 @@ export default tseslint.config(
     },
   },
   {
-    ignores: ["dist/", "node_modules/", "*.cjs", "**/counties_topo.js"],
+    // vendor/ holds third-party code kept byte-close to upstream (deepmerge,
+    // patched for an advisory; see README, "Dependency advisories"), so it
+    // is exempt like node_modules rather than restyled to our rules.
+    ignores: ["dist/", "node_modules/", "vendor/", "*.cjs", "**/counties_topo.js"],
   }
 );

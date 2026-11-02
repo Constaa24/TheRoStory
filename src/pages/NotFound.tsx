@@ -25,7 +25,9 @@ const NotFound: React.FC = () => {
         <meta name="robots" content="noindex, follow" />
       </PageHead>
 
-      <section className="ed-container text-center" style={{ paddingTop: 'clamp(72px, 10vw, 120px)', paddingBottom: 'clamp(88px, 11vw, 140px)' }}>
+      {/* At least a screen tall, like the loader before it: shorter, and the
+          footer rose into view as the page arrived (a layout shift). */}
+      <section className="ed-container text-center flex flex-col justify-center" style={{ minHeight: 'calc(100vh - 82px)', paddingTop: 'clamp(72px, 10vw, 120px)', paddingBottom: 'clamp(88px, 11vw, 140px)' }}>
         {/* The thread, snapped: it runs in from the left, frays at a knot,
             and picks up again further on. */}
         <div aria-hidden="true" className="flex items-center justify-center mx-auto mb-14" style={{ maxWidth: 620 }}>

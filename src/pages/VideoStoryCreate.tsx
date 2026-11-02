@@ -382,7 +382,7 @@ const VideoStoryCreate: React.FC = () => {
           <button
             onClick={leaveToDashboard}
             className="flex items-center gap-2 mb-6 transition-colors hover:text-gold cursor-pointer"
-            style={{ color: 'var(--text-dim)', background: 'transparent', border: 0, fontFamily: 'var(--ui)', fontSize: 11, letterSpacing: '0.18em', textTransform: 'uppercase' }}
+            style={{ color: 'var(--text-dim)', background: 'transparent', border: 0, fontFamily: 'var(--ui)', fontSize: 14 }}
           >
             <ArrowLeft className="w-3.5 h-3.5" />
             {language === 'en' ? 'Back to dashboard' : 'Înapoi la panou'}
@@ -431,7 +431,7 @@ const VideoStoryCreate: React.FC = () => {
                 </Field>
                 <Field label={language === 'en' ? 'Category' : 'Categorie'} required>
                   <Select value={categoryId} onValueChange={setCategoryId}>
-                    <SelectTrigger className="rounded-sm border-line bg-[color:var(--ink-2)]">
+                    <SelectTrigger className="rounded-xl border-line bg-[color:var(--ink-2)]">
                       <SelectValue placeholder={language === 'en' ? 'Select a category' : 'Selectează o categorie'} />
                     </SelectTrigger>
                     <SelectContent>
@@ -448,7 +448,7 @@ const VideoStoryCreate: React.FC = () => {
                     value={location || LOCATION_NONE}
                     onValueChange={(v) => setLocation(v === LOCATION_NONE ? "" : v)}
                   >
-                    <SelectTrigger className="rounded-sm border-line bg-[color:var(--ink-2)]">
+                    <SelectTrigger className="rounded-xl border-line bg-[color:var(--ink-2)]">
                       <SelectValue placeholder={t('location.select')} />
                     </SelectTrigger>
                     <SelectContent>
@@ -478,7 +478,7 @@ const VideoStoryCreate: React.FC = () => {
                           ? (language === 'en' ? 'Published' : 'Publicat')
                           : (language === 'en' ? 'Publish immediately' : 'Publică imediat')}
                       </span>
-                      <span className="font-ui text-[11px] uppercase mt-1 block" style={{ letterSpacing: '0.15em', color: 'var(--text-mute)' }}>
+                      <span className="font-ui text-[13px] mt-1 block" style={{ color: 'var(--text-mute)' }}>
                         {isEditing
                           ? (language === 'en' ? 'Toggle off to revert to draft.' : 'Dezactivează pentru a reveni la ciornă.')
                           : (language === 'en' ? 'Otherwise saved as a draft only you can see.' : 'Altfel se salvează ca ciornă, vizibilă doar pentru tine.')}
@@ -489,7 +489,7 @@ const VideoStoryCreate: React.FC = () => {
               )}
 
               <FormBlock title={language === 'en' ? 'Synopsis' : 'Sinopsis'}>
-                <p className="font-ui text-[11px] uppercase mb-2" style={{ letterSpacing: '0.15em', color: 'var(--text-mute)' }}>
+                <p className="font-ui text-[13px] mb-2" style={{ color: 'var(--text-mute)' }}>
                   {language === 'en' ? 'Shown beside the video on the article page.' : 'Afișat lângă video pe pagina articolului.'}
                 </p>
                 <Field label={language === 'en' ? 'English' : 'Engleză'}>
@@ -544,8 +544,8 @@ const VideoStoryCreate: React.FC = () => {
                       className="absolute inset-0 w-full h-full object-cover"
                     />
                   </div>
-                  <div className="flex items-center justify-between p-3" style={{ border: '1px solid var(--line)', background: 'var(--overlay-panel-soft)' }}>
-                    <span className="font-ui text-[11px] uppercase flex items-center gap-2" style={{ letterSpacing: '0.18em', color: 'var(--gold)' }}>
+                  <div className="flex items-center justify-between p-3" style={{ border: '1px solid var(--line-soft)', background: 'var(--paper)', borderRadius: 18 }}>
+                    <span className="font-ui text-[13px] flex items-center gap-2" style={{ color: 'var(--gold)' }}>
                       <span className="rounded-full" style={{ width: 6, height: 6, background: 'var(--gold)' }} />
                       {language === 'en' ? 'Video ready' : 'Video pregătit'}
                     </span>
@@ -560,7 +560,7 @@ const VideoStoryCreate: React.FC = () => {
                         setPosterStoragePath(null);
                       }}
                       className="grid w-8 h-8 place-items-center rounded-full transition-colors"
-                      style={{ border: '1px solid var(--line)', background: 'transparent', color: 'var(--oxblood-2)' }}
+                      style={{ border: '1px solid var(--line)', background: 'transparent', color: 'var(--danger)' }}
                       aria-label={language === 'en' ? 'Remove video' : 'Elimină videoul'}
                     >
                       <X className="w-3.5 h-3.5" />
@@ -583,7 +583,7 @@ const VideoStoryCreate: React.FC = () => {
                   {isUploading ? (
                     <>
                       <Loader2 className="w-7 h-7 animate-spin" style={{ color: 'var(--gold)' }} />
-                      <span className="font-ui text-[11px] uppercase" style={{ letterSpacing: '0.18em' }}>
+                      <span className="font-ui text-[13px]">
                         {language === 'en' ? 'Uploading…' : 'Se încarcă…'}
                       </span>
                     </>
@@ -593,7 +593,7 @@ const VideoStoryCreate: React.FC = () => {
                       <span className="font-display italic" style={{ color: 'var(--parchment)', fontSize: 22 }}>
                         {language === 'en' ? 'Click to upload video' : 'Apasă pentru a încărca video'}
                       </span>
-                      <span className="font-ui text-[10px] uppercase" style={{ letterSpacing: '0.18em', color: 'var(--text-mute)' }}>
+                      <span className="font-ui text-[12px]" style={{ color: 'var(--text-mute)' }}>
                         MP4 · WebM · MOV · {asMb(MAX_VIDEO_BYTES)} MB max
                       </span>
                     </>
@@ -603,7 +603,7 @@ const VideoStoryCreate: React.FC = () => {
 
               {/* Poster section */}
               <FormBlock title={language === 'en' ? 'Poster (thumbnail)' : 'Poster (miniatură)'}>
-                <p className="font-ui text-[11px] uppercase mb-2" style={{ letterSpacing: '0.15em', color: 'var(--text-mute)' }}>
+                <p className="font-ui text-[13px] mb-2" style={{ color: 'var(--text-mute)' }}>
                   {language === 'en'
                     ? 'Auto-generated when you upload a video — override below if you prefer.'
                     : 'Generat automat la încărcarea videoului — înlocuiește dedesubt dacă preferi.'}
@@ -620,7 +620,7 @@ const VideoStoryCreate: React.FC = () => {
                         setPosterStoragePath(null);
                       }}
                       className="absolute top-2 right-2 grid w-8 h-8 place-items-center rounded-full"
-                      style={{ background: 'var(--overlay-dark)', border: '1px solid var(--oxblood-2)', color: 'var(--oxblood-2)' }}
+                      style={{ background: 'var(--overlay-dark)', border: '1px solid var(--oxblood-2)', color: 'var(--danger)' }}
                       aria-label={language === 'en' ? 'Remove poster' : 'Elimină posterul'}
                     >
                       <X className="w-3.5 h-3.5" />
@@ -655,7 +655,7 @@ const VideoStoryCreate: React.FC = () => {
                       type="button"
                       onClick={() => posterInputRef.current?.click()}
                       disabled={isUploading}
-                      className="grid w-12 h-12 place-items-center rounded-sm cursor-pointer transition-colors hover:text-gold shrink-0"
+                      className="grid w-12 h-12 place-items-center rounded-xl cursor-pointer transition-colors hover:text-gold shrink-0"
                       style={{ border: '1px solid var(--line)', background: 'var(--ink-2)', color: 'var(--text)' }}
                       title={language === 'en' ? 'Upload poster' : 'Încarcă poster'}
                     >
@@ -665,7 +665,7 @@ const VideoStoryCreate: React.FC = () => {
                 </Field>
 
                 {isGeneratingPoster && (
-                  <p className="font-ui text-[10px] uppercase flex items-center gap-2 mt-2" style={{ letterSpacing: '0.18em', color: 'var(--gold)' }}>
+                  <p className="font-ui text-[12px] flex items-center gap-2 mt-2" style={{ color: 'var(--gold)' }}>
                     <Loader2 className="w-3 h-3 animate-spin" />
                     {language === 'en' ? 'Generating poster…' : 'Se generează posterul…'}
                   </p>
@@ -701,8 +701,8 @@ const VideoStoryCreate: React.FC = () => {
           <button
             onClick={leaveToDashboard}
             disabled={isSaving}
-            className="font-ui text-[11px] uppercase cursor-pointer transition-colors hover:text-gold"
-            style={{ background: 'transparent', border: 0, color: 'var(--text-dim)', letterSpacing: '0.18em', padding: '10px 18px' }}
+            className="font-ui text-[13px] cursor-pointer transition-colors hover:text-gold"
+            style={{ background: 'transparent', border: 0, color: 'var(--text-dim)', padding: '10px 18px' }}
           >
             {language === 'en' ? 'Cancel' : 'Anulează'}
           </button>

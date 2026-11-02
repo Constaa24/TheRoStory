@@ -1111,6 +1111,35 @@ export const fetchPublicArticle = async (id: string): Promise<{ article: Article
   }
 };
 
+/**
+ * A story requested at boot, before React gets to the story page.
+ *
+ * The page is lazy-loaded, and React keeps a lazy page's loading spinner up
+ * for at least 300 ms, so the page only asked for its story about 300 ms
+ * after its code had arrived, and the cover (the largest thing on screen)
+ * waited behind that request. main.tsx now starts the request as soon as the
+ * app boots, for the story in the address bar, and the page takes it over
+ * when it mounts. Each request is taken once and expires after 30 s, so
+ * coming back to the story later always fetches it fresh.
+ */
+const prefetchedArticles = new Map<string, { at: number; request: ReturnType<typeof fetchPublicArticle> }>();
+const PREFETCH_TTL_MS = 30_000;
+
+export const prefetchPublicArticle = (id: string): void => {
+  if (prefetchedArticles.has(id)) return;
+  const request = fetchPublicArticle(id);
+  // The page handles a failure when it takes the request over. This only
+  // keeps a failure from being reported as unhandled if the reader leaves first.
+  request.catch(() => {});
+  prefetchedArticles.set(id, { at: Date.now(), request });
+};
+
+export const takePrefetchedArticle = (id: string): ReturnType<typeof fetchPublicArticle> | undefined => {
+  const entry = prefetchedArticles.get(id);
+  prefetchedArticles.delete(id);
+  return entry && Date.now() - entry.at < PREFETCH_TTL_MS ? entry.request : undefined;
+};
+
 const COMMENTS_PAGE_SIZE = 25;
 
 /**

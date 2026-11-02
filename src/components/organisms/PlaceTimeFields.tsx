@@ -17,7 +17,7 @@ type Props = {
   language: "en" | "ro";
 };
 
-const hint: React.CSSProperties = { letterSpacing: "0.15em", color: "var(--text-mute)" };
+const hint: React.CSSProperties = { color: "var(--text-mute)" };
 
 /**
  * Click-to-pin map of Romania. Zooms to the story's county when it has one,
@@ -83,7 +83,7 @@ const PinPicker: React.FC<{
         <button
           type="button"
           onClick={() => setWholeCountry((w) => !w)}
-          className="self-start font-ui text-[10px] uppercase cursor-pointer hover:text-gold"
+          className="self-start font-ui text-[12px] cursor-pointer hover:text-gold"
           style={{ ...hint, background: "transparent", border: 0, padding: 0 }}
         >
           {wholeCountry
@@ -145,7 +145,7 @@ export const PlaceTimeFields: React.FC<Props> = ({ value, onChange, county, onCo
               spellCheck={false}
             />
           </Field>
-          <p className="font-ui text-[10px] uppercase m-0 -mt-2" style={hint}>
+          <p className="font-ui text-[12px] m-0 -mt-2" style={hint}>
             {en ? "Click the map, or paste from any map app." : "Apasă pe hartă sau lipește din orice aplicație de hărți."}
           </p>
           {value.coords && (
@@ -180,7 +180,7 @@ export const PlaceTimeFields: React.FC<Props> = ({ value, onChange, county, onCo
           <span className="font-display italic block" style={{ color: "var(--parchment)", fontSize: 17 }}>
             {en ? "Timeless" : "Atemporală"}
           </span>
-          <span className="font-ui text-[11px] uppercase mt-1 block" style={hint}>
+          <span className="font-ui text-[13px] mt-1 block" style={hint}>
             {en ? "A legend, custom or landscape with no date of its own." : "O legendă, un obicei sau un peisaj fără o dată anume."}
           </span>
         </span>
@@ -204,7 +204,7 @@ export const PlaceTimeFields: React.FC<Props> = ({ value, onChange, county, onCo
               <input type="text" value={value.eraLabelRo} onChange={(e) => set({ eraLabelRo: e.target.value })} maxLength={L.ERA_LABEL_MAX} placeholder={en ? "e.g. secolul al XV-lea" : "ex. secolul al XV-lea"} />
             </Field>
           </div>
-          <p className="font-ui text-[10px] uppercase m-0" style={hint}>
+          <p className="font-ui text-[12px] m-0" style={hint}>
             {en
               ? "The label is shown instead of the years when they would overstate precision. Use a minus sign for BC (-82)."
               : "Eticheta apare în locul anilor când aceștia ar sugera o precizie falsă. Folosește minus pentru î.Hr. (-82)."}

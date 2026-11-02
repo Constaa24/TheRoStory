@@ -139,6 +139,8 @@
 }
 .sb-rosette-sm { width: 24px; height: 24px; }
 .sb-rosette-lg { width: 56px; height: 56px; }
+.sb-rosette-turn { animation: sb-turn 3.2s linear infinite; }
+@keyframes sb-turn { to { transform: rotate(360deg); } }
 
 /* ---------- frames ---------- */
 .sb-frame { overflow: hidden; border-radius: 14px; background: var(--paper); }
@@ -190,7 +192,7 @@
 }
 .sb-path-step.is-done::before { background: var(--gold); border-color: var(--gold); }
 .sb-path-step.is-now::before { border-color: var(--gold); box-shadow: 0 0 0 5px var(--glow); }
-.sb-path-label { font-family: var(--display); font-style: italic; font-size: 18px; line-height: 1.25; color: var(--text-dim); }
+.sb-path-label { padding-block: 2px; font-family: var(--display); font-style: italic; font-size: 18px; line-height: 1.25; color: var(--text-dim); }
 .sb-path-label:hover { color: var(--gold); }
 .sb-path-step.is-now .sb-path-label { color: var(--parchment); }
 
@@ -268,4 +270,5 @@ textarea.sb-input { min-height: 190px; resize: vertical; line-height: 1.6; }
 @media (prefers-reduced-motion: reduce) {
   .sb-card-media > img { transition: none; }
   .sb-chapter-pill { transition: none; }
+  .sb-rosette-turn { animation: none; }
 }

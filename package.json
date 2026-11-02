@@ -19,7 +19,8 @@
     "lint": "npm run lint:types && npm run lint:js && npm run lint:css",
     "lint:edge": "deno check --config supabase/functions/deno.check.json supabase/functions/**/*.ts",
     "icons": "node scripts/generate-icons.mjs",
-    "atlas:geo": "node scripts/generate-atlas-geo.mjs"
+    "atlas:geo": "node scripts/generate-atlas-geo.mjs",
+    "fonts": "node scripts/fetch-fonts.mjs"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.13.0",
@@ -36,6 +37,7 @@
     "@vitejs/plugin-react": "^5.1.2",
     "autoprefixer": "^10.4.16",
     "d3-geo": "^3.1.1",
+    "deepmerge": "file:./vendor/deepmerge",
     "eslint": "^10.0.2",
     "eslint-plugin-react-hooks": "^7.1.1",
     "globals": "^17.3.0",
@@ -73,5 +75,10 @@
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.4.0",
     "tailwindcss-animate": "^1.0.7"
+  },
+  "overrides": {
+    "minimatch": "^11.0.3",
+    "glob": "^14.0.3",
+    "deepmerge": "$deepmerge"
   }
 }

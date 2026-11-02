@@ -11,7 +11,7 @@ import { PageHead } from "@/components/layout/PageHead";
 import { StoryCard } from "@/components/ui/story-card";
 import { SITE_NAME, SITE_URL } from "@/lib/constants";
 import { localizedPath } from "@/lib/locale";
-import { storageImage } from "@/lib/image-url";
+import { storageImage, storageSrcSet } from "@/lib/image-url";
 import { toneFor, articleExcerpt, articleCoverUrl, countLabel } from "@/lib/article-utils";
 import { kindPhrase, placeAndTime, placeOf, splitOpening } from "@/lib/story-facts";
 import { countyCentre } from "@/lib/atlas/projection";
@@ -453,7 +453,7 @@ const Home: React.FC = () => {
                           films — posterUrl || mediaUrl rendered a broken <img>
                           when a video had no poster. */}
                       {articleCoverUrl(featured) ? (
-                        <img src={storageImage(articleCoverUrl(featured), 'feature')} alt="" loading="lazy" />
+                        <img src={storageImage(articleCoverUrl(featured), 'feature')} srcSet={storageSrcSet(articleCoverUrl(featured), ['card', 'feature'])} sizes="(min-width: 1024px) 55vw, 94vw" alt="" loading="lazy" />
                       ) : (
                         <div className="ph absolute inset-0" data-tone={toneFor(featured.id)} style={{ border: 0 }} />
                       )}
@@ -560,7 +560,7 @@ const Home: React.FC = () => {
                 )}
 
                 {totalPages > 1 && (
-                  <nav aria-label={en ? 'Pages' : 'Pagini'} className="flex items-center justify-between sm:justify-center gap-4 sm:gap-6 mt-16 md:mt-20">
+                  <nav aria-label={en ? 'Pages' : 'Pagini'} className="flex flex-wrap items-center justify-between sm:justify-center gap-x-4 gap-y-3 sm:gap-6 mt-16 md:mt-20">
                     <button
                       type="button"
                       className="sb-btn sb-btn-ghost"
@@ -569,7 +569,7 @@ const Home: React.FC = () => {
                     >
                       {en ? '← Newer' : '← Mai noi'}
                     </button>
-                    <p className="sb-kicker-sm text-center" style={{ color: 'var(--text-dim)' }}>
+                    <p className="sb-kicker-sm text-center w-full sm:w-auto order-first sm:order-none" style={{ color: 'var(--text-dim)' }}>
                       {en ? `Page ${currentPage} of ${totalPages}` : `Pagina ${currentPage} din ${totalPages}`}
                     </p>
                     <button
@@ -604,8 +604,8 @@ const Home: React.FC = () => {
                 style={{ top: -22, right: 40, width: 92, height: 108, background: 'var(--ink-2)', border: '2px dotted var(--gold-deep)', borderRadius: 6, transform: 'rotate(5deg)' }}
               >
                 <picture>
-                  <source type="image/webp" srcSet="/logo.webp" />
-                  <img src="/logo.png" alt="" width={60} height={60} className="w-[60px] h-auto" />
+                  <source type="image/webp" srcSet="/logo-128.webp" />
+                  <img src="/logo-128.png" alt="" width={60} height={60} className="w-[60px] h-auto" />
                 </picture>
               </div>
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-12 items-center">

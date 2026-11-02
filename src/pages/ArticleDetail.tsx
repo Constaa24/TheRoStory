@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { Article, getLocalized } from "@/lib/supabase";
-import { fetchPublicArticle, incrementView } from "@/lib/supabase";
+import { fetchPublicArticle, incrementView, takePrefetchedArticle } from "@/lib/supabase";
 import { useLanguage } from "@/hooks/use-language";
 import { EditorialArticle } from "@/components/organisms/EditorialArticle";
 import { logError, toJsonLd } from "@/lib/utils";
@@ -32,7 +32,9 @@ const ArticleDetailPage: React.FC = () => {
 
     (async () => {
       try {
-        const { article, views } = await fetchPublicArticle(id);
+        // Usually already under way: main.tsx asks for the story in the
+        // address bar at boot (see prefetchPublicArticle).
+        const { article, views } = await (takePrefetchedArticle(id) ?? fetchPublicArticle(id));
         if (cancelled) return;
         if (article) {
           setArticle(article);

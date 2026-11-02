@@ -223,6 +223,36 @@ provider, not here.
 `npm audit` currently reports **0 vulnerabilities**, for both `--omit=dev`
 and the full tree. Keep it that way; a non-empty audit here is news.
 
+### Build tooling — `overrides` in package.json (November 2026)
+
+Three advisories sat in the dev tree with no upgrade that fixed them, because
+the latest releases of the tools that pull them in still require the
+vulnerable versions. All three are build-time only; none reaches the bundle.
+`overrides` fixes them underneath the tools:
+
+| Package | Advisory | Pulled in by | Override |
+|---|---|---|---|
+| `minimatch` | GHSA-g3hv-75wg-m249 (DoS), `<11.0.1` | ESLint 10.14, typescript-eslint 8.72, workbox's `glob` | `^11.0.3` |
+| `glob` | GHSA-3g3m-2fjr-6pw4, `9.0.0–14.0.1` | `workbox-build` 7.4 (vite-plugin-pwa) | `^14.0.3` |
+| `deepmerge` | GHSA-gcqx-w48m-w2h4 (prototype poisoning), `4.2.0–4.3.1` | `@rollup/plugin-node-resolve` (workbox-build) | `vendor/deepmerge` |
+
+`minimatch` 11 keeps 10's export shape, and `glob` 14 is the patched release
+of the API workbox already uses; the build and the service worker it emits
+are unchanged.
+
+`deepmerge` has **no** patched release: 4.3.1 is the latest and is affected.
+Downgrading below 4.2.0 would satisfy the scanner while removing the
+prototype guard 4.2.0 added, so instead `vendor/deepmerge` is upstream 4.3.1
+with the one fix — a `"__proto__"` key is written as an own property instead
+of being assigned, which replaced the merged object's prototype. It is a
+devDependency (`file:`) that the override references as `$deepmerge`; a
+`file:` spec placed directly in `overrides` makes `npm ci` reject the
+lockfile. `src/lib/vendor-deepmerge.test.ts` checks the attack fails and that
+merging is otherwise identical.
+
+Remove each override when the tools that need it ship patched versions
+(`npm ls minimatch glob deepmerge` shows who still asks for what).
+
 ### react-router — GHSA-qwww-vcr4-c8h2 — resolved, keep 7.18.2 or newer
 
 This section used to argue at length that the advisory didn't apply to us,

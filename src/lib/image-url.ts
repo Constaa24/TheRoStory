@@ -95,6 +95,21 @@ export const storageImage = (
   return `${base}?${params.toString()}`;
 };
 
+/**
+ * A `srcset` over several renderer widths, for an image whose slot changes
+ * with the screen — a full-bleed cover is 390px wide on a phone and 1920 on
+ * a monitor, and a single `storageImage(url, 'hero')` sent the phone the
+ * 1920. Pair it with `sizes`. Undefined for anything the renderer can't
+ * resize (not in storage, a video), so `srcSet={…}` then simply drops out.
+ */
+export const storageSrcSet = (
+  url: string | undefined | null,
+  surfaces: ImageSurface[] = ['card', 'feature', 'hero']
+): string | undefined => {
+  if (!url || url.includes(RENDER_MARKER) || !url.includes(OBJECT_MARKER) || VIDEO_EXT_RE.test(url)) return undefined;
+  return surfaces.map((s) => `${storageImage(url, s)} ${IMAGE_WIDTHS[s]}w`).join(', ');
+};
+
 /** Open Graph card dimensions. Every major platform targets 1.91:1. */
 export const OG_IMAGE_WIDTH = 1200;
 export const OG_IMAGE_HEIGHT = 630;

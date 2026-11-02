@@ -69,6 +69,17 @@ export const ChapterHead: React.FC<{
   );
 };
 
+/**
+ * Waiting for a page or its data: the rosette, turning slowly (still, for
+ * readers who ask for reduced motion). The words are for screen readers.
+ */
+export const StoryLoading: React.FC<{ language: "en" | "ro"; className?: string; style?: React.CSSProperties }> = ({ language, className, style }) => (
+  <div role="status" className={cn("flex justify-center", className)} style={style}>
+    <span aria-hidden="true" className="sb-rosette sb-rosette-lg sb-rosette-turn" />
+    <span className="sr-only">{language === "en" ? "Loading…" : "Se încarcă…"}</span>
+  </div>
+);
+
 /** The closing mark of every story. */
 export const TheEnd: React.FC<{ language: "en" | "ro"; children?: React.ReactNode }> = ({ language, children }) => (
   <div className="sb-chapter-head" style={{ gap: 12 }}>

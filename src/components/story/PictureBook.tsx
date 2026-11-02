@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { ChevronLeft } from "lucide-react";
-import { storageImage } from "@/lib/image-url";
+import { storageImage, storageSrcSet } from "@/lib/image-url";
 import { toRoman } from "@/lib/story-facts";
 import { Divider } from "@/components/story/Ornaments";
 
@@ -96,6 +96,8 @@ export const PictureBook: React.FC<{ frames: Frame[]; title: string; language: L
             <img
               key={frame.url}
               src={storageImage(frame.url, "feature")}
+              srcSet={storageSrcSet(frame.url, ["card", "feature"])}
+              sizes="(min-width: 1280px) 1200px, 94vw"
               alt={altOf(frame, index)}
               className="absolute inset-0 w-full h-full"
               style={{ objectFit: "contain" }}

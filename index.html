@@ -15,15 +15,26 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
     <!--
-      Fonts load from HTML (preconnect + stylesheet) instead of a CSS
-      @import: the @import was only discovered after the app bundle's CSS
-      downloaded, serializing font CSS behind it on first visit. Repeat
-      visits are served by the service worker's google-fonts caches either
-      way. Keep this URL in sync with the font stack in src/index.css.
+      The typefaces are self-hosted (scripts/fetch-fonts.mjs, src/styles/
+      fonts.css): no request leaves for Google, and no render-blocking
+      stylesheet from another origin. These two are preloaded because the
+      first screen of every page needs them — the italic display face for
+      titles and captions, the reading face for text — and the browser would
+      otherwise only discover them once the CSS has been parsed.
     -->
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500;1,600;1,700&amp;family=Newsreader:ital,opsz,wght@0,6..72,300;0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,300;1,6..72,400;1,6..72,500&amp;family=Manrope:wght@300;400;500;600;700&amp;display=swap" />
+    <link rel="preload" href="/fonts/cormorant-garamond-italic-latin-v21.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/fonts/newsreader-normal-latin-v26.woff2" as="font" type="font/woff2" crossorigin />
+    <!--
+      Every page's stories, and every cover image, come from Supabase, and
+      the browser would only open that connection once the app had loaded
+      and asked — a DNS lookup and TLS handshake on the critical path of a
+      story's cover. Two hints because there are two kinds of request: the
+      data calls are fetch() without cookies (crossorigin), the <img> covers
+      are ordinary requests, and browsers keep those on separate connections.
+      Vite fills in the project URL at build time.
+    -->
+    <link rel="preconnect" href="%VITE_SUPABASE_URL%" crossorigin />
+    <link rel="preconnect" href="%VITE_SUPABASE_URL%" />
     <!--
       Static SEO tags below are a fallback for crawlers that don't execute
       JavaScript (social preview bots, curl). Every routed page renders its

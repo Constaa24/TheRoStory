@@ -300,8 +300,8 @@
 .at-tl-eras { position: relative; height: 24px; }
 .at-tl-era {
   position: absolute; top: 0; height: 24px; border: 0; border-left: 1px solid var(--line); background: transparent; cursor: pointer;
-  font-family: var(--ui); font-size: 11px; font-weight: 600; color: var(--text-dim);
-  text-align: left; padding: 0 6px; overflow: hidden; white-space: nowrap; text-overflow: clip;
+  font-family: var(--ui); font-size: 12px; font-weight: 600; color: var(--text-dim);
+  text-align: left; padding: 0 6px; overflow: hidden; white-space: nowrap; text-overflow: clip; min-width: 24px;
 }
 .at-tl-era:nth-child(odd) { background: var(--line-soft); }
 .at-tl-era:hover { color: var(--gold); }
@@ -310,7 +310,7 @@
 .at-tl-timeless {
   width: 100%; height: 24px; display: flex; align-items: center; gap: 5px; border: 0; border-left: 1px solid var(--line);
   background: var(--line-soft); cursor: pointer; padding: 0 6px; white-space: nowrap; overflow: hidden;
-  font-family: var(--ui); font-size: 11px; font-weight: 600; color: var(--text-dim);
+  font-family: var(--ui); font-size: 12px; font-weight: 600; color: var(--text-dim);
 }
 .at-tl-timeless:hover { color: var(--gold); }
 .at-tl-timeless[aria-pressed="true"] { color: var(--on-gold); background: var(--gold); }
@@ -334,7 +334,7 @@
 .at-tl-tick { position: absolute; top: 0; height: 5px; border-left: 1px solid var(--gold-deep); }
 .at-tl-tick span {
   position: absolute; top: 8px; transform: translateX(-50%);
-  font-family: var(--ui); font-size: 10px; font-weight: 600; color: var(--text-mute); font-variant-numeric: tabular-nums;
+  font-family: var(--ui); font-size: 12px; font-weight: 600; color: var(--text-mute); font-variant-numeric: tabular-nums;
 }
 .at-tl-shade { position: absolute; top: 0; bottom: 30px; background: var(--at-shade); pointer-events: none; }
 .at-tl-handle {
@@ -372,7 +372,7 @@
   font-family: var(--display); font-style: italic; font-size: 18.5px; color: var(--text-dim);
 }
 .at-tab[aria-selected="true"] { color: var(--gold); border-bottom-color: var(--gold); }
-.at-tab-n { font-family: var(--ui); font-style: normal; font-size: 10px; font-weight: 600; color: var(--text-mute); margin-left: 4px; }
+.at-tab-n { font-family: var(--ui); font-style: normal; font-size: 12px; font-weight: 600; color: var(--text-mute); margin-left: 4px; }
 .at-pane { padding: 18px 20px 22px; display: grid; gap: 16px; }
 .at-back {
   justify-self: start; border: 0; background: none; padding: 0; cursor: pointer; display: inline-flex; align-items: center; gap: 7px;
@@ -473,7 +473,9 @@
 .at-notes p { margin: 0; }
 .at-notes p + p { margin-top: 10px; }
 
-.at-loading { display: flex; min-height: 40vh; align-items: center; justify-content: center; }
+/* Tall enough that the footer starts below the fold until the map arrives
+   (otherwise it shows, then jumps away: a layout shift). */
+.at-loading { display: flex; min-height: 100vh; align-items: center; justify-content: center; }
 
 @media (max-width: 1023px) {
   .at-grid { grid-template-columns: minmax(0, 1fr); }

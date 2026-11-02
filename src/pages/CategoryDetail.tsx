@@ -11,9 +11,9 @@ import { LoadError } from "@/components/ui/load-error";
 import { SITE_URL } from "@/lib/constants";
 import { localizedPath } from "@/lib/locale";
 import { countLabel, type CountNoun } from "@/lib/article-utils";
-import { categoryDescription, getCategoryImage } from "@/lib/category-copy";
+import { categoryDescription, categoryImageSources, getCategoryImage } from "@/lib/category-copy";
 import { formatYear, placeOf } from "@/lib/story-facts";
-import { Thread } from "@/components/story/Ornaments";
+import { StoryLoading, Thread } from "@/components/story/Ornaments";
 import { MiniMap } from "@/components/story/MiniMap";
 
 // Fetched in pages so a large category doesn't pull hundreds of full-content
@@ -181,9 +181,7 @@ const CategoryDetail: React.FC = () => {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="h-10 w-10 border-4 border-t-transparent rounded-full animate-spin" style={{ borderColor: 'var(--gold)', borderTopColor: 'transparent' }} />
-      </div>
+      <StoryLoading language={language} className="items-center" style={{ minHeight: '100vh' }} />
     );
   }
   if (loadFailed) {
@@ -260,8 +258,8 @@ const CategoryDetail: React.FC = () => {
           <div className="sb-window w-full max-w-[440px] justify-self-center lg:justify-self-end">
             <div className="sb-arch" style={{ aspectRatio: '4 / 4.6' }}>
               <picture>
-                <source type="image/avif" srcSet={`${art}.avif`} />
-                <source type="image/webp" srcSet={`${art}.webp`} />
+                <source type="image/avif" srcSet={categoryImageSources(art).avif} sizes="(min-width: 1024px) 440px, 90vw" />
+                <source type="image/webp" srcSet={categoryImageSources(art).webp} sizes="(min-width: 1024px) 440px, 90vw" />
                 <img src={`${art}.jpg`} alt="" width={1024} height={1024} decoding="async" className="absolute inset-0 w-full h-full object-cover" />
               </picture>
             </div>
@@ -358,8 +356,8 @@ const CategoryDetail: React.FC = () => {
                     <Link to={`/category/${c.id}`} className="sb-card grid gap-2.5 justify-items-center text-center">
                       <div className="sb-arch sb-card-media w-full" style={{ aspectRatio: '3 / 4' }}>
                         <picture>
-                          <source type="image/avif" srcSet={`${img}.avif`} />
-                          <source type="image/webp" srcSet={`${img}.webp`} />
+                          <source type="image/avif" srcSet={categoryImageSources(img).avif} sizes="(min-width: 1024px) 13vw, (min-width: 640px) 23vw, 31vw" />
+                          <source type="image/webp" srcSet={categoryImageSources(img).webp} sizes="(min-width: 1024px) 13vw, (min-width: 640px) 23vw, 31vw" />
                           <img src={`${img}.jpg`} alt="" loading="lazy" decoding="async" className="absolute inset-0 w-full h-full object-cover" />
                         </picture>
                       </div>

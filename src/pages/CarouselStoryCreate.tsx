@@ -410,7 +410,7 @@ const CarouselStoryCreate: React.FC = () => {
           <button
             onClick={leaveToDashboard}
             className="flex items-center gap-2 mb-6 transition-colors hover:text-gold cursor-pointer"
-            style={{ color: 'var(--text-dim)', background: 'transparent', border: 0, fontFamily: 'var(--ui)', fontSize: 11, letterSpacing: '0.18em', textTransform: 'uppercase' }}
+            style={{ color: 'var(--text-dim)', background: 'transparent', border: 0, fontFamily: 'var(--ui)', fontSize: 14 }}
           >
             <ArrowLeft className="w-3.5 h-3.5" />
             {language === 'en' ? 'Back to dashboard' : 'Înapoi la panou'}
@@ -459,7 +459,7 @@ const CarouselStoryCreate: React.FC = () => {
                 </Field>
                 <Field label={language === 'en' ? 'Category' : 'Categorie'} required>
                   <Select value={categoryId} onValueChange={setCategoryId}>
-                    <SelectTrigger className="rounded-sm border-line bg-[color:var(--ink-2)]">
+                    <SelectTrigger className="rounded-xl border-line bg-[color:var(--ink-2)]">
                       <SelectValue placeholder={language === 'en' ? 'Select a category' : 'Selectează o categorie'} />
                     </SelectTrigger>
                     <SelectContent>
@@ -476,7 +476,7 @@ const CarouselStoryCreate: React.FC = () => {
                     value={location || LOCATION_NONE}
                     onValueChange={(v) => setLocation(v === LOCATION_NONE ? "" : v)}
                   >
-                    <SelectTrigger className="rounded-sm border-line bg-[color:var(--ink-2)]">
+                    <SelectTrigger className="rounded-xl border-line bg-[color:var(--ink-2)]">
                       <SelectValue placeholder={t('location.select')} />
                     </SelectTrigger>
                     <SelectContent>
@@ -506,7 +506,7 @@ const CarouselStoryCreate: React.FC = () => {
                           ? (language === 'en' ? 'Published' : 'Publicat')
                           : (language === 'en' ? 'Publish immediately' : 'Publică imediat')}
                       </span>
-                      <span className="font-ui text-[11px] uppercase mt-1 block" style={{ letterSpacing: '0.15em', color: 'var(--text-mute)' }}>
+                      <span className="font-ui text-[13px] mt-1 block" style={{ color: 'var(--text-mute)' }}>
                         {isEditing
                           ? (language === 'en' ? 'Toggle off to revert to draft.' : 'Dezactivează pentru a reveni la ciornă.')
                           : (language === 'en' ? 'Otherwise saved as a draft only you can see.' : 'Altfel se salvează ca ciornă, vizibilă doar pentru tine.')}
@@ -517,7 +517,7 @@ const CarouselStoryCreate: React.FC = () => {
               )}
 
               <FormBlock title={language === 'en' ? 'Description (dek)' : 'Descriere (subtitlu)'}>
-                <p className="font-ui text-[11px] uppercase mb-2" style={{ letterSpacing: '0.15em', color: 'var(--text-mute)' }}>
+                <p className="font-ui text-[13px] mb-2" style={{ color: 'var(--text-mute)' }}>
                   {language === 'en' ? 'Used as the lead paragraph above the photos.' : 'Folosit ca paragraf principal deasupra fotografiilor.'}
                 </p>
                 <Field label={language === 'en' ? 'English' : 'Engleză'}>
@@ -549,7 +549,7 @@ const CarouselStoryCreate: React.FC = () => {
                   as the hero on the article page. Optional: falls back to the
                   first frame for older essays without a dedicated poster. */}
               <FormBlock title={language === 'en' ? 'Poster (cover)' : 'Poster (copertă)'}>
-                <p className="font-ui text-[11px] uppercase mb-2" style={{ letterSpacing: '0.15em', color: 'var(--text-mute)' }}>
+                <p className="font-ui text-[13px] mb-2" style={{ color: 'var(--text-mute)' }}>
                   {language === 'en'
                     ? 'Used as the article thumbnail and hero image — does not appear in the gallery itself. Falls back to the first frame if left empty.'
                     : 'Folosită ca miniatură și ca imagine principală a articolului — nu apare în galerie. Dacă rămâne goală, se folosește primul cadru.'}
@@ -562,7 +562,7 @@ const CarouselStoryCreate: React.FC = () => {
                       type="button"
                       onClick={removePoster}
                       className="absolute top-2 right-2 grid w-8 h-8 place-items-center rounded-full"
-                      style={{ background: 'var(--overlay-dark)', border: '1px solid var(--oxblood-2)', color: 'var(--oxblood-2)' }}
+                      style={{ background: 'var(--overlay-dark)', border: '1px solid var(--oxblood-2)', color: 'var(--danger)' }}
                       aria-label={language === 'en' ? 'Remove poster' : 'Elimină posterul'}
                     >
                       <X className="w-3.5 h-3.5" />
@@ -597,7 +597,7 @@ const CarouselStoryCreate: React.FC = () => {
                       type="button"
                       onClick={() => posterInputRef.current?.click()}
                       disabled={isUploading}
-                      className="grid w-12 h-12 place-items-center rounded-sm cursor-pointer transition-colors hover:text-gold shrink-0"
+                      className="grid w-12 h-12 place-items-center rounded-xl cursor-pointer transition-colors hover:text-gold shrink-0"
                       style={{ border: '1px solid var(--line)', background: 'var(--ink-2)', color: 'var(--text)' }}
                       title={language === 'en' ? 'Upload poster' : 'Încarcă poster'}
                     >
@@ -617,7 +617,7 @@ const CarouselStoryCreate: React.FC = () => {
                   </h2>
                 </div>
                 {items.length > 0 && (
-                  <div className="font-ui text-[11px] uppercase text-right" style={{ letterSpacing: '0.18em', color: 'var(--text-mute)' }}>
+                  <div className="font-ui text-[13px] text-right" style={{ color: 'var(--text-mute)' }}>
                     <div><span style={{ color: 'var(--gold)' }}>{captionsFilled}</span> / {items.length}</div>
                     <div style={{ marginTop: 2 }}>{language === 'en' ? 'with caption' : 'cu legendă'}</div>
                   </div>
@@ -642,7 +642,7 @@ const CarouselStoryCreate: React.FC = () => {
                     <div
                       key={item.id}
                       className="grid grid-cols-1 md:grid-cols-[180px_1fr] gap-5 p-4"
-                      style={{ border: '1px solid var(--line)', background: 'var(--overlay-panel-soft)' }}
+                      style={{ border: '1px solid var(--line-soft)', background: 'var(--paper)', borderRadius: 18 }}
                     >
                       {/* Image + index + reorder controls */}
                       <div className="relative">
@@ -660,7 +660,6 @@ const CarouselStoryCreate: React.FC = () => {
                                 background: 'var(--overlay-dark)',
                                 color: 'var(--gold)',
                                 padding: '3px 8px',
-                                letterSpacing: '0.15em',
                                 border: '1px solid var(--gold)',
                               }}
                             >
@@ -673,8 +672,6 @@ const CarouselStoryCreate: React.FC = () => {
                                   background: 'var(--gold)',
                                   color: 'var(--ink)',
                                   padding: '3px 8px',
-                                  letterSpacing: '0.15em',
-                                  textTransform: 'uppercase',
                                 }}
                               >
                                 <Star className="w-2.5 h-2.5 fill-current" />
@@ -721,7 +718,7 @@ const CarouselStoryCreate: React.FC = () => {
                             onClick={() => removeImage(index)}
                             aria-label={language === 'en' ? 'Remove' : 'Elimină'}
                             className="grid w-7 h-7 place-items-center rounded-full transition-colors"
-                            style={{ border: '1px solid var(--line)', background: 'transparent', color: 'var(--oxblood-2)' }}
+                            style={{ border: '1px solid var(--line)', background: 'transparent', color: 'var(--danger)' }}
                           >
                             <X className="w-3 h-3" />
                           </button>
@@ -735,7 +732,7 @@ const CarouselStoryCreate: React.FC = () => {
                           <span className="eyebrow">
                             {language === 'en' ? `Caption · Frame ${index + 1}` : `Legendă · Cadru ${index + 1}`}
                           </span>
-                          <span className="font-ui text-[10px] uppercase" style={{ letterSpacing: '0.15em', color: 'var(--text-mute)' }}>
+                          <span className="font-ui text-[12px]" style={{ color: 'var(--text-mute)' }}>
                             {language === 'en' ? 'Optional' : 'Opțional'}
                           </span>
                         </div>
@@ -748,7 +745,7 @@ const CarouselStoryCreate: React.FC = () => {
                             rows={3}
                             style={{ resize: 'vertical' }}
                           />
-                          <div className="font-ui text-[10px] mt-1 text-right" style={{ color: 'var(--text-mute)', letterSpacing: '0.1em' }}>
+                          <div className="font-ui text-[10px] mt-1 text-right" style={{ color: 'var(--text-mute)' }}>
                             {caption.en.length}/{ARTICLE_LIMITS.MEDIA_CAPTION_MAX}
                           </div>
                         </Field>
@@ -761,7 +758,7 @@ const CarouselStoryCreate: React.FC = () => {
                             rows={3}
                             style={{ resize: 'vertical' }}
                           />
-                          <div className="font-ui text-[10px] mt-1 text-right" style={{ color: 'var(--text-mute)', letterSpacing: '0.1em' }}>
+                          <div className="font-ui text-[10px] mt-1 text-right" style={{ color: 'var(--text-mute)' }}>
                             {caption.ro.length}/{ARTICLE_LIMITS.MEDIA_CAPTION_MAX}
                           </div>
                         </Field>
@@ -787,7 +784,7 @@ const CarouselStoryCreate: React.FC = () => {
                     ) : (
                       <>
                         <Plus className="w-6 h-6" style={{ color: 'var(--gold)' }} />
-                        <span className="font-ui text-[11px] uppercase" style={{ letterSpacing: '0.18em' }}>
+                        <span className="font-ui text-[13px]">
                           {language === 'en' ? `Add image (${items.length}/${ARTICLE_LIMITS.MEDIA_URLS_MAX})` : `Adaugă imagine (${items.length}/${ARTICLE_LIMITS.MEDIA_URLS_MAX})`}
                         </span>
                       </>
@@ -796,7 +793,7 @@ const CarouselStoryCreate: React.FC = () => {
                 )}
 
                 {isFull && (
-                  <p className="font-ui text-[11px] uppercase" style={{ letterSpacing: '0.15em', color: 'var(--oxblood-2)' }}>
+                  <p className="font-ui text-[13px]" style={{ color: 'var(--danger)' }}>
                     {language === 'en'
                       ? `Gallery limit reached (max ${ARTICLE_LIMITS.MEDIA_URLS_MAX}). Remove an image to add another.`
                       : `Limita galeriei atinsă (maxim ${ARTICLE_LIMITS.MEDIA_URLS_MAX}). Elimină o imagine pentru a mai adăuga.`}
@@ -833,8 +830,8 @@ const CarouselStoryCreate: React.FC = () => {
           <button
             onClick={leaveToDashboard}
             disabled={isSaving}
-            className="font-ui text-[11px] uppercase cursor-pointer transition-colors hover:text-gold"
-            style={{ background: 'transparent', border: 0, color: 'var(--text-dim)', letterSpacing: '0.18em', padding: '10px 18px' }}
+            className="font-ui text-[13px] cursor-pointer transition-colors hover:text-gold"
+            style={{ background: 'transparent', border: 0, color: 'var(--text-dim)', padding: '10px 18px' }}
           >
             {language === 'en' ? 'Cancel' : 'Anulează'}
           </button>

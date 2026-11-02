@@ -9,7 +9,7 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { ArticleComments } from "@/components/organisms/ArticleComments";
 import { StoryCard } from "@/components/ui/story-card";
-import { storageImage } from "@/lib/image-url";
+import { storageImage, storageSrcSet } from "@/lib/image-url";
 import { toneFor, articleCoverUrl, formatArticleDate, countLabel } from "@/lib/article-utils";
 import { kindPhrase, parseStoryChapters, placeAndTime, placeOf, readPhrase, splitTitle, toRoman } from "@/lib/story-facts";
 import { TheEnd, Thread } from "@/components/story/Ornaments";
@@ -296,7 +296,7 @@ const EssayStory: React.FC<StoryProps> = (props) => {
           <figure className="ed-container mx-auto" style={{ maxWidth: 1240, marginBottom: 'clamp(40px, 6vw, 72px)' }}>
             <div className="sb-window-shallow">
               <div className="sb-arch sb-arch-shallow aspect-[4/3] sm:aspect-[21/10]">
-                <img src={cover} alt={title} />
+                <img src={cover} srcSet={storageSrcSet(articleCoverUrl(article), ['card', 'feature'])} sizes="(min-width: 1280px) 1200px, 94vw" alt={title} fetchPriority="high" />
               </div>
             </div>
             {placeOf(article, language) && (
@@ -347,7 +347,7 @@ const ShortStory: React.FC<StoryProps> = (props) => {
         <TitlePage
           before={cover ? (
             <div className="sb-window w-full mb-3.5" style={{ maxWidth: 420 }}>
-              <div className="sb-arch" style={{ aspectRatio: '4 / 4.8' }}><img src={cover} alt={title} /></div>
+              <div className="sb-arch" style={{ aspectRatio: '4 / 4.8' }}><img src={cover} srcSet={storageSrcSet(articleCoverUrl(article), ['card', 'feature'])} sizes="(min-width: 480px) 420px, 92vw" alt={title} fetchPriority="high" /></div>
             </div>
           ) : null}
           kicker={metaLine([kindPhrase(article, language), placeAndTime(article, language)])}
@@ -424,7 +424,7 @@ const PoemStory: React.FC<StoryProps> = (props) => {
           <aside className="grid gap-5 sm:grid-cols-2 lg:grid-cols-1 content-start">
             {cover && (
               <div className="sb-window" style={{ padding: 8 }}>
-                <div className="sb-arch" style={{ aspectRatio: '4 / 5' }}><img src={cover} alt="" /></div>
+                <div className="sb-arch" style={{ aspectRatio: '4 / 5' }}><img src={cover} srcSet={storageSrcSet(articleCoverUrl(article), ['card', 'feature'])} sizes="(min-width: 1024px) 320px, 92vw" alt="" fetchPriority="high" /></div>
               </div>
             )}
             <MarginCards {...props} noteLabel={en ? 'About the poem' : 'Despre poem'} showIntro />
@@ -465,7 +465,8 @@ const VisualStory: React.FC<StoryProps> = (props) => {
 
   // The explicit poster first; essays from before the poster field fall
   // back to the first frame.
-  const hero = storageImage(article.posterUrl || article.mediaUrl || article.mediaUrls?.[0], 'hero');
+  const heroSource = article.posterUrl || article.mediaUrl || article.mediaUrls?.[0];
+  const hero = storageImage(heroSource, 'hero');
   const where = placeAndTime(article, language);
   const kind = en ? `A visual essay in ${countLabel(frames.length, 'frame', 'en')}` : `Un eseu vizual în ${countLabel(frames.length, 'frame', 'ro')}`;
 
@@ -474,7 +475,7 @@ const VisualStory: React.FC<StoryProps> = (props) => {
       <header className="sb-cover relative overflow-hidden">
         <div className="sb-cover-art absolute inset-0">
           {hero
-            ? <img src={hero} alt="" className="w-full h-full object-cover" style={{ objectPosition: '50% 40%' }} />
+            ? <img src={hero} srcSet={storageSrcSet(heroSource)} sizes="100vw" alt="" fetchPriority="high" className="w-full h-full object-cover" style={{ objectPosition: '50% 40%' }} />
             : <div className="ph w-full h-full" data-tone={toneFor(article.id)} style={{ border: 0 }} />}
           <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg, rgba(13,11,8,0.35) 0%, rgba(13,11,8,0.25) 40%, rgba(13,11,8,0.92) 100%)' }} />
         </div>
@@ -808,14 +809,18 @@ const VideoFilm: React.FC<StoryProps> = (props) => {
             <h1 className="sb-h1" style={{ fontSize: 'clamp(46px, 6.6vw, 100px)' }}>{title}</h1>
           </div>
           <p className="sb-meta">
-            {metaLine([
-              categoryName,
-              date,
-              // Real runtime from the player metadata — a word count of the
-              // synopsis says nothing about how long a film runs.
-              duration > 0 && `${formatTime(duration)} ${en ? 'runtime' : 'durată'}`,
-              viewsPhrase(views, language),
-            ])}
+            {metaLine([categoryName, date, viewsPhrase(views, language)])}
+            {/* Real runtime from the player metadata — a word count of the
+                synopsis says nothing about how long a film runs. It is only
+                known once the metadata loads, so its place is held from the
+                start, invisibly and at the end of the line: appearing late,
+                it made the line too wide to sit beside the title, and the
+                line wrapped below it, pushing the player 39 px down. Tabular
+                digits keep the stand-in exactly as wide as a real m:ss. */}
+            <span style={{ fontVariantNumeric: 'tabular-nums', visibility: duration > 0 ? undefined : 'hidden' }}>
+              {categoryName || date || viewsPhrase(views, language) ? ' · ' : ''}
+              <span className="whitespace-nowrap">{duration > 0 ? formatTime(duration) : '0:00'} {en ? 'runtime' : 'durată'}</span>
+            </span>
           </p>
         </div>
       </header>
@@ -884,7 +889,7 @@ const VideoFilm: React.FC<StoryProps> = (props) => {
                 </div>
                 <div
                   ref={progressBarRef}
-                  className="flex-1 h-1.5 rounded-full relative cursor-pointer group"
+                  className="flex-1 h-1.5 rounded-full relative cursor-pointer group after:content-[''] after:absolute after:inset-x-0 after:-inset-y-3"
                   style={{ background: 'rgba(244, 234, 215, 0.25)', touchAction: 'none' }}
                   onPointerDown={handleScrubStart}
                   onPointerMove={handleScrubMove}

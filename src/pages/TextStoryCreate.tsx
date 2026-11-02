@@ -387,7 +387,7 @@ const TextStoryCreate: React.FC = () => {
           <button
             onClick={leaveToDashboard}
             className="flex items-center gap-2 mb-6 transition-colors hover:text-gold cursor-pointer"
-            style={{ color: 'var(--text-dim)', background: 'transparent', border: 0, fontFamily: 'var(--ui)', fontSize: 11, letterSpacing: '0.18em', textTransform: 'uppercase' }}
+            style={{ color: 'var(--text-dim)', background: 'transparent', border: 0, fontFamily: 'var(--ui)', fontSize: 14 }}
           >
             <ArrowLeft className="w-3.5 h-3.5" />
             {language === 'en' ? 'Back to dashboard' : 'Înapoi la panou'}
@@ -424,7 +424,7 @@ const TextStoryCreate: React.FC = () => {
             >
               <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" style={{ color: 'var(--oxblood-2)' }} />
               <div>
-                <p className="font-display italic m-0 mb-2" style={{ fontSize: 18, color: 'var(--oxblood-2)' }}>
+                <p className="font-display italic m-0 mb-2" style={{ fontSize: 18, color: 'var(--danger)' }}>
                   {language === 'en'
                     ? `Please fix ${validationErrors.length} ${validationErrors.length === 1 ? 'issue' : 'issues'}.`
                     : `Te rugăm să corectezi ${validationErrors.length} ${validationErrors.length === 1 ? 'problemă' : 'probleme'}.`}
@@ -466,7 +466,7 @@ const TextStoryCreate: React.FC = () => {
                 </Field>
                 <Field label={language === 'en' ? 'Category' : 'Categorie'} required error={showErrors ? errorFor('category')?.message : undefined}>
                   <Select value={categoryId} onValueChange={setCategoryId}>
-                    <SelectTrigger className="rounded-sm border-line bg-[color:var(--ink-2)]" style={showErrors && errorFor('category') ? { borderColor: 'var(--oxblood-2)' } : undefined}>
+                    <SelectTrigger className="rounded-xl border-line bg-[color:var(--ink-2)]" style={showErrors && errorFor('category') ? { borderColor: 'var(--oxblood-2)' } : undefined}>
                       <SelectValue placeholder={language === 'en' ? 'Select a category' : 'Selectează o categorie'} />
                     </SelectTrigger>
                     <SelectContent>
@@ -483,7 +483,7 @@ const TextStoryCreate: React.FC = () => {
                     value={location || LOCATION_NONE}
                     onValueChange={(v) => setLocation(v === LOCATION_NONE ? "" : v)}
                   >
-                    <SelectTrigger className="rounded-sm border-line bg-[color:var(--ink-2)]">
+                    <SelectTrigger className="rounded-xl border-line bg-[color:var(--ink-2)]">
                       <SelectValue placeholder={t('location.select')} />
                     </SelectTrigger>
                     <SelectContent>
@@ -498,7 +498,7 @@ const TextStoryCreate: React.FC = () => {
                 </Field>
                 <Field label={language === 'en' ? 'Format' : 'Format'}>
                   <Select value={subtype} onValueChange={(v) => setSubtype(v as ArticleSubtype)}>
-                    <SelectTrigger className="rounded-sm border-line bg-[color:var(--ink-2)]">
+                    <SelectTrigger className="rounded-xl border-line bg-[color:var(--ink-2)]">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -507,7 +507,7 @@ const TextStoryCreate: React.FC = () => {
                       <SelectItem value="short_story">{language === 'en' ? 'Short story' : 'Povestire'}</SelectItem>
                     </SelectContent>
                   </Select>
-                  <p className="font-ui text-[10px] uppercase mt-1.5" style={{ letterSpacing: '0.15em', color: 'var(--text-mute)' }}>
+                  <p className="font-ui text-[12px] mt-1.5" style={{ color: 'var(--text-mute)' }}>
                     {subtype === 'poetry'
                       ? (language === 'en' ? 'Line breaks are preserved; no drop cap.' : 'Pauzele de rând sunt păstrate; fără literă inițială.')
                       : subtype === 'short_story'
@@ -525,7 +525,7 @@ const TextStoryCreate: React.FC = () => {
                       type="button"
                       onClick={handleRemoveCover}
                       className="absolute top-2 right-2 grid w-8 h-8 place-items-center rounded-full transition-colors"
-                      style={{ background: 'var(--overlay-dark)', border: '1px solid var(--oxblood-2)', color: 'var(--oxblood-2)' }}
+                      style={{ background: 'var(--overlay-dark)', border: '1px solid var(--oxblood-2)', color: 'var(--danger)' }}
                       aria-label={language === 'en' ? 'Remove cover image' : 'Elimină imaginea'}
                     >
                       <Trash2 className="w-3.5 h-3.5" />
@@ -549,7 +549,7 @@ const TextStoryCreate: React.FC = () => {
                     ) : (
                       <>
                         <ImageIcon className="w-6 h-6" style={{ color: 'var(--gold)' }} />
-                        <span className="font-ui text-[11px] uppercase" style={{ letterSpacing: '0.18em' }}>
+                        <span className="font-ui text-[13px]">
                           {language === 'en' ? 'Upload cover' : 'Încarcă coperta'}
                         </span>
                         <span className="font-ui text-[10px]" style={{ color: 'var(--text-mute)' }}>
@@ -599,7 +599,7 @@ const TextStoryCreate: React.FC = () => {
                           ? (language === 'en' ? 'Published' : 'Publicat')
                           : (language === 'en' ? 'Publish immediately' : 'Publică imediat')}
                       </span>
-                      <span className="font-ui text-[11px] uppercase mt-1 block" style={{ letterSpacing: '0.15em', color: 'var(--text-mute)' }}>
+                      <span className="font-ui text-[13px] mt-1 block" style={{ color: 'var(--text-mute)' }}>
                         {isEditing
                           ? (language === 'en' ? 'Toggle off to revert to draft.' : 'Dezactivează pentru a reveni la ciornă.')
                           : (language === 'en' ? 'Otherwise saved as a draft only you can see.' : 'Altfel se salvează ca ciornă, vizibilă doar pentru tine.')}
@@ -632,7 +632,7 @@ const TextStoryCreate: React.FC = () => {
               </div>
 
               {showErrors && errorFor('content') && (
-                <p className="font-ui text-[11px] uppercase" style={{ letterSpacing: '0.15em', color: 'var(--oxblood-2)' }}>
+                <p className="font-ui text-[13px]" style={{ color: 'var(--danger)' }}>
                   {errorFor('content')?.message}
                 </p>
               )}
@@ -642,7 +642,7 @@ const TextStoryCreate: React.FC = () => {
                   <div
                     key={index}
                     className="p-6 flex flex-col gap-4"
-                    style={{ border: '1px solid var(--line)', background: 'var(--overlay-panel-soft)' }}
+                    style={{ border: '1px solid var(--line-soft)', background: 'var(--paper)', borderRadius: 18 }}
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex items-baseline gap-3">
@@ -658,7 +658,7 @@ const TextStoryCreate: React.FC = () => {
                         {/* Only essays get a drop cap (see EditorialArticle's
                             ChapterBlock), so only an essay's editor says so. */}
                         {index === 0 && subtype === 'essay' && (
-                          <span className="font-ui text-[10px] uppercase" style={{ letterSpacing: '0.18em', color: 'var(--text-mute)' }}>
+                          <span className="font-ui text-[12px]" style={{ color: 'var(--text-mute)' }}>
                             · {language === 'en' ? 'Drop cap' : 'Literă inițială'}
                           </span>
                         )}
@@ -685,7 +685,7 @@ const TextStoryCreate: React.FC = () => {
                           maxLength={PER_CHAPTER_MAX}
                           style={{ resize: 'vertical', fontFamily: 'var(--serif)', fontSize: 15, lineHeight: 1.65 }}
                         />
-                        <p className="font-ui text-[10px] uppercase mt-1.5" style={{ letterSpacing: '0.15em', color: 'var(--text-mute)' }}>
+                        <p className="font-ui text-[12px] mt-1.5" style={{ color: 'var(--text-mute)' }}>
                           {chaptersEn[index]?.length || 0} / {PER_CHAPTER_MAX}
                         </p>
                       </Field>
@@ -698,7 +698,7 @@ const TextStoryCreate: React.FC = () => {
                           maxLength={PER_CHAPTER_MAX}
                           style={{ resize: 'vertical', fontFamily: 'var(--serif)', fontSize: 15, lineHeight: 1.65 }}
                         />
-                        <p className="font-ui text-[10px] uppercase mt-1.5" style={{ letterSpacing: '0.15em', color: 'var(--text-mute)' }}>
+                        <p className="font-ui text-[12px] mt-1.5" style={{ color: 'var(--text-mute)' }}>
                           {chaptersRo[index]?.length || 0} / {PER_CHAPTER_MAX}
                         </p>
                       </Field>
@@ -707,7 +707,7 @@ const TextStoryCreate: React.FC = () => {
                 ))}
               </div>
 
-              <p className="font-ui text-[11px] uppercase" style={{ letterSpacing: '0.15em', color: 'var(--text-mute)' }}>
+              <p className="font-ui text-[13px]" style={{ color: 'var(--text-mute)' }}>
                 {language === 'en'
                   ? `Up to ${MAX_CHAPTERS} chapters. Empty trailing chapters are removed automatically on save.`
                   : `Până la ${MAX_CHAPTERS} capitole. Capitolele goale de la final sunt eliminate automat la salvare.`}
@@ -742,8 +742,8 @@ const TextStoryCreate: React.FC = () => {
           <button
             onClick={leaveToDashboard}
             disabled={isSaving}
-            className="font-ui text-[11px] uppercase cursor-pointer transition-colors hover:text-gold"
-            style={{ background: 'transparent', border: 0, color: 'var(--text-dim)', letterSpacing: '0.18em', padding: '10px 18px' }}
+            className="font-ui text-[13px] cursor-pointer transition-colors hover:text-gold"
+            style={{ background: 'transparent', border: 0, color: 'var(--text-dim)', padding: '10px 18px' }}
           >
             {language === 'en' ? 'Cancel' : 'Anulează'}
           </button>

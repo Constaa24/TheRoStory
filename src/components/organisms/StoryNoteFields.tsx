@@ -13,7 +13,7 @@ export const EMPTY_NOTE: StoryNoteDraft = { en: "", ro: "" };
 export const shouldSendNote = (note: StoryNoteDraft, supported: boolean): boolean =>
   supported || !!note.en.trim() || !!note.ro.trim();
 
-const hint: React.CSSProperties = { letterSpacing: "0.15em", color: "var(--text-mute)" };
+const hint: React.CSSProperties = { color: "var(--text-mute)" };
 
 /** "About this story": an optional note shown beside the story. */
 export const StoryNoteFields: React.FC<{
@@ -32,11 +32,11 @@ export const StoryNoteFields: React.FC<{
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Field label={en ? "English" : "Engleză"}>
           <textarea rows={4} value={value.en} maxLength={NOTE_MAX} onChange={(e) => onChange({ ...value, en: e.target.value })} style={{ resize: "vertical" }} />
-          <p className="font-ui text-[10px] uppercase mt-1.5" style={hint}>{value.en.length} / {NOTE_MAX}</p>
+          <p className="font-ui text-[12px] mt-1.5" style={hint}>{value.en.length} / {NOTE_MAX}</p>
         </Field>
         <Field label={en ? "Romanian" : "Română"}>
           <textarea rows={4} value={value.ro} maxLength={NOTE_MAX} onChange={(e) => onChange({ ...value, ro: e.target.value })} style={{ resize: "vertical" }} />
-          <p className="font-ui text-[10px] uppercase mt-1.5" style={hint}>{value.ro.length} / {NOTE_MAX}</p>
+          <p className="font-ui text-[12px] mt-1.5" style={hint}>{value.ro.length} / {NOTE_MAX}</p>
         </Field>
       </div>
     </FormBlock>

@@ -2,16 +2,25 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import App from "./App";
+import "./styles/fonts.css";
 import "./index.css";
 import "./styles/storybook.css";
 import { AuthProvider } from "./hooks/use-auth";
 import { FavoritesProvider } from "./hooks/use-favorites";
 import { LanguageProvider } from "./hooks/use-language";
-import { Toaster } from "@/components/ui/sonner";
 import { Analytics } from "@vercel/analytics/react";
+import { ThemeProvider } from "next-themes";
+import { Toaster } from "@/components/ui/sonner";
 
 import { isAbortError } from "./lib/utils";
-import { basenameFor, detectLanguage, localizedPath } from "./lib/locale";
+import { basenameFor, detectLanguage, localizedPath, stripLanguage } from "./lib/locale";
+import { prefetchPublicArticle } from "./lib/supabase";
+
+// next-themes@0.4.x dropped children from ThemeProviderProps for RSC compatibility;
+// re-add it via a typed wrapper so JSX children work without errors.
+const ThemedProvider = ThemeProvider as React.ComponentType<
+  React.PropsWithChildren<{ attribute: string; defaultTheme: string }>
+>;
 
 // Global unhandled rejection handler to catch noisy abort errors from browser/libraries
 window.addEventListener("unhandledrejection", (event) => {
@@ -76,8 +85,15 @@ const mount = () => {
                   wrap themselves in <ReducedMotionConfig>, so the library now
                   loads only with those chunks. CSS-driven motion honors
                   prefers-reduced-motion via the media query in index.css. */}
-              <App />
-              <Toaster />
+              {/* The theme provider wraps the toaster as well as the app.
+                  It used to live inside App, with <Toaster /> beside App
+                  here — outside it — so useTheme() inside the toaster had
+                  no provider and toasts followed the OS colour scheme
+                  instead of the site's theme. */}
+              <ThemedProvider attribute="class" defaultTheme="dark">
+                <App />
+                <Toaster />
+              </ThemedProvider>
               {/* Vercel Web Analytics. Cookieless and no consent banner
                   needed — it stores nothing on the device and records no
                   personal data, so it sits outside GDPR consent
@@ -103,6 +119,22 @@ const mount = () => {
   );
 };
 
+/**
+ * On a story page, ask for the story now, alongside React's first render,
+ * instead of after the page's code has loaded and React has held its
+ * loading spinner up for 300 ms. See prefetchPublicArticle.
+ */
+const prefetchStory = () => {
+  const id = /^\/article\/([^/]+)\/?$/.exec(stripLanguage(window.location.pathname))?.[1];
+  if (!id) return;
+  try {
+    prefetchPublicArticle(decodeURIComponent(id));
+  } catch {
+    // A malformed escape in the URL. The page itself will report it.
+  }
+};
+
 if (!redirectToStoredLocale()) {
+  prefetchStory();
   mount();
 }

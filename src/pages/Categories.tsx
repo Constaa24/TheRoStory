@@ -8,7 +8,7 @@ import { SITE_URL } from "@/lib/constants";
 import { LoadError } from "@/components/ui/load-error";
 import { localizedPath } from "@/lib/locale";
 import { countLabel } from "@/lib/article-utils";
-import { categoryDescription, getCategoryImage } from "@/lib/category-copy";
+import { categoryDescription, categoryImageSources, getCategoryImage } from "@/lib/category-copy";
 import { splitTitle } from "@/lib/story-facts";
 import { ChapterHead, Divider } from "@/components/story/Ornaments";
 
@@ -134,7 +134,7 @@ const Categories: React.FC = () => {
           <LoadError onRetry={loadData} />
         ) : (
           <ul className="list-none m-0 p-0 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-x-8 gap-y-14">
-            {categories.map((category) => {
+            {categories.map((category, index) => {
               const name = getLocalized(category, 'name', language);
               const count = categoryCounts[category.id] ?? 0;
               const base = getCategoryImage(category.slug || name.toLowerCase());
@@ -145,14 +145,19 @@ const Categories: React.FC = () => {
                     <div className="sb-window" style={{ padding: 8 }}>
                       <div className="sb-arch sb-card-media" style={{ aspectRatio: '3 / 4' }}>
                         <picture>
-                          <source type="image/avif" srcSet={`${base}.avif`} />
-                          <source type="image/webp" srcSet={`${base}.webp`} />
+                          <source type="image/avif" srcSet={categoryImageSources(base).avif} sizes="(min-width: 1024px) 22vw, (min-width: 640px) 45vw, 92vw" />
+                          <source type="image/webp" srcSet={categoryImageSources(base).webp} sizes="(min-width: 1024px) 22vw, (min-width: 640px) 45vw, 92vw" />
                           <img
                             src={`${base}.jpg`}
                             alt=""
                             width={1024}
                             height={1024}
-                            loading="lazy"
+                            // The first row is on screen as the page opens (the
+                            // first door is its largest picture on a phone):
+                            // lazy loading held those back until layout, about
+                            // 3 s later on a throttled phone.
+                            loading={index < 4 ? "eager" : "lazy"}
+                            fetchPriority={index === 0 ? "high" : undefined}
                             decoding="async"
                             className="absolute inset-0 w-full h-full object-cover"
                           />

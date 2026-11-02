@@ -1,24 +1,16 @@
 import React, { Suspense, lazy } from "react";
 import { Routes, Route, Navigate, useLocation, Link } from "react-router-dom";
-import { ThemeProvider } from "next-themes";
 import { Navbar } from "@/components/layout/Navbar";
 import { ScrollToTop } from "@/components/ui/ScrollToTop";
 import ScrollToTopOnRoute from "@/components/ui/ScrollToTopOnRoute";
 import { useAuth } from "@/hooks/use-auth";
 import { useLanguage } from "@/hooks/use-language";
-import { Button } from "@/components/ui/button";
 import { AlertCircle } from "lucide-react";
 import { PaperOverlay } from "@/components/ui/PaperOverlay";
 import { SocialLinks } from "@/components/ui/social-links";
-import { Divider, Motif } from "@/components/story/Ornaments";
+import { Divider, Motif, Rosette, StoryLoading } from "@/components/story/Ornaments";
 import { toast } from "sonner";
 import { fetchCategories, Category } from "@/lib/supabase";
-
-// next-themes@0.4.x dropped children from ThemeProviderProps for RSC compatibility;
-// re-add it via a typed wrapper so JSX children work without errors.
-const ThemedProvider = ThemeProvider as React.ComponentType<
-  React.PropsWithChildren<{ attribute: string; defaultTheme: string }>
->;
 
 type ErrorBoundaryProps = { fallback: React.ReactNode; children: React.ReactNode };
 type ErrorBoundaryState = { hasError: boolean };
@@ -125,10 +117,10 @@ function StorybookFooter({ language }: { language: 'en' | 'ro' }) {
       <Motif style={{ opacity: 0.32 }} />
       <div className="ed-container grid grid-cols-1 md:grid-cols-[1.3fr_1fr_0.7fr] gap-12 items-start" style={{ paddingTop: 72, paddingBottom: 48 }}>
         <div className="flex flex-col gap-5">
-          <Link to="/" className="flex items-center gap-3 self-start">
+          <Link to="/" className="flex items-center gap-3 self-start" aria-label={en ? 'The RoStory, home' : 'The RoStory, acasă'}>
             <picture>
-              <source type="image/webp" srcSet="/logo.webp" />
-              <img src="/logo.png" alt="The RoStory" width={52} height={52} className="h-[52px] w-[52px] object-contain" />
+              <source type="image/webp" srcSet="/logo-128.webp" />
+              <img src="/logo-128.png" alt="" width={52} height={52} className="h-[52px] w-[52px] object-contain" />
             </picture>
             <span
               className="font-display italic font-semibold text-[29px] leading-none"
@@ -230,148 +222,150 @@ const App: React.FC = () => {
   };
 
   return (
-    <ThemedProvider attribute="class" defaultTheme="dark">
-      <div className="min-h-screen bg-background text-foreground flex flex-col relative">
-        <ScrollToTopOnRoute />
-        {/* WCAG 2.4.1. Every page repeats the same header — logo, six nav
-            links, search, two language buttons, theme toggle, account menu —
-            so a keyboard or screen-reader user tabbed through a dozen
-            controls before reaching the content on every navigation. First
-            focusable thing in the app, visible only while focused. */}
-        <a href="#main" className="skip-link">
-          {language === 'en' ? 'Skip to content' : 'Sari la conținut'}
-        </a>
-        <PaperOverlay />
-        {user && !isEmailVerified && !hideAppChrome && (
-          <div className="no-print bg-accent text-[color:var(--ink)] py-2 px-4 flex items-center justify-center gap-4 text-sm font-display italic shadow-md">
-            <div className="flex items-center gap-2">
-              <AlertCircle className="h-4 w-4" />
-              <span>
-                {language === 'en'
-                  ? "Your email is not verified. Some features may be restricted."
-                  : "Email-ul tău nu este verificat. Unele funcționalități pot fi restricționate."}
-              </span>
-            </div>
-            <Button
-              variant="link"
-              size="sm"
-              className="text-[color:var(--ink)] underline p-0 h-auto font-bold uppercase tracking-wider text-xs"
-              onClick={handleResendVerification}
-              disabled={isVerifying}
-            >
-              {isVerifying
-                ? (language === 'en' ? "Sending..." : "Se trimite...")
-                : (language === 'en' ? "Resend Link" : "Retrimite Link-ul")}
-            </Button>
+    <div className="min-h-screen bg-background text-foreground flex flex-col relative">
+      <ScrollToTopOnRoute />
+      {/* WCAG 2.4.1. Every page repeats the same header — logo, six nav
+          links, search, two language buttons, theme toggle, account menu —
+          so a keyboard or screen-reader user tabbed through a dozen
+          controls before reaching the content on every navigation. First
+          focusable thing in the app, visible only while focused. */}
+      <a href="#main" className="skip-link">
+        {language === 'en' ? 'Skip to content' : 'Sari la conținut'}
+      </a>
+      <PaperOverlay />
+      {user && !isEmailVerified && !hideAppChrome && (
+        <div
+          className="no-print py-2.5 px-4 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-center"
+          style={{ background: 'var(--paper)', borderBottom: '1px dashed var(--gold-deep)' }}
+        >
+          <div className="flex items-center gap-2 font-display italic text-[17px]" style={{ color: 'var(--parchment)' }}>
+            <AlertCircle className="h-4 w-4 shrink-0" style={{ color: 'var(--gold)' }} aria-hidden="true" />
+            <span>
+              {language === 'en'
+                ? "Your email is not verified. Some features may be restricted."
+                : "Email-ul tău nu este verificat. Unele funcționalități pot fi restricționate."}
+            </span>
           </div>
-        )}
-        {/* The chrome sits OUTSIDE the route boundary below, so until now a
-            render error in the navbar or footer propagated to the root and
-            React unmounted the whole app — a blank page rather than a broken
-            header. Each gets its own boundary so a failure there costs only
-            that strip.
+          <button
+            type="button"
+            className="sb-btn-word"
+            style={{ fontSize: 17, padding: 0 }}
+            onClick={handleResendVerification}
+            disabled={isVerifying}
+          >
+            {isVerifying
+              ? (language === 'en' ? "Sending…" : "Se trimite…")
+              : (language === 'en' ? "Send the link again" : "Retrimite linkul")}
+          </button>
+        </div>
+      )}
+      {/* The chrome sits OUTSIDE the route boundary below, so until now a
+          render error in the navbar or footer propagated to the root and
+          React unmounted the whole app — a blank page rather than a broken
+          header. Each gets its own boundary so a failure there costs only
+          that strip.
 
-            The navbar's fallback is not `null`: without it a reader on an
-            article page has no way back except the browser button. A logo
-            linking home is the minimum that keeps the site usable. */}
-        {!hideAppChrome && (
-          <ErrorBoundary
-            fallback={
-              <header className="ed-nav">
-                <div className="ed-container flex items-center" style={{ paddingTop: 16, paddingBottom: 14, minHeight: 80 }}>
-                  <Link to="/" className="flex items-center gap-3">
-                    <picture>
-                      <source type="image/webp" srcSet="/logo.webp" />
-                      <img src="/logo.png" alt="The RoStory" width={42} height={42} className="h-[42px] w-[42px] object-contain" />
-                    </picture>
-                    <span className="font-display italic font-semibold text-[23px]" style={{ color: 'var(--gold)' }}>
-                      The RoStory
-                    </span>
-                  </Link>
-                </div>
-              </header>
-            }
-          >
-            <Navbar />
-          </ErrorBoundary>
-        )}
-        <main id="main" tabIndex={-1} className="flex-1">
-          <ErrorBoundary
-            fallback={
-            <div className="flex flex-col items-center justify-center p-20 gap-4">
-              <p className="text-lg font-serif text-muted-foreground">
-                {language === 'en'
-                  ? 'Something went wrong loading this page.'
-                  : 'A apărut o problemă la încărcarea acestei pagini.'}
-              </p>
-              <Button variant="outline" onClick={() => window.location.reload()}>
-                {language === 'en' ? 'Reload' : 'Reîncarcă'}
-              </Button>
-            </div>
+          The navbar's fallback is not `null`: without it a reader on an
+          article page has no way back except the browser button. A logo
+          linking home is the minimum that keeps the site usable. */}
+      {!hideAppChrome && (
+        <ErrorBoundary
+          fallback={
+            <header className="ed-nav">
+              <div className="ed-container flex items-center" style={{ paddingTop: 16, paddingBottom: 14, minHeight: 80 }}>
+                <Link to="/" className="flex items-center gap-3" aria-label={language === 'en' ? 'The RoStory, home' : 'The RoStory, acasă'}>
+                  <picture>
+                    <source type="image/webp" srcSet="/logo-128.webp" />
+                    <img src="/logo-128.png" alt="" width={42} height={42} className="h-[42px] w-[42px] object-contain" />
+                  </picture>
+                  <span className="font-display italic font-semibold text-[23px]" style={{ color: 'var(--gold)' }}>
+                    The RoStory
+                  </span>
+                </Link>
+              </div>
+            </header>
           }
-          >
-          <Suspense fallback={
-            <div className="flex justify-center p-20">
-              <div className="h-10 w-10 border-4 border-accent border-t-transparent rounded-full animate-spin"></div>
-            </div>
-          }>
-            <Routes>
-              <Route path="/" element={<Home />} />
-              <Route path="/map" element={<MapPage />} />
-              <Route path="/auth" element={<Auth />} />
-              <Route path="/auth/callback" element={<AuthCallback />} />
-              <Route path="/reset-password" element={<Auth />} />
-              <Route path="/categories" element={<Categories />} />
-              <Route path="/category/:id" element={<CategoryDetail />} />
-              <Route path="/support" element={<Support />} />
-              <Route path="/my-story" element={<MyStory />} />
-              <Route path="/contact-us" element={<ContactUs />} />
-              <Route path="/privacy" element={<Privacy />} />
-              <Route path="/terms" element={<Terms />} />
-              <Route path="/newsletter/confirm" element={<NewsletterConfirm />} />
-              <Route path="/profile" element={<Profile />} />
-              <Route path="/article/:id" element={<ArticleDetail />} />
-              <Route
-                path="/admin/video-story/create"
-                element={canAccessAdmin ? <VideoStoryCreate /> : <Navigate to="/" replace />}
-              />
-              <Route
-                path="/admin/video-story/edit/:id"
-                element={canAccessAdmin ? <VideoStoryCreate /> : <Navigate to="/" replace />}
-              />
-              <Route
-                path="/admin/carousel-story/create"
-                element={canAccessAdmin ? <CarouselStoryCreate /> : <Navigate to="/" replace />}
-              />
-              <Route
-                path="/admin/carousel-story/edit/:id"
-                element={canAccessAdmin ? <CarouselStoryCreate /> : <Navigate to="/" replace />}
-              />
-              <Route
-                path="/admin/text-story/create"
-                element={canAccessAdmin ? <TextStoryCreate /> : <Navigate to="/" replace />}
-              />
-              <Route
-                path="/admin/text-story/edit/:id"
-                element={canAccessAdmin ? <TextStoryCreate /> : <Navigate to="/" replace />}
-              />
-              <Route
-                path="/admin/*"
-                element={canAccessAdmin ? <AdminDashboard /> : <Navigate to="/" replace />}
-              />
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </Suspense>
-          </ErrorBoundary>
-        </main>
-        {!hideAppChrome && (
-          <ErrorBoundary fallback={null}>
-            <StorybookFooter language={language} />
-          </ErrorBoundary>
-        )}
-        <ScrollToTop />
-      </div>
-    </ThemedProvider>
+        >
+          <Navbar />
+        </ErrorBoundary>
+      )}
+      <main id="main" tabIndex={-1} className="flex-1">
+        <ErrorBoundary
+          fallback={
+          <div className="flex flex-col items-center justify-center text-center px-6 py-20 gap-5">
+            <Rosette size="lg" />
+            <p className="font-display italic m-0 max-w-[460px]" style={{ fontSize: 24, lineHeight: 1.35, color: 'var(--parchment)' }}>
+              {language === 'en'
+                ? 'Something went wrong loading this page.'
+                : 'A apărut o problemă la încărcarea acestei pagini.'}
+            </p>
+            <button type="button" className="sb-btn sb-btn-ghost" onClick={() => window.location.reload()}>
+              {language === 'en' ? 'Reload the page' : 'Reîncarcă pagina'}
+            </button>
+          </div>
+        }
+        >
+        {/* A full screen tall: with only a small loader in <main>, the
+            footer rendered near the top of the screen until the page's
+            code arrived, then jumped out of view — a layout shift of up to
+            0.49 on every navigation at desktop sizes (0.1 is "poor"). */}
+        <Suspense fallback={<StoryLoading language={language} className="items-center" style={{ minHeight: '100vh' }} />}>
+          <Routes>
+            <Route path="/" element={<Home />} />
+            <Route path="/map" element={<MapPage />} />
+            <Route path="/auth" element={<Auth />} />
+            <Route path="/auth/callback" element={<AuthCallback />} />
+            <Route path="/reset-password" element={<Auth />} />
+            <Route path="/categories" element={<Categories />} />
+            <Route path="/category/:id" element={<CategoryDetail />} />
+            <Route path="/support" element={<Support />} />
+            <Route path="/my-story" element={<MyStory />} />
+            <Route path="/contact-us" element={<ContactUs />} />
+            <Route path="/privacy" element={<Privacy />} />
+            <Route path="/terms" element={<Terms />} />
+            <Route path="/newsletter/confirm" element={<NewsletterConfirm />} />
+            <Route path="/profile" element={<Profile />} />
+            <Route path="/article/:id" element={<ArticleDetail />} />
+            <Route
+              path="/admin/video-story/create"
+              element={canAccessAdmin ? <VideoStoryCreate /> : <Navigate to="/" replace />}
+            />
+            <Route
+              path="/admin/video-story/edit/:id"
+              element={canAccessAdmin ? <VideoStoryCreate /> : <Navigate to="/" replace />}
+            />
+            <Route
+              path="/admin/carousel-story/create"
+              element={canAccessAdmin ? <CarouselStoryCreate /> : <Navigate to="/" replace />}
+            />
+            <Route
+              path="/admin/carousel-story/edit/:id"
+              element={canAccessAdmin ? <CarouselStoryCreate /> : <Navigate to="/" replace />}
+            />
+            <Route
+              path="/admin/text-story/create"
+              element={canAccessAdmin ? <TextStoryCreate /> : <Navigate to="/" replace />}
+            />
+            <Route
+              path="/admin/text-story/edit/:id"
+              element={canAccessAdmin ? <TextStoryCreate /> : <Navigate to="/" replace />}
+            />
+            <Route
+              path="/admin/*"
+              element={canAccessAdmin ? <AdminDashboard /> : <Navigate to="/" replace />}
+            />
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </Suspense>
+        </ErrorBoundary>
+      </main>
+      {!hideAppChrome && (
+        <ErrorBoundary fallback={null}>
+          <StorybookFooter language={language} />
+        </ErrorBoundary>
+      )}
+      <ScrollToTop />
+    </div>
   );
 };
 
