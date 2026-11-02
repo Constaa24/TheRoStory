@@ -6,7 +6,12 @@ import { toRoman } from "@/lib/story-facts";
 import { cn } from "@/lib/utils";
 import { Knot, Rosette, Thread } from "@/components/story/Ornaments";
 
-export type LegalSection = { heading: string; body: string };
+/**
+ * `id` is an optional stable anchor for sections linked from elsewhere (the
+ * footer's "Cookies" link goes to /privacy#cookies). Others are numbered by
+ * position, which shifts whenever a section is added.
+ */
+export type LegalSection = { heading: string; body: string; id?: string };
 
 /**
  * The fine print, set like the rest of the storybook: a switch between the
@@ -28,7 +33,7 @@ export const LegalPage: React.FC<{
   aside: React.ReactNode;
 }> = ({ language, current, title, subtitle, lastUpdated, sections, glance, aside }) => {
   const en = language === "en";
-  const ids = sections.map((_, i) => `section-${i + 1}`);
+  const ids = sections.map((s, i) => s.id ?? `section-${i + 1}`);
   const active = useActiveSection(ids);
   const date = new Intl.DateTimeFormat(en ? "en-GB" : "ro-RO", { day: "numeric", month: "long", year: "numeric" })
     .format(new Date(`${lastUpdated}T12:00:00`));

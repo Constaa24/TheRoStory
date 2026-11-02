@@ -178,6 +178,20 @@ type StoryProps = {
 /** "Landmarks · told in 4 chapters · a 3-minute read · 18 June 2026". */
 const metaLine = (parts: (string | null | undefined | false)[]) => parts.filter(Boolean).join(' · ');
 
+/**
+ * Every picture and film on The RoStory is made with generative AI. The EU
+ * AI Act (Article 50(4), applying since 2 August 2026) requires AI-made
+ * images and video that resemble real places, people or events to be
+ * disclosed as such: clearly, on first sight, and, for creative work, in a
+ * way that doesn't get in the way of it. So each story with a picture or a
+ * film says so in its facts line, beside the title. The footer and the
+ * Terms ("Pictures and films") say it for the whole site.
+ */
+const aiPhrase = (language: Lang, film = false) =>
+  film
+    ? (language === 'en' ? 'made with AI' : 'realizat cu AI')
+    : (language === 'en' ? 'illustrated with AI' : 'ilustrat cu AI');
+
 const viewsPhrase = (views: number | undefined, language: Lang) =>
   views !== undefined && views > 0 ? countLabel(views, 'view', language) : null;
 
@@ -290,6 +304,7 @@ const EssayStory: React.FC<StoryProps> = (props) => {
             en ? `a ${readPhrase(article, 'en')}` : lowerFirst(readPhrase(article, 'ro')),
             date,
             viewsPhrase(views, language),
+            cover && aiPhrase(language),
           ])}
         />
         {cover && (
@@ -358,6 +373,7 @@ const ShortStory: React.FC<StoryProps> = (props) => {
             en ? `a ${readPhrase(article, 'en')}` : lowerFirst(readPhrase(article, 'ro')),
             date,
             viewsPhrase(views, language),
+            cover && aiPhrase(language),
           ])}
         />
         <div className="ed-container">
@@ -415,6 +431,7 @@ const PoemStory: React.FC<StoryProps> = (props) => {
             bilingual && (en ? 'read in Romanian and English' : 'de citit în română și engleză'),
             formatArticleDate(article.createdAt, language),
             viewsPhrase(views, language),
+            cover && aiPhrase(language),
           ])}
         />
         <div className="ed-container grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_320px] gap-10 lg:gap-14 items-start" style={{ paddingBottom: 72 }}>
@@ -496,7 +513,7 @@ const VisualStory: React.FC<StoryProps> = (props) => {
                 <a href="#frames" className="sb-btn no-print">{en ? 'Turn the first page ↓' : 'Întoarce prima pagină ↓'}</a>
               )}
               <p className="sb-meta" style={{ color: 'rgba(244, 234, 215, 0.78)' }}>
-                {metaLine([categoryName, en ? `a ${readPhrase(article, 'en')}` : lowerFirst(readPhrase(article, 'ro')), date, viewsPhrase(views, language)])}
+                {metaLine([categoryName, en ? `a ${readPhrase(article, 'en')}` : lowerFirst(readPhrase(article, 'ro')), date, viewsPhrase(views, language), (hero || frames.length > 0) && aiPhrase(language)])}
               </p>
             </div>
           </div>
@@ -809,7 +826,7 @@ const VideoFilm: React.FC<StoryProps> = (props) => {
             <h1 className="sb-h1" style={{ fontSize: 'clamp(46px, 6.6vw, 100px)' }}>{title}</h1>
           </div>
           <p className="sb-meta">
-            {metaLine([categoryName, date, viewsPhrase(views, language)])}
+            {metaLine([categoryName, date, viewsPhrase(views, language), !!article.mediaUrl && aiPhrase(language, true)])}
             {/* Real runtime from the player metadata — a word count of the
                 synopsis says nothing about how long a film runs. It is only
                 known once the metadata loads, so its place is held from the
@@ -818,7 +835,7 @@ const VideoFilm: React.FC<StoryProps> = (props) => {
                 line wrapped below it, pushing the player 39 px down. Tabular
                 digits keep the stand-in exactly as wide as a real m:ss. */}
             <span style={{ fontVariantNumeric: 'tabular-nums', visibility: duration > 0 ? undefined : 'hidden' }}>
-              {categoryName || date || viewsPhrase(views, language) ? ' · ' : ''}
+              {categoryName || date || viewsPhrase(views, language) || article.mediaUrl ? ' · ' : ''}
               <span className="whitespace-nowrap">{duration > 0 ? formatTime(duration) : '0:00'} {en ? 'runtime' : 'durată'}</span>
             </span>
           </p>

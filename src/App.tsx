@@ -159,6 +159,7 @@ function StorybookFooter({ language }: { language: 'en' | 'ro' }) {
           <ul className="list-none p-0 m-0 grid gap-3">
             <li><Link to="/privacy" className={linkClass} style={{ color: 'var(--text)' }}>{en ? 'Privacy policy' : 'Politica de confidențialitate'}</Link></li>
             <li><Link to="/terms" className={linkClass} style={{ color: 'var(--text)' }}>{en ? 'Terms' : 'Termeni'}</Link></li>
+            <li><Link to="/privacy#cookies" className={linkClass} style={{ color: 'var(--text)' }}>{en ? 'Cookies' : 'Cookie-uri'}</Link></li>
             <li><Link to="/contact-us" className={linkClass} style={{ color: 'var(--text)' }}>Contact</Link></li>
           </ul>
         </nav>
@@ -166,9 +167,17 @@ function StorybookFooter({ language }: { language: 'en' | 'ro' }) {
       <div className="ed-container">
         <Divider />
         <div className="flex flex-wrap justify-between items-start gap-x-10 gap-y-5" style={{ paddingTop: 26, paddingBottom: 40 }}>
-          <p className="sb-meta">
-            © {new Date().getFullYear()} The RoStory · {en ? 'Made in Bucharest, with field notes from everywhere.' : 'Făcut în București, cu note de teren de pretutindeni.'}
-          </p>
+          <div className="flex flex-col gap-1.5">
+            <p className="sb-meta">
+              © {new Date().getFullYear()} The RoStory · {en ? 'Made in Bucharest, with field notes from everywhere.' : 'Făcut în București, cu note de teren de pretutindeni.'}
+            </p>
+            {/* Site-wide AI disclosure; each story also says it beside its
+                title. See aiPhrase in EditorialArticle. */}
+            <p className="sb-meta">
+              {en ? 'Every picture and film here is made with AI: ' : 'Toate imaginile și filmele de aici sunt realizate cu AI: '}
+              <Link to="/terms#pictures" className="sb-link">{en ? 'illustrations, not photographs' : 'ilustrații, nu fotografii'}</Link>.
+            </p>
+          </div>
           <p className="font-display italic m-0 max-w-[560px] text-[18px] leading-[1.45]" style={{ color: 'var(--text-dim)' }}>
             {en
               ? '“Storytelling is the essential human activity. The harder the situation, the more essential it is.”'

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useLanguage } from "@/hooks/use-language";
-import { useNavigate, useSearchParams, useLocation, Navigate } from "react-router-dom";
+import { useNavigate, useSearchParams, useLocation, Navigate, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -725,8 +725,16 @@ const Auth: React.FC = () => {
           </CardContent>
           <CardFooter className="flex flex-col justify-center py-4 relative border-t-0">
             <Thread className="absolute top-0 left-8 right-8" style={{ opacity: 0.3 }} />
+            {/* What signing up agrees to, beside the buttons that do it (both
+                the form and Google, which also creates an account). This line
+                used to read "By continuing, you agree to explore the rich
+                history and culture of Romania": no terms, no policy, no age. */}
             <p className="sb-meta text-center px-4">
-              {t("auth.agreement")}
+              {language === "en" ? (
+                <>By creating an account or continuing with Google, you confirm you're at least 16 and agree to our <Link to="/terms" className="sb-link">Terms of Service</Link>. Our <Link to="/privacy" className="sb-link">Privacy Policy</Link> explains how we handle your data.</>
+              ) : (
+                <>Creând un cont sau continuând cu Google, confirmi că ai cel puțin 16 ani și ești de acord cu <Link to="/terms" className="sb-link">Termenii și condițiile</Link>. <Link to="/privacy" className="sb-link">Politica de confidențialitate</Link> explică cum îți gestionăm datele.</>
+              )}
             </p>
           </CardFooter>
         </Card>

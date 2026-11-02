@@ -229,7 +229,6 @@ const translations = {
     "auth.forgotPassword": "Forgot password?",
     "auth.orContinueWith": "Or continue with",
     "auth.createAccount": "Create Account",
-    "auth.agreement": "By continuing, you agree to explore the rich history and culture of Romania.",
   },
   ro: {
     "nav.home": "Acasă",
@@ -441,7 +440,6 @@ const translations = {
     "auth.forgotPassword": "Ai uitat parola?",
     "auth.orContinueWith": "Sau continuă cu",
     "auth.createAccount": "Creează Cont",
-    "auth.agreement": "Continuând, ești de acord să explorezi istoria și cultura bogată a României.",
   }
 };
 

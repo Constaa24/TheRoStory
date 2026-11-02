@@ -12,10 +12,12 @@ const Privacy: React.FC = () => {
   //
   // The section "Changes to this policy" below promises this date tracks
   // material revisions, so leaving it stale while adding one makes the policy
-  // contradict itself. 2026-08-19 covers disclosing Vercel Web Analytics and
-  // rewriting the local-storage section, which had listed three of the eight
-  // things actually stored.
-  const lastUpdated = "2026-08-19";
+  // contradict itself. 2026-08-19 covered disclosing Vercel Web Analytics and
+  // rewriting the local-storage section. 2026-11-02 covers naming the
+  // controller, the transfers to US providers, the minimum age, the contact
+  // form and IP addresses, and the cookies section (no cookies; text size and
+  // the offline cache were missing from the list).
+  const lastUpdated = "2026-11-02";
 
   const content = {
     en: {
@@ -25,11 +27,11 @@ const Privacy: React.FC = () => {
       sections: [
         {
           heading: "Who we are",
-          body: "The RoStory is a personal storytelling project run by a single individual based in Romania. The person responsible for your data (the data controller) can be reached at support@therostory.com. This page explains what data the site collects when you use it, why, and how you can control it.",
+          body: "The RoStory is a personal storytelling project run by a single individual based in Romania. The person responsible for your data (the data controller) is Emanuel-Constantin Ionescu, who can be reached at support@therostory.com. This page explains what data the site collects when you use it, why, and how you can control it.",
         },
         {
           heading: "What we collect",
-          body: "When you create an account, we store your email address, a display name, and an optional avatar image you upload. When you read articles, we store an anonymous view count per article. When you favorite an article, we store the link between your user ID and that article. When you post a comment, we store its text, the time you posted it, and the user ID it belongs to.",
+          body: "When you create an account, we store your email address, a display name, and an optional avatar image you upload. When you read articles, we store an anonymous view count per article. When you favorite an article, we store the link between your user ID and that article. When you post a comment, we store its text, the time you posted it, and the user ID it belongs to; your display name is shown publicly beside it. When you write to us through the contact form, we receive your name, your email address, the subject you chose, and your message. Like any website, the servers that deliver the site see your IP address with each request: we use it for a few minutes, in memory, to stop spam and abuse (too many messages from one address, say), and never store it in our database. Our hosting providers keep short-lived technical logs, as every web host does.",
         },
         {
           heading: "Audience measurement",
@@ -49,19 +51,24 @@ const Privacy: React.FC = () => {
         },
         {
           heading: "Where data is stored",
-          body: "Account data and content are stored in Supabase (a managed PostgreSQL provider, hosted in the EU when available). Uploaded images are stored in Supabase Storage. The site itself is served from Vercel. Contact-form messages are sent via Resend.",
+          body: "Account data and content are stored with Supabase, in its data centre in Ireland (EU); uploaded images are stored there too, in Supabase Storage. The site itself is served by Vercel from servers around the world, and Vercel also provides the audience measurement described above. Emails (newsletter issues, confirmation links, and contact-form messages) are sent through Resend. Signing in with Google involves Google. Vercel, Resend, and Google are based in the United States, as is Supabase's parent company: where your personal data reaches them, the transfer is covered by the EU–US Data Privacy Framework or by the European Commission's Standard Contractual Clauses in each provider's data processing agreement.",
         },
         {
-          heading: "Local storage on your device",
-          body: "The site keeps a small amount of data in your browser, none of it used to track you and none of it sent anywhere except where noted. Preferences that persist: your language, your theme (light or dark), and the last category filter you chose. Housekeeping that persists: a short timestamp used to recover from a stale page after we deploy an update, and, if you comment, the time of your last comment so the form can enforce its own cooldown. Cleared when you close the tab: a flag per article so a single visit is not counted twice, and a flag marking a password-recovery session in progress. If you are signed in, your login session is also stored here — that is what keeps you signed in between visits, and clearing your browser data signs you out. You can clear all of it at any time through your browser settings.",
+          id: "cookies",
+          heading: "Cookies and local storage",
+          body: "The site sets no cookies. It does keep a small amount of data in your browser's own storage, none of it used to track you and none of it sent anywhere except where noted. Preferences that persist: your language, your theme (light or dark), your reading text size, and the last category filter you chose. Housekeeping that persists: if you comment, the time of your last comment, so the form can enforce its own cooldown; and a copy of the site's files, story pictures, and typefaces, kept by your browser so pages open faster and still open offline. Cleared when you close the tab: a flag per article so a single visit is not counted twice, a short timestamp used to recover from a stale page after we publish an update, and a flag marking a password-recovery session in progress. If you are signed in, your login session is also stored here — that is what keeps you signed in between visits, and clearing your browser data signs you out. Everything here is either something you asked for (staying signed in, your language, theme, and text size) or needed for the site to work, so the law requires no consent banner, and you won't see one. You can clear all of it at any time through your browser settings.",
         },
         {
           heading: "Authentication providers",
-          body: "If you sign in with Google, Google sees that you authenticated to The RoStory. Beyond that, we only receive the basic profile fields (email, name, avatar) you've chosen to share with us.",
+          body: "If you sign in with Google, Google sees that you authenticated to The RoStory. Beyond that, we only receive the basic profile fields (email, name, avatar) you've chosen to share with us. If you keep your Google profile picture, it is shown straight from Google's servers, so your browser fetches it from Google whenever it is displayed.",
         },
         {
           heading: "Your rights",
-          body: "You can edit your profile at any time from the Profile page. You can permanently delete your account and all associated content (your articles, comments, favorites) by clicking 'Delete account' on your profile. You can request a complete export of your data via the Profile page export button. If anything fails or you have questions, email support@therostory.com.",
+          body: "Under the GDPR you can ask to see the data we hold about you, have it corrected or erased, restrict or object to how we use it, and receive it in a portable format; where we rely on your consent, you can withdraw it at any time. Most of this is self-service. You can edit your profile at any time from the Profile page. You can permanently delete your account and all associated content (your articles, comments, favorites) by clicking 'Delete account' on your profile. You can download a complete copy of your data with the export button on the same page. For anything else, or if something fails, email support@therostory.com; we reply within one month, as the law requires.",
+        },
+        {
+          heading: "Children",
+          body: "The RoStory isn't directed at children. You must be at least 16 to create an account or subscribe to the newsletter: the age from which EU data-protection law, as it applies in Romania, lets you consent on your own. If you believe a child under 16 has given us personal data, write to support@therostory.com and we'll delete it.",
         },
         {
           heading: "Legal basis",
@@ -69,7 +76,7 @@ const Privacy: React.FC = () => {
         },
         {
           heading: "How long we keep your data",
-          body: "We keep your account data for as long as your account exists. When you delete your account, your profile, articles, comments, and favorites are removed immediately. Newsletter records are kept until you unsubscribe or ask us to erase them; unconfirmed sign-ups are deleted automatically after about 30 days. Contact-form emails remain in our mailbox and are deleted once the conversation is resolved.",
+          body: "We keep your account data for as long as your account exists. When you delete your account, your profile, articles, comments, and favorites are removed immediately, along with any newsletter subscription under the same email address. Newsletter records are kept until you unsubscribe or ask us to erase them; unconfirmed sign-ups are deleted automatically after about 30 days. Contact-form emails remain in our mailbox and are deleted once the conversation is resolved.",
         },
         {
           heading: "Your right to complain",
@@ -92,11 +99,11 @@ const Privacy: React.FC = () => {
       sections: [
         {
           heading: "Cine suntem",
-          body: "The RoStory este un proiect personal de povestire condus de o singură persoană din România. Persoana responsabilă de datele tale (operatorul de date) poate fi contactată la support@therostory.com. Această pagină explică ce date colectează site-ul când îl folosești, de ce și cum le poți controla.",
+          body: "The RoStory este un proiect personal de povestire condus de o singură persoană din România. Persoana responsabilă de datele tale (operatorul de date) este Emanuel-Constantin Ionescu și poate fi contactată la support@therostory.com. Această pagină explică ce date colectează site-ul când îl folosești, de ce și cum le poți controla.",
         },
         {
           heading: "Ce colectăm",
-          body: "Când îți creezi cont, stocăm adresa ta de email, un nume afișat și o imagine de profil opțională pe care o încarci. Când citești articole, stocăm un număr anonim de vizualizări per articol. Când adaugi un articol la favorite, stocăm legătura dintre ID-ul tău și acel articol. Când postezi un comentariu, stocăm textul, ora postării și ID-ul utilizatorului căruia îi aparține.",
+          body: "Când îți creezi cont, stocăm adresa ta de email, un nume afișat și o imagine de profil opțională pe care o încarci. Când citești articole, stocăm un număr anonim de vizualizări per articol. Când adaugi un articol la favorite, stocăm legătura dintre ID-ul tău și acel articol. Când postezi un comentariu, stocăm textul, ora postării și ID-ul utilizatorului căruia îi aparține; numele tău afișat apare public lângă el. Când ne scrii prin formularul de contact, primim numele tău, adresa de email, subiectul ales și mesajul. Ca la orice site, serverele care livrează site-ul văd adresa ta IP la fiecare cerere: o folosim câteva minute, în memorie, ca să oprim spamul și abuzurile (de exemplu, prea multe mesaje de la aceeași adresă), și nu o salvăm niciodată în baza noastră de date. Furnizorii noștri de găzduire păstrează jurnale tehnice pe termen scurt, ca orice gazdă web.",
         },
         {
           heading: "Măsurarea audienței",
@@ -116,19 +123,24 @@ const Privacy: React.FC = () => {
         },
         {
           heading: "Unde se stochează datele",
-          body: "Datele de cont și conținutul sunt stocate în Supabase (un furnizor PostgreSQL gestionat, găzduit în UE când este disponibil). Imaginile încărcate sunt stocate în Supabase Storage. Site-ul în sine este servit de Vercel. Mesajele formularului de contact sunt trimise prin Resend.",
+          body: "Datele de cont și conținutul sunt stocate la Supabase, în centrul său de date din Irlanda (UE); tot acolo sunt stocate și imaginile încărcate, în Supabase Storage. Site-ul în sine este servit de Vercel, de pe servere din întreaga lume, iar Vercel furnizează și măsurarea audienței descrisă mai sus. Emailurile (edițiile buletinului, linkurile de confirmare și mesajele din formularul de contact) sunt trimise prin Resend. Autentificarea cu Google implică Google. Vercel, Resend și Google au sediul în Statele Unite, la fel ca firma-mamă a Supabase: acolo unde datele tale personale ajung la ei, transferul este acoperit de Cadrul UE–SUA privind protecția datelor sau de clauzele contractuale standard ale Comisiei Europene din acordul de prelucrare a datelor al fiecărui furnizor.",
         },
         {
-          heading: "Stocare locală pe dispozitivul tău",
-          body: "Site-ul păstrează o cantitate mică de date în browserul tău, niciuna folosită pentru a te urmări și niciuna trimisă altundeva, cu excepția cazurilor menționate. Preferințe care persistă: limba, tema (deschisă sau întunecată) și ultimul filtru de categorie ales. Elemente tehnice care persistă: o marcă de timp folosită pentru a recupera o pagină învechită după ce publicăm o actualizare și, dacă lași un comentariu, ora ultimului tău comentariu, ca formularul să își poată aplica propria pauză. Șterse când închizi fila: un marcaj per articol, ca o singură vizită să nu fie numărată de două ori, și un marcaj care indică o sesiune de recuperare a parolei în curs. Dacă ești autentificat, sesiunea ta de autentificare este de asemenea stocată aici — asta te menține conectat între vizite, iar ștergerea datelor din browser te deconectează. Poți șterge oricând toate acestea din setările browserului.",
+          id: "cookies",
+          heading: "Cookie-uri și stocare locală",
+          body: "Site-ul nu setează niciun cookie. Păstrează totuși o cantitate mică de date în spațiul de stocare al browserului tău, niciuna folosită pentru a te urmări și niciuna trimisă altundeva, cu excepția cazurilor menționate. Preferințe care persistă: limba, tema (deschisă sau întunecată), mărimea textului la citire și ultimul filtru de categorie ales. Elemente tehnice care persistă: dacă lași un comentariu, ora ultimului tău comentariu, ca formularul să își poată aplica propria pauză; și o copie a fișierelor site-ului, a imaginilor poveștilor și a fonturilor, păstrată de browser ca paginile să se deschidă mai repede și să meargă și offline. Șterse când închizi fila: un marcaj per articol, ca o singură vizită să nu fie numărată de două ori, o marcă de timp folosită pentru a recupera o pagină învechită după ce publicăm o actualizare și un marcaj care indică o sesiune de recuperare a parolei în curs. Dacă ești autentificat, sesiunea ta de autentificare este de asemenea stocată aici — asta te menține conectat între vizite, iar ștergerea datelor din browser te deconectează. Totul de aici este fie ceva ce ai cerut (să rămâi conectat, limba, tema și mărimea textului), fie necesar pentru funcționarea site-ului, așa că legea nu cere un banner de consimțământ și nu vei vedea unul. Poți șterge oricând toate acestea din setările browserului.",
         },
         {
           heading: "Furnizori de autentificare",
-          body: "Dacă te autentifici cu Google, Google va vedea că te-ai autentificat la The RoStory. Dincolo de aceasta, primim doar câmpurile de profil de bază (email, nume, avatar) pe care ai ales să le împărtășești cu noi.",
+          body: "Dacă te autentifici cu Google, Google va vedea că te-ai autentificat la The RoStory. Dincolo de aceasta, primim doar câmpurile de profil de bază (email, nume, avatar) pe care ai ales să le împărtășești cu noi. Dacă îți păstrezi fotografia de profil Google, ea este afișată direct de pe serverele Google, așa că browserul tău o descarcă de la Google de fiecare dată când apare.",
         },
         {
           heading: "Drepturile tale",
-          body: "Îți poți edita profilul oricând din pagina de Profil. Îți poți șterge permanent contul și tot conținutul asociat (articolele, comentariile, favoritele) apăsând pe „Șterge contul” în pagina de profil. Poți solicita un export complet al datelor tale prin butonul de export din pagina de Profil. Dacă ceva nu funcționează sau ai întrebări, scrie la support@therostory.com.",
+          body: "Conform GDPR, poți cere să vezi datele pe care le deținem despre tine, să fie corectate sau șterse, să restricționezi sau să te opui modului în care le folosim și să le primești într-un format portabil; acolo unde ne bazăm pe consimțământul tău, îl poți retrage oricând. Cele mai multe le poți face singur. Îți poți edita profilul oricând din pagina de Profil. Îți poți șterge permanent contul și tot conținutul asociat (articolele, comentariile, favoritele) apăsând pe „Șterge contul” în pagina de profil. Poți descărca o copie completă a datelor tale cu butonul de export de pe aceeași pagină. Pentru orice altceva, sau dacă ceva nu funcționează, scrie la support@therostory.com; răspundem în cel mult o lună, cum cere legea.",
+        },
+        {
+          heading: "Copii",
+          body: "The RoStory nu se adresează copiilor. Trebuie să ai cel puțin 16 ani pentru a-ți crea un cont sau pentru a te abona la buletin: vârsta de la care legislația UE privind protecția datelor, așa cum se aplică în România, îți permite să îți dai singur consimțământul. Dacă crezi că un copil sub 16 ani ne-a dat date personale, scrie la support@therostory.com și le vom șterge.",
         },
         {
           heading: "Temeiul legal",
@@ -136,7 +148,7 @@ const Privacy: React.FC = () => {
         },
         {
           heading: "Cât timp păstrăm datele tale",
-          body: "Păstrăm datele contului tău atât timp cât contul există. Când îți ștergi contul, profilul, articolele, comentariile și favoritele sunt eliminate imediat. Înregistrările pentru buletin sunt păstrate până când te dezabonezi sau ne ceri ștergerea lor; abonările neconfirmate sunt șterse automat după aproximativ 30 de zile. Emailurile din formularul de contact rămân în căsuța noastră și sunt șterse după rezolvarea conversației.",
+          body: "Păstrăm datele contului tău atât timp cât contul există. Când îți ștergi contul, profilul, articolele, comentariile și favoritele sunt eliminate imediat, împreună cu orice abonare la buletin făcută cu aceeași adresă de email. Înregistrările pentru buletin sunt păstrate până când te dezabonezi sau ne ceri ștergerea lor; abonările neconfirmate sunt șterse automat după aproximativ 30 de zile. Emailurile din formularul de contact rămân în căsuța noastră și sunt șterse după rezolvarea conversației.",
         },
         {
           heading: "Dreptul de a depune o plângere",

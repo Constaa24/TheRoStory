@@ -29,16 +29,17 @@ const Support: React.FC = () => {
     en: {
       title: "Help keep the\narchive open.",
       subtitle: "Become a contributor",
-      intro: "The RoStory is reader-supported. Your contribution funds field research, photography, translation, and the slow work of listening.",
+      intro: "The RoStory is reader-supported. Your contribution funds field research, the pictures and films, translation, and the slow work of listening.",
       revolut: "Revolut", paypal: "PayPal", bankTransfer: "Bank transfer",
       revolutDesc: "Quickest. Direct from your Revolut wallet.",
       paypalDesc: "International. Card, bank, or PayPal balance.",
       bankDesc: "Larger amounts or recurring transfers in RON.",
-      whereTitle: "Where it goes",
+      whereTitle: "Where it will go",
+      wherePlan: "A plan for how donations will be spent, not audited accounts.",
       whereLead: "I am one mind, a suite of neural networks, and a great deal of train tickets.",
       whereRows: [
         { label: "Field reporting & travel", pct: 38 },
-        { label: "Photography & video production", pct: 26 },
+        { label: "Pictures & films (AI tools)", pct: 26 },
         { label: "Translation (EN ↔ RO)", pct: 14 },
         { label: "Editorial & fact-checking", pct: 12 },
         { label: "Hosting & maintenance", pct: 10 },
@@ -58,16 +59,17 @@ const Support: React.FC = () => {
     ro: {
       title: "Ajută să ținem\narhiva deschisă.",
       subtitle: "Devino contribuitor",
-      intro: "The RoStory este susținut de cititori. Contribuția ta finanțează cercetarea pe teren, fotografia, traducerea și munca lentă de a asculta.",
+      intro: "The RoStory este susținut de cititori. Contribuția ta finanțează cercetarea pe teren, imaginile și filmele, traducerea și munca lentă de a asculta.",
       revolut: "Revolut", paypal: "PayPal", bankTransfer: "Transfer bancar",
       revolutDesc: "Cel mai rapid. Direct din portofelul tău Revolut.",
       paypalDesc: "Internațional. Card, bancă sau sold PayPal.",
       bankDesc: "Sume mai mari sau transferuri recurente în RON.",
-      whereTitle: "Unde se duce",
+      whereTitle: "Unde vor merge banii",
+      wherePlan: "Un plan pentru felul în care vor fi folosite donațiile, nu un raport contabil auditat.",
       whereLead: "Sunt o singură minte, un set de rețele neuronale și foarte multe bilete de tren.",
       whereRows: [
         { label: "Reportaje și deplasări", pct: 38 },
-        { label: "Fotografie și producție video", pct: 26 },
+        { label: "Imagini și filme (instrumente AI)", pct: 26 },
         { label: "Traducere (RO ↔ EN)", pct: 14 },
         { label: "Editare și verificare", pct: 12 },
         { label: "Găzduire și mentenanță", pct: 10 },
@@ -396,6 +398,9 @@ const Support: React.FC = () => {
               <p className="sb-kicker">{t.whereTitle}</p>
 
               <h2 className="sb-h2" style={{ fontSize: 'clamp(30px, 3.6vw, 52px)' }}>{t.whereLead}</h2>
+              {/* The percentages are an intention, not a report: said so,
+                  so donors aren't told something that can't be shown. */}
+              <p className="sb-meta">{t.wherePlan}</p>
 
             </div>
 

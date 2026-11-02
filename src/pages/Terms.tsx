@@ -8,10 +8,12 @@ const Terms: React.FC = () => {
 
   // Independent of the privacy policy's date — these are separate documents,
   // and bumping them together would falsely claim both had changed. Bump only
-  // when the terms themselves change. 2026-08-19 covers adding the donations
-  // section: the Support page has solicited donations since the first commit,
-  // and this document had never mentioned them.
-  const lastUpdated = "2026-08-19";
+  // when the terms themselves change. 2026-08-19 covered adding the donations
+  // section. 2026-11-02 covers the minimum age (13 -> 16, the GDPR's age of
+  // digital consent in Romania), the "Pictures and films" section (every
+  // picture and film is AI-made, which the EU AI Act requires saying),
+  // providers' fees on donations, and naming the operator.
+  const lastUpdated = "2026-11-02";
 
   const content = {
     en: {
@@ -25,7 +27,7 @@ const Terms: React.FC = () => {
         },
         {
           heading: "Your account",
-          body: "You're responsible for keeping your account credentials safe. You agree to provide accurate registration information and not to impersonate other people. You must be at least 13 years old to create an account.",
+          body: "You're responsible for keeping your account credentials safe. You agree to provide accurate registration information and not to impersonate other people. You must be at least 16 years old to create an account.",
         },
         {
           heading: "Email communications",
@@ -48,8 +50,13 @@ const Terms: React.FC = () => {
           body: "The articles published by The RoStory's editorial team, the site design, and the brand are the property of The RoStory. Don't copy, redistribute, or republish them without written permission. User-submitted comments belong to their authors.",
         },
         {
+          id: "pictures",
+          heading: "Pictures and films",
+          body: "Every picture and film on The RoStory is made with generative AI. They are illustrations — imagined scenes inspired by real places, people, and events — not photographs or documentary footage, so they may differ from how a place looks or how something happened. Every story that shows one says so beside its title. If you spot something wrong in a story, write to support@therostory.com.",
+        },
+        {
           heading: "Donations",
-          body: "The RoStory is free to read and will stay that way. If you want to support the archive, the Support page links out to Revolut, PayPal, and our bank details. Donations are voluntary and non-refundable. They don't buy a subscription, membership, early access, or any influence over what we publish, and they don't make you a client or partner. We run no payment form ourselves — the provider you choose handles the transaction, and no card number ever reaches this site. A bank transfer will show us your name and account number, as any transfer would; that stays in our accounting records. If you send something by mistake, write to support@therostory.com and we'll try to put it right.",
+          body: "The RoStory is free to read and will stay that way. If you want to support the archive, the Support page links out to Revolut, PayPal, and our bank details. Donations are voluntary and non-refundable. They don't buy a subscription, membership, early access, or any influence over what we publish, and they don't make you a client or partner. We run no payment form ourselves — the provider you choose handles the transaction, and no card number ever reaches this site. A bank transfer will show us your name and account number, as any transfer would; that stays in our accounting records. Your payment provider may charge its own fee for the transfer; we add none. If you send something by mistake, write to support@therostory.com and we'll try to put it right.",
         },
         {
           heading: "Service availability",
@@ -69,7 +76,7 @@ const Terms: React.FC = () => {
         },
         {
           heading: "Contact",
-          body: "Questions about these terms? support@therostory.com.",
+          body: "The RoStory is run by Emanuel-Constantin Ionescu, in Romania. Questions about these terms? support@therostory.com.",
         },
       ],
     },
@@ -84,7 +91,7 @@ const Terms: React.FC = () => {
         },
         {
           heading: "Contul tău",
-          body: "Ești responsabil pentru păstrarea în siguranță a datelor de autentificare. Ești de acord să furnizezi informații exacte de înregistrare și să nu te dai drept altă persoană. Trebuie să ai cel puțin 13 ani pentru a crea un cont.",
+          body: "Ești responsabil pentru păstrarea în siguranță a datelor de autentificare. Ești de acord să furnizezi informații exacte de înregistrare și să nu te dai drept altă persoană. Trebuie să ai cel puțin 16 ani pentru a crea un cont.",
         },
         {
           heading: "Comunicări prin email",
@@ -107,8 +114,13 @@ const Terms: React.FC = () => {
           body: "Articolele publicate de echipa editorială The RoStory, design-ul site-ului și brandul sunt proprietatea The RoStory. Nu le copia, redistribui sau republica fără permisiune scrisă. Comentariile postate de utilizatori aparțin autorilor lor.",
         },
         {
+          id: "pictures",
+          heading: "Imagini și filme",
+          body: "Toate imaginile și filmele de pe The RoStory sunt realizate cu inteligență artificială generativă. Sunt ilustrații — scene imaginate, inspirate de locuri, oameni și evenimente reale —, nu fotografii sau înregistrări documentare, așa că pot diferi de felul în care arată un loc sau în care s-a petrecut ceva. Fiecare poveste care conține una spune asta lângă titlu. Dacă observi o greșeală într-o poveste, scrie-ne la support@therostory.com.",
+        },
+        {
           heading: "Donații",
-          body: "The RoStory se citește gratuit și așa va rămâne. Dacă vrei să susții arhiva, pagina de susținere trimite către Revolut, PayPal și datele noastre bancare. Donațiile sunt voluntare și nerambursabile. Nu cumpără un abonament, o calitate de membru, acces în avans sau vreo influență asupra a ceea ce publicăm și nu te fac client sau partener. Noi nu avem niciun formular de plată — tranzacția este gestionată de furnizorul pe care îl alegi, iar niciun număr de card nu ajunge vreodată pe acest site. Un transfer bancar ne va arăta numele și numărul tău de cont, ca orice transfer; acestea rămân în evidențele noastre contabile. Dacă trimiți ceva din greșeală, scrie-ne la support@therostory.com și vom încerca să îndreptăm lucrurile.",
+          body: "The RoStory se citește gratuit și așa va rămâne. Dacă vrei să susții arhiva, pagina de susținere trimite către Revolut, PayPal și datele noastre bancare. Donațiile sunt voluntare și nerambursabile. Nu cumpără un abonament, o calitate de membru, acces în avans sau vreo influență asupra a ceea ce publicăm și nu te fac client sau partener. Noi nu avem niciun formular de plată — tranzacția este gestionată de furnizorul pe care îl alegi, iar niciun număr de card nu ajunge vreodată pe acest site. Un transfer bancar ne va arăta numele și numărul tău de cont, ca orice transfer; acestea rămân în evidențele noastre contabile. Furnizorul de plăți poate percepe propriul comision pentru transfer; noi nu adăugăm niciunul. Dacă trimiți ceva din greșeală, scrie-ne la support@therostory.com și vom încerca să îndreptăm lucrurile.",
         },
         {
           heading: "Disponibilitatea serviciului",
@@ -128,7 +140,7 @@ const Terms: React.FC = () => {
         },
         {
           heading: "Contact",
-          body: "Întrebări despre acești termeni? support@therostory.com.",
+          body: "The RoStory este administrat de Emanuel-Constantin Ionescu, în România. Întrebări despre acești termeni? support@therostory.com.",
         },
       ],
     },
@@ -142,12 +154,12 @@ const Terms: React.FC = () => {
     ? [
         { quote: 'The RoStory is free to read and will stay that way.', from: 'Donations' },
         { quote: 'When you post a comment, you keep ownership of what you wrote…', from: 'Your content' },
-        { quote: 'You must be at least 13 years old to create an account.', from: 'Your account' },
+        { quote: 'You must be at least 16 years old to create an account.', from: 'Your account' },
       ]
     : [
         { quote: 'The RoStory se citește gratuit și așa va rămâne.', from: 'Donații' },
         { quote: 'Când postezi un comentariu, păstrezi dreptul de proprietate asupra a ceea ce ai scris…', from: 'Conținutul tău' },
-        { quote: 'Trebuie să ai cel puțin 13 ani pentru a crea un cont.', from: 'Contul tău' },
+        { quote: 'Trebuie să ai cel puțin 16 ani pentru a crea un cont.', from: 'Contul tău' },
       ];
 
   return (

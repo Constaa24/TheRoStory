@@ -99,8 +99,8 @@ const NewsletterForm: React.FC<{ language: 'en' | 'ro' }> = ({ language }) => {
       </div>
       <p className="sb-meta">
         {language === 'en'
-          ? 'We’ll send a link to confirm first. Leave any time. '
-          : 'Îți trimitem întâi un link de confirmare. Pleci oricând. '}
+          ? 'We’ll send a link to confirm first. Leave any time. For readers aged 16 and over. '
+          : 'Îți trimitem întâi un link de confirmare. Pleci oricând. Pentru cititori de la 16 ani. '}
         <Link to="/privacy" className="sb-link">
           {language === 'en' ? 'Privacy' : 'Confidențialitate'}
         </Link>.
@@ -245,8 +245,8 @@ const Home: React.FC = () => {
 
   const pageTitle = language === 'en' ? 'Stories of Romania' : 'Povești din România';
   const pageDescription = language === 'en'
-    ? 'Discover the culture, history, and traditions of Romania through visual stories — articles, videos, and photo galleries from every region.'
-    : 'Descoperă cultura, istoria și tradițiile României prin povești vizuale — articole, videoclipuri și galerii foto din fiecare regiune.';
+    ? 'Discover the culture, history, and traditions of Romania through visual stories — articles, films, and picture galleries from many corners of the country.'
+    : 'Descoperă cultura, istoria și tradițiile României prin povești vizuale — articole, filme și galerii de imagini din multe colțuri ale țării.';
 
   const organizationLd = {
     '@context': 'https://schema.org',
@@ -362,7 +362,7 @@ const Home: React.FC = () => {
                     <source type="image/webp" srcSet="/hero/castle.webp" />
                     <img
                       src="/hero/castle.jpg"
-                      alt={en ? 'Peleș Castle among the fir forests of Sinaia' : 'Castelul Peleș printre brazii Sinaiei'}
+                      alt={en ? 'An AI illustration of Peleș Castle among the fir forests of Sinaia' : 'Ilustrație AI cu Castelul Peleș printre brazii Sinaiei'}
                       className="absolute inset-0 w-full h-full object-cover"
                       loading="eager"
                       fetchPriority="high"
@@ -372,7 +372,7 @@ const Home: React.FC = () => {
                 </div>
               </div>
               <figcaption className="flex flex-wrap justify-between items-baseline gap-x-3 gap-y-1 mt-4 px-2.5">
-                <span className="sb-kicker-sm" style={{ color: 'var(--text-dim)' }}>{en ? 'Peleș Castle, Sinaia' : 'Castelul Peleș, Sinaia'}</span>
+                <span className="sb-kicker-sm" style={{ color: 'var(--text-dim)' }}>{en ? 'Peleș Castle, Sinaia · an AI illustration' : 'Castelul Peleș, Sinaia · ilustrație AI'}</span>
                 {facts?.pelesId && (
                   <Link to={`/article/${facts.pelesId}`} state={HOME_LINK_STATE} className="sb-btn-word" style={{ fontSize: 19 }}>
                     {en ? 'Read where a king built a dream →' : 'Citește unde un rege și-a clădit visul →'}
@@ -615,7 +615,7 @@ const Home: React.FC = () => {
                     {en ? 'One letter a month, from the road.' : 'O scrisoare pe lună, de pe drum.'}
                   </h2>
                   <p className="sb-dim text-[19px]">
-                    {en ? 'Field notes, photographs, and the occasional recipe. Free.' : 'Note de teren, fotografii și, ocazional, o rețetă. Gratuit.'}
+                    {en ? 'Field notes, pictures, and the occasional recipe. Free.' : 'Note de teren, imagini și, ocazional, o rețetă. Gratuit.'}
                   </p>
                 </div>
                 <NewsletterForm language={language} />
