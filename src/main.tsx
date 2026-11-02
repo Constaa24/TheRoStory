@@ -40,19 +40,22 @@ document.head.querySelectorAll("[data-static-seo]").forEach((el) => el.remove())
  * was the entire language mechanism. Honour it once, on an unprefixed URL, so
  * moving to URL-based locales doesn't silently reset all of them to English.
  *
- * Deliberately narrow. Only from the unprefixed tree, and only for an explicit
- * stored 'ro' — the URL always outranks the preference, so /article/x stays
- * English even for a reader whose preference is Romanian, because they asked
- * for that specific page. Crawlers have no localStorage, so they never take
- * this path and always get the English tree at the bare path, which is what
- * the x-default hreflang promises them.
+ * Deliberately narrow: only the bare root "/", and only for an explicit
+ * stored 'ro'. Everywhere else the URL outranks the preference, so
+ * /article/x stays English even for a reader whose preference is Romanian,
+ * because they asked for that specific page (a shared link, a search
+ * result). Until November 2026 this checked only that the path was English,
+ * so any English URL bounced such a reader to its Romanian twin, against
+ * this very comment. Crawlers have no localStorage, so they never take this
+ * path and always get the English tree at the bare path, which is what the
+ * x-default hreflang promises them.
  *
  * Returns true when a navigation is underway, in which case we skip mounting
  * entirely rather than flashing the English app for an instant first.
  */
 const redirectToStoredLocale = (): boolean => {
   try {
-    if (detectLanguage(window.location.pathname) !== "en") return false;
+    if (window.location.pathname !== "/") return false;
     if (window.localStorage.getItem("rostory_lang") !== "ro") return false;
     const { pathname, search, hash } = window.location;
     window.location.replace(localizedPath("ro", pathname) + search + hash);
