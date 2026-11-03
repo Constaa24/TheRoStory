@@ -27,6 +27,6 @@
 
     "value-keyword-case": ["lower", { "ignoreProperties": ["/^--/", "font-family", "/^font$/", "text-rendering"] }],
 
-    "property-no-vendor-prefix": [true, { "ignoreProperties": ["backdrop-filter", "background-clip", "text-fill-color"] }]
+    "property-no-vendor-prefix": [true, { "ignoreProperties": ["backdrop-filter", "background-clip", "text-fill-color", "box-decoration-break"] }]
   }
 }

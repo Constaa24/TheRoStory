@@ -44,6 +44,9 @@ const COLUMN_MAP: Record<string, string> = {
   sortOrder: 'sort_order',
   noteEn: 'note_en',
   noteRo: 'note_ro',
+  subtitlesEnUrl: 'subtitles_en_url',
+  subtitlesRoUrl: 'subtitles_ro_url',
+  filmChapters: 'film_chapters',
 };
 
 const REVERSE_MAP: Record<string, string> = Object.fromEntries(
@@ -82,6 +85,21 @@ export type Category = {
 
 export type MediaCaption = { en: string; ro: string };
 
+/** A chapter of a film: where it starts, in seconds, and its title. */
+export type FilmChapter = { t: number; en?: string; ro?: string };
+
+/**
+ * A dated point in a text story, tied to one chapter: "1383 · The first
+ * stones". Keys are stored as written (snake_case) inside the JSON column.
+ */
+export type StoryMoment = {
+  chapter: number;
+  when_en?: string;
+  when_ro?: string;
+  label_en?: string;
+  label_ro?: string;
+};
+
 // Subtype is a rendering hint for `text` articles only. NULL/undefined is
 // treated as 'essay' so existing rows render unchanged.
 export type ArticleSubtype = 'essay' | 'poetry' | 'short_story';
@@ -116,6 +134,12 @@ export type Article = {
   // Optional "About this story" note (migration 20261101090000).
   noteEn?: string | null;
   noteRo?: string | null;
+  // Films: subtitles and chapters. Text stories: dated moments (migration
+  // 20261102140000). Absent on rows read before it ran.
+  subtitlesEnUrl?: string | null;
+  subtitlesRoUrl?: string | null;
+  filmChapters?: FilmChapter[] | null;
+  moments?: StoryMoment[] | null;
   createdAt: string;
   updatedAt?: string;
 };
@@ -669,6 +693,10 @@ export type NewArticleInput = {
    * reason as placeDate.
    */
   note?: { en: string | null; ro: string | null };
+  /** A film's subtitles and chapters. Omit to leave the columns untouched. */
+  film?: { subtitlesEnUrl: string | null; subtitlesRoUrl: string | null; chapters: FilmChapter[] | null };
+  /** A text story's dated moments. Omit to leave the column untouched. */
+  moments?: StoryMoment[] | null;
 };
 
 export type ArticlePlaceDate = {
@@ -750,6 +778,9 @@ const explainPlaceDateError = (error: unknown): unknown => {
   if (e?.code === 'PGRST204' && /note_/.test(e.message || '')) {
     return new Error('“About this story” can be saved once the database update (migration 20261101090000) has been applied.');
   }
+  if (e?.code === 'PGRST204' && /subtitles_|film_chapters|moments/.test(e.message || '')) {
+    return new Error('Subtitles, film chapters and moments can be saved once the database update (migration 20261102140000) has been applied.');
+  }
   return error;
 };
 
@@ -761,6 +792,56 @@ const noteRow = (note: { en: string | null; ro: string | null }): Record<string,
   if (en) assertLen(en, NOTE_MAX, 'About this story (English)');
   if (ro) assertLen(ro, NOTE_MAX, 'About this story (Romanian)');
   return { note_en: en, note_ro: ro };
+};
+
+/**
+ * The same limits as the CHECK constraints of migration 20261102140000, so
+ * a bad value fails here with a readable message instead of a constraint
+ * name from Postgres.
+ */
+export const FILM_LIMITS = { CHAPTERS_MAX: 30, CHAPTER_TITLE_MAX: 80, TIME_MAX: 86_400 } as const;
+export const MOMENT_LIMITS = { MOMENTS_MAX: 10, WHEN_MAX: 24, LABEL_MAX: 60 } as const;
+
+const filmRow = (film: NonNullable<NewArticleInput['film']>): Record<string, unknown> => {
+  if (film.subtitlesEnUrl) assertLen(film.subtitlesEnUrl, ARTICLE_LIMITS.MEDIA_URL_MAX, 'Subtitles (English)');
+  if (film.subtitlesRoUrl) assertLen(film.subtitlesRoUrl, ARTICLE_LIMITS.MEDIA_URL_MAX, 'Subtitles (Romanian)');
+  const chapters = (film.chapters ?? [])
+    .map((c) => ({ t: Math.round(c.t * 10) / 10, en: c.en?.trim() || undefined, ro: c.ro?.trim() || undefined }))
+    .filter((c) => c.en || c.ro)
+    .sort((a, b) => a.t - b.t);
+  if (chapters.length > FILM_LIMITS.CHAPTERS_MAX) throw new Error(`At most ${FILM_LIMITS.CHAPTERS_MAX} film chapters`);
+  chapters.forEach((c, i) => {
+    if (!(c.t >= 0 && c.t <= FILM_LIMITS.TIME_MAX)) throw new Error(`Film chapter #${i + 1} has an impossible start time`);
+    if (c.en) assertLen(c.en, FILM_LIMITS.CHAPTER_TITLE_MAX, `Film chapter #${i + 1} (English)`);
+    if (c.ro) assertLen(c.ro, FILM_LIMITS.CHAPTER_TITLE_MAX, `Film chapter #${i + 1} (Romanian)`);
+  });
+  return {
+    subtitles_en_url: film.subtitlesEnUrl || null,
+    subtitles_ro_url: film.subtitlesRoUrl || null,
+    film_chapters: chapters.length ? chapters : null,
+  };
+};
+
+const momentsRow = (moments: StoryMoment[] | null): Record<string, unknown> => {
+  const clean = (moments ?? [])
+    .map((m) => ({
+      chapter: m.chapter,
+      when_en: m.when_en?.trim() || undefined,
+      when_ro: m.when_ro?.trim() || undefined,
+      label_en: m.label_en?.trim() || undefined,
+      label_ro: m.label_ro?.trim() || undefined,
+    }))
+    .filter((m) => m.when_en || m.when_ro);
+  if (clean.length > MOMENT_LIMITS.MOMENTS_MAX) throw new Error(`At most ${MOMENT_LIMITS.MOMENTS_MAX} moments`);
+  clean.forEach((m) => {
+    const n = `Moment of chapter ${m.chapter + 1}`;
+    if (!Number.isInteger(m.chapter) || m.chapter < 0 || m.chapter > 49) throw new Error(`${n}: unknown chapter`);
+    if (m.when_en) assertLen(m.when_en, MOMENT_LIMITS.WHEN_MAX, `${n}, when (English)`);
+    if (m.when_ro) assertLen(m.when_ro, MOMENT_LIMITS.WHEN_MAX, `${n}, when (Romanian)`);
+    if (m.label_en) assertLen(m.label_en, MOMENT_LIMITS.LABEL_MAX, `${n}, label (English)`);
+    if (m.label_ro) assertLen(m.label_ro, MOMENT_LIMITS.LABEL_MAX, `${n}, label (Romanian)`);
+  });
+  return { moments: clean.length ? clean : null };
 };
 
 // Article field caps. The DB has no length constraints, so a malicious or
@@ -841,6 +922,8 @@ export const createArticle = async (input: NewArticleInput): Promise<{ id: strin
     // client-controlled for no benefit.
     ...(input.placeDate ? placeDateRow(input.placeDate) : {}),
     ...(input.note ? noteRow(input.note) : {}),
+    ...(input.film ? filmRow(input.film) : {}),
+    ...(input.moments !== undefined ? momentsRow(input.moments) : {}),
   };
 
   const { error } = await supabase.from('articles').insert(row);
@@ -898,6 +981,8 @@ export const updateArticle = async (input: UpdateArticleInput): Promise<void> =>
     is_published: input.isPublished,
     ...(input.placeDate ? placeDateRow(input.placeDate) : {}),
     ...(input.note ? noteRow(input.note) : {}),
+    ...(input.film ? filmRow(input.film) : {}),
+    ...(input.moments !== undefined ? momentsRow(input.moments) : {}),
   };
 
   const { error } = await supabase.from('articles').update(updates).eq('id', input.id);
@@ -1762,6 +1847,29 @@ export type UploadUserFileResult = {
  * Throws Error on validation failure or upload failure. Callers should
  * surface a localized message to the user.
  */
+/**
+ * Uploads a film's subtitles: WebVTT text already checked and converted by
+ * prepareSubtitleFile (lib/subtitles). Same folder scheme as the film itself,
+ * stories/<kind>/<user id>/<random id>, which the storage policies for the
+ * articles bucket already cover.
+ */
+export const uploadSubtitleFile = async (vtt: string, userId: string): Promise<UploadUserFileResult> => {
+  if (!userId) throw new Error('Not authenticated');
+  const path = `stories/subtitles/${userId}/${crypto.randomUUID()}.vtt`;
+  const { error } = await supabase.storage
+    .from('articles')
+    .upload(path, new Blob([vtt], { type: 'text/vtt' }), { contentType: 'text/vtt', upsert: false });
+  if (error) {
+    // The bucket refuses text/vtt until migration 20261102140000 has run.
+    if (/mime|type/i.test(error.message)) {
+      throw new Error('Subtitles can be uploaded once the database update (migration 20261102140000) has been applied.');
+    }
+    throw error;
+  }
+  const { data } = supabase.storage.from('articles').getPublicUrl(path);
+  return { publicUrl: data.publicUrl, storagePath: path };
+};
+
 export const uploadUserFile = async (
   file: File,
   opts: UploadUserFileOptions

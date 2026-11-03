@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Category } from "@/lib/supabase";
-import { fetchCategories, uploadUserFile, createArticle, updateArticle, deleteStorageFile, fetchAnyArticle, extractStoragePath } from "@/lib/supabase";
+import { fetchCategories, uploadUserFile, uploadSubtitleFile, createArticle, updateArticle, deleteStorageFile, fetchAnyArticle, extractStoragePath } from "@/lib/supabase";
 import { ARTICLE_LIMITS, MAX_VIDEO_BYTES, asMb } from "@/lib/supabase";
 import { useLanguage } from "@/hooks/use-language";
 import { useAuth } from "@/hooks/use-auth";
@@ -24,6 +24,11 @@ import { createVideoPosterImageFile } from "@/lib/video-poster";
 import { PlaceTimeFields } from "@/components/organisms/PlaceTimeFields";
 import { StoryNoteFields, EMPTY_NOTE, shouldSendNote, type StoryNoteDraft } from "@/components/organisms/StoryNoteFields";
 import { EMPTY_PLACE_DATE, draftFromArticle, draftToPlaceDate, placeDateErrors, shouldSendPlaceDate, type PlaceDateDraft } from "@/lib/atlas/place-date";
+import {
+  FilmExtrasFields, EMPTY_FILM_EXTRAS, filmExtrasFromArticle, filmExtrasSnapshot, filmExtrasErrors,
+  shouldSendFilmExtras, draftToFilm, type FilmExtrasDraft,
+} from "@/components/organisms/FilmExtrasFields";
+import { prepareSubtitleFile } from "@/lib/subtitles";
 
 const VideoStoryCreate: React.FC = () => {
   const { user, isAdmin } = useAuth();
@@ -85,10 +90,15 @@ const VideoStoryCreate: React.FC = () => {
   const placeDateSupportedRef = useRef(false);
   const [note, setNote] = useState<StoryNoteDraft>(EMPTY_NOTE);
   const noteSupportedRef = useRef(false);
+  // Subtitles and chapters (migration 20261102140000).
+  const [film, setFilm] = useState<FilmExtrasDraft>(EMPTY_FILM_EXTRAS);
+  const filmSupportedRef = useRef(false);
+  const [subtitleUploading, setSubtitleUploading] = useState<'en' | 'ro' | null>(null);
+  const [showFilmErrors, setShowFilmErrors] = useState(false);
   const [showPlaceErrors, setShowPlaceErrors] = useState(false);
   const placeErrors = placeDateErrors(placeDate, language);
 
-  const formSnapshot = JSON.stringify({ titleEn, titleRo, descriptionEn, descriptionRo, categoryId, location, videoUrl, posterUrl, placeDate, note });
+  const formSnapshot = JSON.stringify({ titleEn, titleRo, descriptionEn, descriptionRo, categoryId, location, videoUrl, posterUrl, placeDate, note, film: filmExtrasSnapshot(film) });
   const isDirty = initialSnapshotRef.current !== null && formSnapshot !== initialSnapshotRef.current;
 
   useUnsavedChangesWarning(isDirty && !isSaving);
@@ -147,6 +157,9 @@ const VideoStoryCreate: React.FC = () => {
           const loadedNote = { en: article.noteEn ?? '', ro: article.noteRo ?? '' };
           setNote(loadedNote);
           noteSupportedRef.current = 'noteEn' in article;
+          const loadedFilm = filmExtrasFromArticle(article, (url) => extractStoragePath(url, 'articles'));
+          setFilm(loadedFilm.draft);
+          filmSupportedRef.current = loadedFilm.supported;
           initialSnapshotRef.current = JSON.stringify({
             titleEn: article.titleEn || '',
             titleRo: article.titleRo || '',
@@ -158,11 +171,13 @@ const VideoStoryCreate: React.FC = () => {
             posterUrl: article.posterUrl || '',
             placeDate: loadedPlaceDate.draft,
             note: loadedNote,
+            film: filmExtrasSnapshot(loadedFilm.draft),
           });
         } else {
           initialSnapshotRef.current = JSON.stringify({
             titleEn: '', titleRo: '', descriptionEn: '', descriptionRo: '',
             categoryId: '', location: '', videoUrl: '', posterUrl: '', placeDate: EMPTY_PLACE_DATE, note: EMPTY_NOTE,
+            film: filmExtrasSnapshot(EMPTY_FILM_EXTRAS),
           });
         }
       } catch (err) {
@@ -292,6 +307,35 @@ const VideoStoryCreate: React.FC = () => {
     }
   };
 
+  // Subtitles: read the file, check and convert it to WebVTT, upload it,
+  // and only then let go of the file it replaces.
+  const handleSubtitleUpload = async (lang: 'en' | 'ro', file: File) => {
+    if (!user?.id) {
+      toast.error(language === 'en' ? "Not authenticated" : "Neautentificat");
+      return;
+    }
+    const previousPath = film.subtitles[lang]?.path ?? null;
+    setSubtitleUploading(lang);
+    try {
+      const prepared = prepareSubtitleFile(await file.text(), file.name, language);
+      const { publicUrl, storagePath } = await uploadSubtitleFile(prepared.vtt, user.id);
+      sessionUploadsRef.current.add(storagePath);
+      if (previousPath && previousPath !== storagePath) discardStoredFile(previousPath);
+      setFilm((prev) => ({ ...prev, subtitles: { ...prev.subtitles, [lang]: { url: publicUrl, path: storagePath, lines: prepared.cues } } }));
+      toast.success(language === 'en' ? `Subtitles uploaded: ${prepared.cues} lines` : `Subtitrare încărcată: ${prepared.cues} replici`);
+    } catch (error) {
+      console.error("Error uploading subtitles:", error);
+      toast.error(error instanceof Error ? error.message : (language === 'en' ? "Error uploading subtitles" : "Eroare la încărcarea subtitrării"));
+    } finally {
+      setSubtitleUploading(null);
+    }
+  };
+
+  const handleSubtitleRemove = (lang: 'en' | 'ro') => {
+    discardStoredFile(film.subtitles[lang]?.path ?? null);
+    setFilm((prev) => ({ ...prev, subtitles: { ...prev.subtitles, [lang]: null } }));
+  };
+
   const handleSave = async () => {
     if (!titleEn || !titleRo || !categoryId || !videoUrl || !user) {
       toast.error(language === 'en' ? "Please fill all required fields and upload a video" : "Vă rugăm să completați toate câmpurile obligatorii și să încărcați un video");
@@ -300,6 +344,12 @@ const VideoStoryCreate: React.FC = () => {
     if (placeErrors.length) {
       setShowPlaceErrors(true);
       toast.error(placeErrors[0].message);
+      return;
+    }
+    const filmErrors = filmExtrasErrors(film, language);
+    if (filmErrors.length) {
+      setShowFilmErrors(true);
+      toast.error(filmErrors[0]);
       return;
     }
     setIsSaving(true);
@@ -316,6 +366,7 @@ const VideoStoryCreate: React.FC = () => {
         posterUrl: posterUrl || null,
         ...(shouldSendPlaceDate(placeDate, placeDateSupportedRef.current) ? { placeDate: draftToPlaceDate(placeDate) } : {}),
         ...(shouldSendNote(note, noteSupportedRef.current) ? { note: { en: note.en, ro: note.ro } } : {}),
+        ...(shouldSendFilmExtras(film, filmSupportedRef.current) ? { film: draftToFilm(film) } : {}),
       };
       // The visibility checkbox is admin-only; writers pass their story's
       // loaded state through and the DB trigger
@@ -671,6 +722,16 @@ const VideoStoryCreate: React.FC = () => {
                   </p>
                 )}
               </FormBlock>
+
+              <FilmExtrasFields
+                value={film}
+                onChange={setFilm}
+                onUpload={handleSubtitleUpload}
+                onRemove={handleSubtitleRemove}
+                uploading={subtitleUploading}
+                errors={showFilmErrors ? filmExtrasErrors(film, language) : []}
+                language={language}
+              />
 
               <PlaceTimeFields
                 value={placeDate}

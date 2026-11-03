@@ -15,6 +15,7 @@ import {
   fetchOrphanedMedia,
   purgeOrphanedMedia,
   SWEEPABLE_BUCKETS,
+  toCamelCase,
 } from "@/lib/supabase";
 import type { OrphanedMediaReport } from "@/lib/supabase";
 import { supabase } from "@/lib/supabase";
@@ -267,9 +268,14 @@ const AdminDashboard: React.FC = () => {
       // Collect the article's storage paths BEFORE deleting the row, so we
       // can clean up the bucket afterwards. Without this every deleted
       // article orphaned its cover/poster/gallery/video files forever.
-      const article = articles.find(a => a.id === id);
+      // The full row, not the admin list's: the list selects a fixed set of
+      // columns, and a film's subtitle files (migration 20261102140000) live
+      // in columns it doesn't load. select('*') returns whichever columns
+      // the database has, before and after that migration.
+      const { data: row } = await supabase.from('articles').select('*').eq('id', id).maybeSingle();
+      const article = row ? toCamelCase<Article>(row) : articles.find(a => a.id === id);
       const storagePaths = article
-        ? [article.mediaUrl, article.posterUrl, ...(article.mediaUrls ?? [])]
+        ? [article.mediaUrl, article.posterUrl, ...(article.mediaUrls ?? []), article.subtitlesEnUrl, article.subtitlesRoUrl]
             .map(url => (url ? extractStoragePath(url, 'articles') : null))
             .filter((p): p is string => !!p)
         : [];

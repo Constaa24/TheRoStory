@@ -46,6 +46,9 @@
 :where(.sb-arch) { position: relative; }
 :where(.sb-card) { position: relative; }
 :where(.sb-mini-map) { position: relative; }
+:where(.sb-moments) { display: grid; position: relative; }
+:where(.sb-moment) { display: flex; position: relative; }
+:where(.sb-caption) { position: absolute; }
 
 /* ---------- type ---------- */
 .sb-h1,
@@ -272,3 +275,50 @@ textarea.sb-input { min-height: 190px; resize: vertical; line-height: 1.6; }
   .sb-chapter-pill { transition: none; }
   .sb-rosette-turn { animation: none; }
 }
+
+/* ---------------------------------------------------------------------
+   The story in moments: the dates of a text story's chapters, threaded
+   under the title (MomentsStrip). Knots sit on the thread, each a link to
+   its chapter. More than three narrow to a vertical thread on a phone.
+   --------------------------------------------------------------------- */
+.sb-moments { --n: 3; list-style: none; margin: 0 auto; padding: 0; max-width: 880px; grid-template-columns: repeat(var(--n), minmax(0, 1fr)); text-align: center; }
+.sb-moments::before { content: ""; position: absolute; top: 4px; left: calc(50% / var(--n)); right: calc(50% / var(--n)); height: 2px; background: repeating-linear-gradient(90deg, var(--gold) 0 8px, transparent 8px 14px); opacity: 0.55; }
+.sb-moment { flex-direction: column; align-items: center; gap: 10px; padding: 0 8px; color: inherit; text-decoration: none; border-radius: 10px; }
+.sb-moment .sb-knot { background: var(--ink); }
+.sb-moment .sb-numeral { font-size: 22px; line-height: 1.1; }
+.sb-moment .sb-kicker-sm { color: var(--text-dim); font-size: 16px; transition: color 0.2s ease; }
+.sb-moment:hover .sb-kicker-sm,
+.sb-moment:focus-visible .sb-kicker-sm { color: var(--gold); }
+.sb-moment:focus-visible { outline: 2px solid var(--gold); outline-offset: 6px; }
+
+@media (max-width: 639px) {
+  .sb-moments[data-many] { grid-template-columns: 1fr; gap: 16px; text-align: left; }
+  .sb-moments[data-many]::before { inset: 8px auto 8px 4px; width: 2px; height: auto; background: repeating-linear-gradient(180deg, var(--gold) 0 8px, transparent 8px 14px); }
+  .sb-moments[data-many] .sb-moment { flex-direction: row; align-items: baseline; gap: 14px; padding: 0; }
+  .sb-moments[data-many] .sb-knot { align-self: center; }
+}
+
+/* ---------------------------------------------------------------------
+   Films: captions drawn by the page (above the controls when they show),
+   the browser's own captions in full screen, and Read along (FilmReadAlong).
+   --------------------------------------------------------------------- */
+.sb-caption { left: 50%; transform: translateX(-50%); width: max-content; max-width: 88%; text-align: center; pointer-events: none; z-index: 2; transition: bottom 0.3s ease; }
+.sb-caption span { background: rgba(13, 11, 8, 0.8); color: #f4ead7; font-family: var(--ui); font-weight: 600; font-size: clamp(13px, 2.1vw, 22px); line-height: 1.55; padding: 2px 10px; border-radius: 6px; white-space: pre-line; -webkit-box-decoration-break: clone; box-decoration-break: clone; }
+.video-frame video::cue { background: rgba(13, 11, 8, 0.8); color: #f4ead7; font-family: Manrope, system-ui, sans-serif; }
+
+.sb-readalong { margin-top: 18px; padding: 14px 20px; border: 1px solid var(--line-soft); border-radius: 18px; background: var(--paper); }
+.sb-readalong-list { max-height: min(440px, 60vh); overflow-y: auto; margin-top: 14px; padding-right: 8px; overscroll-behavior: contain; }
+.sb-readalong-list section + section { margin-top: 22px; }
+.sb-readalong-p { font-family: var(--serif); font-size: 18px; line-height: 1.8; color: var(--text-dim); margin: 0 0 14px; }
+.sb-readalong-chapter { display: inline-flex; align-items: baseline; gap: 12px; margin: 0 0 10px; padding: 0; border: 0; background: none; cursor: pointer; font-family: var(--display); font-style: italic; font-size: 21px; color: var(--parchment); text-align: left; }
+.sb-readalong-chapter:hover span:last-child,
+.sb-readalong-chapter:focus-visible span:last-child { color: var(--gold); }
+.sb-cue { cursor: pointer; border-radius: 4px; transition: color 0.2s ease, background-color 0.2s ease; }
+.sb-cue:hover { color: var(--text); }
+.sb-cue.is-active { color: var(--parchment); background: rgba(201, 169, 110, 0.18); box-shadow: 0 0 0 3px rgba(201, 169, 110, 0.18); }
+.sb-cue-speaker { font-family: var(--ui); font-size: 13px; font-weight: 600; color: var(--gold); }
+
+@media print {
+  .sb-readalong-list { max-height: none; overflow: visible; }
+}
+

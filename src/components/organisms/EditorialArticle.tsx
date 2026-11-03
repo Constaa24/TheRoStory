@@ -4,7 +4,7 @@ import { Article, ArticleSubtype, Category, getLocalized, fetchCategories, fetch
 import { useLanguage } from "@/hooks/use-language";
 import { useFavorites } from "@/hooks/use-favorites";
 import { useActiveSection } from "@/hooks/use-active-section";
-import { Heart, Share2, Printer, Play, Pause, Maximize2, Volume2, VolumeX } from "lucide-react";
+import { Heart, Share2, Printer, Play, Pause, Maximize2, Volume2, VolumeX, Captions, CaptionsOff } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { ArticleComments } from "@/components/organisms/ArticleComments";
@@ -17,6 +17,8 @@ import { ChapterPill, ReadingBar, useTextSize, type ChapterMark } from "@/compon
 import { EssayChapters, PoemPage, StoryScenes } from "@/components/story/StoryProse";
 import { PictureBook, type Frame } from "@/components/story/PictureBook";
 import { JourneyCard, NearbyCard, NoteCard, PlaceCard, useStoryNeighbours } from "@/components/story/StoryAside";
+import { MomentsStrip } from "@/components/story/MomentsStrip";
+import { CaptionOverlay, ReadAlong, chapterIndexAt, chapterTitle, useActiveCue, useFilmSubtitles } from "@/components/story/FilmReadAlong";
 
 interface Props {
   article: Article;
@@ -319,6 +321,7 @@ const EssayStory: React.FC<StoryProps> = (props) => {
             )}
           </figure>
         )}
+        <MomentsStrip moments={article.moments} chapterIds={ids} language={language} />
         <div className="ed-container grid grid-cols-1 xl:grid-cols-[220px_minmax(0,1fr)_280px] gap-12 xl:gap-14 items-start" style={{ paddingBottom: 40 }}>
           <aside className="hidden xl:block xl:sticky" style={{ top: ASIDE_TOP }}>
             {marks.length > 1 && <ChapterPath marks={marks} active={active} language={language} />}
@@ -376,6 +379,7 @@ const ShortStory: React.FC<StoryProps> = (props) => {
             cover && aiPhrase(language),
           ])}
         />
+        <MomentsStrip moments={article.moments} chapterIds={ids} language={language} />
         <div className="ed-container">
           <div className="sb-measure">
             <StoryScenes chapters={chapters} ids={ids} language={language} />
@@ -814,6 +818,54 @@ const VideoFilm: React.FC<StoryProps> = (props) => {
   const en = language === 'en';
   const date = formatArticleDate(article.createdAt, language);
 
+  // Subtitles and chapters (migration 20261102140000). Captions are on by
+  // default in the page's language, or the other one when that's all there
+  // is: the films are narrated, so a reader of the other language needs them.
+  const subtitles = useFilmSubtitles(article);
+  const subLanguages = (['en', 'ro'] as const).filter((l) => subtitles[l]);
+  const [subLangChoice, setSubLangChoice] = useState<'en' | 'ro' | null>(null);
+  const subLang: 'en' | 'ro' = subLangChoice && subtitles[subLangChoice] ? subLangChoice : (subtitles[language] ? language : subLanguages[0] ?? language);
+  const cues = subtitles[subLang]?.cues ?? [];
+  const [captionsOn, setCaptionsOn] = useState(true);
+  const activeCue = useActiveCue(videoRef, cues);
+  const chapters = useMemo(() => [...(article.filmChapters ?? [])].sort((a, b) => a.t - b.t), [article.filmChapters]);
+  const chapterIndex = chapterIndexAt(chapters, currentTime);
+  const currentChapter = chapterTitle(chapters[chapterIndex], language);
+
+  // In full screen the browser shows only the <video>, so the page's caption
+  // layer can't follow it there; the matching <track> takes over instead.
+  const [videoFullscreen, setVideoFullscreen] = useState(false);
+  useEffect(() => {
+    const v = videoRef.current;
+    if (!v) return;
+    const onChange = () => setVideoFullscreen(document.fullscreenElement === v);
+    const onBegin = () => setVideoFullscreen(true);
+    const onEnd = () => setVideoFullscreen(false);
+    document.addEventListener('fullscreenchange', onChange);
+    v.addEventListener('webkitbeginfullscreen', onBegin);
+    v.addEventListener('webkitendfullscreen', onEnd);
+    return () => {
+      document.removeEventListener('fullscreenchange', onChange);
+      v.removeEventListener('webkitbeginfullscreen', onBegin);
+      v.removeEventListener('webkitendfullscreen', onEnd);
+    };
+  }, [article.mediaUrl]);
+  useEffect(() => {
+    const v = videoRef.current;
+    if (!v) return;
+    for (const track of Array.from(v.textTracks)) {
+      track.mode = videoFullscreen && captionsOn && track.language === subLang ? 'showing' : 'disabled';
+    }
+  }, [videoFullscreen, captionsOn, subLang, subtitles]);
+
+  const seekTo = (time: number) => {
+    const v = videoRef.current;
+    if (!v) return;
+    v.currentTime = time;
+    setCurrentTime(time);
+    if (v.paused) v.play().catch(() => { /* autoplay refused: the reader presses play */ });
+  };
+
   return (
     <article>
       <header className="ed-container" style={{ paddingTop: 28, paddingBottom: 36 }}>
@@ -860,7 +912,14 @@ const VideoFilm: React.FC<StoryProps> = (props) => {
                 style={{ cursor: controlsVisible ? 'pointer' : 'none' }}
                 playsInline
                 onClick={togglePlay}
-              />
+              >
+                {subLanguages.map((l) => (
+                  <track key={l} kind="subtitles" srcLang={l} label={l === 'en' ? 'English' : 'Română'} src={subtitles[l]!.src} />
+                ))}
+              </video>
+              {captionsOn && (
+                <CaptionOverlay cue={activeCue >= 0 ? cues[activeCue] : undefined} lifted={controlsVisible} lang={subLang} />
+              )}
               {!playing && (
                 <button
                   type="button"
@@ -904,6 +963,11 @@ const VideoFilm: React.FC<StoryProps> = (props) => {
                 <div className="font-ui text-[13px] font-semibold whitespace-nowrap">
                   {formatTime(currentTime)} / {formatTime(duration)}
                 </div>
+                {currentChapter && (
+                  <div className="hidden md:block font-display italic text-[16px] truncate max-w-[200px]" style={{ color: '#d9bf8c' }}>
+                    {currentChapter}
+                  </div>
+                )}
                 <div
                   ref={progressBarRef}
                   className="flex-1 h-1.5 rounded-full relative cursor-pointer group after:content-[''] after:absolute after:inset-x-0 after:-inset-y-3"
@@ -917,7 +981,7 @@ const VideoFilm: React.FC<StoryProps> = (props) => {
                   aria-valuemin={0}
                   aria-valuemax={Math.round(duration) || 0}
                   aria-valuenow={Math.round(currentTime) || 0}
-                  aria-valuetext={`${formatTime(currentTime)} / ${formatTime(duration)}`}
+                  aria-valuetext={`${formatTime(currentTime)} / ${formatTime(duration)}${currentChapter ? ` · ${currentChapter}` : ''}`}
                   tabIndex={0}
                   onKeyDown={(e) => {
                     const v = videoRef.current;
@@ -925,9 +989,29 @@ const VideoFilm: React.FC<StoryProps> = (props) => {
                     // Arrow keys nudge ±5s for keyboard users.
                     if (e.key === 'ArrowRight') { e.preventDefault(); v.currentTime = Math.min(duration, v.currentTime + 5); setCurrentTime(v.currentTime); }
                     else if (e.key === 'ArrowLeft') { e.preventDefault(); v.currentTime = Math.max(0, v.currentTime - 5); setCurrentTime(v.currentTime); }
+                    // PageDown / PageUp: the next chapter, or back to the start of
+                    // this one (then the previous, if already near its start).
+                    else if (e.key === 'PageDown' && chapters.length) {
+                      e.preventDefault();
+                      const next = chapters.find((c) => c.t > v.currentTime + 0.5);
+                      if (next) { v.currentTime = next.t; setCurrentTime(next.t); }
+                    } else if (e.key === 'PageUp' && chapters.length) {
+                      e.preventDefault();
+                      const back = [...chapters].reverse().find((c) => c.t < v.currentTime - 2);
+                      const t = back ? back.t : 0;
+                      v.currentTime = t; setCurrentTime(t);
+                    }
                   }}
                 >
                   <div className="absolute left-0 top-0 bottom-0 rounded-full transition-[width] duration-100" style={{ width: progressPct + '%', background: '#c9a96e' }} />
+                  {duration > 0 && chapters.filter((c) => c.t > 0 && c.t < duration).map((c) => (
+                    <span
+                      key={c.t}
+                      aria-hidden="true"
+                      className="absolute top-0 bottom-0"
+                      style={{ left: `${(c.t / duration) * 100}%`, width: 3, marginLeft: -1.5, background: 'rgba(13, 11, 8, 0.9)' }}
+                    />
+                  ))}
                   <div
                     className="absolute top-1/2 -translate-y-1/2 w-3 h-3 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
                     style={{ left: `calc(${progressPct}% - 6px)`, background: '#c9a96e', boxShadow: '0 0 4px rgba(0,0,0,0.4)' }}
@@ -980,6 +1064,21 @@ const VideoFilm: React.FC<StoryProps> = (props) => {
                     </div>
                   )}
                 </div>
+                {subLanguages.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setCaptionsOn((on) => !on)}
+                    className="w-9 h-9 grid place-items-center cursor-pointer"
+                    style={{ background: 'transparent', border: 0, color: 'inherit' }}
+                    aria-pressed={captionsOn}
+                    aria-label={en ? 'Subtitles' : 'Subtitrare'}
+                    title={captionsOn
+                      ? (en ? `Subtitles on (${subLang === 'en' ? 'English' : 'Romanian'})` : `Subtitrare pornită (${subLang === 'en' ? 'engleză' : 'română'})`)
+                      : (en ? 'Subtitles off' : 'Subtitrare oprită')}
+                  >
+                    {captionsOn ? <Captions className="w-5 h-5" /> : <CaptionsOff className="w-5 h-5" />}
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={fullscreen}
@@ -995,6 +1094,19 @@ const VideoFilm: React.FC<StoryProps> = (props) => {
             <div className="ph w-full h-full" data-tone={toneFor(article.id)} style={{ border: 0 }} />
           )}
         </div>
+        {article.mediaUrl && (cues.length > 0 || chapters.length > 0) && (
+          <ReadAlong
+            cues={cues}
+            chapters={chapters}
+            active={activeCue}
+            playing={playing}
+            onSeek={seekTo}
+            subLang={subLang}
+            languages={subLanguages}
+            onSubLang={setSubLangChoice}
+            language={language}
+          />
+        )}
       </section>
 
       {/* The story the film tells, and its margin. */}

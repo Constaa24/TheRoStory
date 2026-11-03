@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Category, CHAPTER_DELIMITER, ARTICLE_LIMITS, parseChapters, ArticleSubtype, MAX_IMAGE_BYTES, asMb } from "@/lib/supabase";
+import { Category, CHAPTER_DELIMITER, ARTICLE_LIMITS, parseChapters, ArticleSubtype, MAX_IMAGE_BYTES, asMb, MOMENT_LIMITS, type Article, type StoryMoment } from "@/lib/supabase";
 import { fetchCategories, uploadUserFile, createArticle, updateArticle, fetchAnyArticle, deleteStorageFile, extractStoragePath } from "@/lib/supabase";
 import { useLanguage } from "@/hooks/use-language";
 import { useAuth } from "@/hooks/use-auth";
@@ -43,6 +43,32 @@ const PER_CHAPTER_MAX = Math.floor(
 );
 
 const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'];
+
+type MomentDraft = { when_en: string; when_ro: string; label_en: string; label_ro: string };
+const EMPTY_MOMENT: MomentDraft = { when_en: '', when_ro: '', label_en: '', label_ro: '' };
+
+/** The saved moments, one slot per chapter (most chapters have none). */
+const momentsFromArticle = (article: Article, chapters: number): MomentDraft[] =>
+  Array.from({ length: chapters }, (_, i) => {
+    const m = article.moments?.find((x) => x.chapter === i);
+    return m
+      ? { when_en: m.when_en ?? '', when_ro: m.when_ro ?? '', label_en: m.label_en ?? '', label_ro: m.label_ro ?? '' }
+      : EMPTY_MOMENT;
+  });
+
+/**
+ * The moments to save: those with a date, for chapters that survive the
+ * trailing-empty-chapter trim. Sent when the database has the column (the
+ * story was read with it) or the author has written one, like the note.
+ */
+const momentsPayload = (drafts: MomentDraft[], chapterCount: number, supported: boolean): { moments?: StoryMoment[] | null } => {
+  const list = drafts
+    .slice(0, chapterCount)
+    .map((m, chapter) => ({ chapter, ...m }))
+    .filter((m) => m.when_en.trim() || m.when_ro.trim());
+  if (!supported && list.length === 0) return {};
+  return { moments: list.length ? list : null };
+};
 
 const TextStoryCreate: React.FC = () => {
   const { user, isAdmin } = useAuth();
@@ -97,6 +123,10 @@ const TextStoryCreate: React.FC = () => {
   const [mediaStoragePath, setMediaStoragePath] = useState<string | null>(null);
   const [chaptersEn, setChaptersEn] = useState<string[]>([""]);
   const [chaptersRo, setChaptersRo] = useState<string[]>([""]);
+  // One optional dated moment per chapter, kept in step with the chapters
+  // (migration 20261102140000). Two or more draw the strip under the title.
+  const [moments, setMoments] = useState<MomentDraft[]>([EMPTY_MOMENT]);
+  const momentsSupportedRef = useRef(false);
   const [subtype, setSubtype] = useState<ArticleSubtype>("essay");
   const [publishImmediately, setPublishImmediately] = useState(false);
   const [showErrors, setShowErrors] = useState(false);
@@ -107,7 +137,7 @@ const TextStoryCreate: React.FC = () => {
   const [note, setNote] = useState<StoryNoteDraft>(EMPTY_NOTE);
   const noteSupportedRef = useRef(false);
 
-  const formSnapshot = JSON.stringify({ titleEn, titleRo, categoryId, location, mediaUrl, subtype, chaptersEn, chaptersRo, placeDate, note });
+  const formSnapshot = JSON.stringify({ titleEn, titleRo, categoryId, location, mediaUrl, subtype, chaptersEn, chaptersRo, placeDate, note, moments });
   const isDirty = initialSnapshotRef.current !== null && formSnapshot !== initialSnapshotRef.current;
 
   useUnsavedChangesWarning(isDirty && !isSaving);
@@ -174,6 +204,9 @@ const TextStoryCreate: React.FC = () => {
           while (ro.length < len) ro.push('');
           setChaptersEn(en);
           setChaptersRo(ro);
+          const loadedMoments = momentsFromArticle(article, len);
+          setMoments(loadedMoments);
+          momentsSupportedRef.current = 'moments' in article;
           initialSnapshotRef.current = JSON.stringify({
             titleEn: article.titleEn || '',
             titleRo: article.titleRo || '',
@@ -185,11 +218,13 @@ const TextStoryCreate: React.FC = () => {
             chaptersRo: ro,
             placeDate: loadedPlaceDate.draft,
             note: loadedNote,
+            moments: loadedMoments,
           });
         } else {
           initialSnapshotRef.current = JSON.stringify({
             titleEn: '', titleRo: '', categoryId: '', location: '', mediaUrl: '',
             subtype: 'essay', chaptersEn: [''], chaptersRo: [''], placeDate: EMPTY_PLACE_DATE, note: EMPTY_NOTE,
+            moments: [EMPTY_MOMENT],
           });
         }
       } catch (err) {
@@ -270,12 +305,18 @@ const TextStoryCreate: React.FC = () => {
     if (chaptersEn.length >= MAX_CHAPTERS) return;
     setChaptersEn(prev => [...prev, ""]);
     setChaptersRo(prev => [...prev, ""]);
+    setMoments(prev => [...prev, EMPTY_MOMENT]);
   };
 
   const removeChapter = (index: number) => {
     if (chaptersEn.length <= MIN_CHAPTERS) return;
     setChaptersEn(prev => prev.filter((_, i) => i !== index));
     setChaptersRo(prev => prev.filter((_, i) => i !== index));
+    setMoments(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const updateMoment = (index: number, patch: Partial<MomentDraft>) => {
+    setMoments(prev => prev.map((m, i) => (i === index ? { ...m, ...patch } : m)));
   };
 
   const validationErrors = useMemo(() => {
@@ -285,8 +326,13 @@ const TextStoryCreate: React.FC = () => {
     if (!categoryId) errs.push({ field: "category", message: language === "en" ? "Please choose a category" : "Alege o categorie" });
     const hasContent = chaptersEn.some(c => c.trim() !== "") || chaptersRo.some(c => c.trim() !== "");
     if (!hasContent) errs.push({ field: "content", message: language === "en" ? "Write at least one chapter" : "Scrie cel puțin un capitol" });
+    moments.forEach((m, i) => {
+      if ((m.label_en.trim() || m.label_ro.trim()) && !m.when_en.trim() && !m.when_ro.trim()) {
+        errs.push({ field: `moment-${i}`, message: language === "en" ? `Chapter ${i + 1}: a moment needs its date (“1383”, “Today”).` : `Capitolul ${i + 1}: momentul are nevoie de o dată („1383”, „Astăzi”).` });
+      }
+    });
     return [...errs, ...placeDateErrors(placeDate, language)];
-  }, [titleEn, titleRo, categoryId, chaptersEn, chaptersRo, placeDate, language]);
+  }, [titleEn, titleRo, categoryId, chaptersEn, chaptersRo, moments, placeDate, language]);
 
   const errorFor = (field: string) => validationErrors.find(e => e.field === field);
 
@@ -318,6 +364,7 @@ const TextStoryCreate: React.FC = () => {
         mediaUrl: mediaUrl || null,
         ...(shouldSendPlaceDate(placeDate, placeDateSupportedRef.current) ? { placeDate: draftToPlaceDate(placeDate) } : {}),
         ...(shouldSendNote(note, noteSupportedRef.current) ? { note: { en: note.en, ro: note.ro } } : {}),
+        ...momentsPayload(moments, filledEn.length, momentsSupportedRef.current),
       };
 
       // publishImmediately is loaded from the article and only togglable by
@@ -702,6 +749,35 @@ const TextStoryCreate: React.FC = () => {
                           {chaptersRo[index]?.length || 0} / {PER_CHAPTER_MAX}
                         </p>
                       </Field>
+                    </div>
+                    <div className="flex flex-col gap-2.5 pt-1" style={{ borderTop: '1px dashed var(--line-soft)' }}>
+                      <p className="font-ui text-[13px] font-semibold m-0 pt-3">
+                        {language === 'en' ? 'Moment on the timeline (optional)' : 'Moment pe linia timpului (opțional)'}
+                      </p>
+                      {index === 0 && (
+                        <p className="m-0" style={{ fontSize: 14, color: 'var(--text-mute)', lineHeight: 1.5 }}>
+                          {language === 'en'
+                            ? 'Give two or more chapters a date and a few words, and the story opens with a small timeline that links to them: 1383 · The first stones.'
+                            : 'Dă unui număr de cel puțin două capitole o dată și câteva cuvinte, iar povestea se deschide cu o mică linie a timpului spre ele: 1383 · Primele pietre.'}
+                        </p>
+                      )}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <Field label={language === 'en' ? 'When (English)' : 'Când (engleză)'} compact>
+                          <input type="text" value={moments[index]?.when_en ?? ''} onChange={(e) => updateMoment(index, { when_en: e.target.value })} placeholder="1383" maxLength={MOMENT_LIMITS.WHEN_MAX} />
+                        </Field>
+                        <Field label={language === 'en' ? 'When (Romanian)' : 'Când (română)'} compact>
+                          <input type="text" value={moments[index]?.when_ro ?? ''} onChange={(e) => updateMoment(index, { when_ro: e.target.value })} placeholder={moments[index]?.when_en || '1383'} maxLength={MOMENT_LIMITS.WHEN_MAX} />
+                        </Field>
+                        <Field label={language === 'en' ? 'In a few words (English)' : 'În câteva cuvinte (engleză)'} compact>
+                          <input type="text" value={moments[index]?.label_en ?? ''} onChange={(e) => updateMoment(index, { label_en: e.target.value })} placeholder="The first stones" maxLength={MOMENT_LIMITS.LABEL_MAX} />
+                        </Field>
+                        <Field label={language === 'en' ? 'In a few words (Romanian)' : 'În câteva cuvinte (română)'} compact>
+                          <input type="text" value={moments[index]?.label_ro ?? ''} onChange={(e) => updateMoment(index, { label_ro: e.target.value })} placeholder="Primele pietre" maxLength={MOMENT_LIMITS.LABEL_MAX} />
+                        </Field>
+                      </div>
+                      {showErrors && errorFor(`moment-${index}`) && (
+                        <p className="sb-error m-0">{errorFor(`moment-${index}`)?.message}</p>
+                      )}
                     </div>
                   </div>
                 ))}

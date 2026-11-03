@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useLocation, useNavigationType } from "react-router-dom";
 
 // Per-session cache of scroll positions, keyed by history entry. Lets us
@@ -9,6 +9,9 @@ const scrollPositions = new Map<string, number>();
 export default function ScrollToTopOnRoute() {
   const { pathname, hash, key } = useLocation();
   const navigationType = useNavigationType(); // "POP" | "PUSH" | "REPLACE"
+  // The page the last scroll decision was made for, to tell a jump within
+  // the page (only the #hash changed) from arriving on a new one.
+  const lastPathnameRef = useRef<string | null>(null);
 
   // Take over scroll handling from the browser so its (unreliable, for an SPA)
   // native restoration doesn't fight ours.
@@ -30,12 +33,34 @@ export default function ScrollToTopOnRoute() {
   // `key` and `navigationType` are read from the closure at the moment the
   // effect runs.
   useEffect(() => {
+    const samePage = lastPathnameRef.current === pathname;
+    lastPathnameRef.current = pathname;
+    // Only the #hash changed: a link within this page (a chapter, a moment,
+    // a contents entry) or a router link to one of its sections. Never
+    // restore a saved position here. A plain in-page <a href="#id"> makes
+    // a history entry with no router state, so React Router reports it as
+    // a POP with the same key ("default") as the page before it, and
+    // restoring that key's position undid the jump the reader just asked
+    // for. The browser has already scrolled for a plain anchor; a router
+    // <Link> doesn't scroll, so bring the target into view either way
+    // (scrollIntoView honours the same scroll-margin the browser does).
+    if (samePage) {
+      if (!hash) return undefined;
+      const frame = window.requestAnimationFrame(() => {
+        try {
+          document.getElementById(decodeURIComponent(hash.slice(1)))?.scrollIntoView();
+        } catch {
+          /* a malformed #hash: stay where the reader is */
+        }
+      });
+      return () => window.cancelAnimationFrame(frame);
+    }
     const saved = navigationType === "POP" ? scrollPositions.get(key) : undefined;
-    // A link to a section, like the footer's /privacy#cookies, or landing on
-    // one from outside (the first load is a POP with nothing saved). Neither
-    // React Router nor the browser can scroll there: the section only exists
-    // once the lazy page has rendered. So look for it over a few frames,
-    // starting from the top in case it never appears.
+    // Arriving on a page at one of its sections: the footer's
+    // /privacy#cookies, or a link from outside (the first load is a POP with
+    // nothing saved). Neither React Router nor the browser can scroll there,
+    // because the section only exists once the lazy page has rendered. So
+    // start from the top and look for it over a few frames.
     if (hash && saved === undefined) {
       let id = "";
       try { id = decodeURIComponent(hash.slice(1)); } catch { /* malformed: stay at the top */ }
