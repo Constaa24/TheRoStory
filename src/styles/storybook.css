@@ -49,6 +49,9 @@
 :where(.sb-moments) { display: grid; position: relative; }
 :where(.sb-moment) { display: flex; position: relative; }
 :where(.sb-caption) { position: absolute; }
+/* Positioned so a line's offsetTop is measured from the panel itself:
+   Read along scrolls the spoken line into view from it. */
+:where(.sb-readalong-list) { position: relative; }
 
 /* ---------- type ---------- */
 .sb-h1,

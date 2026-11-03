@@ -498,27 +498,14 @@ export const deleteJourney = async (id: string): Promise<void> => {
 const ARTICLE_CARD_COLUMNS =
   'id, title_en, title_ro, type, subtype, media_url, poster_url, media_urls, location, category_id, user_id, is_published, created_at';
 
-let placeColumnsProbe: Promise<boolean> | null = null;
-
 /**
- * Whether the articles table has the place/date columns yet (migration
- * 20261031120000). Asked once per page load, with the cheapest possible
- * query; a transient failure is not remembered, so the next caller asks
- * again rather than hiding every card's place for the rest of the visit.
+ * Card columns, with the Atlas place and date (migration 20261031120000).
+ * These used to be added only after a probe query had confirmed the
+ * columns existed, so the site could run before that migration: one extra
+ * request, ahead of the related and nearby stories, on every story page.
+ * The migration has long been applied, so the columns are named directly.
  */
-export const hasPlaceColumns = (): Promise<boolean> => {
-  placeColumnsProbe ??= (async () => {
-    const { error } = await supabase.from('articles').select('timeless').limit(1);
-    if (!error) return true;
-    if (!isMissingColumn(error)) placeColumnsProbe = null;
-    return false;
-  })();
-  return placeColumnsProbe;
-};
-
-/** Card columns, plus place and date when the database has them. */
-const cardColumns = async (): Promise<string> =>
-  (await hasPlaceColumns()) ? `${ARTICLE_CARD_COLUMNS}, ${ATLAS_PLACE_COLUMNS}` : ARTICLE_CARD_COLUMNS;
+const CARD_COLUMNS = `${ARTICLE_CARD_COLUMNS}, ${ATLAS_PLACE_COLUMNS}`;
 
 /**
  * Published stories from the same county as the one being read — the story
@@ -527,7 +514,7 @@ const cardColumns = async (): Promise<string> =>
 export const fetchNearbyArticles = async (location: string, excludeId: string, limit = 2): Promise<Article[]> => {
   const { data, error } = await supabase
     .from('articles')
-    .select(await cardColumns())
+    .select(CARD_COLUMNS)
     .eq('is_published', true)
     .eq('location', location)
     .neq('id', excludeId)
@@ -543,7 +530,7 @@ export const fetchArticleCardsByIds = async (ids: string[]): Promise<Article[]> 
   if (!ids.length) return [];
   const { data, error } = await supabase
     .from('articles')
-    .select(await cardColumns())
+    .select(CARD_COLUMNS)
     .eq('is_published', true)
     .in('id', ids);
   if (error) throw error;
@@ -564,7 +551,7 @@ export const fetchRelatedArticles = async (
 ): Promise<Article[]> => {
   if (limit <= 0) return [];
   try {
-    const columns = await cardColumns();
+    const columns = CARD_COLUMNS;
     let sameCategory: Article[] = [];
     if (categoryId) {
       const { data, error } = await supabase
@@ -612,7 +599,7 @@ export const fetchRelatedArticles = async (
 export const fetchLatestArticleCards = async (limit: number): Promise<Article[]> => {
   const { data, error } = await supabase
     .from('articles')
-    .select(await cardColumns())
+    .select(CARD_COLUMNS)
     .eq('is_published', true)
     .order('created_at', { ascending: false })
     // See PAGINATION_TIEBREAKER note above fetchArticlesPage.
@@ -1058,7 +1045,7 @@ export const searchArticles = async (query: string, limit = 6): Promise<Article[
  * any failure the rows come back as they were, county and all.
  */
 const withPlaceAndDate = async (rows: Article[]): Promise<Article[]> => {
-  if (!rows.length || !(await hasPlaceColumns())) return rows;
+  if (!rows.length) return rows;
   try {
     const cards = await fetchArticleCardsByIds(rows.map((r) => r.id));
     const byId = new Map(cards.map((c) => [c.id, c]));

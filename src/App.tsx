@@ -166,7 +166,9 @@ function StorybookFooter({ language }: { language: 'en' | 'ro' }) {
       </div>
       <div className="ed-container">
         <Divider />
-        <div className="flex flex-wrap justify-between items-start gap-x-10 gap-y-5" style={{ paddingTop: 26, paddingBottom: 40 }}>
+        {/* Extra room at the bottom on a phone, so the last line can scroll
+            out from under the floating back-to-top button. */}
+        <div className="flex flex-wrap justify-between items-start gap-x-10 gap-y-5 pb-24 sm:pb-10" style={{ paddingTop: 26 }}>
           <div className="flex flex-col gap-1.5">
             <p className="sb-meta">
               © {new Date().getFullYear()} The RoStory · {en ? 'Made in Bucharest, with field notes from everywhere.' : 'Făcut în București, cu note de teren de pretutindeni.'}

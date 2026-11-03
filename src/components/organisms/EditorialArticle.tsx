@@ -19,6 +19,7 @@ import { PictureBook, type Frame } from "@/components/story/PictureBook";
 import { JourneyCard, NearbyCard, NoteCard, PlaceCard, useStoryNeighbours } from "@/components/story/StoryAside";
 import { MomentsStrip } from "@/components/story/MomentsStrip";
 import { CaptionOverlay, ReadAlong, chapterIndexAt, chapterTitle, useActiveCue, useFilmSubtitles } from "@/components/story/FilmReadAlong";
+import type { Cue } from "@/lib/subtitles";
 
 interface Props {
   article: Article;
@@ -573,6 +574,10 @@ const clampParagraphs = (paragraphs: string[], budget: number): { paragraphs: st
   return { paragraphs: out, truncated: false };
 };
 
+/** One shared empty list, so a film without subtitles doesn't hand the
+ * cue tracker a new array, and new listeners, on every render. */
+const NO_CUES: Cue[] = [];
+
 const VideoFilm: React.FC<StoryProps> = (props) => {
   const { article, language, categoryName, views } = props;
   const title = getLocalized(article, 'title', language);
@@ -825,7 +830,7 @@ const VideoFilm: React.FC<StoryProps> = (props) => {
   const subLanguages = (['en', 'ro'] as const).filter((l) => subtitles[l]);
   const [subLangChoice, setSubLangChoice] = useState<'en' | 'ro' | null>(null);
   const subLang: 'en' | 'ro' = subLangChoice && subtitles[subLangChoice] ? subLangChoice : (subtitles[language] ? language : subLanguages[0] ?? language);
-  const cues = subtitles[subLang]?.cues ?? [];
+  const cues = subtitles[subLang]?.cues ?? NO_CUES;
   const [captionsOn, setCaptionsOn] = useState(true);
   const activeCue = useActiveCue(videoRef, cues);
   const chapters = useMemo(() => [...(article.filmChapters ?? [])].sort((a, b) => a.t - b.t), [article.filmChapters]);
@@ -1145,5 +1150,3 @@ const VideoFilm: React.FC<StoryProps> = (props) => {
     </article>
   );
 };
-
-export default EditorialArticle;

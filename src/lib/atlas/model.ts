@@ -163,8 +163,6 @@ export const compareStories = (a: AtlasStory, b: AtlasStory): number => {
   return rank(a) - rank(b) || (a.y0 ?? 0) - (b.y0 ?? 0) || a.title[0].localeCompare(b.title[0]);
 };
 
-export const isUndated = (s: AtlasStory): boolean => !s.timeless && s.y0 == null;
-
 // ---------------------------------------------------------------- time
 
 export { formatYear };

@@ -173,12 +173,12 @@ const Privacy: React.FC = () => {
   const glance = en
     ? [
         { quote: 'We do not sell, rent, or trade your data.', from: 'What we do not collect' },
-        { quote: 'It is cookieless: nothing is written to your device…', from: 'Audience measurement' },
+        { quote: 'The site sets no cookies.', from: 'Cookies and local storage' },
         { quote: 'You can permanently delete your account and all associated content…', from: 'Your rights' },
       ]
     : [
         { quote: 'Nu vindem, închiriem sau schimbăm datele tale.', from: 'Ce nu colectăm' },
-        { quote: 'Nu folosește cookie-uri: nu se scrie nimic pe dispozitivul tău…', from: 'Măsurarea audienței' },
+        { quote: 'Site-ul nu setează niciun cookie.', from: 'Cookie-uri și stocare locală' },
         { quote: 'Îți poți șterge permanent contul și tot conținutul asociat…', from: 'Drepturile tale' },
       ];
 

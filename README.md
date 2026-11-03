@@ -20,16 +20,25 @@ The RoStory was born from a desire to correct misconceptions and limited percept
 
 ## Features
 
-### Interactive Story Map
-A custom SVG map of all 42 Romanian counties. Counties with stories are highlighted and clickable, zooming in with spring animations to reveal articles tagged to that location.
+### The Atlas (`/map`)
+An SVG map of Romania's 42 counties where every story has a place
+and a time. Readers filter by theme and format, scrub a timeline from the
+earliest story to today, follow curated journeys stop by stop, and switch to
+a list view; every story opens a card that links to it.
 
 ### Article System
-Three content types supported:
-- **Text** — Multi-chapter prose articles
-- **Video** — Video player with poster images
-- **Carousel** — Multi-image slideshows
+Three content types, each with its own storybook layout:
+- **Text**: multi-chapter prose, as an essay, a short story or a poem (the
+  original and its translation side by side). Chapters can carry a dated
+  moment ("1383 · The first stones"); with two or more, the story opens with
+  a timeline that links to them.
+- **Video (films)**: a custom player with a poster, subtitles in English and
+  Romanian (uploaded as .srt or .vtt), chapters marked on the progress bar,
+  and *Read along*, a transcript under the film that follows playback.
+- **Carousel (visual essays)**: picture books with a caption per frame.
 
-Each article includes view tracking, favorites, social sharing, comments, and related story suggestions.
+Each story has view counts, favorites, sharing, printing, comments, an
+optional "About this story" note, and related and nearby stories.
 
 ### Bilingual Support
 Full English and Romanian translations throughout the entire interface.
@@ -47,11 +56,11 @@ Browse stories organized by thematic categories with article counts and filterin
 
 | Route | Description |
 |---|---|
-| `/` | Hero landing page with filterable article grid and random story discovery |
-| `/map` | Interactive county map with story counts and zoom-in panels |
+| `/` | Home: the hero, the newest stories, a filterable grid, and a random story |
+| `/map` | The Atlas: stories by place and time, themes, journeys, list view |
 | `/categories` | Category browser with story counts |
 | `/category/:id` | Stories within a single category |
-| `/article/:id` | Full article viewer with parchment-style design |
+| `/article/:id` | A story, in the storybook layout for its kind (essay, short story, poem, visual essay, film) |
 | `/my-story` | About page explaining the creator's mission |
 | `/support` | Donation page for supporting the project |
 | `/contact-us` | Contact form powered by Resend |
@@ -59,8 +68,10 @@ Browse stories organized by thematic categories with article counts and filterin
 | `/auth` | Sign in, sign up, and password recovery |
 | `/reset-password` | Password reset (recovery-link landing) |
 | `/newsletter/confirm` | Newsletter double opt-in confirmation |
-| `/privacy`, `/terms` | Privacy policy and terms of use |
+| `/privacy`, `/terms` | Privacy policy (with cookies, `#cookies`) and terms (with `#pictures`, the AI disclosure) |
 | `/admin/*` | Admin dashboard for content and user management |
+
+Every route also exists under `/ro` for Romanian, e.g. `/ro/article/:id`.
 
 ## Getting Started
 
@@ -84,11 +95,16 @@ npm run build
 npm run dev          # Start Vite dev server
 npm run build        # Production build
 npm run preview      # Preview production build
+npm test             # Unit tests (Vitest)
+npm run test:e2e     # Browser tests: accessibility, keyboard, Atlas, features (Playwright)
 npm run lint         # Run all linting (TypeScript, ESLint, Stylelint)
 npm run lint:types   # TypeScript typecheck (src + middleware.ts/api)
 npm run lint:js      # ESLint only
 npm run lint:css     # Stylelint only
 npm run lint:edge    # Type-check the Deno edge functions (requires Deno)
+npm run icons        # Regenerate the app icons from public/logo.png
+npm run atlas:geo    # Regenerate the Atlas county geometry
+npm run fonts        # Re-download the self-hosted typefaces
 ```
 
 `lint:edge` is intentionally outside `npm run lint`: the Supabase edge

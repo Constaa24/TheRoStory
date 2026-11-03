@@ -1,4 +1,5 @@
-import { test, expect, type BrowserContext } from '@playwright/test';
+import { test, expect, type BrowserContext, type Page } from '@playwright/test';
+import AxeBuilder from '@axe-core/playwright';
 
 /**
  * Moments (text stories) and Read along (films), with test data injected
@@ -30,6 +31,14 @@ const inject = async (context: BrowserContext, id: string, fields: Record<string
     route.fulfill({ status: 200, contentType: 'text/vtt', headers: { 'access-control-allow-origin': '*' }, body: vtt(route.request().url().endsWith('ro.vtt') ? 'ro' : 'en') }));
 };
 
+/** Serious and critical axe findings, both themes, as in a11y.spec. */
+const blockingViolations = async (page: Page) => {
+  const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa']).analyze();
+  return results.violations
+    .filter((v) => v.impact === 'serious' || v.impact === 'critical')
+    .map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(' ')).slice(0, 3).join(', ')}`);
+};
+
 test.describe('moments', () => {
   test.beforeEach(async ({ context }) => {
     await inject(context, ESSAY, {
@@ -46,6 +55,8 @@ test.describe('moments', () => {
     const items = page.locator('.sb-moments li');
     await expect(items).toHaveCount(3);
     await expect(items.nth(1)).toHaveText('1936In stone');
+    await page.locator('.sb-moments').scrollIntoViewIfNeeded();
+    expect(await blockingViolations(page)).toEqual([]);
   });
 
   test('a moment lands on its chapter and stays there', async ({ page }) => {
@@ -80,5 +91,15 @@ test.describe('read along', () => {
     await page.getByRole('button', { name: 'Română' }).click();
     await expect(list).toHaveAttribute('lang', 'ro');
     await expect(list.locator('.sb-cue').first()).toHaveText('Replica 1');
+    expect(await blockingViolations(page)).toEqual([]);
+  });
+
+  test('passes the accessibility checks in light mode too', async ({ page }) => {
+    await page.addInitScript(() => window.localStorage.setItem('theme', 'light'));
+    await page.goto(`/article/${FILM}`);
+    await expect(page.locator('html')).toHaveClass(/light/);
+    await page.getByRole('button', { name: 'Read along' }).click();
+    await expect(page.locator('.sb-readalong-list')).toBeVisible();
+    expect(await blockingViolations(page)).toEqual([]);
   });
 });
