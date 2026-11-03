@@ -1845,7 +1845,7 @@ export const uploadSubtitleFile = async (vtt: string, userId: string): Promise<U
   const path = `stories/subtitles/${userId}/${crypto.randomUUID()}.vtt`;
   const { error } = await supabase.storage
     .from('articles')
-    .upload(path, new Blob([vtt], { type: 'text/vtt' }), { contentType: 'text/vtt', upsert: false });
+    .upload(path, new Blob([vtt], { type: 'text/vtt' }), { contentType: 'text/vtt', cacheControl: '31536000', upsert: false });
   if (error) {
     // The bucket refuses text/vtt until migration 20261102140000 has run.
     if (/mime|type/i.test(error.message)) {
@@ -1895,7 +1895,11 @@ export const uploadUserFile = async (
 
   const { error: uploadError } = await supabase.storage
     .from(bucket)
-    .upload(path, file, { upsert: true });
+    // Story media are stored under random ids and never overwritten in
+    // place, so a year's cache is safe; Supabase's default is an hour.
+    // Avatars keep the default, so a deleted account's picture doesn't
+    // linger in caches.
+    .upload(path, file, { upsert: true, ...(bucket === 'articles' ? { cacheControl: '31536000' } : {}) });
   if (uploadError) throw uploadError;
 
   const { data } = supabase.storage.from(bucket).getPublicUrl(path);

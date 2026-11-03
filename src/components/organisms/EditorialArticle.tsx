@@ -1,4 +1,4 @@
-import React, { useEffect, useId, useMemo, useRef, useState } from "react";
+import React, { Suspense, lazy, useEffect, useId, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Article, ArticleSubtype, Category, getLocalized, fetchCategories, fetchRelatedArticles } from "@/lib/supabase";
 import { useLanguage } from "@/hooks/use-language";
@@ -7,7 +7,16 @@ import { useActiveSection } from "@/hooks/use-active-section";
 import { Heart, Share2, Printer, Play, Pause, Maximize2, Volume2, VolumeX, Captions, CaptionsOff } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { ArticleComments } from "@/components/organisms/ArticleComments";
+// Comments load on their own, after the story: they sit below everything
+// else, and they were the only reason the Radix chunk (~24 KB, for the
+// delete-confirmation dialog) loaded with every story page. If the chunk
+// can't load (a tab left open across a deploy), the section is simply left
+// out rather than taking the story down with it.
+const ArticleComments = lazy(() =>
+  import("@/components/organisms/ArticleComments")
+    .then((m) => ({ default: m.ArticleComments }))
+    .catch(() => ({ default: () => null }))
+);
 import { StoryCard } from "@/components/ui/story-card";
 import { storageImage, storageSrcSet } from "@/lib/image-url";
 import { toneFor, articleCoverUrl, formatArticleDate, countLabel } from "@/lib/article-utils";
@@ -119,7 +128,9 @@ export const EditorialArticle: React.FC<Props> = ({ article, views }) => {
       {article.type === 'video' && <VideoFilm {...shared} />}
 
       {/* Notes from readers */}
-      <ArticleComments articleId={article.id} />
+      <Suspense fallback={<div aria-hidden="true" style={{ minHeight: 320 }} />}>
+        <ArticleComments articleId={article.id} />
+      </Suspense>
 
       {/* Keep wandering */}
       {related.length > 0 && (
@@ -596,6 +607,11 @@ const VideoFilm: React.FC<StoryProps> = (props) => {
   }, [content]);
   const [descriptionOpen, setDescriptionOpen] = useState(false);
   const descriptionId = useId();
+  // A poster can't take a srcset, so its size is chosen once: phones get
+  // the 800px rendition instead of the 1600px one (~250 KB saved).
+  const [posterSurface] = useState<'card' | 'feature'>(() =>
+    typeof window !== 'undefined' && window.matchMedia?.('(max-width: 700px)').matches ? 'card' : 'feature'
+  );
   const videoRef = useRef<HTMLVideoElement>(null);
   const progressBarRef = useRef<HTMLDivElement>(null);
   const volumeContainerRef = useRef<HTMLDivElement>(null);
@@ -912,7 +928,7 @@ const VideoFilm: React.FC<StoryProps> = (props) => {
               <video
                 ref={videoRef}
                 src={article.mediaUrl}
-                poster={storageImage(article.posterUrl, "feature")}
+                poster={storageImage(article.posterUrl, posterSurface)}
                 className="absolute inset-0 w-full h-full object-cover"
                 style={{ cursor: controlsVisible ? 'pointer' : 'none' }}
                 playsInline
