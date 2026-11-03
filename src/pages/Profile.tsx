@@ -280,7 +280,11 @@ const Profile: React.FC = () => {
 
   const en = language === 'en';
   const initial = (displayName || user.email || 'U').charAt(0).toUpperCase();
-  const firstName = (user.displayName || '').trim().split(/\s+/)[0];
+  // Greet by the whole display name when it fits on a line. Taking only the
+  // first word suits "Ana Popescu" but turned "The RoStory Admin" into
+  // "Welcome back, The."; only a long name is cut to its first word.
+  const fullName = (user.displayName || '').trim().replace(/\s+/g, ' ');
+  const greetingName = fullName.length <= 24 ? fullName : fullName.split(' ')[0];
 
   return (
     <div className="screen-anim">
@@ -313,9 +317,9 @@ const Profile: React.FC = () => {
                 <span className="capitalize">{role}</span>
               </span>
             </p>
-            <h1 className="sb-h1" style={{ fontSize: 'clamp(40px, 5vw, 76px)' }}>
-              {firstName
-                ? (en ? `Welcome back, ${firstName}.` : `Bine ai revenit, ${firstName}.`)
+            <h1 className="sb-h1 break-words" style={{ fontSize: 'clamp(40px, 5vw, 76px)' }}>
+              {greetingName
+                ? (en ? `Welcome back, ${greetingName}.` : `Bine ai revenit, ${greetingName}.`)
                 : (en ? 'Welcome back.' : 'Bine ai revenit.')}
             </h1>
             <p className="sb-dim text-[18px]">{t("profile.subtitle")}</p>

@@ -29,7 +29,7 @@
       "destination": "/api/sitemap"
     },
     {
-      "source": "/(.*)",
+      "source": "/((?!assets/|fonts/).*)",
       "destination": "/index.html"
     }
   ],

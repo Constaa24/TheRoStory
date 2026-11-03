@@ -36,12 +36,42 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
 
 // After a deploy, content-hashed chunk filenames change and the old ones are
 // removed from the server. A tab still running the previous build (browser or
-// service-worker cache) then requests a chunk that 404s → Vercel's SPA rewrite
-// returns index.html → the dynamic import fails. lazyWithReload catches that
-// specific "stale chunk" failure once and reloads the page so the browser pulls
-// the fresh index.html + current chunks, instead of crashing into the error
-// boundary. A sessionStorage flag prevents a reload loop if the failure is real
-// (e.g. an actually-broken deploy) rather than a stale-asset mismatch.
+// service-worker cache) then requests a chunk that 404s (vercel.json keeps
+// /assets/ out of the SPA rewrite, so it is a real 404 rather than index.html
+// with a 200, which the service worker would have cached as the chunk) and
+// the dynamic import fails. lazyWithReload catches that specific "stale chunk"
+// failure once and reloads the page so the browser pulls the fresh index.html
+// + current chunks, instead of crashing into the error boundary. A
+// sessionStorage flag prevents a reload loop if the failure is real (e.g. an
+// actually-broken deploy) rather than a stale-asset mismatch.
+//
+// Before reloading it asks the service worker for the new build: the stale
+// tab is often running the old worker's precache, and reloading straight away
+// was answered by that same old build, so the reload failed the same way and
+// fell through to "Something went wrong". The new worker skips waiting and
+// claims the page (registerType 'autoUpdate'), so waiting for it to activate,
+// up to a few seconds, is enough.
+const takeNewServiceWorker = async (): Promise<void> => {
+  try {
+    const registration = await navigator.serviceWorker?.getRegistration();
+    if (!registration) return;
+    await registration.update();
+    const incoming = registration.installing || registration.waiting;
+    if (!incoming) return;
+    await new Promise<void>((resolve) => {
+      const timer = window.setTimeout(resolve, 4000);
+      incoming.addEventListener("statechange", () => {
+        if (incoming.state === "activated" || incoming.state === "redundant") {
+          window.clearTimeout(timer);
+          resolve();
+        }
+      });
+    });
+  } catch {
+    /* no service worker, or offline: reload anyway */
+  }
+};
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function lazyWithReload<T extends React.ComponentType<any>>(
   factory: () => Promise<{ default: T }>
@@ -64,6 +94,7 @@ function lazyWithReload<T extends React.ComponentType<any>>(
           // ages out, so a future deploy can heal again.
           if (Date.now() - last > 10_000) {
             sessionStorage.setItem(KEY, String(Date.now()));
+            await takeNewServiceWorker();
             window.location.reload();
             // Never-resolving promise so nothing renders before the reload.
             return await new Promise<{ default: T }>(() => {});
