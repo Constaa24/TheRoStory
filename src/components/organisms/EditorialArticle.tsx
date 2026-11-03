@@ -7,16 +7,48 @@ import { useActiveSection } from "@/hooks/use-active-section";
 import { Heart, Share2, Printer, Play, Pause, Maximize2, Volume2, VolumeX, Captions, CaptionsOff } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-// Comments load on their own, after the story: they sit below everything
-// else, and they were the only reason the Radix chunk (~24 KB, for the
-// delete-confirmation dialog) loaded with every story page. If the chunk
-// can't load (a tab left open across a deploy), the section is simply left
-// out rather than taking the story down with it.
+// Comments load on their own, and only as the reader nears them: they sit
+// below everything else, and they were the only reason the Radix chunk
+// (~24 KB, for the delete-confirmation dialog) and the comments query came
+// with every story page, read to the end or not. If the chunk can't load
+// (a tab left open across a deploy), the section is simply left out rather
+// than taking the story down with it.
 const ArticleComments = lazy(() =>
   import("@/components/organisms/ArticleComments")
     .then((m) => ({ default: m.ArticleComments }))
     .catch(() => ({ default: () => null }))
 );
+
+/**
+ * Comments, mounted once their place is within three screens of the reader.
+ * Until then a band of the section's own colour and its height with no notes
+ * yet (474px, measured), so a reader flinging past it sees the band, and
+ * little or nothing moves when the notes arrive.
+ */
+const CommentsWhenNear: React.FC<{ articleId: string }> = ({ articleId }) => {
+  const ref = useRef<HTMLDivElement>(null);
+  const [near, setNear] = useState(() => typeof IntersectionObserver === "undefined");
+  useEffect(() => {
+    const el = ref.current;
+    if (near || !el) return;
+    const observer = new IntersectionObserver(
+      (entries) => { if (entries.some((e) => e.isIntersecting)) setNear(true); },
+      { rootMargin: "300% 0px" }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [near]);
+  const placeholder = <section aria-hidden="true" className="no-print sb-band" style={{ minHeight: 474 }} />;
+  return (
+    <div ref={ref}>
+      {near ? (
+        <Suspense fallback={placeholder}>
+          <ArticleComments articleId={articleId} />
+        </Suspense>
+      ) : placeholder}
+    </div>
+  );
+};
 import { StoryCard } from "@/components/ui/story-card";
 import { storageImage, storageSrcSet } from "@/lib/image-url";
 import { toneFor, articleCoverUrl, formatArticleDate, countLabel } from "@/lib/article-utils";
@@ -128,9 +160,7 @@ export const EditorialArticle: React.FC<Props> = ({ article, views }) => {
       {article.type === 'video' && <VideoFilm {...shared} />}
 
       {/* Notes from readers */}
-      <Suspense fallback={<div aria-hidden="true" style={{ minHeight: 320 }} />}>
-        <ArticleComments articleId={article.id} />
-      </Suspense>
+      <CommentsWhenNear articleId={article.id} />
 
       {/* Keep wandering */}
       {related.length > 0 && (
