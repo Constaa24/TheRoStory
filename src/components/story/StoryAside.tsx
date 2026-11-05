@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Article, Journey, fetchArticleCardsByIds, fetchJourneys, fetchNearbyArticles, getLocalized } from "@/lib/supabase";
-import { articleCoverUrl, toneFor } from "@/lib/article-utils";
+import { articleCoverUrl, joinMeta, toneFor } from "@/lib/article-utils";
 import { kindPhrase, pinOf, placeOf, whenOf } from "@/lib/story-facts";
 import { storageImage } from "@/lib/image-url";
 import { cn } from "@/lib/utils";
@@ -76,7 +76,7 @@ export const PlaceCard: React.FC<{
   const county = article.location && article.location !== place ? article.location : null;
   const meta = !pin && article.timeless
     ? (en ? "No single place, no single year — a legend." : "Niciun loc anume, niciun an anume — o legendă.")
-    : [county, when].filter(Boolean).join(" · ");
+    : joinMeta([county, when]);
 
   return (
     <Link
@@ -104,7 +104,7 @@ const StoryLine: React.FC<{ story: Article; language: Lang; meta?: string; from:
         {cover ? <img src={cover} alt="" loading="lazy" /> : <span className="ph absolute inset-0" data-tone={toneFor(story.id)} style={{ border: 0 }} />}
       </span>
       <span className="flex flex-col gap-0.5 min-w-0">
-        <span className="sb-meta">{meta ?? [kindPhrase(story, language), whenOf(story, language)].filter(Boolean).join(" · ")}</span>
+        <span className="sb-meta">{meta ?? joinMeta([kindPhrase(story, language), whenOf(story, language)])}</span>
         <span className="font-display italic leading-tight" style={{ fontSize: 18, color: "var(--parchment)" }}>
           {getLocalized(story, "title", language)}
         </span>

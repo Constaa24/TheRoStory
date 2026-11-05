@@ -5,7 +5,7 @@
  * tests share one definition of "matches".
  */
 import type { Article } from '@/lib/supabase';
-import { articleCoverUrl, getArticleKindLabel } from '@/lib/article-utils';
+import { articleCoverUrl, excerptText, getArticleKindLabel } from '@/lib/article-utils';
 import { storageImage } from '@/lib/image-url';
 import { formatYear } from '@/lib/story-facts';
 import geo from './atlas-geo.json';
@@ -339,18 +339,12 @@ export const centuriesSpanned = (stories: readonly AtlasStory[], lang: Lang): st
 
 export const capitalise = (s: string): string => s.charAt(0).toLocaleUpperCase() + s.slice(1);
 
-const CHAPTER_DELIMITER = '|||CHAPTER|||';
-
 /**
  * A plain-text opening for the story card: chapters joined, markup marks
  * dropped, cut at a word boundary, and never an ellipsis straight after a
- * full stop ("glass.…").
+ * full stop ("glass.…"). Shared with the archive's cards; see excerptText.
  */
-export const excerpt = (text: string, max = 170): string => {
-  const clean = (text || '').split(CHAPTER_DELIMITER).join(' ').replace(/[#*_>`]/g, ' ').replace(/\s+/g, ' ').trim();
-  if (clean.length <= max) return clean;
-  return clean.slice(0, max).replace(/\s+\S*$/, '').replace(/[\s.,;:!?—–-]+$/, '') + '…';
-};
+export const excerpt = (text: string, max = 170, poem = false): string => excerptText(text, max, poem);
 
 // ---------------------------------------------------------------- layout
 

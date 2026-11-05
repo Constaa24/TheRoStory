@@ -10,7 +10,7 @@ import { StoryCard } from "@/components/ui/story-card";
 import { LoadError } from "@/components/ui/load-error";
 import { SITE_URL } from "@/lib/constants";
 import { localizedPath } from "@/lib/locale";
-import { countLabel, type CountNoun } from "@/lib/article-utils";
+import { countLabel, joinMeta, type CountNoun } from "@/lib/article-utils";
 import { categoryDescription, categoryImageSources, getCategoryImage } from "@/lib/category-copy";
 import { formatYear, placeOf } from "@/lib/story-facts";
 import { StoryLoading, Thread } from "@/components/story/Ornaments";
@@ -56,7 +56,7 @@ const shelfFacts = (articles: Article[], total: number, complete: boolean, langu
   } else if (articles.every((a) => a.timeless)) {
     parts.push(language === 'en' ? 'timeless' : 'atemporale');
   }
-  return parts.join(' · ');
+  return joinMeta(parts);
 };
 
 const CategoryDetail: React.FC = () => {

@@ -51,7 +51,7 @@ const CommentsWhenNear: React.FC<{ articleId: string }> = ({ articleId }) => {
 };
 import { StoryCard } from "@/components/ui/story-card";
 import { storageImage, storageSrcSet } from "@/lib/image-url";
-import { toneFor, articleCoverUrl, formatArticleDate, countLabel } from "@/lib/article-utils";
+import { toneFor, articleCoverUrl, formatArticleDate, countLabel, joinMeta } from "@/lib/article-utils";
 import { kindPhrase, parseStoryChapters, placeAndTime, placeOf, readPhrase, splitTitle, toRoman } from "@/lib/story-facts";
 import { TheEnd, Thread } from "@/components/story/Ornaments";
 import { ChapterPill, ReadingBar, useTextSize, type ChapterMark } from "@/components/story/ReadingBar";
@@ -220,7 +220,7 @@ type StoryProps = {
 // ── Shared pieces ────────────────────────────────────────────────────
 
 /** "Landmarks · told in 4 chapters · a 3-minute read · 18 June 2026". */
-const metaLine = (parts: (string | null | undefined | false)[]) => parts.filter(Boolean).join(' · ');
+const metaLine = joinMeta;
 
 /**
  * Every picture and film on The RoStory is made with generative AI. The EU
@@ -971,15 +971,18 @@ const VideoFilm: React.FC<StoryProps> = (props) => {
               {captionsOn && (
                 <CaptionOverlay cue={activeCue >= 0 ? cues[activeCue] : undefined} lifted={controlsVisible} lang={subLang} />
               )}
+              {/* On a phone the player is ~175 px tall, so the round button
+                  is smaller and sits above the control bar rather than
+                  crowding it. */}
               {!playing && (
                 <button
                   type="button"
-                  className="absolute inset-0 grid place-items-center cursor-pointer"
+                  className="absolute inset-0 grid place-items-center cursor-pointer pb-12 sm:pb-0"
                   style={{ background: 'linear-gradient(180deg, rgba(13,11,8,0.1) 40%, rgba(13,11,8,0.7) 100%)', border: 0 }}
                   onClick={togglePlay}
                   aria-label={en ? 'Play the film' : 'Pornește filmul'}
                 >
-                  <span className="grid place-items-center transition-transform hover:scale-105" style={{ width: 'clamp(72px, 9vw, 104px)', height: 'clamp(72px, 9vw, 104px)', borderRadius: '50%', border: '1px solid rgba(217, 191, 140, 0.8)', background: 'rgba(13, 11, 8, 0.55)', color: '#d9bf8c' }}>
+                  <span className="grid place-items-center transition-transform hover:scale-105" style={{ width: 'clamp(60px, 9vw, 104px)', height: 'clamp(60px, 9vw, 104px)', borderRadius: '50%', border: '1px solid rgba(217, 191, 140, 0.8)', background: 'rgba(13, 11, 8, 0.55)', color: '#d9bf8c' }}>
                     <Play className="w-8 h-8" fill="currentColor" aria-hidden="true" />
                   </span>
                 </button>

@@ -5,6 +5,7 @@ import {
   countLabel,
   readMinutes,
   articleExcerpt,
+  joinMeta,
   articleCoverUrl,
   toneFor,
   placeLabel,
@@ -210,6 +211,55 @@ describe('articleExcerpt', () => {
   it('falls back to the other language, like read time does', () => {
     const enOnly = article({ contentEn: 'Only English here.', contentRo: '   ' });
     expect(articleExcerpt(enOnly, 'ro', 200)).toBe('Only English here.');
+  });
+
+  it('cuts between words, never inside one', () => {
+    const out = articleExcerpt(article({ contentEn: 'The story did not begin in granite' }), 'en', 22);
+    expect(out).toBe('The story did not…');
+  });
+
+  it('keeps a word that ends exactly at the limit', () => {
+    expect(articleExcerpt(article({ contentEn: 'One two three four' }), 'en', 13)).toBe('One two three…');
+  });
+
+  it('never leaves an ellipsis after a full stop', () => {
+    expect(articleExcerpt(article({ contentEn: 'It rained. Then it stopped for good.' }), 'en', 12)).toBe('It rained…');
+  });
+
+  it("marks a poem's line breaks with a slash", () => {
+    const poem = article({ subtype: 'poetry', contentEn: 'Sad minstrel, much steamier\nthan good old wine\n\nBy the groom’s father given' });
+    expect(articleExcerpt(poem, 'en', 200)).toBe('Sad minstrel, much steamier / than good old wine / By the groom’s father given');
+    // …and a cut never ends on the slash.
+    expect(articleExcerpt(poem, 'en', 30)).toBe('Sad minstrel, much steamier…');
+  });
+
+  it('runs prose lines together as before', () => {
+    expect(articleExcerpt(article({ contentEn: 'Line one\nline two' }), 'en', 200)).toBe('Line one line two');
+  });
+});
+
+describe('joinMeta', () => {
+  const NB = ' ';
+
+  it('keeps short items whole and never starts a line with the dot', () => {
+    expect(joinMeta(['Landmarks', '11 July 2026', 'made with AI'])).toBe(
+      `Landmarks${NB}· 11${NB}July${NB}2026${NB}· made${NB}with${NB}AI`
+    );
+  });
+
+  it('lets a long item wrap inside, so it cannot run off a phone screen', () => {
+    const place = 'Victor Babeș Institute, Bucharest';
+    expect(joinMeta([place, '1887'])).toBe(`${place}${NB}· 1887`);
+  });
+
+  it('keeps a dot inside a long item off the end of a line too', () => {
+    expect(joinMeta(['An essay', 'Arcul de Triumf, Bucharest · 1878–1936'])).toBe(
+      `An${NB}essay${NB}· Arcul de Triumf, Bucharest${NB}· 1878–1936`
+    );
+  });
+
+  it('skips empty parts', () => {
+    expect(joinMeta(['', null, undefined, false, '  ', 'Art'])).toBe('Art');
   });
 });
 

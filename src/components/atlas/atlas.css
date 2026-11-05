@@ -465,6 +465,9 @@
 @keyframes at-rise { from { transform: translateY(24px); opacity: 0; } to { transform: none; opacity: 1; } }
 .at-sheet-grab { width: 44px; height: 4px; border-radius: 4px; background: var(--line); margin: 0 auto 12px; }
 .at-sheet .at-card { border-bottom: 0; padding-bottom: 6px; }
+/* Shallower cover in the sheet, so "Read the story" is on screen without
+   scrolling the sheet on a phone of ordinary height. */
+.at-sheet .at-card-cover { aspect-ratio: 2 / 1; }
 
 /* ---------- notes ---------- */
 .at-notes { margin-top: 34px; padding-top: 22px; border-top: 1px dashed var(--line); font-size: 14.5px; color: var(--text-mute); max-width: 760px; }
@@ -492,8 +495,36 @@
   /* The band keeps its star and its spoken name; the word itself won't fit. */
   .at-tl-timeless-txt { display: none; }
   .at-coords { display: none; }
-  .at-key .at-pop { width: min(290px, calc(100vw - 56px)); }
+  /* A phone's plate is ~310 px wide: the zoom stack shrinks, and the key
+     moves to the top-left corner (empty sea and sky, the coordinates being
+     hidden here) instead of sitting on the Danube delta and the Black Sea. */
+  .at-zoom { top: 8px; right: 8px; gap: 4px; }
+  .at-zoom-btn { width: 32px; height: 32px; }
+  .at-zoom-ico { width: 13px; height: 13px; }
+  /* The key's legend then opens downwards, and from a button in the corner
+     it ran past the foot of the map and was cut off. So the wrapper steps
+     aside (static) and the legend is placed against the whole map area
+     (.at-ui) instead: below the button, inside the frame, in two columns,
+     scrolling on the smallest phones rather than losing its last line. */
+  .at-key { position: static; }
+  .at-key-btn { position: absolute; top: 8px; left: 8px; padding: 4px 11px; min-height: 32px; font-size: 16px; }
+  .at-key .at-pop {
+    inset: 48px 8px 8px; width: auto; min-width: 0; max-width: none;
+    overflow: auto; overscroll-behavior: contain; padding: 10px 12px;
+  }
+  .at-legend { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 12px; font-size: 12.5px; }
+  .at-legend li { gap: 8px; }
+  .at-legend .at-hint { grid-column: 1 / -1; margin-top: 0; padding-top: 8px; }
+  .at-scale { left: 10px; bottom: 8px; font-size: 12.5px; }
+  /* Boxes inside a box: the panel's padding and each journey's padding
+     together left the text a column ~230 px wide. */
+  .at-pane { padding: 16px 14px 18px; }
+  .at-journey { padding: 14px; }
 }
+
+/* The story sheet covers the foot of the screen; the back-to-top button
+   floated over its text. */
+body:has(.at-sheet) .scroll-to-top { visibility: hidden; opacity: 0; }
 @media (prefers-reduced-motion: reduce) {
   .atlas-page *,
   .atlas-page *::before,

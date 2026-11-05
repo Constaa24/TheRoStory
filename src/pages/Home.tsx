@@ -458,8 +458,14 @@ const Home: React.FC = () => {
                         <div className="ph absolute inset-0" data-tone={toneFor(featured.id)} style={{ border: 0 }} />
                       )}
                       <div className="sb-scrim" />
-                      <span className="sb-tag" style={{ position: 'absolute', left: 22, bottom: 22, marginRight: 22 }}>
-                        {en ? 'The newest' : 'Cea mai nouă'} · {featuredKind.charAt(0).toLowerCase() + featuredKind.slice(1)}
+                      {/* On a phone the whole label ran to two lines in the
+                          pill; the heading above already says these are new,
+                          so there it names the format alone. */}
+                      <span className="sb-tag left-[14px] bottom-[14px] sm:left-[22px] sm:bottom-[22px]" style={{ position: 'absolute', marginRight: 14 }}>
+                        <span className="hidden sm:inline">
+                          {en ? 'The newest' : 'Cea mai nouă'} · {featuredKind.charAt(0).toLowerCase() + featuredKind.slice(1)}
+                        </span>
+                        <span className="sm:hidden">{featuredKind}</span>
                       </span>
                     </div>
                   </div>

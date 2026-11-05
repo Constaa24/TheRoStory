@@ -161,27 +161,58 @@ export const placeLabel = (article: Pick<Article, 'location'>): string =>
   (article.location || '').toUpperCase();
 
 /**
- * Plain-text excerpt safe for cards and meta descriptions. Text stories
- * store chapters joined with CHAPTER_DELIMITER — without stripping it,
- * excerpts (and the SEO description) leak the raw `|||CHAPTER|||` token.
- * Also drops pull-quote/markdown markers and collapses whitespace.
+ * A story's text as one plain line for a card, cut at a word.
+ *
+ * Text stories store chapters joined with CHAPTER_DELIMITER; without
+ * stripping it, excerpts (and the SEO description) leak the raw
+ * `|||CHAPTER|||` token. A chapter's optional "# Title" line is a heading,
+ * not its first words, and pull-quote/markdown markers go too.
+ *
+ * A poem keeps its line breaks as " / ", the way verse is quoted in prose;
+ * collapsed into spaces it read as one run-on sentence with capitals in the
+ * middle ("…served at the wedding By the groom's father…").
+ *
+ * The cut lands between words, never mid-word ("before s…"), and never
+ * leaves an ellipsis after a full stop or a slash ("glass.…").
  */
+export const excerptText = (raw: string, maxLength: number, poem = false): string => {
+  let text = (raw || '')
+    .split(CHAPTER_DELIMITER)
+    .map((chapter) => chapter.replace(/^\s*#\s+[^\n]*\n?/, ''))
+    .join(poem ? '\n' : ' ')
+    .replace(/[#*_>`]/g, ' ');
+  if (poem) text = text.trim().replace(/[ \t]*\n\s*/g, ' / ');
+  text = text.replace(/\s+/g, ' ').trim();
+  if (text.length <= maxLength) return text;
+  const cut = text.slice(0, maxLength + 1);
+  // Back up to the last space; a single word longer than the whole budget
+  // is the only case cut mid-word.
+  const atWord = /\s/.test(cut) ? cut.replace(/\s+\S*$/, '') : text.slice(0, maxLength);
+  return atWord.replace(/[\s.,;:!?/—–-]+$/, '') + '…';
+};
+
+/** Items up to this long are kept on one line (a date, "33 views", "made with AI"). */
+const KEEP_TOGETHER = 24;
+
+/**
+ * The small "a · b · c" lines under titles and on cards. On a phone they
+ * wrap, and used to break inside an item ("11 / July 2026", "made / with
+ * AI"). Short items get non-breaking spaces so they wrap whole; a long one
+ * (a place name) may still wrap inside, rather than run off the screen. The
+ * space before each dot is non-breaking too, so no line starts with "·".
+ */
+export const joinMeta = (parts: (string | null | undefined | false)[]): string =>
+  parts
+    .filter((p): p is string => !!p && !!p.trim())
+    .map((p) => (p.length <= KEEP_TOGETHER ? p.replace(/ /g, ' ') : p.replace(/ · /g, ' · ')))
+    .join(' · ');
+
+/** Plain-text excerpt safe for cards and meta descriptions; see excerptText. */
 export const articleExcerpt = (
   article: Article,
   language: 'en' | 'ro',
   maxLength: number
-): string => {
-  const text = localizedContent(article, language)
-    .split(CHAPTER_DELIMITER)
-    // A chapter's optional "# Title" line is a heading, not its first words.
-    .map((chapter) => chapter.replace(/^\s*#\s+[^\n]*\n?/, ''))
-    .join(' ')
-    .replace(/[#*_>`]/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-  if (text.length <= maxLength) return text;
-  return text.slice(0, maxLength).trimEnd() + '…';
-};
+): string => excerptText(localizedContent(article, language), maxLength, article.subtype === 'poetry');
 
 /**
  * Resolves the image URL to use as an article's cover/thumbnail.

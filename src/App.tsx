@@ -11,28 +11,7 @@ import { SocialLinks } from "@/components/ui/social-links";
 import { Divider, Motif, Rosette, StoryLoading } from "@/components/story/Ornaments";
 import { toast } from "sonner";
 import { fetchCategories, Category } from "@/lib/supabase";
-
-type ErrorBoundaryProps = { fallback: React.ReactNode; children: React.ReactNode };
-type ErrorBoundaryState = { hasError: boolean };
-
-class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  // `declare` avoids useDefineForClassFields conflict with React 19 types
-  declare state: ErrorBoundaryState;
-  declare props: Readonly<ErrorBoundaryProps>;
-
-  constructor(props: ErrorBoundaryProps) {
-    super(props);
-    this.state = { hasError: false };
-  }
-  static getDerivedStateFromError(): ErrorBoundaryState { return { hasError: true }; }
-  override componentDidCatch(error: Error, info: React.ErrorInfo) {
-    console.error("ErrorBoundary caught:", error, info);
-  }
-  override render() {
-    if (this.state.hasError) return this.props.fallback;
-    return this.props.children;
-  }
-}
+import { ErrorBoundary, isChunkLoadError } from "@/components/ui/ErrorBoundary";
 
 // After a deploy, content-hashed chunk filenames change and the old ones are
 // removed from the server. A tab still running the previous build (browser or
@@ -80,10 +59,7 @@ function lazyWithReload<T extends React.ComponentType<any>>(
     try {
       return await factory();
     } catch (error) {
-      const isChunkError =
-        error instanceof Error &&
-        /dynamically imported module|Failed to fetch|importing a module script|module script/i.test(error.message);
-      if (isChunkError) {
+      if (isChunkLoadError(error)) {
         try {
           const KEY = "rostory_chunk_reload_at";
           const last = Number(sessionStorage.getItem(KEY) || 0);
@@ -143,8 +119,11 @@ function StorybookFooter({ language }: { language: 'en' | 'ro' }) {
 
   const linkClass = "text-[17px] transition-colors hover:text-gold";
 
+  // mt-14 on phones: every page already ends on its own bottom padding
+  // (64 px and up), and a fixed 128 px on top of that left ~200 px of empty
+  // screen before the footer.
   return (
-    <footer className="no-print mt-32" style={{ background: 'var(--ink-2)' }}>
+    <footer className="no-print mt-14 md:mt-32" style={{ background: 'var(--ink-2)' }}>
       <Motif style={{ opacity: 0.32 }} />
       <div className="ed-container grid grid-cols-1 md:grid-cols-[1.3fr_1fr_0.7fr] gap-12 items-start" style={{ paddingTop: 72, paddingBottom: 48 }}>
         <div className="flex flex-col gap-5">
@@ -333,19 +312,32 @@ const App: React.FC = () => {
       )}
       <main id="main" tabIndex={-1} className="flex-1">
         <ErrorBoundary
-          fallback={
-          <div className="flex flex-col items-center justify-center text-center px-6 py-20 gap-5">
-            <Rosette size="lg" />
-            <p className="font-display italic m-0 max-w-[460px]" style={{ fontSize: 24, lineHeight: 1.35, color: 'var(--parchment)' }}>
-              {language === 'en'
-                ? 'Something went wrong loading this page.'
-                : 'A apărut o problemă la încărcarea acestei pagini.'}
-            </p>
-            <button type="button" className="sb-btn sb-btn-ghost" onClick={() => window.location.reload()}>
-              {language === 'en' ? 'Reload the page' : 'Reîncarcă pagina'}
-            </button>
-          </div>
-        }
+          resetKey={location.pathname}
+          fallback={(error) => {
+            const stale = isChunkLoadError(error);
+            return (
+              <div className="flex flex-col items-center justify-center text-center px-6 py-20 gap-5">
+                <Rosette size="lg" />
+                <p className="font-display italic m-0 max-w-[460px]" style={{ fontSize: 24, lineHeight: 1.35, color: 'var(--parchment)' }}>
+                  {stale
+                    ? (language === 'en' ? 'The site has been updated since this page opened.' : 'Site-ul a fost actualizat de când ai deschis pagina.')
+                    : (language === 'en' ? 'Something went wrong loading this page.' : 'A apărut o problemă la încărcarea acestei pagini.')}
+                </p>
+                <button
+                  type="button"
+                  className="sb-btn sb-btn-ghost"
+                  onClick={async () => { await takeNewServiceWorker(); window.location.reload(); }}
+                >
+                  {language === 'en' ? 'Reload the page' : 'Reîncarcă pagina'}
+                </button>
+                {/* The error itself, small: a screenshot of this screen is
+                    then enough to say what broke. */}
+                <p className="sb-meta m-0 max-w-[460px] break-words" style={{ fontSize: 12, opacity: 0.75 }}>
+                  {`${error.name}: ${error.message}`.slice(0, 220)}
+                </p>
+              </div>
+            );
+          }}
         >
         {/* A full screen tall: with only a small loader in <main>, the
             footer rendered near the top of the screen until the page's

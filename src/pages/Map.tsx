@@ -314,7 +314,8 @@ const MapPage: React.FC = () => {
     let cancelled = false;
     fetchArticleExcerptSource(cardStory.id)
       .then((src) => {
-        if (!cancelled) setExcerpts((m) => ({ ...m, [cardStory.id]: src && { en: makeExcerpt(src.en), ro: makeExcerpt(src.ro) } }));
+        const poem = cardStory.kind === "poem";
+        if (!cancelled) setExcerpts((m) => ({ ...m, [cardStory.id]: src && { en: makeExcerpt(src.en, 170, poem), ro: makeExcerpt(src.ro, 170, poem) } }));
       })
       .catch((e) => {
         if (isAbortError(e)) return;

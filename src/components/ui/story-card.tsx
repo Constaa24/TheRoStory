@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { Heart } from "lucide-react";
 import { Article, Category, getLocalized } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
-import { toneFor, articleExcerpt, articleCoverUrl, countLabel } from "@/lib/article-utils";
+import { toneFor, articleExcerpt, articleCoverUrl, countLabel, joinMeta } from "@/lib/article-utils";
 import { kindPhrase, placeAndTime, readPhrase, toRoman } from "@/lib/story-facts";
 import { storageImage } from "@/lib/image-url";
 
@@ -113,7 +113,7 @@ export const StoryCard = React.memo<StoryCardProps>(({ article, category, langua
             {where && <span className="sb-kicker-sm">{where}</span>}
             <span className="sb-card-title" style={{ fontSize: 30, margin: 0 }}>{title}</span>
             {first && <span className="sb-card-first">{first}</span>}
-            <span className="sb-meta" style={{ marginTop: 6 }}>{[categoryName, length].filter(Boolean).join(' · ')}</span>
+            <span className="sb-meta" style={{ marginTop: 6 }}>{joinMeta([categoryName, length])}</span>
           </span>
         </Link>
         <div className="absolute top-0 left-0 sm:w-[45%] w-full">{heart}</div>
@@ -128,7 +128,7 @@ export const StoryCard = React.memo<StoryCardProps>(({ article, category, langua
         {where && <span className="sb-kicker-sm block" style={{ marginTop: 18 }}>{where}</span>}
         <span className="sb-card-title block" style={!where ? { marginTop: 18 } : undefined}>{title}</span>
         {first && <span className="sb-card-first block">{first}</span>}
-        <span className="sb-meta block" style={{ marginTop: 14 }}>{[categoryName, length].filter(Boolean).join(' · ')}</span>
+        <span className="sb-meta block" style={{ marginTop: 14 }}>{joinMeta([categoryName, length])}</span>
       </Link>
       {heart}
     </article>
