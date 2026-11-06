@@ -1,6 +1,7 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { ArchiveEntry, Category, getLocalized, fetchArchiveIndex, fetchCategories, fetchArticleCategoryCounts, fetchRandomArticle } from "@/lib/supabase";
+import { Motif } from "@/components/story/Ornaments";
+import { Category, getLocalized, fetchCategories, fetchArticleCategoryCounts, fetchRandomArticle } from "@/lib/supabase";
 import { useLanguage } from "@/hooks/use-language";
 import { isAbortError, toJsonLd } from "@/lib/utils";
 import { PageHead } from "@/components/layout/PageHead";
@@ -9,10 +10,9 @@ import { LoadError } from "@/components/ui/load-error";
 import { localizedPath } from "@/lib/locale";
 import { countLabel } from "@/lib/article-utils";
 import { categoryDescription, categoryImageSources, getCategoryImage } from "@/lib/category-copy";
-import { splitTitle } from "@/lib/story-facts";
-import { ChapterHead, Divider } from "@/components/story/Ornaments";
+import { toRoman } from "@/lib/story-facts";
 
-// "Eight shelves of stories." — the number spelled out, as a book would.
+// "Eight shelves, one country." — the number spelled out, as a book would.
 const NUMBER_WORDS = {
   en: ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten', 'Eleven', 'Twelve'],
   // Neuter plural, to agree with "rafturi": două rafturi, douăsprezece rafturi.
@@ -21,16 +21,16 @@ const NUMBER_WORDS = {
 
 const shelvesHeading = (n: number, language: 'en' | 'ro'): string => {
   const word = NUMBER_WORDS[language][n] ?? String(n);
-  if (language === 'ro') return n === 1 ? 'Un raft de povești.' : `${word} rafturi de povești.`;
-  return n === 1 ? 'One shelf of stories.' : `${word} shelves of stories.`;
+  if (language === 'ro') return n === 1 ? 'Un raft, o singură țară.' : `${word} rafturi, o singură țară.`;
+  return n === 1 ? 'One shelf, one country.' : `${word} shelves, one country.`;
 };
 
+/** The shelves (the redesign's Shelves index): every shelf as an arched door. */
 const Categories: React.FC = () => {
   const { language } = useLanguage();
   const navigate = useNavigate();
   const [categories, setCategories] = useState<Category[]>([]);
   const [categoryCounts, setCategoryCounts] = useState<Record<string, number>>({});
-  const [archiveIndex, setArchiveIndex] = useState<ArchiveEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadFailed, setLoadFailed] = useState(false);
   const en = language === 'en';
@@ -42,10 +42,7 @@ const Categories: React.FC = () => {
     setIsLoading(true);
     setLoadFailed(false);
     try {
-      const [cats, counts] = await Promise.all([
-        fetchCategories(),
-        fetchArticleCategoryCounts(),
-      ]);
+      const [cats, counts] = await Promise.all([fetchCategories(), fetchArticleCategoryCounts()]);
       setCategories(cats);
       setCategoryCounts(counts);
     } catch (error) {
@@ -60,34 +57,12 @@ const Categories: React.FC = () => {
 
   useEffect(() => { loadData(); }, [loadData]);
 
-  // The "Inside: …" line under each shelf. Optional garnish: a failure
-  // leaves the line off rather than failing the page.
-  useEffect(() => {
-    let cancelled = false;
-    fetchArchiveIndex()
-      .then((rows) => { if (!cancelled) setArchiveIndex(rows); })
-      .catch(() => {});
-    return () => { cancelled = true; };
-  }, []);
-
-  const insideOf = useMemo(() => {
-    const byShelf = new Map<string, string[]>();
-    for (const entry of archiveIndex) {
-      const titles = byShelf.get(entry.categoryId) ?? [];
-      if (titles.length < 2) {
-        titles.push(splitTitle(getLocalized(entry, 'title', language)).main);
-        byShelf.set(entry.categoryId, titles);
-      }
-    }
-    return byShelf;
-  }, [archiveIndex, language]);
-
   const handleRandomStory = async () => {
-    const a = await fetchRandomArticle();
+    const a = await fetchRandomArticle().catch(() => null);
     if (a) navigate(`/article/${a.id}`, { state: { from: '/categories' } });
   };
 
-  const pageTitle = en ? "Categories" : "Categorii";
+  const pageTitle = en ? "Shelves" : "Rafturi";
   const pageDescription = en
     ? "Browse stories of Romania organized by theme — history, traditions, nature, food, regions, and more."
     : "Răsfoiește poveștile României organizate pe teme — istorie, tradiții, natură, mâncare, regiuni și multe altele.";
@@ -104,82 +79,73 @@ const Categories: React.FC = () => {
   };
 
   return (
-    <div className="screen-anim">
+    <div className="rs-in">
       <PageHead title={pageTitle} description={pageDescription} language={language}>
         <script type="application/ld+json">{toJsonLd(itemListLd)}</script>
       </PageHead>
 
-      <section className="ed-container" style={{ paddingTop: 'clamp(48px, 6vw, 72px)', paddingBottom: 56 }}>
-        <ChapterHead
-          as="h1"
-          kicker={en ? 'Routes through the archive' : 'Trasee prin arhivă'}
-          title={categories.length ? shelvesHeading(categories.length, language) : (en ? 'The shelves.' : 'Rafturile.')}
-        >
-          <p className="sb-lede max-w-[620px]">
+      <section className="ed-container" style={{ paddingTop: 'clamp(40px, 6vw, 80px)' }}>
+        <p className="rs-eyebrow" style={{ marginBottom: 14 }}>{en ? 'The shelves' : 'Rafturile'}</p>
+        <div className="grid grid-cols-1 min-[1000px]:grid-cols-[1.3fr_1fr] gap-x-16 gap-y-6 items-end" style={{ marginBottom: 'clamp(40px, 6vw, 72px)' }}>
+          <h1 className="rs-display" style={{ fontSize: 'clamp(52px, 7vw, 112px)', lineHeight: 0.94, letterSpacing: '-0.025em' }}>
+            {categories.length ? shelvesHeading(categories.length, language) : (en ? 'The shelves.' : 'Rafturile.')}
+          </h1>
+          <p className="m-0 mb-2" style={{ fontSize: 19, lineHeight: 1.6, color: 'var(--text-dim)', textWrap: 'pretty' }}>
             {en
-              ? 'Pick the kind of story you’re in the mood for — a legend, a poem, a person, a place — and follow it wherever it leads.'
-              : 'Alege ce fel de poveste ți-e dor să citești — o legendă, un poem, un om, un loc — și urmeaz-o oriunde te-ar duce.'}
+              ? 'The archive, sorted the way a reader wanders: by what a story is about. Pick a shelf and pull something down.'
+              : 'Arhiva, ordonată așa cum rătăcește un cititor: după ce e povestea. Alege un raft și ia ceva de pe el.'}
           </p>
-        </ChapterHead>
-      </section>
+        </div>
 
-      <section className="ed-container" style={{ paddingBottom: 96 }}>
         {isLoading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-x-8 gap-y-14">
-            {[1, 2, 3, 4].map(i => (
-              <div key={i} className="sb-arch animate-pulse" style={{ aspectRatio: '3 / 4' }} />
+          <div className="rs-shelves">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="rs-card-frame animate-pulse" />
             ))}
           </div>
         ) : loadFailed ? (
           <LoadError onRetry={loadData} />
         ) : (
-          <ul className="list-none m-0 p-0 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-x-8 gap-y-14">
+          <ul className="rs-shelves list-none m-0 p-0">
             {categories.map((category, index) => {
               const name = getLocalized(category, 'name', language);
               const count = categoryCounts[category.id] ?? 0;
               const base = getCategoryImage(category.slug || name.toLowerCase());
-              const inside = insideOf.get(category.id);
               return (
                 <li key={category.id}>
-                  <Link to={`/category/${category.id}`} className="sb-card grid gap-3.5">
-                    <div className="sb-window" style={{ padding: 8 }}>
-                      <div className="sb-arch sb-card-media" style={{ aspectRatio: '3 / 4' }}>
+                  <Link to={`/category/${category.id}`} className="rs-shelf rs-card">
+                    <span className="rs-shelf-window">
+                      <span className="rs-card-frame block" style={{ boxShadow: 'none' }}>
                         <picture>
-                          <source type="image/avif" srcSet={categoryImageSources(base).avif} sizes="(min-width: 1024px) 22vw, (min-width: 640px) 45vw, 92vw" />
-                          <source type="image/webp" srcSet={categoryImageSources(base).webp} sizes="(min-width: 1024px) 22vw, (min-width: 640px) 45vw, 92vw" />
+                          <source type="image/avif" srcSet={categoryImageSources(base).avif} sizes="(min-width: 1100px) 22vw, (min-width: 640px) 45vw, 92vw" />
+                          <source type="image/webp" srcSet={categoryImageSources(base).webp} sizes="(min-width: 1100px) 22vw, (min-width: 640px) 45vw, 92vw" />
                           <img
                             src={`${base}.jpg`}
                             alt=""
                             width={1024}
                             height={1024}
-                            // The first row is on screen as the page opens (the
-                            // first door is its largest picture on a phone):
-                            // lazy loading held those back until layout, about
-                            // 3 s later on a throttled phone.
+                            // The first row is on screen as the page opens:
+                            // lazy loading held those back until layout,
+                            // about 3 s later on a throttled phone.
                             loading={index < 4 ? "eager" : "lazy"}
                             fetchPriority={index === 0 ? "high" : undefined}
                             decoding="async"
-                            className="absolute inset-0 w-full h-full object-cover"
+                            className="rs-card-img"
                           />
                         </picture>
-                        <div className="sb-scrim" style={{ opacity: 0.55 }} />
-                        <span className="sb-tag whitespace-nowrap" style={{ position: 'absolute', left: '50%', bottom: 18, transform: 'translateX(-50%)' }}>
-                          {countLabel(count, 'story', language)}
+                        <span className="sb-scrim" />
+                        <span aria-hidden="true" className="absolute inset-x-0 bottom-[18px] text-center font-display italic" style={{ fontSize: 22, color: '#f4ead7' }}>
+                          {toRoman(index + 1)}
                         </span>
-                      </div>
-                    </div>
-                    <h2 className="sb-h3 text-center mt-1.5">{name}</h2>
-                    <p className="sb-dim text-center" style={{ fontSize: 16.5, lineHeight: 1.55 }}>
+                      </span>
+                    </span>
+                    <h2 className="rs-display" style={{ marginTop: 20, fontSize: 32, lineHeight: 1.02, letterSpacing: 0 }}>{name}</h2>
+                    <span className="block mt-2" style={{ fontSize: 15.5, lineHeight: 1.55, color: 'var(--text-dim)', textWrap: 'pretty' }}>
                       {categoryDescription(category.slug || name.toLowerCase(), name, language)}
-                    </p>
-                    {inside && inside.length > 0 && (
-                      <>
-                        <Divider className="mt-1" />
-                        <p className="sb-kicker-sm text-center" style={{ color: 'var(--text-dim)', fontSize: 16 }}>
-                          {en ? 'Inside: ' : 'Înăuntru: '}{inside.join(', ')}
-                        </p>
-                      </>
-                    )}
+                    </span>
+                    <span className="block mt-3" style={{ fontFamily: 'var(--ui)', fontSize: 12.5, fontWeight: 700, color: 'var(--gold)' }}>
+                      {countLabel(count, 'story', language)} →
+                    </span>
                   </Link>
                 </li>
               );
@@ -188,18 +154,19 @@ const Categories: React.FC = () => {
         )}
       </section>
 
-      <section className="sb-band">
-        <div className="ed-container flex flex-wrap justify-between items-center gap-7" style={{ paddingTop: 64, paddingBottom: 64 }}>
+      <section className="ed-container" style={{ paddingTop: 'clamp(64px, 8vw, 112px)' }}>
+        <div className="rs-band relative flex flex-wrap justify-between items-center gap-7" style={{ padding: 'clamp(28px, 4vw, 48px)', borderRadius: 24, border: '1px solid var(--line-soft)' }}>
+          <Motif className="absolute" style={{ left: 32, right: 32, top: 0, transform: 'translateY(-50%)', opacity: 0.45 }} />
           <div className="flex flex-col gap-2.5">
-            <p className="sb-kicker">{en ? 'Not sure where to begin?' : 'Nu știi de unde să începi?'}</p>
-            <h2 className="sb-h2" style={{ fontSize: 'clamp(30px, 3.4vw, 46px)' }}>
+            <p className="rs-eyebrow">{en ? 'Not sure where to begin?' : 'Nu știi de unde să începi?'}</p>
+            <h2 className="rs-display" style={{ fontSize: 'clamp(30px, 3.4vw, 46px)', lineHeight: 1.05 }}>
               {en ? 'Let the map, or chance, choose for you.' : 'Lasă harta, sau norocul, să aleagă pentru tine.'}
             </h2>
           </div>
-          <div className="flex flex-wrap gap-3">
-            <Link to="/map" className="sb-btn">{en ? 'Open the map →' : 'Deschide harta →'}</Link>
-            <button type="button" className="sb-btn sb-btn-ghost" onClick={handleRandomStory}>
-              {en ? 'Tell me a story at random' : 'Spune-mi o poveste la întâmplare'}
+          <div className="flex flex-wrap gap-2.5">
+            <Link to="/map" className="rs-btn">{en ? 'Open the map →' : 'Deschide harta →'}</Link>
+            <button type="button" className="rs-btn rs-btn-ghost" onClick={handleRandomStory}>
+              {en ? 'A story at random' : 'O poveste la întâmplare'}
             </button>
           </div>
         </div>

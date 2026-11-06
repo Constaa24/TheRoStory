@@ -1,8 +1,11 @@
 /* ============================================================
-   THE ATLAS (/map)
-   An engraved atlas plate: the map and its chronicle side by side, with the
-   timeline as the plate's lower margin. Every class is prefixed `at-` and
-   every token `--at-`, so nothing here can leak into the rest of the site.
+   THE ATLAS (/map), in the redesign's voice (AtlasPage.dc.html)
+   One filter bar, the map in a softly lit frame with its timeline under it,
+   and a side column for the chosen story, the list, journeys and the
+   counties still unwritten. Captions and controls in the UI face, titles
+   upright in the display face, map labels italic as on a printed map.
+   Every class is prefixed `at-` and every token `--at-`, so nothing here
+   leaks into the rest of the site.
 
    Width queries use min-width / max-width rather than the range syntax the
    linter prefers: Safari only understands `(width <= …)` from 16.4, and on an
@@ -15,15 +18,12 @@
 .atlas-page,
 .at-portal {
   --at-ink-3: #1b170f;
-  --at-oxblood: #b04848;
-  --at-grid: rgba(201, 169, 110, 0.045);
   --at-land-solid: #1d1911;
   --at-land-has: rgba(201, 169, 110, 0.08);
-  --at-county-line: rgba(201, 169, 110, 0.24);
+  --at-county-line: rgba(201, 169, 110, 0.22);
   --at-region-line: rgba(217, 191, 140, 0.62);
-  --at-river: rgba(140, 160, 180, 0.64);
+  --at-river: rgba(140, 160, 180, 0.6);
   --at-hatch: rgba(201, 169, 110, 0.22);
-  --at-panel: rgba(20, 17, 12, 0.78);
   --at-shade: rgba(13, 11, 8, 0.66);
   --at-sheet-shadow: 0 -18px 50px rgba(0, 0, 0, 0.55);
   --at-pop-shadow: 0 18px 46px rgba(0, 0, 0, 0.5);
@@ -32,119 +32,120 @@
 .light .atlas-page,
 .light .at-portal {
   --at-ink-3: #e5d6b7;
-  --at-oxblood: #8f2f2f;
-  --at-grid: rgba(80, 60, 30, 0.05);
-  --at-land-solid: #e5dac2;
+  --at-land-solid: #e9dfc8;
   --at-land-has: rgba(110, 80, 26, 0.09);
-  --at-county-line: rgba(80, 60, 30, 0.28);
+  --at-county-line: rgba(80, 60, 30, 0.26);
   --at-region-line: rgba(87, 63, 20, 0.62);
-  --at-river: rgba(60, 90, 120, 0.62);
+  --at-river: rgba(60, 90, 120, 0.6);
   --at-hatch: rgba(80, 60, 30, 0.22);
-  --at-panel: rgba(237, 226, 203, 0.82);
   --at-shade: rgba(246, 241, 230, 0.72);
   --at-sheet-shadow: 0 -18px 50px rgba(80, 60, 30, 0.22);
   --at-pop-shadow: 0 18px 46px rgba(80, 60, 30, 0.2);
 }
 
-.atlas-page h1,
-.atlas-page h2,
-.atlas-page h3,
-.at-portal h3 { font-family: var(--display); font-weight: 500; font-style: italic; text-wrap: balance; margin: 0; color: var(--parchment); }
+/* ---------- header ---------- */
+.at-intro {
+  display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 20px 40px;
+  padding-block: clamp(28px, 4vw, 48px) 24px;
+}
+.at-intro > div { min-width: 0; }
+.at-intro .rs-eyebrow { margin-bottom: 10px; }
+.at-intro h1 { font-size: clamp(44px, 5.4vw, 80px); line-height: 0.98; }
 
-/* ---------- intro ---------- */
-.at-intro { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 22px 48px; padding-block: 40px 24px; }
-.at-intro > div { min-width: 0; max-width: 640px; }
-.atlas-page .eyebrow,
-.at-portal .eyebrow { font-family: var(--display); font-style: italic; font-weight: 400; font-size: 18px; letter-spacing: 0; text-transform: none; color: var(--gold); }
-.at-intro h1 { font-size: clamp(40px, 5.2vw, 76px); line-height: 0.95; letter-spacing: -0.015em; margin-top: 14px; }
-.at-lede { font-size: 18px; color: var(--text-dim); max-width: 560px; margin: 14px 0 0; line-height: 1.55; }
-.at-facts { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px 28px; }
-.at-facts li { display: grid; gap: 2px; }
-.at-facts b { font-family: var(--display); font-style: italic; font-weight: 500; font-size: 32px; line-height: 1; color: var(--gold); font-variant-numeric: lining-nums; }
-.at-facts span { font-family: var(--display); font-style: italic; font-weight: 400; letter-spacing: 0; text-transform: none; font-size: 16px; color: var(--text-dim); }
+/* The Map / List switch: a pill with the chosen half filled in gold. */
+.at-seg { display: inline-flex; padding: 4px; gap: 4px; border: 1px solid var(--line); border-radius: 999px; }
+.at-seg-btn {
+  min-height: 40px; padding: 0 18px; border: 0; border-radius: 999px; background: transparent; cursor: pointer;
+  font-family: var(--ui); font-size: 13px; font-weight: 700; color: var(--text-dim);
+}
+.at-seg-btn:hover { color: var(--parchment); }
+.at-seg-btn[aria-pressed="true"] { background: var(--gold); color: var(--on-gold); }
 
 /* ---------- buttons ---------- */
 .at-btn-gold,
 .at-btn-ghost {
-  display: inline-flex; align-items: center; gap: 9px; border-radius: 999px; padding: 10px 18px; cursor: pointer; text-decoration: none;
-  font-family: var(--ui); font-size: 14px; font-weight: 600; letter-spacing: 0.01em;
+  display: inline-flex; align-items: center; justify-content: center; gap: 9px; min-height: 44px; padding: 0 20px;
+  border-radius: 999px; cursor: pointer; text-decoration: none; white-space: nowrap;
+  font-family: var(--ui); font-size: 14px; font-weight: 700; transition: background-color 0.2s, border-color 0.2s;
 }
 .at-btn-gold { background: var(--gold); border: 1px solid var(--gold); color: var(--on-gold); }
 .at-btn-gold:hover { background: var(--gold-2); border-color: var(--gold-2); }
-.at-btn-ghost { background: transparent; border: 1px solid var(--line); color: var(--gold); }
-.at-btn-ghost:hover { border-color: var(--gold-deep); }
+.at-btn-ghost { background: transparent; border: 1px solid var(--line); color: var(--parchment); }
+.at-btn-ghost:hover { border-color: var(--gold-deep); background: var(--glow); }
 .at-btn-gold:disabled,
 .at-btn-ghost:disabled { opacity: 0.4; cursor: default; }
 .at-ico { width: 12px; height: 12px; flex: none; }
 .at-link {
-  border: 0; background: none; padding: 0; cursor: pointer; font-family: var(--display); font-style: italic; font-weight: 400; letter-spacing: 0; text-transform: none; font-size: 17px;
-  color: var(--gold); text-decoration: underline; text-underline-offset: 4px; text-decoration-thickness: 1px;
+  display: inline-flex; align-items: center; min-height: 28px; border: 0; background: none; padding: 0; cursor: pointer;
+  font-family: var(--ui); font-size: 13px; font-weight: 700; color: var(--gold);
+  text-decoration: underline; text-underline-offset: 4px; text-decoration-thickness: 1px;
 }
-.at-seg { display: inline-flex; border: 1px solid var(--line); border-radius: 999px; padding: 3px; gap: 2px; }
-.at-seg-btn {
-  border: 0; background: transparent; cursor: pointer; border-radius: 999px; padding: 6px 12px;
-  font-family: var(--ui); font-size: 13px; font-weight: 600; color: var(--text-dim);
-}
-.at-seg-btn[aria-pressed="true"] { background: var(--gold); color: var(--on-gold); }
+.at-link:hover { color: var(--gold-2); }
 
-/* ---------- toolbar ----------
-   One row: three dropdowns, the filters in force as removable chips, and the
-   map/list switch. The options live in popovers, so nothing is lost. */
+/* ---------- filter bar ---------- */
 .at-toolbar {
-  position: relative; z-index: 20; display: flex; flex-wrap: wrap; align-items: center; gap: 10px;
-  padding-block: 14px; border-top: 1px dashed var(--line); border-bottom: 1px dashed var(--line); margin-bottom: 22px;
+  position: relative; z-index: 20; display: grid; gap: 12px;
+  padding-block: 14px; border-block: 1px dashed var(--line); margin-bottom: 24px;
 }
-.at-toolbar > .at-seg { margin-left: auto; }
-.at-dd { position: relative; }
+.at-frow { display: flex; align-items: center; gap: 10px 16px; min-width: 0; }
+.at-filter-lbl { flex: none; min-width: 44px; font-family: var(--ui); font-size: 12px; font-weight: 700; color: var(--text-mute); }
+.at-chips { display: flex; flex-wrap: wrap; gap: 8px; min-width: 0; flex: 1 1 auto; }
+.at-toolbar .rs-chip { min-height: 36px; padding: 4px 14px; font-size: 12.5px; }
+.at-dd { position: relative; flex: none; }
+.at-dd-format { margin-left: auto; }
 .at-dd-btn,
-.at-key-btn {
-  display: inline-flex; align-items: center; gap: 8px; border: 1px solid var(--line); background: transparent; border-radius: 999px;
-  padding: 7px 16px; min-height: 40px; cursor: pointer; white-space: nowrap;
-  font-family: var(--display); font-style: italic; font-weight: 400; letter-spacing: 0; text-transform: none; font-size: 18px; color: var(--text-dim);
+.at-tool-btn {
+  display: inline-flex; align-items: center; gap: 8px; min-height: 36px; padding: 0 14px; cursor: pointer; white-space: nowrap;
+  border: 1px solid var(--line); border-radius: 999px; background: transparent;
+  font-family: var(--ui); font-size: 12.5px; font-weight: 600; color: var(--text-dim);
 }
-.at-key-btn { background: var(--ink); padding: 7px 12px; gap: 7px; }
+.at-tool-btn { background: var(--ink-2); }
 .at-dd-btn:hover,
 .at-dd-btn[aria-expanded="true"],
-.at-key-btn:hover,
-.at-key-btn[aria-expanded="true"] { border-color: var(--gold-deep); color: var(--text); }
-.at-dd-v { color: var(--gold); }
+.at-tool-btn:hover,
+.at-tool-btn[aria-expanded="true"] { border-color: var(--gold-deep); color: var(--parchment); }
+.at-dd-v { font-weight: 700; color: var(--gold); }
 .at-caret { width: 10px; height: 10px; transition: transform 0.15s; }
 .at-dd-btn[aria-expanded="true"] .at-caret { transform: rotate(180deg); }
+
 .at-pop {
-  position: absolute; top: calc(100% + 8px); left: 0; z-index: 30; min-width: 240px; max-width: min(320px, calc(100vw - 32px));
-  background: var(--ink-2); border: 1px solid var(--line); border-radius: 16px; box-shadow: var(--at-pop-shadow); padding: 8px;
+  position: absolute; top: calc(100% + 8px); left: 0; z-index: 30; min-width: 230px; max-width: min(320px, calc(100vw - 32px));
+  padding: 8px; border: 1px solid var(--line); border-radius: 16px; background: var(--ink-2); box-shadow: var(--at-pop-shadow);
 }
-.at-pop-list { display: grid; gap: 1px; }
+.at-pop[data-anchor="end"] { left: auto; right: 0; }
+.at-pop-list { display: grid; gap: 2px; }
 .at-opt {
-  width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 16px; border: 0; background: transparent;
-  border-radius: 10px; padding: 8px 10px; cursor: pointer; text-align: left;
-  font-family: var(--display); font-style: italic; font-size: 18px; line-height: 1.2; color: var(--text);
+  width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 40px; padding: 0 12px;
+  border: 0; border-radius: 10px; background: transparent; cursor: pointer; text-align: left;
+  font-family: var(--ui); font-size: 13.5px; font-weight: 600; color: var(--text);
 }
 .at-opt:hover { background: var(--line-soft); }
-.at-opt[aria-pressed="true"] { color: var(--gold); background: var(--at-land-has); }
-.at-opt-n { font-family: var(--ui); font-style: normal; font-size: 11px; font-weight: 600; color: var(--text-dim); font-variant-numeric: tabular-nums; }
-.at-tick { width: 14px; height: 14px; flex: none; border: 1px solid var(--gold-deep); border-radius: 3px; display: grid; place-items: center; }
-.at-opt[aria-pressed="true"] .at-tick::after { content: ""; width: 8px; height: 8px; background: var(--gold); border-radius: 1px; }
-.at-af { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
-.at-af-chip {
-  display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--gold-deep); background: var(--at-land-has); border-radius: 999px;
-  padding: 5px 9px 5px 12px; cursor: pointer; font-family: var(--display); font-style: italic; font-size: 15px; color: var(--gold);
-}
-.at-x { width: 9px; height: 9px; }
-.at-af-chip:hover { border-color: var(--gold); }
+.at-opt[aria-pressed="true"] { color: var(--gold-2); background: var(--glow); }
+.at-opt-n { font-size: 12px; font-weight: 700; color: var(--text-mute); font-variant-numeric: tabular-nums; }
+.at-opt[aria-pressed="true"] .at-opt-n { color: var(--text-dim); }
+.at-tick { width: 16px; height: 16px; flex: none; display: grid; place-items: center; border: 1px solid var(--gold-deep); border-radius: 4px; }
+.at-opt[aria-pressed="true"] .at-tick::after { content: ""; width: 8px; height: 8px; border-radius: 2px; background: var(--gold); }
 
-/* ---------- grid ---------- */
-.at-grid { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 28px; align-items: start; }
-/* The map and its timeline are one plate. */
-.at-plate { min-width: 0; border: 1px solid var(--line); border-radius: 22px; background: var(--ink-2); overflow: hidden; }
+/* The filters in force, each a chip that removes itself. */
+.at-af { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; }
+.at-af-chip {
+  display: inline-flex; align-items: center; gap: 8px; min-height: 32px; padding: 0 10px 0 14px; cursor: pointer;
+  border: 1px solid var(--gold-deep); border-radius: 999px; background: var(--glow);
+  font-family: var(--ui); font-size: 12.5px; font-weight: 700; color: var(--gold-2);
+}
+.at-af-chip:hover { border-color: var(--gold); }
+.at-x { width: 9px; height: 9px; }
+
+/* ---------- the map and the side column ---------- */
+.at-grid { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: clamp(24px, 3vw, 40px); align-items: start; }
+/* The map and its timeline are one plate, softly lit from the middle. */
+.at-plate {
+  min-width: 0; overflow: hidden; border: 1px solid var(--line); border-radius: 28px;
+  background: radial-gradient(ellipse at 50% 34%, var(--glow), transparent 68%), var(--ink-2);
+}
 
 .at-frame {
   position: relative; aspect-ratio: 10 / 7; width: 100%; max-width: 100%; overflow: hidden;
-  background:
-    linear-gradient(var(--at-grid) 1px, transparent 1px) 0 0 / 40px 40px,
-    linear-gradient(90deg, var(--at-grid) 1px, transparent 1px) 0 0 / 40px 40px,
-    radial-gradient(ellipse at 50% 42%, var(--at-land-has), transparent 62%),
-    var(--ink-2);
   touch-action: pan-y; user-select: none; cursor: grab;
 }
 .at-frame.at-dragging { cursor: grabbing; }
@@ -157,9 +158,9 @@
    and hit areas. Shading is stroked across the seam to the neighbouring
    county and faded as a whole group, so overlapping strokes never double. */
 .at-l-under path { fill: var(--at-land-solid); }
-.at-l-tint { opacity: 0.09; }
+.at-l-tint { opacity: 0.1; }
 .at-l-sel { opacity: 0.28; }
-.at-l-hatch { opacity: 0.17; }
+.at-l-hatch { opacity: 0.11; }
 .at-l-tint path,
 .at-l-sel path { fill: var(--gold); stroke: var(--gold); stroke-width: 2.6; stroke-linejoin: round; pointer-events: none; }
 .at-l-hatch path { fill: url("#at-hatch"); stroke: url("#at-hatch"); stroke-width: 2.6; stroke-linejoin: round; pointer-events: none; }
@@ -169,8 +170,9 @@
 .at-l-lines path { fill: none; stroke: var(--at-county-line); stroke-width: 0.8; vector-effect: non-scaling-stroke; pointer-events: none; }
 .at-l-regions path { fill: none; stroke: var(--at-region-line); stroke-width: 2; stroke-dasharray: 7 4; vector-effect: non-scaling-stroke; pointer-events: none; }
 .at-l-outline path { fill: none; stroke: var(--gold); stroke-width: 1.4; vector-effect: non-scaling-stroke; stroke-linejoin: round; stroke-linecap: round; pointer-events: none; }
-.at-l-rivers path { fill: none; stroke: var(--at-river); stroke-width: 1.2; vector-effect: non-scaling-stroke; stroke-linejoin: round; stroke-linecap: round; pointer-events: none; }
+.at-l-rivers path { fill: none; stroke: var(--at-river); stroke-width: 1.1; vector-effect: non-scaling-stroke; stroke-linejoin: round; stroke-linecap: round; pointer-events: none; }
 
+/* Map lettering: italic, as on a printed map. */
 .at-lbl { font-family: var(--ui); pointer-events: none; }
 .at-lbl-region {
   font-size: 10.5px; font-weight: 600; letter-spacing: 0.32em; text-transform: uppercase; fill: var(--at-region-line);
@@ -217,105 +219,105 @@
 .at-journey-line.at-draw { stroke-dasharray: 1; stroke-dashoffset: 1; animation: at-draw 1.3s ease-out forwards; }
 @keyframes at-draw { to { stroke-dashoffset: 0; } }
 
+/* What sits on the map: zoom, tools, scale, readout, tip. */
 .at-ui { position: absolute; inset: 0; pointer-events: none; }
-.at-zoom { position: absolute; top: 12px; right: 12px; display: grid; gap: 6px; pointer-events: auto; }
+.at-zoom { position: absolute; top: 14px; right: 14px; display: grid; gap: 6px; pointer-events: auto; }
 .at-zoom-btn {
-  width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--line); background: var(--ink);
-  color: var(--text); cursor: pointer; display: grid; place-items: center;
+  display: grid; place-items: center; width: 38px; height: 38px; border-radius: 50%; cursor: pointer;
+  border: 1px solid var(--line); background: var(--ink-2); color: var(--parchment);
 }
 .at-zoom-btn:hover { color: var(--gold); border-color: var(--gold-deep); }
 .at-zoom-ico { width: 15px; height: 15px; }
+.at-tools { position: absolute; left: 14px; top: 14px; display: flex; gap: 8px; pointer-events: auto; }
+.at-tool { position: relative; }
+#at-pop-key { width: 290px; padding: 14px 16px; }
 .at-scale {
-  position: absolute; left: 14px; bottom: 12px; display: flex; align-items: center; gap: 8px;
-  font-family: var(--display); font-style: italic; font-weight: 400; letter-spacing: 0; text-transform: none; font-size: 14px; color: var(--text-mute);
+  position: absolute; left: 16px; bottom: 16px; display: flex; align-items: center; gap: 8px;
+  font-family: var(--ui); font-size: 12px; font-weight: 600; color: var(--text-mute);
 }
 .at-scale i { display: block; height: 5px; border: 1px solid var(--gold); border-top: 0; }
-.at-coords { position: absolute; left: 14px; top: 12px; font-family: var(--display); font-style: italic; font-size: 13px; color: var(--text-mute); }
-.at-readout { position: absolute; left: 14px; bottom: 34px; max-width: min(80%, 460px); display: grid; gap: 2px; pointer-events: none; }
+.at-coords { margin-left: 6px; font-variant-numeric: tabular-nums; }
+.at-readout { position: absolute; left: 16px; bottom: 40px; max-width: min(80%, 460px); display: grid; gap: 4px; pointer-events: none; }
 .at-readout-yr {
-  font-family: var(--display); font-style: italic; font-size: clamp(40px, 7vw, 76px); line-height: 0.9; color: var(--gold);
+  font-family: var(--display); font-weight: 500; font-size: clamp(40px, 7vw, 76px); line-height: 0.9; color: var(--gold);
   text-shadow: 0 2px 18px var(--ink); font-variant-numeric: lining-nums;
 }
 .at-readout-cap { font-family: var(--display); font-style: italic; font-size: 18px; color: var(--parchment); text-shadow: 0 1px 10px var(--ink); }
 .at-tip {
   position: absolute; z-index: 3; transform: translate(-50%, calc(-100% - 18px)); pointer-events: none;
-  background: var(--ink); border: 1px solid var(--line); border-radius: 14px; padding: 10px 14px; width: max-content; max-width: 260px;
-  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
+  width: max-content; max-width: 260px; padding: 10px 14px; border: 1px solid var(--line); border-radius: 14px;
+  background: var(--ink-2); box-shadow: var(--shadow-dropdown);
 }
 .at-tip.at-below { transform: translate(-50%, 22px); }
-.at-tip-m { display: block; font-family: var(--display); font-style: italic; font-weight: 400; letter-spacing: 0; text-transform: none; font-size: 15px; color: var(--gold); }
-.at-tip-t { display: block; font-family: var(--display); font-style: italic; font-size: 17px; line-height: 1.15; color: var(--parchment); margin-top: 3px; }
-.at-tip-p { display: block; font-size: 12.5px; color: var(--text-dim); margin-top: 3px; }
+.at-tip-m { display: block; font-family: var(--ui); font-size: 12px; font-weight: 600; color: var(--gold); }
+.at-tip-t { display: block; margin-top: 3px; font-family: var(--display); font-size: 19px; line-height: 1.15; color: var(--parchment); }
+.at-tip-p { display: block; margin-top: 3px; font-family: var(--ui); font-size: 12px; color: var(--text-dim); }
 .at-wheel {
-  position: absolute; inset: 0; display: grid; place-items: center; background: var(--at-shade);
-  font-family: var(--ui); font-size: 13px; font-weight: 600; letter-spacing: 0.1em; color: var(--parchment); pointer-events: none;
+  position: absolute; inset: 0; display: grid; place-items: center; background: var(--at-shade); pointer-events: none;
+  font-family: var(--ui); font-size: 13px; font-weight: 700; color: var(--parchment);
 }
 
-/* The key: legend and gesture help, folded into one button on the map. */
-.at-key { position: absolute; right: 12px; bottom: 12px; pointer-events: auto; }
-.at-key .at-pop { inset: auto 0 calc(100% + 8px) auto; width: 290px; padding: 12px 14px; }
+/* The key: legend and gesture help. */
 .at-legend {
-  list-style: none; margin: 0; padding: 0; display: grid; gap: 9px;
+  list-style: none; margin: 0; padding: 0; display: grid; gap: 10px;
   font-family: var(--ui); font-size: 13px; font-weight: 500; color: var(--text-dim);
 }
 .at-legend li { display: flex; align-items: center; gap: 10px; }
 .at-legend-ico { width: 18px; height: 18px; flex: none; }
-.at-legend .at-hint {
-  display: block; margin-top: 3px; padding-top: 10px; border-top: 1px solid var(--line-soft);
-  text-transform: none; letter-spacing: 0.01em; font-weight: 500; font-size: 12px; line-height: 1.5; color: var(--text-mute);
+.at-legend .at-hint { display: block; margin-top: 2px; padding-top: 10px; border-top: 1px solid var(--line-soft); font-size: 12px; line-height: 1.5; color: var(--text-mute); }
+
+/* Under the map: the archive at a glance. */
+.at-countline {
+  display: flex; flex-wrap: wrap; gap: 6px 22px; margin: 0; padding: 14px 22px 18px; border-top: 1px solid var(--line-soft);
+  font-family: var(--ui); font-size: 12px; font-weight: 500; color: var(--text-mute);
 }
+.at-countline b { font-weight: 700; color: var(--gold); }
 
 /* ---------- list view ---------- */
 .at-list-wrap { overflow-x: auto; }
-.at-lv { width: 100%; border-collapse: collapse; min-width: 640px; }
-.at-lv caption {
-  text-align: left; padding: 14px 16px 6px; font-family: var(--display); font-style: italic; font-weight: 400; letter-spacing: 0; text-transform: none; font-size: 17px; color: var(--text-dim);
-}
+.at-lv { width: 100%; min-width: 640px; border-collapse: collapse; }
+.at-lv caption { padding: 18px 20px 8px; text-align: left; font-family: var(--ui); font-size: 13px; font-weight: 600; color: var(--text-dim); }
 .at-lv th {
-  text-align: left; font-family: var(--display); font-style: italic; font-weight: 400; letter-spacing: 0; text-transform: none; font-size: 16px;
-  color: var(--gold); padding: 10px 16px; border-bottom: 1px dashed var(--line);
+  padding: 10px 20px; border-bottom: 1px dashed var(--line); text-align: left;
+  font-family: var(--ui); font-size: 12px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--gold);
 }
-.at-lv td { padding: 11px 16px; border-bottom: 1px solid var(--line-soft); font-size: 15px; color: var(--text-dim); vertical-align: top; }
-.at-lv td:first-child { font-family: var(--ui); font-size: 12px; font-weight: 600; color: var(--text-mute); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.at-lv td { padding: 12px 20px; border-bottom: 1px solid var(--line-soft); vertical-align: top; font-family: var(--ui); font-size: 13px; color: var(--text-dim); }
+.at-lv td:first-child { font-size: 12px; font-weight: 600; color: var(--text-mute); white-space: nowrap; font-variant-numeric: tabular-nums; }
 .at-lv-title {
   border: 0; background: none; padding: 0; cursor: pointer; text-align: left;
-  font-family: var(--display); font-style: italic; font-size: 19px; line-height: 1.2; color: var(--parchment);
+  font-family: var(--display); font-size: 20px; line-height: 1.2; color: var(--parchment);
 }
 .at-lv-title:hover { color: var(--gold); }
-.at-lv .at-era-row td { font-family: var(--display); font-style: italic; font-weight: 400; letter-spacing: 0; text-transform: none; font-size: 18px; color: var(--gold); padding-top: 18px; }
-.at-lv tr.at-sel td { background: var(--at-land-has); }
+.at-lv .at-era-row td { padding-top: 22px; font-size: 12px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--gold); }
+.at-lv tr.at-sel td { background: var(--glow); }
 
 /* ---------- timeline ----------
-   A compact strip under the map: header row, then the dated track with the
-   timeless column beside it. */
-.at-tl { border-top: 1px solid var(--line); padding: 12px 18px 6px; overflow: hidden; }
-.at-tl-head { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; margin-bottom: 8px; }
-.atlas-page .at-tl-head h2 {
-  font-family: var(--display); font-style: italic; font-weight: 400; letter-spacing: 0; text-transform: none; font-size: 19px; color: var(--gold);
+   The plate's lower margin: a label, the years in view and Play; then the
+   dated track with the timeless column beside it. */
+.at-tl { padding: 16px 22px 8px; border-top: 1px solid var(--line-soft); overflow: hidden; }
+.at-tl-head { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; margin-bottom: 14px; }
+.at-tl-head h2 {
+  margin: 0; font-family: var(--ui); font-size: 12px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--gold);
 }
-.at-tl-head .at-btn-gold { padding: 7px 13px; }
-.at-tl-range { font-family: var(--ui); font-size: 12px; font-weight: 600; letter-spacing: 0.08em; color: var(--text-dim); font-variant-numeric: tabular-nums; margin-left: auto; }
-.at-tl-body { display: flex; align-items: stretch; gap: 12px; }
+.at-play {
+  display: inline-flex; align-items: center; gap: 8px; min-height: 36px; padding: 0 14px; cursor: pointer;
+  border: 1px solid var(--gold-deep); border-radius: 999px; background: transparent;
+  font-family: var(--ui); font-size: 12.5px; font-weight: 700; color: var(--gold);
+}
+.at-play:hover { background: var(--glow); border-color: var(--gold); }
+.at-play[aria-pressed="true"] { background: var(--gold); border-color: var(--gold); color: var(--on-gold); }
+.at-tl-range { margin-left: auto; font-family: var(--ui); font-size: 12px; font-weight: 700; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+.at-tl-body { display: flex; align-items: stretch; gap: 14px; }
 .at-tl-track { position: relative; flex: 1; min-width: 0; margin: 0 9px; }
-.at-tl-eras { position: relative; height: 24px; }
-.at-tl-era {
-  position: absolute; top: 0; height: 24px; border: 0; border-left: 1px solid var(--line); background: transparent; cursor: pointer;
-  font-family: var(--ui); font-size: 12px; font-weight: 600; color: var(--text-dim);
-  text-align: left; padding: 0 6px; overflow: hidden; white-space: nowrap; text-overflow: clip; min-width: 24px;
-}
-.at-tl-era:nth-child(odd) { background: var(--line-soft); }
-.at-tl-era:hover { color: var(--gold); }
-.at-tl-era[aria-pressed="true"] { color: var(--on-gold); background: var(--gold); }
-.at-tl-tcol { flex: none; width: 112px; border-left: 1px dashed var(--line); padding-left: 10px; display: grid; align-content: start; gap: 10px; }
+.at-tl-tcol { flex: none; width: 112px; display: grid; align-content: start; gap: 10px; padding-left: 12px; border-left: 1px dashed var(--line); }
 .at-tl-timeless {
-  width: 100%; height: 24px; display: flex; align-items: center; gap: 5px; border: 0; border-left: 1px solid var(--line);
-  background: var(--line-soft); cursor: pointer; padding: 0 6px; white-space: nowrap; overflow: hidden;
-  font-family: var(--ui); font-size: 12px; font-weight: 600; color: var(--text-dim);
+  display: inline-flex; align-items: center; gap: 6px; width: 100%; min-height: 28px; padding: 0 10px; cursor: pointer; white-space: nowrap; overflow: hidden;
+  border: 1px solid var(--gold-deep); border-radius: 999px; background: var(--glow);
+  font-family: var(--ui); font-size: 12px; font-weight: 700; color: var(--gold-2);
 }
-.at-tl-timeless:hover { color: var(--gold); }
-.at-tl-timeless[aria-pressed="true"] { color: var(--on-gold); background: var(--gold); }
-/* Off reads as an empty band, not faded text, so the label keeps its contrast. */
-.at-tl-timeless[aria-pressed="false"] { background: transparent; border: 1px dashed var(--line); }
+.at-tl-timeless:hover { border-color: var(--gold); }
+/* Off reads as an empty dashed pill, not faded text, so the label keeps its contrast. */
+.at-tl-timeless[aria-pressed="false"] { background: transparent; border-style: dashed; border-color: var(--line); color: var(--text-dim); }
 .at-tl-marks { position: relative; }
 .at-tl-mark { position: absolute; height: 10px; cursor: pointer; }
 .at-tl-bar { position: absolute; left: 0; right: 0; top: 4px; height: 2px; background: repeating-linear-gradient(90deg, var(--gold-deep) 0 6px, transparent 6px 10px); }
@@ -325,9 +327,9 @@
 .at-tl-mark.at-sel .at-tl-dot { background: var(--gold); }
 .at-tl-mark.at-stop .at-tl-dot { box-shadow: 0 0 0 3px rgba(var(--line-rgb), 0.26); }
 .at-tl-lbl {
-  position: absolute; bottom: 17px; left: 0; transform: translateX(-30%); display: none; white-space: nowrap; z-index: 2;
-  background: var(--ink); border: 1px solid var(--line); padding: 4px 10px; border-radius: 10px;
-  font-family: var(--display); font-style: italic; font-size: 15px; color: var(--parchment);
+  position: absolute; bottom: 17px; left: 0; z-index: 2; display: none; transform: translateX(-30%); white-space: nowrap;
+  padding: 5px 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--ink-2); box-shadow: var(--shadow-dropdown);
+  font-family: var(--display); font-size: 16px; color: var(--parchment);
 }
 .at-tl-mark.at-hot .at-tl-lbl { display: block; }
 .at-tl-axis { position: relative; height: 30px; border-top: 1px dashed var(--gold-deep); }
@@ -338,188 +340,225 @@
 }
 .at-tl-shade { position: absolute; top: 0; bottom: 30px; background: var(--at-shade); pointer-events: none; }
 .at-tl-handle {
-  position: absolute; bottom: 22px; width: 16px; height: 16px; margin-left: -8px; border-radius: 50%; z-index: 3;
-  background: var(--gold); border: 3px solid var(--ink-2); box-shadow: 0 0 0 1px var(--gold); cursor: ew-resize; touch-action: none;
+  position: absolute; bottom: 22px; z-index: 3; width: 16px; height: 16px; margin-left: -8px; border-radius: 50%; cursor: ew-resize; touch-action: none;
+  background: var(--gold); border: 3px solid var(--ink-2); box-shadow: 0 0 0 1px var(--gold);
 }
+/* A 40 px touch area round each 16 px handle. */
 .at-tl-handle::after { content: ""; position: absolute; inset: -12px; }
 .at-tl-handle:focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; }
-.at-tl-cursor {
-  position: absolute; top: 0; bottom: 30px; width: 2px; margin-left: -1px; background: var(--gold-2);
-  box-shadow: 0 0 12px var(--gold); pointer-events: none;
-}
+.at-tl-cursor { position: absolute; top: 0; bottom: 30px; width: 2px; margin-left: -1px; background: var(--gold-2); box-shadow: 0 0 12px var(--gold); pointer-events: none; }
 .at-tl-stars { display: flex; flex-wrap: wrap; gap: 7px 9px; }
 .at-tl-star {
-  position: relative; border: 0; background: none; padding: 0; cursor: pointer;
-  display: grid; place-items: center; width: 16px; height: 16px; color: var(--gold);
+  position: relative; display: grid; place-items: center; width: 16px; height: 16px; padding: 0; cursor: pointer;
+  border: 0; background: none; color: var(--gold);
 }
 .at-star-ico { width: 13px; height: 13px; flex: none; }
-.at-tl-timeless .at-star-ico { width: 9px; height: 9px; }
+/* A 24 px touch area round each 16 px star. */
+.at-tl-star::after { content: ""; position: absolute; inset: -4px; }
+.at-tl-timeless .at-star-ico { width: 10px; height: 10px; }
 .at-tl-star.at-hot .at-star-ico,
 .at-tl-star.at-sel .at-star-ico { width: 16px; height: 16px; color: var(--gold-2); }
 .at-tl-star.at-out { opacity: 0.3; }
 .at-tl-lbl-r { bottom: 22px; left: auto; right: -4px; transform: none; }
 .at-tl-star.at-hot .at-tl-lbl { display: block; }
-.at-tl-empty { margin: 4px 0 10px; font-size: 14px; color: var(--text-mute); }
+.at-tl-empty { margin: 4px 0 12px; font-family: var(--ui); font-size: 13px; color: var(--text-mute); }
 
-/* ---------- panel ---------- */
+/* ---------- side column ---------- */
 .at-panel {
-  position: sticky; top: 96px; max-height: calc(100vh - 112px); overflow: auto; overscroll-behavior: contain;
-  border: 1px solid var(--line); border-radius: 22px; background: var(--at-panel);
+  position: sticky; top: 96px; max-height: calc(100vh - 112px); overflow: auto; overscroll-behavior: contain; scrollbar-width: thin;
+  border: 1px solid var(--line); border-radius: 24px; background: var(--ink-2);
 }
-.at-tabs { display: flex; border-bottom: 1px solid var(--line); position: sticky; top: 0; background: var(--ink-2); z-index: 2; }
+/* Stories / Journeys / Unwritten: the same gold-filled switch as Map / List. */
+.at-tabs {
+  position: sticky; top: 0; z-index: 2; display: flex; gap: 4px; margin: 12px 12px 0; padding: 4px;
+  border: 1px solid var(--line); border-radius: 999px; background: var(--ink-2);
+}
 .at-tab {
-  flex: 1; border: 0; border-bottom: 2px solid transparent; background: transparent; cursor: pointer; padding: 13px 8px 11px;
-  font-family: var(--display); font-style: italic; font-size: 18.5px; color: var(--text-dim);
+  flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 38px; padding: 0 10px;
+  border: 0; border-radius: 999px; background: transparent; cursor: pointer; white-space: nowrap;
+  font-family: var(--ui); font-size: 13px; font-weight: 700; color: var(--text-dim);
 }
-.at-tab[aria-selected="true"] { color: var(--gold); border-bottom-color: var(--gold); }
-.at-tab-n { font-family: var(--ui); font-style: normal; font-size: 12px; font-weight: 600; color: var(--text-mute); margin-left: 4px; }
-.at-pane { padding: 18px 20px 22px; display: grid; gap: 16px; }
+.at-tab:hover { color: var(--parchment); }
+.at-tab[aria-selected="true"] { background: var(--gold); color: var(--on-gold); }
+.at-tab-n { font-size: 12px; font-weight: 700; opacity: 0.8; }
+.at-pane { display: grid; gap: 16px; padding: 18px 20px 22px; }
+/* The panes not on show: `display: grid` above would otherwise beat [hidden]
+   and leave each an empty padded box above the one that is. */
+.at-pane[hidden] { display: none; }
 .at-back {
-  justify-self: start; border: 0; background: none; padding: 0; cursor: pointer; display: inline-flex; align-items: center; gap: 7px;
-  font-family: var(--display); font-style: italic; font-weight: 400; letter-spacing: 0; text-transform: none; font-size: 18px; color: var(--text-dim);
+  justify-self: start; display: inline-flex; align-items: center; gap: 7px; min-height: 28px; padding: 0; cursor: pointer;
+  border: 0; background: none; font-family: var(--ui); font-size: 13px; font-weight: 700; color: var(--text-dim);
 }
 .at-back:hover { color: var(--gold); }
-.at-pane-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
-.atlas-page .at-count { font-family: var(--display); font-style: italic; font-size: 22px; color: var(--parchment); margin: 0; }
+
+.at-prompt { padding: 18px 20px; border: 1px dashed var(--gold-deep); border-radius: 20px; }
+.at-prompt-t { margin: 0 0 6px; font-family: var(--display); font-style: italic; font-size: 22px; line-height: 1.25; color: var(--parchment); }
+.at-prompt-s { margin: 0; font-family: var(--ui); font-size: 13px; line-height: 1.5; color: var(--text-mute); }
+
+.at-pane-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.at-count { margin: 0; font-family: var(--ui); font-size: 12px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--gold); }
 
 .at-story-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
 .at-era-h {
-  font-family: var(--display); font-style: italic; font-weight: 400; letter-spacing: 0; text-transform: none; font-size: 18px; color: var(--gold);
-  padding: 14px 0 6px; border-bottom: 1px dashed var(--line);
+  padding: 14px 0 8px; border-bottom: 1px dashed var(--line);
+  font-family: var(--ui); font-size: 12px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-mute);
 }
 .at-row {
-  width: 100%; display: grid; grid-template-columns: 44px minmax(0, 1fr); gap: 12px; align-items: center; text-align: left;
-  border: 0; background: transparent; padding: 7px 6px; border-radius: 12px; cursor: pointer;
+  width: 100%; display: grid; grid-template-columns: 44px minmax(0, 1fr); gap: 12px; align-items: center; padding: 8px 6px;
+  border: 0; border-radius: 12px; background: transparent; cursor: pointer; text-align: left;
 }
 .at-row:hover,
 .at-row.at-hot { background: var(--line-soft); }
-.at-row.at-sel { background: var(--at-land-has); }
-.at-thumb { width: 44px; height: 44px; object-fit: cover; border-radius: 50% 50% 8px 8px / 36% 36% 8px 8px; background: var(--at-ink-3); display: block; }
-.at-row-meta {
-  display: block; font-family: var(--display); font-style: italic; font-weight: 400; letter-spacing: 0; text-transform: none; font-size: 15px; color: var(--text-mute);
-}
-.at-row-title { display: block; font-family: var(--display); font-style: italic; font-size: 16.5px; line-height: 1.15; color: var(--parchment); margin-top: 2px; }
+.at-row.at-sel { background: var(--glow); }
+.at-thumb { display: block; width: 44px; height: 44px; object-fit: cover; border-radius: 50% 50% 8px 8px / 36% 36% 8px 8px; background: var(--at-ink-3); }
+.at-row-meta { display: block; font-family: var(--ui); font-size: 12px; font-weight: 500; color: var(--text-mute); }
+.at-row-title { display: block; margin-top: 2px; font-family: var(--display); font-size: 19px; line-height: 1.15; color: var(--parchment); }
 /* --text-mute clears AA on the panel but not on the selected row's gold tint. */
 .at-row.at-sel .at-row-meta { color: var(--text-dim); }
-.at-empty { font-family: var(--display); font-style: italic; font-size: 19px; color: var(--text-dim); margin: 8px 0; }
+.at-empty { margin: 8px 0; font-family: var(--display); font-style: italic; font-size: 20px; color: var(--text-dim); }
 
-.at-card { display: grid; gap: 10px; padding-bottom: 18px; border-bottom: 1px solid var(--line); }
+/* The chosen story. */
+.at-card { display: grid; gap: 10px; }
 .at-card-cover { position: relative; aspect-ratio: 16 / 10; max-width: 100%; overflow: hidden; border-radius: 50% 50% 14px 14px / 18% 18% 14px 14px; background: var(--at-ink-3); }
-.at-card-cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.at-card-cover img { display: block; width: 100%; height: 100%; object-fit: cover; }
 .at-card-kind {
-  position: absolute; left: 12px; bottom: 12px; font-family: var(--display); font-style: italic; font-weight: 400; letter-spacing: 0; text-transform: none; font-size: 15px;
-  color: #f4ead7; background: rgba(13, 11, 8, 0.62); border: 1px solid rgba(201, 169, 110, 0.45); border-radius: 999px; padding: 3px 11px; backdrop-filter: blur(6px);
+  position: absolute; left: 14px; bottom: 14px; padding: 5px 12px; border-radius: 999px;
+  background: rgba(13, 11, 8, 0.62); border: 1px solid rgba(201, 169, 110, 0.45); color: #f4ead7; backdrop-filter: blur(6px);
+  font-family: var(--ui); font-size: 12px; font-weight: 600;
 }
-.atlas-page .at-card-title,
-.at-portal .at-card-title { font-size: 30px; line-height: 1.05; }
-.atlas-page .at-card-title:focus,
-.at-portal .at-card-title:focus { outline: none; }
-.atlas-page .at-card-title:focus-visible,
-.at-portal .at-card-title:focus-visible { outline: 2px solid var(--gold); }
-.at-card-place { margin: 0; font-family: var(--display); font-style: italic; font-weight: 400; letter-spacing: 0; text-transform: none; font-size: 17px; color: var(--gold); }
-.at-card-ex { margin: 0; font-size: 15.5px; line-height: 1.6; color: var(--text-dim); }
+.at-card .rs-eyebrow { margin-top: 6px; }
+.at-card-title { margin: 0; font-family: var(--display); font-weight: 500; font-size: 32px; line-height: 1.05; letter-spacing: -0.01em; color: var(--parchment); text-wrap: balance; }
+.at-card-title:focus { outline: none; }
+.at-card-title:focus-visible { outline: 2px solid var(--gold); outline-offset: 4px; }
+.at-card-place { margin: 0; font-family: var(--ui); font-size: 12px; font-weight: 600; color: var(--gold); }
+.at-card-ex { margin: 0; font-size: 16px; line-height: 1.6; color: var(--text-dim); }
 .at-card-ex-wait { min-height: 3.2em; }
-.at-card-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
-.at-card-parts { margin: 2px 0 0; font-family: var(--ui); font-size: 11px; color: var(--text-mute); display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.at-card-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 6px; }
+.at-card-parts { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 4px 0 0; font-family: var(--ui); font-size: 12px; font-weight: 600; color: var(--text-mute); }
 .at-chip {
-  border: 1px solid var(--gold-deep); background: transparent; border-radius: 999px; padding: 4px 10px; cursor: pointer;
-  font-family: var(--display); font-style: italic; font-size: 14px; color: var(--gold);
+  display: inline-flex; align-items: center; min-height: 32px; padding: 0 12px; cursor: pointer;
+  border: 1px solid var(--gold-deep); border-radius: 999px; background: transparent;
+  font-family: var(--ui); font-size: 12.5px; font-weight: 700; color: var(--gold);
 }
-.at-chip:hover { background: var(--at-land-has); }
+.at-chip:hover { background: var(--glow); }
 
+/* Counties still unwritten. */
 .at-unw { display: grid; gap: 12px; }
-.at-unw p { margin: 0; font-size: 15px; color: var(--text-dim); }
-.at-county-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.at-unw p { margin: 0; font-family: var(--ui); font-size: 13px; line-height: 1.55; color: var(--text-dim); }
+.at-county-chips { display: flex; flex-wrap: wrap; gap: 8px; }
 .at-county-chip {
-  border: 1px dashed var(--line); background: transparent; border-radius: 999px; padding: 4px 12px; cursor: pointer;
-  font-family: var(--display); font-style: italic; font-size: 15px; color: var(--text-dim);
+  display: inline-flex; align-items: center; min-height: 32px; padding: 0 12px; cursor: pointer;
+  border: 1px dashed var(--line); border-radius: 999px; background: transparent;
+  font-family: var(--ui); font-size: 12.5px; font-weight: 600; color: var(--text-dim);
 }
 .at-county-chip:hover,
-.at-county-chip[aria-pressed="true"] { border-style: solid; border-color: var(--gold-deep); color: var(--gold); }
+.at-county-chip[aria-pressed="true"] { border-style: solid; border-color: var(--gold-deep); color: var(--gold-2); background: var(--glow); }
 
-.at-journey { display: grid; gap: 10px; padding: 18px; border: 1px solid var(--line-soft); border-radius: 18px; background: var(--paper); }
-.atlas-page .at-journey-title { font-size: 26px; line-height: 1.05; }
-.at-journey p { margin: 0; font-size: 15px; color: var(--text-dim); }
-.atlas-page .at-journey .at-jmeta { font-family: var(--ui); font-size: 13px; font-weight: 500; color: var(--text-mute); }
-.at-stops { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
-.at-stops li { display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 10px; align-items: baseline; }
-.at-stop-no { font-family: var(--ui); font-size: 11px; font-weight: 700; color: var(--gold); font-variant-numeric: tabular-nums; }
+/* Journeys: each a card, its stops a stitched route. */
+.at-journey { display: grid; gap: 12px; padding: 20px; border: 1px solid var(--line); border-radius: 22px; background: var(--paper); }
+.at-journey-title { margin: 0; font-family: var(--display); font-weight: 500; font-size: 30px; line-height: 1.05; letter-spacing: -0.01em; color: var(--parchment); text-wrap: balance; }
+.at-journey p { margin: 0; font-size: 15.5px; line-height: 1.55; color: var(--text-dim); }
+.at-journey .at-jmeta { font-family: var(--ui); font-size: 12px; font-weight: 600; color: var(--gold); }
+.at-stops { list-style: none; margin: 0 0 0 10px; padding: 0; display: grid; border-left: 2px dashed var(--gold-deep); }
+.at-stops li { position: relative; display: grid; grid-template-columns: minmax(0, 1fr); padding: 6px 0 6px 22px; }
+.at-stop-no {
+  position: absolute; left: -11px; top: 8px; display: grid; place-items: center; width: 20px; height: 20px; border-radius: 50%;
+  background: var(--paper); border: 1.5px solid var(--gold); font-family: var(--ui); font-size: 11px; font-weight: 700; color: var(--gold); font-variant-numeric: tabular-nums;
+}
 .at-stop {
   border: 0; background: none; padding: 2px 0; text-align: left; cursor: pointer;
-  font-family: var(--display); font-style: italic; font-size: 16.5px; line-height: 1.2; color: var(--text);
+  font-family: var(--serif); font-size: 16px; line-height: 1.3; color: var(--parchment);
 }
 .at-stop:hover,
 .at-stop[aria-current="step"] { color: var(--gold); }
-.at-stop-where {
-  display: block; font-family: var(--display); font-style: italic; font-weight: 400; letter-spacing: 0; text-transform: none; font-size: 14.5px; color: var(--text-mute); margin-top: 2px;
-}
+.at-stops li:has([aria-current="step"]) .at-stop-no { background: var(--gold); color: var(--on-gold); }
+.at-stop-where { display: block; margin-top: 2px; font-family: var(--ui); font-size: 12px; color: var(--text-mute); }
 .at-jnav { display: flex; flex-wrap: wrap; gap: 8px; justify-content: space-between; }
 
 /* ---------- bottom sheet (narrow screens) ---------- */
 .at-sheet {
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 40; max-height: 74vh; overflow: auto; overscroll-behavior: contain;
-  background: var(--ink-2); border-top: 1px solid var(--gold-deep); border-radius: 22px 22px 0 0; box-shadow: var(--at-sheet-shadow);
+  background: var(--ink-2); border-top: 1px solid var(--gold-deep); border-radius: 24px 24px 0 0; box-shadow: var(--at-sheet-shadow);
   padding: 10px max(16px, env(safe-area-inset-right, 0)) calc(18px + env(safe-area-inset-bottom, 0)) max(16px, env(safe-area-inset-left, 0));
   animation: at-rise 0.28s ease-out;
 }
 @keyframes at-rise { from { transform: translateY(24px); opacity: 0; } to { transform: none; opacity: 1; } }
-.at-sheet-grab { width: 44px; height: 4px; border-radius: 4px; background: var(--line); margin: 0 auto 12px; }
-.at-sheet .at-card { border-bottom: 0; padding-bottom: 6px; }
+.at-sheet-grab { width: 44px; height: 4px; margin: 0 auto 12px; border-radius: 4px; background: var(--line); }
 /* Shallower cover in the sheet, so "Read the story" is on screen without
    scrolling the sheet on a phone of ordinary height. */
 .at-sheet .at-card-cover { aspect-ratio: 2 / 1; }
+.at-sheet .at-card-title { font-size: 28px; }
 
 /* ---------- notes ---------- */
-.at-notes { margin-top: 34px; padding-top: 22px; border-top: 1px dashed var(--line); font-size: 14.5px; color: var(--text-mute); max-width: 760px; }
-.atlas-page .at-notes h2 { font-size: 22px; margin-bottom: 6px; }
-.at-notes p { margin: 0; }
-.at-notes p + p { margin-top: 10px; }
+.at-notes { max-width: 760px; margin-top: 32px; padding-top: 18px; border-top: 1px dashed var(--line); }
+.at-notes summary {
+  display: inline-flex; align-items: center; gap: 8px; min-height: 32px; cursor: pointer; list-style: none;
+  font-family: var(--ui); font-size: 13px; font-weight: 700; color: var(--text-dim);
+}
+.at-notes summary::-webkit-details-marker { display: none; }
+.at-notes summary::before { content: "+"; display: grid; place-items: center; width: 20px; height: 20px; border: 1px solid var(--line); border-radius: 50%; color: var(--gold); }
+.at-notes[open] summary::before { content: "−"; }
+.at-notes summary:hover { color: var(--parchment); }
+.at-notes p { margin: 10px 0 0; font-size: 15px; line-height: 1.6; color: var(--text-mute); }
 
 /* Tall enough that the footer starts below the fold until the map arrives
    (otherwise it shows, then jumps away: a layout shift). */
 .at-loading { display: flex; min-height: 100vh; align-items: center; justify-content: center; }
 
+/* The map's centre is a flourish; where the map is narrow it would crowd
+   the scale bar over the land. */
+@media (max-width: 1179px) {
+  .at-coords { display: none; }
+}
 @media (max-width: 1023px) {
   .at-grid { grid-template-columns: minmax(0, 1fr); }
   .at-panel { position: static; max-height: none; overflow: visible; }
   .at-tabs { position: static; }
 }
 @media (max-width: 720px) {
-  .at-intro { padding-block: 36px 20px; }
-  .at-facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 18px; width: 100%; }
-  .at-facts b { font-size: 24px; }
-  .at-toolbar > .at-seg { margin-left: 0; }
-  .at-tl { padding: 12px 12px 6px; }
+  /* Each row of chips scrolls sideways under its label, like the shelf chips
+     on the front page; the format menu sits under the eras. */
+  .at-frow { flex-wrap: wrap; gap: 8px; }
+  .at-filter-lbl { flex-basis: 100%; }
+  .at-chips { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 4px; scrollbar-width: none; }
+  .at-dd-format { margin-left: 0; }
+  .at-tl { padding: 14px 14px 6px; }
   .at-tl-track { margin: 0 6px; }
   .at-tl-tcol { width: 44px; padding-left: 8px; }
   /* The band keeps its star and its spoken name; the word itself won't fit. */
+  .at-tl-timeless { justify-content: center; padding: 0; }
   .at-tl-timeless-txt { display: none; }
-  .at-coords { display: none; }
-  /* A phone's plate is ~310 px wide: the zoom stack shrinks, and the key
-     moves to the top-left corner (empty sea and sky, the coordinates being
-     hidden here) instead of sitting on the Danube delta and the Black Sea. */
+  .at-tl-range { margin-left: 0; }
+  /* A phone's plate is ~340 px wide: the zoom stack shrinks, and the tools
+     move to the top-left corner (empty sky over the map) instead of sitting
+     on the Danube delta. Their popovers are then placed against the whole
+     map area (.at-ui), inside the frame, scrolling rather than spilling. */
   .at-zoom { top: 8px; right: 8px; gap: 4px; }
   .at-zoom-btn { width: 32px; height: 32px; }
   .at-zoom-ico { width: 13px; height: 13px; }
-  /* The key's legend then opens downwards, and from a button in the corner
-     it ran past the foot of the map and was cut off. So the wrapper steps
-     aside (static) and the legend is placed against the whole map area
-     (.at-ui) instead: below the button, inside the frame, in two columns,
-     scrolling on the smallest phones rather than losing its last line. */
-  .at-key { position: static; }
-  .at-key-btn { position: absolute; top: 8px; left: 8px; padding: 4px 11px; min-height: 32px; font-size: 16px; }
-  .at-key .at-pop {
-    inset: 48px 8px 8px; width: auto; min-width: 0; max-width: none;
+  /* The tools' strip spans the map (letting touches through), so a popover
+     can be placed against the whole map below the buttons. */
+  .at-tools { inset: 8px; align-items: flex-start; gap: 6px; pointer-events: none; }
+  .at-tool { position: static; }
+  .at-tool-btn,
+  .at-tool .at-pop { pointer-events: auto; }
+  .at-tool-btn { min-height: 32px; padding: 0 11px; }
+  .at-tool .at-pop {
+    inset: 40px 0 0; width: auto; min-width: 0; max-width: none;
     overflow: auto; overscroll-behavior: contain; padding: 10px 12px;
   }
+  #at-pop-key { width: auto; }
   .at-legend { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 12px; font-size: 12.5px; }
   .at-legend li { gap: 8px; }
   .at-legend .at-hint { grid-column: 1 / -1; margin-top: 0; padding-top: 8px; }
-  .at-scale { left: 10px; bottom: 8px; font-size: 12.5px; }
+  .at-scale { left: 10px; bottom: 8px; }
+  .at-countline { padding: 12px 16px 14px; }
+  .at-tabs { margin: 10px 10px 0; }
   /* Boxes inside a box: the panel's padding and each journey's padding
      together left the text a column ~230 px wide. */
   .at-pane { padding: 16px 14px 18px; }
-  .at-journey { padding: 14px; }
+  .at-journey { padding: 16px; }
+  .at-journey-title { font-size: 26px; }
 }
 
 /* The story sheet covers the foot of the screen; the back-to-top button

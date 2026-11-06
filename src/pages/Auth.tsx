@@ -28,28 +28,28 @@ const GoogleIcon: React.FC = () => (
 const PRIMARY = "w-full rounded-full h-12 font-ui font-semibold text-[15px] bg-[color:var(--gold)] text-[color:var(--on-gold)] hover:bg-[color:var(--gold-2)]";
 const GHOST = "w-full rounded-full h-12 font-ui font-semibold text-[15px] border border-[color:var(--line)] bg-transparent text-[color:var(--parchment)] hover:bg-[color:var(--glow)] hover:text-[color:var(--parchment)]";
 const QUIET = "w-full rounded-full h-11 font-display italic text-[19px] text-[color:var(--gold)] hover:bg-transparent hover:text-[color:var(--gold-2)]";
-const CARD = "border-[color:var(--line-soft)] bg-[color:var(--paper)] shadow-none rounded-[26px]";
+// The form stands on the page, as the redesign draws it, not in a card.
+const CARD = "border-0 bg-transparent shadow-none rounded-none [&>div]:px-0";
 const INPUT = "h-[50px] rounded-xl bg-[color:var(--ink-2)] border-[color:var(--line)] text-[16px]";
 
-/** Every view of this page: the reading room in an arch, beside the card. */
+/** Every view of this page: the castle in an arch, its line written across it, beside the form. */
 const AuthFrame: React.FC<{ language: "en" | "ro"; children: React.ReactNode }> = ({ language, children }) => (
-  <div className="ed-container" style={{ paddingTop: "clamp(40px, 6vw, 64px)", paddingBottom: "clamp(64px, 8vw, 96px)" }}>
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-center min-h-[70vh]">
-      <figure className="m-0 w-full max-w-[520px] justify-self-center hidden lg:block">
-        <div className="sb-window">
-          <div className="sb-arch" style={{ aspectRatio: "4 / 4.6" }}>
-            <picture>
-              <source type="image/avif" srcSet="/bucharest_reading_room.avif" />
-              <source type="image/webp" srcSet="/bucharest_reading_room.webp" />
-              <img src="/bucharest_reading_room.jpg" alt="" width={1024} height={1024} decoding="async" className="absolute inset-0 w-full h-full object-cover" />
-            </picture>
-          </div>
+  <div className="ed-container rs-in" style={{ paddingTop: "clamp(40px, 6vw, 72px)", paddingBottom: "clamp(32px, 5vw, 64px)" }}>
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-[clamp(40px,5vw,88px)] items-center min-h-[70vh]">
+      <figure className="m-0 w-full max-w-[520px] justify-self-center hidden lg:block" style={{ padding: 10, border: "1px solid var(--line)", borderRadius: "50% 50% 24px 24px / 26% 26% 24px 24px" }}>
+        <div className="relative overflow-hidden" style={{ aspectRatio: "4 / 4.8", borderRadius: "50% 50% 14px 14px / 30% 30% 14px 14px", background: "var(--paper)" }}>
+          <picture>
+            <source type="image/avif" srcSet="/hero/castle.avif" />
+            <source type="image/webp" srcSet="/hero/castle.webp" />
+            <img src="/hero/castle.jpg" alt="" decoding="async" className="absolute inset-0 w-full h-full object-cover" />
+          </picture>
+          <div className="sb-scrim" />
+          <figcaption className="absolute inset-x-0 bottom-0 font-display italic" style={{ padding: "0 28px 30px", fontSize: 26, lineHeight: 1.3, color: "#f4ead7" }}>
+            {language === "en"
+              ? "Save the stories you love, and leave notes for other readers."
+              : "Păstrează poveștile dragi și lasă note pentru alți cititori."}
+          </figcaption>
         </div>
-        <figcaption className="sb-kicker-sm text-center mt-4" style={{ color: "var(--text-dim)" }}>
-          {language === "en"
-            ? "Save the stories you love, and leave notes for other readers."
-            : "Păstrează poveștile dragi și lasă note pentru alți cititori."}
-        </figcaption>
       </figure>
       <div className="w-full flex justify-center lg:justify-start">{children}</div>
     </div>
@@ -328,17 +328,17 @@ const Auth: React.FC = () => {
                   <Mail className="h-8 w-8" />
                 </div>
               </div>
-              <h1 className="sb-h3" style={{ fontSize: 34 }}>
+              <h1 className="rs-display" style={{ fontSize: 40, lineHeight: 1.05 }}>
                 {isUnconfirmedLogin ? t("auth.emailNotConfirmedTitle") : t("auth.checkEmail")}
               </h1>
-              <CardDescription className="font-display italic text-[19px] text-[color:var(--text-dim)]">
+              <CardDescription className="text-[17px] leading-relaxed text-[color:var(--text-dim)]">
                 {isUnconfirmedLogin
                   ? t("auth.emailNotConfirmedDesc")
                   : `${t("auth.verificationSentTo")} ${email}`}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <p className="text-xs text-muted-foreground italic">
+              <p className="font-ui text-[13px] text-[color:var(--text-mute)]">
                 {t("auth.didntGetEmail")}
               </p>
               <Button
@@ -378,18 +378,20 @@ const Auth: React.FC = () => {
           className="max-w-md w-full"
         >
           <Card className={`${CARD}`}>
-            <CardHeader className="text-center">
-              <h1 className="sb-h3" style={{ fontSize: 34 }}>
+            <CardHeader className="gap-2.5">
+              <Rosette size="sm" className="mb-1.5" />
+              <p className="rs-eyebrow">{language === "en" ? "Forgotten password" : "Parolă uitată"}</p>
+              <h1 className="rs-display" style={{ fontSize: "clamp(36px, 4vw, 52px)", lineHeight: 1.02 }}>
                 {t("auth.resetPassword")}
               </h1>
-              <CardDescription className="font-display italic text-[19px] text-[color:var(--text-dim)]">
+              <CardDescription className="text-[17px] leading-relaxed text-[color:var(--text-dim)]">
                 {t("auth.resetPasswordDesc")}
               </CardDescription>
             </CardHeader>
             <CardContent>
               <form onSubmit={handleForgotPassword} className="space-y-4">
                 <div className="space-y-2">
-                  <Label className="sb-label" htmlFor="reset-email">Email</Label>
+                  <Label className="rs-field-label" htmlFor="reset-email">Email</Label>
                   <div className="relative">
                     <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" aria-hidden="true" />
                     <Input
@@ -435,16 +437,18 @@ const Auth: React.FC = () => {
             className="max-w-md w-full"
           >
             <Card className={`${CARD}`}>
-              <CardHeader className="text-center">
-                <h1 className="sb-h3" style={{ fontSize: 34 }}>
+              <CardHeader className="gap-2.5">
+                <Rosette size="sm" className="mb-1.5" />
+                <p className="rs-eyebrow">{language === "en" ? "The link has expired" : "Linkul a expirat"}</p>
+                <h1 className="rs-display" style={{ fontSize: "clamp(36px, 4vw, 52px)", lineHeight: 1.02 }}>
                   {t("auth.invalidResetLink")}
                 </h1>
-                <CardDescription className="font-display italic text-[19px] text-[color:var(--text-dim)]">
+                <CardDescription className="text-[17px] leading-relaxed text-[color:var(--text-dim)]">
                   {t("auth.invalidResetLinkDesc")}
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <p className="text-sm text-muted-foreground text-center">
+                <p className="font-ui text-[13px] text-[color:var(--text-mute)]">
                   {t("auth.invalidResetLinkHelp")}
                 </p>
                 <Button
@@ -483,18 +487,20 @@ const Auth: React.FC = () => {
           className="max-w-md w-full"
         >
           <Card className={`${CARD}`}>
-            <CardHeader className="text-center">
-              <h1 className="sb-h3" style={{ fontSize: 34 }}>
+            <CardHeader className="gap-2.5">
+              <Rosette size="sm" className="mb-1.5" />
+              <p className="rs-eyebrow">{language === "en" ? "A new password" : "O parolă nouă"}</p>
+              <h1 className="rs-display" style={{ fontSize: "clamp(36px, 4vw, 52px)", lineHeight: 1.02 }}>
                 {t("auth.newPassword")}
               </h1>
-              <CardDescription className="font-display italic text-[19px] text-[color:var(--text-dim)]">
+              <CardDescription className="text-[17px] leading-relaxed text-[color:var(--text-dim)]">
                 {t("auth.newPasswordDesc")}
               </CardDescription>
             </CardHeader>
             <CardContent>
               <form onSubmit={handleResetPassword} className="space-y-4">
                 <div className="space-y-2">
-                  <Label className="sb-label" htmlFor="new-password">{t("auth.newPassword")}</Label>
+                  <Label className="rs-field-label" htmlFor="new-password">{t("auth.newPassword")}</Label>
                   <div className="relative">
                     <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" aria-hidden="true" />
                     <Input
@@ -549,9 +555,14 @@ const Auth: React.FC = () => {
         className="max-w-md w-full"
       >
         <Card className={`${CARD}`}>
-          <CardHeader className="gap-2">
-            <Rosette size="sm" />
-            <h1 className="sb-h2" style={{ fontSize: "clamp(32px, 3.4vw, 44px)" }}>
+          <CardHeader className="gap-2.5">
+            <Rosette size="sm" className="mb-1.5" />
+            <p className="rs-eyebrow">
+              {activeTab === "login"
+                ? (language === "en" ? "Welcome back" : "Bine ai revenit")
+                : (language === "en" ? "A reader's account" : "Un cont de cititor")}
+            </p>
+            <h1 className="rs-display" style={{ fontSize: "clamp(40px, 4.4vw, 60px)", lineHeight: 1 }}>
               {activeTab === "login" ? t("auth.continueJourney") : t("auth.startStory")}
             </h1>
           </CardHeader>
@@ -565,7 +576,7 @@ const Auth: React.FC = () => {
               <TabsContent value="login">
                 <form onSubmit={handleSignIn} className="space-y-4">
                   <div className="space-y-2">
-                    <Label className="sb-label" htmlFor="email">Email</Label>
+                    <Label className="rs-field-label" htmlFor="email">Email</Label>
                     <div className="relative">
                       <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" aria-hidden="true" />
                       <Input
@@ -581,7 +592,7 @@ const Auth: React.FC = () => {
                     </div>
                   </div>
                   <div className="space-y-2">
-                    <Label className="sb-label" htmlFor="password">{t("auth.password")}</Label>
+                    <Label className="rs-field-label" htmlFor="password">{t("auth.password")}</Label>
                     <div className="relative">
                       <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" aria-hidden="true" />
                       <Input
@@ -642,7 +653,7 @@ const Auth: React.FC = () => {
               <TabsContent value="signup">
                 <form onSubmit={handleSignUp} className="space-y-4">
                   <div className="space-y-2">
-                    <Label className="sb-label" htmlFor="name">{t("auth.displayName")}</Label>
+                    <Label className="rs-field-label" htmlFor="name">{t("auth.displayName")}</Label>
                     <div className="relative">
                       <User className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" aria-hidden="true" />
                       <Input
@@ -657,7 +668,7 @@ const Auth: React.FC = () => {
                     </div>
                   </div>
                   <div className="space-y-2">
-                    <Label className="sb-label" htmlFor="signup-email">Email</Label>
+                    <Label className="rs-field-label" htmlFor="signup-email">Email</Label>
                     <div className="relative">
                       <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" aria-hidden="true" />
                       <Input
@@ -673,7 +684,7 @@ const Auth: React.FC = () => {
                     </div>
                   </div>
                   <div className="space-y-2">
-                    <Label className="sb-label" htmlFor="signup-password">{t("auth.password")}</Label>
+                    <Label className="rs-field-label" htmlFor="signup-password">{t("auth.password")}</Label>
                     <div className="relative">
                       <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" aria-hidden="true" />
                       <Input

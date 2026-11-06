@@ -2,8 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
 import { useLanguage } from "@/hooks/use-language";
-import { CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { AlertCircle, Loader2 } from "lucide-react";
 import { PageHead } from "@/components/layout/PageHead";
 
 type Status = "loading" | "success" | "error";
@@ -72,7 +71,7 @@ const NewsletterConfirm: React.FC = () => {
   };
 
   return (
-    <div className="ed-container py-20 flex justify-center items-center min-h-[70vh]">
+    <div className="ed-container rs-in flex justify-center items-center" style={{ minHeight: '70vh', paddingTop: 'clamp(56px, 8vw, 120px)', paddingBottom: 48 }}>
       <PageHead
         title={language === "en" ? "Newsletter confirmation" : "Confirmare abonare"}
         description={language === "en"
@@ -82,42 +81,33 @@ const NewsletterConfirm: React.FC = () => {
       >
         <meta name="robots" content="noindex, nofollow" />
       </PageHead>
-      <Card className="border-[color:var(--line-soft)] bg-[color:var(--paper)] shadow-none text-center rounded-[26px] max-w-md w-full">
-        <CardHeader>
-          <div className="flex justify-center mb-4">
-            {status === "loading" && (
-              <div className="h-16 w-16 rounded-full flex items-center justify-center" style={{ border: "1px solid var(--line)" }}>
-                <Loader2 className="h-8 w-8 text-accent animate-spin" />
-              </div>
-            )}
-            {status === "success" && (
-              <div className="h-16 w-16 rounded-full flex items-center justify-center" style={{ border: "1px solid var(--gold-deep)", background: "var(--glow)" }}>
-                <CheckCircle2 className="h-8 w-8" style={{ color: "var(--gold)" }} />
-              </div>
-            )}
-            {status === "error" && (
-              <div className="h-16 w-16 rounded-full flex items-center justify-center" style={{ border: "1px solid var(--line)" }}>
-                <AlertCircle className="h-8 w-8" style={{ color: "var(--oxblood-2)" }} />
-              </div>
-            )}
+      {/* A letter, on dashed-edged paper. */}
+      <div className="w-full text-center" style={{ maxWidth: 640, padding: 'clamp(36px, 5vw, 64px)', borderRadius: 28, border: '1.5px dashed var(--gold-deep)', background: 'var(--paper)' }}>
+        {status === "loading" ? (
+          <div role="status" className="flex flex-col items-center gap-[18px] py-8">
+            <Loader2 className="h-8 w-8 animate-spin" style={{ color: 'var(--gold)' }} aria-hidden="true" />
+            <p className="m-0 font-display italic" style={{ fontSize: 24, color: 'var(--text-dim)' }}>{copy.loading}</p>
           </div>
-          <CardTitle className="sb-h3" style={{ fontSize: 32 }}>
-            {status === "loading" && copy.loading}
-            {status === "success" && copy.successTitle}
-            {status === "error" && copy.errorTitle}
-          </CardTitle>
-          {status !== "loading" && (
-            <CardDescription className="font-display italic text-[19px] text-[color:var(--text-dim)]">
+        ) : (
+          <>
+            {status === "success" ? (
+              <picture>
+                <source type="image/webp" srcSet="/logo-128.webp" />
+                <img src="/logo-128.png" alt="" width={64} height={64} className="mx-auto mb-5 w-16 h-16 object-contain" />
+              </picture>
+            ) : (
+              <AlertCircle className="mx-auto mb-5 h-10 w-10" style={{ color: 'var(--danger)' }} aria-hidden="true" />
+            )}
+            <h1 className="rs-display" style={{ margin: '0 0 12px', fontSize: 'clamp(36px, 5vw, 60px)', lineHeight: 1 }}>
+              {status === "success" ? copy.successTitle : copy.errorTitle}
+            </h1>
+            <p className="m-0 mb-[26px]" style={{ fontSize: 18, lineHeight: 1.6, color: 'var(--text-dim)' }}>
               {status === "success" ? copy.successBody : copy[errorKind]}
-            </CardDescription>
-          )}
-        </CardHeader>
-        {status !== "loading" && (
-          <CardContent>
-            <Link to="/" className="sb-btn w-full">{copy.home}</Link>
-          </CardContent>
+            </p>
+            <Link to="/" className={status === "success" ? "rs-btn" : "rs-btn rs-btn-ghost"}>{copy.home}</Link>
+          </>
         )}
-      </Card>
+      </div>
     </div>
   );
 };

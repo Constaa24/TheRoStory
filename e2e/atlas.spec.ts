@@ -26,19 +26,17 @@ test('the list view names every story the map shows', async ({ page }) => {
   await expect(page).toHaveURL(/view=list/);
 });
 
-test('a theme chosen by keyboard filters the stories and lands in the URL', async ({ page }) => {
+test('a shelf chosen by keyboard filters the stories and lands in the URL', async ({ page }) => {
   await open(page);
   const all = await matchCount(page);
 
-  await page.locator('#at-btn-theme').focus();
-  await page.keyboard.press('Enter');
-  // Opening moves focus onto the pressed option ("All").
-  await expect(page.locator('#at-pop-theme .at-opt[aria-pressed="true"]')).toBeFocused();
+  const allShelves = page.locator('.at-shelf-chip[data-theme="all"]');
+  await expect(allShelves).toHaveAttribute('aria-pressed', 'true');
+  await allShelves.focus();
   await page.keyboard.press('Tab');
   await page.keyboard.press('Enter');
 
-  await expect(page.locator('#at-pop-theme')).toBeHidden();
-  await expect(page.locator('#at-btn-theme')).toBeFocused();
+  await expect(page.locator('.at-shelf-chip[aria-pressed="true"]')).not.toHaveAttribute('data-theme', 'all');
   await expect(page).toHaveURL(/theme=/);
   const chip = page.locator('.at-af-chip[data-clear="theme"]');
   await expect(chip).toBeVisible();
@@ -47,7 +45,7 @@ test('a theme chosen by keyboard filters the stories and lands in the URL', asyn
   // Removing the chip undoes it, and focus doesn't fall to the top of the page.
   await chip.click();
   await expect(page).not.toHaveURL(/theme=/);
-  await expect(page.locator('#at-btn-theme')).toBeFocused();
+  await expect(allShelves).toBeFocused();
   expect(await matchCount(page)).toBe(all);
 });
 

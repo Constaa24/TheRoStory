@@ -23,7 +23,6 @@ import {
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { Send, Pencil, Trash2, Check, X } from "lucide-react";
-import { Divider } from "@/components/story/Ornaments";
 
 interface Props {
   articleId: string;
@@ -302,70 +301,61 @@ export const ArticleComments: React.FC<Props> = ({ articleId }) => {
   const composeId = `note-${articleId}`;
 
   return (
-    <section className="no-print sb-band">
-      <div className="ed-container" style={{ paddingTop: "clamp(64px, 8vw, 88px)", paddingBottom: "clamp(64px, 8vw, 88px)" }}>
-        <div className="sb-measure flex flex-col gap-6">
-          <p className="sb-kicker">{en ? "Notes from readers" : "Note de la cititori"}</p>
-          <h2 className="sb-h2" style={{ fontSize: "clamp(30px, 3.2vw, 44px)" }}>
-            {commentsTotal === 0
-              ? (en ? "Leave the first note." : "Lasă prima notă.")
-              : countLabel(commentsTotal, "note", language)}
+    <section aria-labelledby={`${composeId}-h`} className="no-print" style={{ maxWidth: 680 }}>
+        <div className="flex flex-col">
+          <h2 id={`${composeId}-h`} className="rs-display" style={{ margin: "0 0 6px", fontSize: 36, lineHeight: 1.1, letterSpacing: 0 }}>
+            {en ? "Notes from readers" : "Note de la cititori"}
           </h2>
+          <p className="m-0" style={{ marginBottom: 24, fontFamily: "var(--ui)", fontSize: 13, color: "var(--text-mute)" }}>
+            {commentsTotal === 0
+              ? (en ? "No notes yet — leave the first." : "Nicio notă încă — lasă prima.")
+              : countLabel(commentsTotal, "note", language)}
+          </p>
 
           {/* Compose */}
           {user ? (
-            <div className="grid gap-3">
-              <div className="sb-field">
-                <label htmlFor={composeId} className="sb-label">
-                  {en ? "Leave a note for the next reader" : "Lasă o notă pentru următorul cititor"}
-                </label>
-                <textarea
-                  id={composeId}
-                  className="sb-input"
-                  placeholder={en ? "A memory, a detail we missed, a question…" : "O amintire, un detaliu care ne-a scăpat, o întrebare…"}
-                  value={newComment}
-                  onChange={(e) => setNewComment(e.target.value)}
-                  style={{ minHeight: 130 }}
-                  maxLength={2000}
-                />
-              </div>
+            <div className="grid gap-2.5" style={{ marginBottom: 28 }}>
+              <label htmlFor={composeId} style={{ fontFamily: "var(--ui)", fontSize: 13, fontWeight: 600, color: "var(--text-dim)" }}>
+                {en ? "Leave a note for the next reader" : "Lasă o notă pentru următorul cititor"}
+              </label>
+              <textarea
+                id={composeId}
+                className="sb-input"
+                placeholder={en ? "A memory, a detail we missed, a question…" : "O amintire, un detaliu care ne-a scăpat, o întrebare…"}
+                value={newComment}
+                onChange={(e) => setNewComment(e.target.value)}
+                style={{ minHeight: 110, borderRadius: 14, background: "var(--ink-2)", fontSize: 17, lineHeight: 1.55 }}
+                maxLength={2000}
+              />
               <div className="flex flex-wrap items-center justify-between gap-3.5">
-                <p className="sb-meta">
+                <p className="m-0" style={{ fontFamily: "var(--ui)", fontSize: 12, color: "var(--text-mute)" }}>
                   {en ? "Signed in as " : "Autentificat ca "}{user.displayName || user.email}
                   {en ? " · notes are public" : " · notele sunt publice"}
                   {" · "}{newComment.length}/2000
                 </p>
-                <button type="button" className="sb-btn" onClick={handlePost} disabled={isPosting || !newComment.trim()}>
-                  {isPosting ? (en ? "Leaving it…" : "Se lasă…") : (en ? "Leave the note" : "Lasă nota")}
-                  <Send className="sb-ico" aria-hidden="true" />
+                <button type="button" className="rs-btn" style={{ minHeight: 44 }} onClick={handlePost} disabled={isPosting || !newComment.trim()}>
+                  {isPosting ? (en ? "Leaving it…" : "Se lasă…") : (en ? "Post the note" : "Publică nota")}
+                  <Send className="w-[15px] h-[15px]" aria-hidden="true" />
                 </button>
               </div>
             </div>
           ) : (
-            <div className="sb-place-card sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
-              <p className="font-display italic m-0" style={{ fontSize: 19, color: "var(--text-dim)" }}>
-                {en ? "Sign in to leave a note for the next reader." : "Autentifică-te ca să lași o notă pentru următorul cititor."}
+            <div className="flex flex-wrap items-center justify-between gap-3" style={{ padding: "18px 20px", marginBottom: 28, border: "1px dashed var(--gold-deep)", borderRadius: 16 }}>
+              <p className="font-display italic m-0" style={{ fontSize: 20, color: "var(--parchment)" }}>
+                {en ? "Sign in to leave a note." : "Intră în cont ca să lași o notă."}
               </p>
-              <button type="button" onClick={login} className="sb-btn justify-self-start">
+              <button type="button" onClick={login} className="rs-btn rs-btn-ghost" style={{ minHeight: 42, borderColor: "var(--gold)", color: "var(--gold)" }}>
                 {en ? "Sign in" : "Autentificare"}
               </button>
             </div>
           )}
 
           {/* The notes */}
-          <div className="flex flex-col gap-5 mt-2">
+          <div className="flex flex-col">
             {loadError && (
               <p className="font-display italic text-center py-4 m-0" style={{ color: "var(--danger)" }}>
                 {loadError}
               </p>
-            )}
-            {!loadError && comments.length === 0 && commentsTotal === 0 && (
-              <>
-                <Divider />
-                <p className="sb-kicker-sm text-center" style={{ color: "var(--text-dim)" }}>
-                  {en ? "No notes yet — be the first to leave one." : "Nicio notă încă — fii primul care lasă una."}
-                </p>
-              </>
             )}
             {comments.map((comment) => {
               const isOwn = user?.id === comment.userId;
@@ -378,19 +368,19 @@ export const ArticleComments: React.FC<Props> = ({ articleId }) => {
                 <article
                   key={comment.id}
                   className="group"
-                  style={{ padding: "20px 22px", borderRadius: 18, background: "var(--paper)", border: "1px solid var(--line-soft)" }}
+                  style={{ padding: "18px 0", borderTop: "1px solid var(--line-soft)" }}
                 >
-                  <div className="flex items-start gap-4">
+                  <div className="flex items-start gap-3.5">
                     <div
-                      className="sb-arch grid place-items-center font-display italic shrink-0"
-                      style={{ width: 40, height: 46, border: "1px solid var(--gold-deep)", background: "var(--glow)", color: "var(--gold)", fontSize: 19 }}
+                      className="grid place-items-center font-display italic shrink-0"
+                      style={{ width: 40, height: 48, borderRadius: "50% 50% 9px 9px / 36% 36% 9px 9px", border: "1px solid var(--line)", background: "var(--paper)", color: "var(--gold)", fontSize: 19 }}
                       aria-hidden="true"
                     >
                       {initial}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between flex-wrap gap-2">
-                        <span className="font-display italic" style={{ fontSize: 19, color: "var(--parchment)" }}>
+                        <span style={{ fontFamily: "var(--ui)", fontSize: 13, fontWeight: 700, color: "var(--parchment)" }}>
                           {displayName}
                         </span>
                         <div className="flex items-center gap-2">
@@ -420,7 +410,7 @@ export const ArticleComments: React.FC<Props> = ({ articleId }) => {
                               </button>
                             </div>
                           )}
-                          <span className="sb-meta">
+                          <span style={{ fontFamily: "var(--ui)", fontSize: 12, fontWeight: 500, color: "var(--text-mute)" }}>
                             {formatArticleDate(comment.createdAt, language, "short")}
                           </span>
                         </div>
@@ -454,8 +444,8 @@ export const ArticleComments: React.FC<Props> = ({ articleId }) => {
                         </div>
                       ) : (
                         <p
-                          className="m-0 mt-2"
-                          style={{ fontSize: 17, lineHeight: 1.65, color: "var(--text)", whiteSpace: "pre-wrap" }}
+                          className="m-0 mt-1"
+                          style={{ fontSize: 17, lineHeight: 1.6, color: "var(--text)", whiteSpace: "pre-wrap" }}
                         >
                           {comment.content}
                         </p>
@@ -467,8 +457,8 @@ export const ArticleComments: React.FC<Props> = ({ articleId }) => {
             })}
 
             {comments.length > 0 && comments.length < commentsTotal && (
-              <div className="flex justify-center pt-2">
-                <button type="button" onClick={loadMore} disabled={isLoadingMore} className="sb-btn sb-btn-ghost">
+              <div className="flex justify-start pt-4">
+                <button type="button" onClick={loadMore} disabled={isLoadingMore} className="rs-btn rs-btn-ghost" style={{ minHeight: 44 }}>
                   {isLoadingMore
                     ? (en ? "Loading…" : "Se încarcă…")
                     : en
@@ -512,7 +502,6 @@ export const ArticleComments: React.FC<Props> = ({ articleId }) => {
             </AlertDialogContent>
           </AlertDialog>
         </div>
-      </div>
     </section>
   );
 };

@@ -593,23 +593,6 @@ export const fetchRelatedArticles = async (
 };
 
 /**
- * The newest published stories, card columns only — for surfaces that list
- * titles and places but never render a body (the home page ticker).
- */
-export const fetchLatestArticleCards = async (limit: number): Promise<Article[]> => {
-  const { data, error } = await supabase
-    .from('articles')
-    .select(CARD_COLUMNS)
-    .eq('is_published', true)
-    .order('created_at', { ascending: false })
-    // See PAGINATION_TIEBREAKER note above fetchArticlesPage.
-    .order('id', { ascending: true })
-    .limit(limit);
-  if (error) throw error;
-  return toCamelCaseArray<Article>((data || []) as unknown as Record<string, unknown>[]);
-};
-
-/**
  * Paginated admin/writer dashboard fetcher for articles. Skips the
  * public-content cache (admins always want fresh data) and accepts an
  * optional `ownerId` so writers fetch only their own rows server-side.
@@ -1079,9 +1062,11 @@ const withPlaceAndDate = async (rows: Article[]): Promise<Article[]> => {
 export const fetchArticlesPage = async (
   page: number,
   pageSize: number,
-  categoryId?: string | null
+  categoryId?: string | null,
+  /** Rows to pass over before page 1 starts (Home shows the newest five above its grid). */
+  skip = 0
 ): Promise<{ articles: Article[]; total: number }> => {
-  const start = (page - 1) * pageSize;
+  const start = skip + (page - 1) * pageSize;
   const end = start + pageSize - 1;
 
   let query = supabase
@@ -1156,6 +1141,16 @@ export const fetchAnyArticle = async (id: string): Promise<Article | null> => {
   }
 };
 
+/** How many times each of these stories has been read (a shelf's "Most read" order). Missing rows count as 0. */
+export const fetchViewCounts = async (ids: string[]): Promise<Record<string, number>> => {
+  if (!ids.length) return {};
+  const { data, error } = await supabase.from('article_views').select('article_id, view_count').in('article_id', ids);
+  if (error) throw error;
+  const out: Record<string, number> = {};
+  for (const row of (data || []) as { article_id: string; view_count: number | null }[]) out[row.article_id] = row.view_count || 0;
+  return out;
+};
+
 export const fetchPublicArticle = async (id: string): Promise<{ article: Article | null, views: number }> => {
   try {
     const articlePromise = supabase.from('articles').select('*').eq('id', id).eq('is_published', true).maybeSingle();
@@ -1213,6 +1208,24 @@ export const takePrefetchedArticle = (id: string): ReturnType<typeof fetchPublic
 };
 
 const COMMENTS_PAGE_SIZE = 25;
+
+/** A reader's own note, with the story it was left on (null if that story is no longer published). */
+export type ReaderNote = { id: string; content: string; createdAt: string; article: Article | null };
+
+/** The notes a reader has left, newest first (their profile's "Your notes"). */
+export const fetchReaderNotes = async (userId: string): Promise<ReaderNote[]> => {
+  const { data, error } = await supabase
+    .from('comments')
+    .select('id, content, created_at, article_id')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false })
+    .limit(100);
+  if (error) throw error;
+  const rows = (data || []) as { id: string; content: string; created_at: string; article_id: string }[];
+  const cards = rows.length ? await fetchArticleCardsByIds([...new Set(rows.map((r) => r.article_id))]) : [];
+  const byId = new Map(cards.map((c) => [c.id, c]));
+  return rows.map((r) => ({ id: r.id, content: r.content, createdAt: r.created_at, article: byId.get(r.article_id) ?? null }));
+};
 
 /**
  * Fetches comments for an article in pages of `COMMENTS_PAGE_SIZE`.

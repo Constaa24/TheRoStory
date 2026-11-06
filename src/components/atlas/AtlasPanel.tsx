@@ -24,6 +24,8 @@ type StoryCardProps = {
   excerpt: string | undefined;
   partOf: { journey: Journey; at: number }[];
   onJourney: (id: string, at: number) => void;
+  /** Moves the selection to the closest other story on the map. */
+  onNearest?: () => void;
   /** In the side panel a card is left by its back link; only the phone sheet needs Close. */
   onClose?: () => void;
   from: string;
@@ -31,13 +33,13 @@ type StoryCardProps = {
   lang: Lang;
 };
 
-export const StoryCard: React.FC<StoryCardProps> = ({ story: s, categoryName, excerpt, partOf, onJourney, onClose, from, copy, lang }) => (
+export const StoryCard: React.FC<StoryCardProps> = ({ story: s, categoryName, excerpt, partOf, onJourney, onNearest, onClose, from, copy, lang }) => (
   <article className="at-card">
     <div className="at-card-cover">
       {s.cover ? <img src={s.cover} alt="" loading="lazy" /> : <span className="ph absolute inset-0" data-tone="warm" />}
       <span className="at-card-kind">{kindName(s.kind, lang)}</span>
     </div>
-    <p className="eyebrow m-0">{categoryName ? `${categoryName} · ` : ''}{whenOf(s, lang)}</p>
+    <p className="rs-eyebrow">{categoryName ? `${categoryName} · ` : ''}{whenOf(s, lang)}</p>
     <h3 className="at-card-title" id={CARD_TITLE_ID} tabIndex={-1}>{pick(s.title, lang)}</h3>
     <p className="at-card-place">{pick(s.place, lang)}</p>
     {excerpt === undefined ? <p className="at-card-ex at-card-ex-wait" aria-hidden="true" /> : excerpt && <p className="at-card-ex">{excerpt}</p>}
@@ -46,6 +48,7 @@ export const StoryCard: React.FC<StoryCardProps> = ({ story: s, categoryName, ex
         {copy.read}
         <svg className="at-ico" viewBox="0 0 12 12" aria-hidden="true"><path d="M2 6h8M6.5 2.5 10 6l-3.5 3.5" fill="none" stroke="currentColor" strokeWidth="1.4" /></svg>
       </Link>
+      {onNearest && <button type="button" className="at-btn-ghost" onClick={onNearest}>{copy.nearest}</button>}
       {onClose && <button type="button" className="at-btn-ghost" onClick={onClose}>{copy.close}</button>}
     </div>
     {partOf.length > 0 && (
@@ -66,7 +69,7 @@ type CountyCardProps = { name: string; onClose?: () => void; copy: AtlasCopy };
 /** A county with no story yet: what is missing, and where to pitch one. */
 export const CountyCard: React.FC<CountyCardProps> = ({ name, onClose, copy }) => (
   <article className="at-card">
-    <p className="eyebrow m-0">{copy.unwEyebrow}</p>
+    <p className="rs-eyebrow">{copy.unwEyebrow}</p>
     <h3 className="at-card-title" id={CARD_TITLE_ID} tabIndex={-1}>{name}</h3>
     <p className="at-card-ex">{fill(copy.unwBody, { c: name })}</p>
     <div className="at-card-actions">
@@ -149,6 +152,13 @@ const AtlasPanel: React.FC<Props> = ({
     }
     return (
       <>
+        {/* Nothing chosen yet: say what the map is for. */}
+        {!selected && list.length > 0 && (
+          <div className="at-prompt">
+            <p className="at-prompt-t">{copy.pickTitle}</p>
+            <p className="at-prompt-s">{copy.pickSub}</p>
+          </div>
+        )}
         <div className="at-pane-head">
           <p className="at-count">{matchLine}</p>
           {filtersOn && <button type="button" className="at-link" onClick={onClearFilters}>{copy.clear}</button>}
@@ -229,7 +239,7 @@ const AtlasPanel: React.FC<Props> = ({
       <>
         {wide && cur && renderStoryCard(cur, true)}
         <section className="at-journey">
-          <p className="eyebrow m-0">{copy.journey} · {fill(copy.stopOf, { i: stop + 1, n: ss.length })}</p>
+          <p className="rs-eyebrow">{copy.journey} · {fill(copy.stopOf, { i: stop + 1, n: ss.length })}</p>
           <h3 className="at-journey-title">{pick([journey.titleEn, journey.titleRo], lang)}</h3>
           {pick([journey.introEn, journey.introRo], lang) && <p>{pick([journey.introEn, journey.introRo], lang)}</p>}
           <ol className="at-stops">

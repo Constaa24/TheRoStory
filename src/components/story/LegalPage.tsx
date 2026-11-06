@@ -3,8 +3,7 @@ import { Link } from "react-router-dom";
 import { PageHead } from "@/components/layout/PageHead";
 import { useActiveSection } from "@/hooks/use-active-section";
 import { toRoman } from "@/lib/story-facts";
-import { cn } from "@/lib/utils";
-import { Knot, Rosette, Thread } from "@/components/story/Ornaments";
+import { Knot, Rosette } from "@/components/story/Ornaments";
 
 /**
  * `id` is an optional stable anchor for sections linked from elsewhere (the
@@ -46,87 +45,74 @@ export const LegalPage: React.FC<{
   ] as const;
 
   return (
-    <div className="screen-anim">
+    <div className="rs-in">
       <PageHead title={title} description={subtitle} language={language} />
 
-      <header className="ed-container" style={{ paddingTop: "clamp(40px, 6vw, 64px)", paddingBottom: 48 }}>
-        <div className="sb-chapter-head" style={{ gap: 18 }}>
-          <nav aria-label={en ? "The fine print" : "Detalii"} className="sb-seg">
-            {docs.map((d) => (
-              <Link key={d.key} to={d.to} className="sb-seg-btn" aria-current={d.key === current ? "page" : undefined}>
-                {d.label}
-              </Link>
-            ))}
-          </nav>
-          <p className="sb-kicker mt-3">{en ? "The fine print" : "Detaliile"}</p>
-          <h1 className="sb-h1">{title}</h1>
-          <p className="sb-lede max-w-[560px]">{subtitle}.</p>
-          <div className="flex items-center justify-center gap-3.5">
-            <Thread className="hidden sm:block" style={{ width: 48 }} />
-            <p className="sb-meta">
-              {en ? `Last updated ${date}` : `Ultima actualizare: ${date}`} · {count}
-            </p>
-            <Thread className="hidden sm:block" style={{ width: 48 }} />
-          </div>
-        </div>
+      <header className="ed-container" style={{ paddingTop: "clamp(40px, 6vw, 80px)" }}>
+        <nav aria-label={en ? "The fine print" : "Detalii"} className="sb-seg" style={{ marginBottom: 28 }}>
+          {docs.map((d) => (
+            <Link key={d.key} to={d.to} className="sb-seg-btn" aria-current={d.key === current ? "page" : undefined} style={{ fontWeight: 700 }}>
+              {d.label}
+            </Link>
+          ))}
+        </nav>
+        <h1 className="rs-display" style={{ margin: "0 0 12px", fontSize: "clamp(48px, 6vw, 88px)", lineHeight: 0.96 }}>{title}</h1>
+        <p className="m-0 mb-2 font-display italic" style={{ fontSize: 24, color: "var(--text-dim)" }}>{subtitle}.</p>
+        <p className="m-0" style={{ fontFamily: "var(--ui)", fontSize: 13, color: "var(--text-mute)" }}>
+          {en ? `Last updated ${date}` : `Ultima actualizare: ${date}`} · {count}
+        </p>
       </header>
 
-      <section className="ed-container" style={{ paddingBottom: 72 }}>
-        <ul className="list-none p-0 m-0 mx-auto grid grid-cols-1 md:grid-cols-3 gap-5" style={{ maxWidth: 1100 }}>
+      {/* Three lines quoted at a glance, verbatim. */}
+      <section className="ed-container" style={{ paddingTop: "clamp(32px, 4vw, 48px)", paddingBottom: "clamp(40px, 5vw, 64px)" }}>
+        <ul className="list-none p-0 m-0 grid grid-cols-1 md:grid-cols-3 gap-5">
           {glance.map((g) => (
             <li key={g.from}>
-              <figure className="m-0 h-full grid gap-3 justify-items-center content-start text-center" style={{ padding: "28px 24px", border: "1px dashed var(--gold-deep)", borderRadius: 20 }}>
+              <figure className="m-0 h-full grid gap-3 content-start" style={{ padding: "24px", border: "1px dashed var(--gold-deep)", borderRadius: 20 }}>
                 <Knot />
                 <blockquote className="m-0">
-                  <p className="font-display italic m-0" style={{ fontSize: 23, lineHeight: 1.3, color: "var(--parchment)" }}>
+                  <p className="font-display italic m-0" style={{ fontSize: 22, lineHeight: 1.3, color: "var(--parchment)" }}>
                     {en ? `“${g.quote}”` : `„${g.quote}”`}
                   </p>
                 </blockquote>
-                <figcaption className="sb-meta">{en ? `from “${g.from}”` : `din „${g.from}”`}</figcaption>
+                <figcaption style={{ fontFamily: "var(--ui)", fontSize: 12, color: "var(--text-mute)" }}>{en ? `from “${g.from}”` : `din „${g.from}”`}</figcaption>
               </figure>
             </li>
           ))}
         </ul>
       </section>
 
-      <div className="ed-container grid grid-cols-1 xl:grid-cols-[220px_minmax(0,1fr)_280px] gap-12 xl:gap-14 items-start" style={{ paddingBottom: "clamp(72px, 9vw, 104px)" }}>
-        <aside className="hidden xl:block xl:sticky" style={{ top: 112 }}>
-          <p className="sb-kicker-sm mb-4" style={{ color: "var(--text-mute)" }}>{en ? "Contents" : "Cuprins"}</p>
-          <ol className="sb-path" style={{ gap: 14 }}>
+      <div className="ed-container grid grid-cols-1 xl:grid-cols-[240px_minmax(0,720px)] gap-[clamp(40px,5vw,88px)] items-start">
+        <div className="hidden xl:flex xl:sticky flex-col gap-7" style={{ top: 100 }}>
+          <nav aria-label={en ? "Contents" : "Cuprins"} className="rs-toc">
+            <p className="rs-kicker" style={{ marginBottom: 10 }}>{en ? "Contents" : "Cuprins"}</p>
             {sections.map((s, i) => (
-              <li key={ids[i]} className={cn("sb-path-step", i < active && "is-done", i === active && "is-now")}>
-                <a href={`#${ids[i]}`} className="sb-path-label" style={{ fontSize: 17 }} aria-current={i === active ? "location" : undefined}>
-                  <span className="sb-numeral mr-1.5" style={{ fontSize: 14 }}>{toRoman(i + 1)}</span>
-                  {s.heading}
-                </a>
-              </li>
+              <a key={ids[i]} href={`#${ids[i]}`} className="rs-toc-link" aria-current={i === active ? "location" : undefined}>{s.heading}</a>
             ))}
-          </ol>
-        </aside>
+          </nav>
+          <div className="grid gap-5">{aside}</div>
+        </div>
 
         <div>
           {sections.map((s, i) => (
-            <section key={ids[i]} id={ids[i]} className="scroll-mt-28" style={{ paddingBlock: 30, borderBottom: "1px dashed var(--line)" }}>
+            <section key={ids[i]} id={ids[i]} style={{ paddingBottom: 36, marginBottom: 36, borderBottom: "1px solid var(--line-soft)", scrollMarginTop: 110 }}>
               <div className="flex items-baseline gap-3.5 mb-3">
-                <span className="sb-numeral shrink-0" style={{ fontSize: 22, minWidth: 44 }} aria-hidden="true">{toRoman(i + 1)}</span>
-                <h2 className="sb-h3" style={{ fontSize: "clamp(25px, 2.4vw, 30px)" }}>{s.heading}</h2>
+                <span aria-hidden="true" className="font-display italic shrink-0" style={{ fontSize: 22, color: "var(--gold)", minWidth: 34 }}>{toRoman(i + 1)}</span>
+                <h2 className="rs-display" style={{ fontSize: 32, lineHeight: 1.1, letterSpacing: 0, color: i === active ? "var(--gold-2)" : undefined }}>{s.heading}</h2>
               </div>
-              <p className="m-0 sm:ml-[58px]" style={{ fontSize: 18.5, lineHeight: 1.78, color: "var(--text)", textWrap: "pretty" as React.CSSProperties["textWrap"] }}>
+              <p className="m-0 sm:ml-12" style={{ fontSize: 18, lineHeight: 1.75, color: "var(--text)", textWrap: "pretty" as React.CSSProperties["textWrap"] }}>
                 {s.body}
               </p>
             </section>
           ))}
-          <div className="sb-chapter-head mt-14" style={{ gap: 10 }}>
+          <div className="flex items-center gap-4">
             <Rosette />
-            <p className="sb-kicker-sm" style={{ color: "var(--text-dim)" }}>
+            <p className="m-0 font-display italic" style={{ fontSize: 19, color: "var(--text-dim)" }}>
               {en ? "That’s all of it. Thank you for reading the small print." : "Asta e tot. Mulțumim că ai citit și literele mici."}
             </p>
           </div>
+          <div className="grid gap-5 mt-10 xl:hidden">{aside}</div>
         </div>
-
-        <aside className="grid gap-5 xl:sticky" style={{ top: 112 }}>
-          {aside}
-        </aside>
       </div>
     </div>
   );

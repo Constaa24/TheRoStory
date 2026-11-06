@@ -20,16 +20,26 @@ const TabsList = React.forwardRef<
 ))
 TabsList.displayName = TabsPrimitive.List.displayName
 
+/**
+ * Radix focuses a tab in code when it is clicked, and the browser then
+ * treats that focus as if it came from the keyboard: the focus ring stayed
+ * on every tab a reader clicked. A pointer press marks the tab, and the
+ * ring is hidden while the mark is there; a key press or leaving the tab
+ * clears it, so keyboard focus keeps its ring.
+ */
 const TabsTrigger = React.forwardRef<
   React.ElementRef<typeof TabsPrimitive.Trigger>,
   React.ComponentPropsWithoutRef<typeof TabsPrimitive.Trigger>
->(({ className, ...props }, ref) => (
+>(({ className, onPointerDown, onKeyDown, onBlur, ...props }, ref) => (
   <TabsPrimitive.Trigger
     ref={ref}
     className={cn(
-      "inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-1 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow",
+      "inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-1 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 data-[pointer]:focus-visible:ring-0 data-[pointer]:focus-visible:ring-offset-0 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow",
       className
     )}
+    onPointerDown={(e) => { e.currentTarget.dataset.pointer = ""; onPointerDown?.(e); }}
+    onKeyDown={(e) => { delete e.currentTarget.dataset.pointer; onKeyDown?.(e); }}
+    onBlur={(e) => { delete e.currentTarget.dataset.pointer; onBlur?.(e); }}
     {...props}
   />
 ))

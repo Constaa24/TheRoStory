@@ -244,7 +244,9 @@ select:focus-visible,
 [tabindex]:focus-visible {
   outline: 2px solid var(--gold);
   outline-offset: 2px;
-  border-radius: 2px;
+  /* No border-radius here: it used to be 2px, which turned every round
+     button (search, theme, account, back-to-top) into a square the moment
+     it took keyboard focus. The outline follows each element's own shape. */
 }
 
 /* Respect the OS "reduce motion" setting: neutralize CSS animations/transitions
@@ -341,12 +343,16 @@ main:focus-visible {
 /* Eyebrow / small caps label */
 /* Since the storybook redesign: an italic caption, not tracked capitals.
    Only the dashboard and the story editors still use this class. */
+/* The redesign's eyebrow: letter-spaced capitals in the UI face (it was an
+   italic display line in the storybook). Used by the editors and the Atlas. */
 .eyebrow {
-  font-family: var(--display);
-  font-style: italic;
-  font-weight: 400;
-  font-size: 18px;
-  line-height: 1.3;
+  font-family: var(--ui);
+  font-style: normal;
+  font-weight: 700;
+  font-size: 12px;
+  line-height: 1.4;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
   color: var(--gold);
 }
 
@@ -463,13 +469,13 @@ main:focus-visible {
 
 /* Sticky nav — backdrop-blurred */
 .ed-nav {
-  position: sticky; top: 0; z-index: 50;
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  background: rgba(13, 11, 8, 0.7);
+  position: sticky; top: 0; z-index: 60;
+  backdrop-filter: blur(16px) saturate(1.2);
+  -webkit-backdrop-filter: blur(16px) saturate(1.2);
+  background: rgba(13, 11, 8, 0.82);
   border-bottom: 1px solid var(--line-soft);
 }
-.light .ed-nav { background: rgba(246, 241, 230, 0.85); }
+.light .ed-nav { background: rgba(246, 241, 230, 0.88); }
 
 /* Drop cap (text articles) */
 .dropcap::first-letter {
@@ -617,11 +623,17 @@ main:focus-visible {
 }
 .ed-form label {
   font-family: var(--ui);
-  font-size: 14px;
-  font-weight: 500;
+  font-size: 13px;
+  font-weight: 700;
   color: var(--text-dim);
   display: block;
   margin-bottom: 8px;
+}
+/* The editors' dropdowns stand as tall as the text fields beside them. */
+.ed-form button[role="combobox"] {
+  height: auto;
+  min-height: 54px;
+  padding: 14px 16px;
 }
 
 /* Page transitions */
@@ -690,8 +702,7 @@ main:focus-visible {
      as a black slab. */
   .sb-btn,
   .sb-icon-btn,
-  .sb-seg,
-  .sb-chip {
+  .sb-seg {
     display: none !important;
   }
 

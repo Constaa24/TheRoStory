@@ -340,7 +340,7 @@ const AuthCallback: React.FC = () => {
   }, [navigate]);
 
   return (
-    <div className="container mx-auto px-4 py-20 flex justify-center items-center min-h-[70vh]">
+    <div className="ed-container rs-in flex justify-center items-center" style={{ minHeight: '70vh', paddingTop: 'clamp(56px, 8vw, 120px)', paddingBottom: 48 }}>
       <PageHead
         title={language === "en" ? "Signing in" : "Autentificare"}
         description={language === "en"
@@ -353,28 +353,18 @@ const AuthCallback: React.FC = () => {
       <motion.div
         initial={{ opacity: 0, scale: 0.9 }}
         animate={{ opacity: 1, scale: 1 }}
-        className="max-w-md w-full"
+        className="w-full"
+        style={{ maxWidth: 560 }}
       >
-        <Card className="border-border/40 bg-secondary/20 backdrop-blur-md text-center">
-          <CardHeader>
-            <div className="flex justify-center mb-4">
-              {status === "loading" && (
-                <div className="h-16 w-16 bg-accent/10 rounded-full flex items-center justify-center">
-                  <Loader2 className="h-8 w-8 text-accent animate-spin" />
-                </div>
-              )}
-              {status === "success" && (
-                <div className="h-16 w-16 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center">
-                  <CheckCircle2 className="h-8 w-8 text-green-600 dark:text-green-400" />
-                </div>
-              )}
-              {status === "error" && (
-                <div className="h-16 w-16 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center">
-                  <AlertCircle className="h-8 w-8 text-red-600 dark:text-red-400" />
-                </div>
-              )}
+        {/* The same dashed-edged letter as the newsletter confirmation. */}
+        <Card className="text-center shadow-none" style={{ padding: 'clamp(28px, 5vw, 56px)', borderRadius: 28, border: '1.5px dashed var(--gold-deep)', background: 'var(--paper)' }}>
+          <CardHeader className="p-0 gap-3">
+            <div className="flex justify-center mb-2">
+              {status === "loading" && <Loader2 className="h-9 w-9 animate-spin" style={{ color: 'var(--gold)' }} aria-hidden="true" />}
+              {status === "success" && <CheckCircle2 className="h-10 w-10" style={{ color: 'var(--gold)' }} aria-hidden="true" />}
+              {status === "error" && <AlertCircle className="h-10 w-10" style={{ color: 'var(--danger)' }} aria-hidden="true" />}
             </div>
-            <CardTitle className="text-3xl font-serif italic text-primary">
+            <CardTitle className="rs-display" style={{ fontSize: 'clamp(34px, 4.6vw, 52px)', lineHeight: 1.02 }}>
               {status === "loading" && (isPasswordRecovery
                 ? (language === "en" ? "Authenticating..." : "Se autentifică...")
                 : (isEmailVerificationFlow
@@ -387,7 +377,7 @@ const AuthCallback: React.FC = () => {
                 ? (language === "en" ? "Verification Failed" : "Verificare Eșuată")
                 : (language === "en" ? "Authentication Failed" : "Autentificare Eșuată"))}
             </CardTitle>
-            <CardDescription className="text-muted-foreground font-serif italic text-lg">
+            <CardDescription className="m-0" style={{ fontSize: 18, lineHeight: 1.6, color: 'var(--text-dim)' }}>
               {status === "loading" && (isPasswordRecovery
                 ? (language === "en"
                   ? "Please wait while we prepare password reset..."
@@ -406,9 +396,9 @@ const AuthCallback: React.FC = () => {
             </CardDescription>
           </CardHeader>
           {status === "error" && (
-            <CardContent className="space-y-3">
+            <CardContent className="p-0 mt-7 flex flex-wrap justify-center gap-3">
               <Button
-                className="w-full rounded-full h-12 font-serif italic"
+                size="lg"
                 onClick={() => navigate(isEmailVerificationFlow ? "/auth?mode=signup" : "/auth")}
               >
                 {isEmailVerificationFlow
@@ -417,7 +407,7 @@ const AuthCallback: React.FC = () => {
               </Button>
               <Button
                 variant="outline"
-                className="w-full rounded-full h-12 font-serif italic"
+                size="lg"
                 onClick={() => navigate("/")}
               >
                 {language === "en" ? "Go to homepage" : "Mergi la Acasă"}

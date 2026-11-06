@@ -55,6 +55,10 @@ export const kindPhrase = (a: Pick<Article, 'type' | 'subtype' | 'mediaUrls' | '
   return ro ? 'Un eseu' : 'An essay';
 };
 
+/** The kind alone, without a visual essay's frame count: "A visual essay", "A poem". */
+export const kindWord = (a: Pick<Article, 'type' | 'subtype' | 'mediaUrls' | 'mediaUrl'>, lang: Lang): string =>
+  a.type === 'carousel' ? (lang === 'ro' ? 'Un eseu vizual' : 'A visual essay') : kindPhrase(a, lang);
+
 /** "3-minute read" / "Lectură de 3 minute"; films are watched, not read. */
 export const readPhrase = (a: Article, lang: Lang): string => {
   if (a.type === 'video') return lang === 'ro' ? 'Vezi filmul' : 'Watch the film';

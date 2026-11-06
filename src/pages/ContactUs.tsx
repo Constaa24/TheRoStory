@@ -1,12 +1,12 @@
 import React from "react";
 import { Link } from "react-router-dom";
+import { Motif, Rosette } from "@/components/story/Ornaments";
 import { useLanguage } from "@/hooks/use-language";
 import { useCooldown } from "@/hooks/use-cooldown";
 import { sendContactMessage } from "@/lib/supabase";
 import { toast } from "sonner";
 import { Loader2, Send } from "lucide-react";
 import { PageHead } from "@/components/layout/PageHead";
-import { Motif, Rosette } from "@/components/story/Ornaments";
 
 const COOLDOWN_SECONDS = 30;
 
@@ -105,47 +105,49 @@ const ContactUs: React.FC = () => {
   ];
 
   return (
-    <div className="screen-anim">
+    <div className="rs-in">
       <PageHead title={t("contact.title")} description={t("contact.subtitle")} language={language} />
 
-      <section className="ed-container" style={{ paddingTop: 'clamp(40px, 6vw, 72px)', paddingBottom: 'clamp(72px, 9vw, 112px)' }}>
-        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] gap-12 lg:gap-[clamp(40px,6vw,96px)] items-start">
-          <div className="flex flex-col gap-5 lg:sticky lg:top-10">
-            <p className="sb-kicker">{t("contact.title")}</p>
-            <h1 className="sb-h1" style={{ fontSize: 'clamp(48px, 5.6vw, 84px)' }}>{en ? 'Write to us.' : 'Scrie-ne.'}</h1>
-            <p className="sb-lede">
+      <section className="ed-container" style={{ paddingTop: 'clamp(40px, 6vw, 80px)' }}>
+        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] gap-12 lg:gap-[clamp(40px,5vw,88px)] items-start">
+          <div className="flex flex-col gap-7">
+            <div>
+              <p className="rs-eyebrow" style={{ marginBottom: 14 }}>{t("contact.title")}</p>
+              <h1 className="rs-display" style={{ margin: '0 0 18px', fontSize: 'clamp(54px, 6.4vw, 96px)', lineHeight: 0.94 }}>{en ? 'Write to us.' : 'Scrie-ne.'}</h1>
+            <p className="m-0" style={{ fontSize: 19, lineHeight: 1.6, color: 'var(--text-dim)' }}>
               {en
                 ? "Press, partnerships, corrections, an old letter you'd like to share — we'd love to hear from you."
                 : 'Presă, parteneriate, corecturi, o scrisoare veche pe care vrei să o împarți — ne-ar plăcea să auzim de la tine.'}
             </p>
-            <div className="sb-place-card mt-3">
-              <div className="flex items-center gap-3">
+            </div>
+            <div style={{ padding: 22, border: '1px solid var(--line)', borderRadius: 20 }}>
+              <div className="flex items-center gap-3 mb-1.5">
                 <Rosette size="sm" />
-                <p className="sb-h4">{en ? 'Pitching a story?' : 'Propui o poveste?'}</p>
+                <p className="m-0 font-display" style={{ fontSize: 24, color: 'var(--parchment)' }}>{en ? 'Pitching a story?' : 'Propui o poveste?'}</p>
               </div>
-              <p className="sb-dim text-[17px] leading-relaxed">
+              <p className="m-0" style={{ fontSize: 16, lineHeight: 1.6, color: 'var(--text-dim)' }}>
                 {en
                   ? 'Tell us where it happens and, if you know, when. That’s what puts a story on the map.'
                   : 'Spune-ne unde se petrece și, dacă știi, când. Asta pune o poveste pe hartă.'}
               </p>
             </div>
-            <div className="flex flex-col gap-2 mt-2">
-              <p className="sb-kicker-sm" style={{ color: 'var(--text-dim)' }}>{en ? 'Or write directly' : 'Sau scrie direct'}</p>
-              <a href="mailto:support@therostory.com" className="font-display italic text-[24px] break-words transition-colors hover:text-gold" style={{ color: 'var(--parchment)' }}>
+            <div className="flex flex-col gap-2">
+              <p className="m-0" style={{ fontFamily: 'var(--ui)', fontSize: 12, fontWeight: 700, color: 'var(--text-dim)' }}>{en ? 'Or write directly' : 'Sau scrie direct'}</p>
+              <a href="mailto:support@therostory.com" className="rs-underline font-display text-[28px] break-words" style={{ textUnderlineOffset: 6, textDecorationThickness: 1 }}>
                 support@therostory.com
               </a>
             </div>
-            <div className="flex flex-col gap-3 mt-2">
-              <p className="sb-kicker-sm" style={{ color: 'var(--text-dim)' }}>{en ? 'Or find us where we post the field notes' : 'Sau găsește-ne acolo unde publicăm notele de teren'}</p>
+            <div className="flex flex-col gap-3">
+              <p className="m-0" style={{ fontFamily: 'var(--ui)', fontSize: 12, fontWeight: 700, color: 'var(--text-dim)' }}>{en ? 'Or find us where we post the field notes' : 'Sau găsește-ne acolo unde publicăm notele de teren'}</p>
               <div className="flex flex-wrap gap-2.5">
                 {SOCIALS.map((s) => (
-                  <a key={s.label} href={s.href} target="_blank" rel="noopener noreferrer" className="sb-btn sb-btn-ghost">{s.label}</a>
+                  <a key={s.label} href={s.href} target="_blank" rel="noopener noreferrer" className="rs-btn rs-btn-ghost" style={{ minHeight: 44 }}>{s.label}</a>
                 ))}
               </div>
             </div>
-            <figure className="m-0 mt-6 hidden lg:block">
-              <div className="sb-window-shallow">
-                <div className="sb-arch sb-arch-shallow" style={{ aspectRatio: '4 / 3' }}>
+            <figure className="m-0 hidden lg:block max-w-[380px]" style={{ padding: 8, border: '1px solid var(--line)', borderRadius: '50% 50% 20px 20px / 22% 22% 20px 20px' }}>
+              <div>
+                <div className="relative overflow-hidden" style={{ aspectRatio: '4 / 3.4', borderRadius: '50% 50% 14px 14px / 18% 18% 14px 14px', background: 'var(--paper)' }}>
                   <picture>
                     <source type="image/avif" srcSet="/bucharest_reading_room.avif" />
                     <source type="image/webp" srcSet="/bucharest_reading_room.webp" />
@@ -161,7 +163,7 @@ const ContactUs: React.FC = () => {
                   </picture>
                 </div>
               </div>
-              <figcaption className="sb-kicker-sm text-center mt-3" style={{ color: 'var(--text-dim)' }}>
+              <figcaption style={{ padding: '10px 6px 2px', fontFamily: 'var(--ui)', fontSize: 12, color: 'var(--text-mute)' }}>
                 {en ? 'Reading room, Bucharest' : 'Camera de lectură, București'}
               </figcaption>
             </figure>
@@ -171,10 +173,18 @@ const ContactUs: React.FC = () => {
           <form
             onSubmit={onSubmit}
             noValidate
-            className="relative grid gap-6"
-            style={{ background: 'var(--paper)', border: '1px solid var(--line-soft)', borderRadius: 26, padding: 'clamp(26px, 5vw, 60px)' }}
+            className="relative grid gap-[22px]"
+            style={{ background: 'var(--paper)', border: '1px solid var(--line)', borderRadius: 28, padding: 'clamp(28px, 4vw, 56px)', boxShadow: 'var(--shadow-soft)' }}
           >
+            {/* A band of cross-stitch along the letter's top edge. */}
             <Motif className="absolute" style={{ left: 32, right: 32, top: 0, transform: 'translateY(-50%)', opacity: 0.45 }} />
+            {/* The stamp in the corner of the letter. */}
+            <div aria-hidden="true" className="absolute grid place-items-center" style={{ top: 22, right: 22, width: 74, height: 88, border: '1.5px dashed var(--gold-deep)', borderRadius: 8, transform: 'rotate(4deg)' }}>
+              <picture>
+                <source type="image/webp" srcSet="/logo-128.webp" />
+                <img src="/logo-128.png" alt="" width={46} height={46} className="w-[46px] h-[46px] object-contain" style={{ opacity: 0.9 }} />
+              </picture>
+            </div>
             <p className="font-display italic m-0" style={{ fontSize: 34, lineHeight: 1.2, color: 'var(--parchment)' }}>
               {en ? 'Dear RoStory,' : 'Dragă RoStory,'}
             </p>
@@ -190,32 +200,33 @@ const ContactUs: React.FC = () => {
               />
             </div>
 
-            <div className="sb-field">
-              <label htmlFor="contact-subject" className="sb-label">{en ? 'What is it about?' : 'Despre ce este vorba?'}</label>
-              <select
-                id="contact-subject"
-                className="sb-input"
-                value={subject}
-                onChange={(e) => setSubject(e.target.value as SubjectKey)}
-              >
+            {/* Real radio buttons, drawn as chips: the arrow keys and screen
+                readers treat them as the one choice they are. */}
+            <fieldset className="m-0 p-0 border-0 grid gap-2">
+              <legend className="rs-field-label" style={{ marginBottom: 8 }}>{en ? 'What is it about?' : 'Despre ce este vorba?'}</legend>
+              <div className="flex flex-wrap gap-2">
                 {SUBJECTS.map((s) => (
-                  <option key={s.key} value={s.key}>{s[language]}</option>
+                  <label key={s.key} className="rs-radio-chip">
+                    <input type="radio" name="contact-subject" value={s.key} checked={subject === s.key} onChange={() => setSubject(s.key)} />
+                    <span className="rs-radio-face">{s[language]}</span>
+                  </label>
                 ))}
-              </select>
-            </div>
+              </div>
+            </fieldset>
 
             <div className="sb-field">
-              <label htmlFor="contact-message" className="sb-label">{en ? 'Your letter' : 'Scrisoarea ta'}</label>
+              <label htmlFor="contact-message" className="rs-field-label">{en ? 'Your letter' : 'Scrisoarea ta'}</label>
               <textarea
                 id="contact-message"
-                className="sb-input"
+                className="rs-lined"
+                rows={7}
                 placeholder={t('contact.messagePlaceholder')}
                 value={message}
                 onChange={(e) => { setMessage(e.target.value); clearError('message'); }}
                 maxLength={5000}
                 aria-invalid={!!errors.message}
                 aria-describedby={errors.message ? 'contact-message-error' : 'contact-message-hint'}
-                style={errors.message ? { borderColor: 'var(--oxblood-2)' } : undefined}
+                style={errors.message ? { borderBottomColor: 'var(--oxblood-2)' } : undefined}
               />
               {fieldError('contact-message-error', errors.message) ?? (
                 <p id="contact-message-hint" className="sb-meta">
@@ -226,7 +237,7 @@ const ContactUs: React.FC = () => {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               <div className="sb-field content-start">
-                <label htmlFor="contact-name" className="sb-label">{en ? 'Signed,' : 'Cu drag,'}</label>
+                <label htmlFor="contact-name" className="rs-field-label">{en ? 'Signed,' : 'Cu drag,'}</label>
                 <input
                   id="contact-name"
                   className="sb-input"
@@ -243,7 +254,7 @@ const ContactUs: React.FC = () => {
                 {fieldError('contact-name-error', errors.name)}
               </div>
               <div className="sb-field content-start">
-                <label htmlFor="contact-email" className="sb-label">{en ? 'Where we can write back' : 'Unde îți putem răspunde'}</label>
+                <label htmlFor="contact-email" className="rs-field-label">{en ? 'Where we can write back' : 'Unde îți putem răspunde'}</label>
                 <input
                   id="contact-email"
                   className="sb-input"
@@ -262,15 +273,15 @@ const ContactUs: React.FC = () => {
             </div>
 
             <div className="flex flex-wrap justify-between items-center gap-4 mt-2">
-              <p className="sb-meta max-w-[340px]">
+              <p className="m-0 max-w-[340px]" style={{ fontFamily: 'var(--ui)', fontSize: 12, color: 'var(--text-mute)' }}>
                 {en
                   ? 'We use your letter and email only to reply. See our '
                   : 'Folosim scrisoarea și adresa ta doar pentru a-ți răspunde. Vezi '}
-                <Link to="/privacy" className="sb-link">
+                <Link to="/privacy" className="rs-underline">
                   {en ? 'Privacy Policy' : 'Politica de Confidențialitate'}
                 </Link>.
               </p>
-              <button type="submit" className="sb-btn" disabled={busy}>
+              <button type="submit" className="rs-btn" style={{ minHeight: 50 }} disabled={busy}>
                 {isSubmitting
                   ? <Loader2 className="sb-ico animate-spin" aria-hidden="true" />
                   : null}

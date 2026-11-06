@@ -420,7 +420,7 @@ const CarouselStoryCreate: React.FC = () => {
               ? (language === 'en' ? 'Editing · Visual essay' : 'Editare · Eseu vizual')
               : (language === 'en' ? 'New entry · Visual essay' : 'Intrare nouă · Eseu vizual')}
           </div>
-          <h1 className="font-display italic font-medium m-0" style={{ fontSize: 'clamp(48px, 7vw, 96px)', lineHeight: 0.95, letterSpacing: '-0.01em', color: 'var(--parchment)' }}>
+          <h1 className="font-display font-medium m-0" style={{ fontSize: 'clamp(48px, 7vw, 96px)', lineHeight: 0.95, letterSpacing: '-0.01em', color: 'var(--parchment)' }}>
             {isEditing
               ? (language === 'en' ? 'Edit visual essay.' : 'Editează eseul vizual.')
               : (language === 'en' ? 'Build a visual essay.' : 'Construiește un eseu vizual.')}
@@ -610,7 +610,7 @@ const CarouselStoryCreate: React.FC = () => {
               <div className="flex items-end justify-between mb-1">
                 <div>
                   <div className="eyebrow mb-2">{language === 'en' ? 'Frames' : 'Cadre'}</div>
-                  <h2 className="font-display italic m-0" style={{ fontSize: 32, lineHeight: 1.1, color: 'var(--parchment)' }}>
+                  <h2 className="font-display m-0" style={{ fontSize: 32, lineHeight: 1.1, color: 'var(--parchment)' }}>
                     {items.length === 0
                       ? (language === 'en' ? 'Add your first image.' : 'Adaugă prima imagine.')
                       : `${countLabel(items.length, 'frame', language)}.`}

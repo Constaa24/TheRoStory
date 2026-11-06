@@ -446,7 +446,7 @@ const TextStoryCreate: React.FC = () => {
               ? `${language === 'en' ? 'Editing' : 'Editare'} · ${getArticleKindLabel({ type: 'text', subtype }, language)}`
               : `${language === 'en' ? 'New entry' : 'Intrare nouă'} · ${getArticleKindLabel({ type: 'text', subtype }, language)}`}
           </div>
-          <h1 className="font-display italic font-medium m-0" style={{ fontSize: 'clamp(48px, 7vw, 96px)', lineHeight: 0.95, letterSpacing: '-0.01em', color: 'var(--parchment)' }}>
+          <h1 className="font-display font-medium m-0" style={{ fontSize: 'clamp(48px, 7vw, 96px)', lineHeight: 0.95, letterSpacing: '-0.01em', color: 'var(--parchment)' }}>
             {isEditing
               ? (language === 'en' ? 'Edit story.' : 'Editează povestea.')
               : (language === 'en' ? 'Write a story.' : 'Scrie o poveste.')}
@@ -662,7 +662,7 @@ const TextStoryCreate: React.FC = () => {
               <div className="flex items-end justify-between">
                 <div>
                   <div className="eyebrow mb-2">{language === 'en' ? 'Chapters' : 'Capitole'}</div>
-                  <h2 className="font-display italic m-0" style={{ fontSize: 32, lineHeight: 1.1, color: 'var(--parchment)' }}>
+                  <h2 className="font-display m-0" style={{ fontSize: 32, lineHeight: 1.1, color: 'var(--parchment)' }}>
                     {chaptersEn.length} / {MAX_CHAPTERS}
                   </h2>
                 </div>

@@ -75,7 +75,7 @@ test.describe('focus is always visible', () => {
 
 test.describe('search overlay', () => {
   const openSearch = async (page: import('@playwright/test').Page) => {
-    const trigger = page.getByRole('button', { name: /^(Search|Caută)$/ }).first();
+    const trigger = page.getByRole('button', { name: /^(Search the archive|Caută în arhivă)$/ }).first();
     await trigger.click();
     return trigger;
   };
@@ -84,7 +84,7 @@ test.describe('search overlay', () => {
     await page.goto('/');
     await expect(page.locator('main')).toBeVisible();
 
-    const trigger = page.getByRole('button', { name: /^(Search|Caută)$/ }).first();
+    const trigger = page.getByRole('button', { name: /^(Search the archive|Caută în arhivă)$/ }).first();
     await expect(trigger).toHaveAttribute('aria-expanded', 'false');
 
     await trigger.click();

@@ -1,17 +1,9 @@
 import React, { useState } from "react";
 import { useLanguage } from "@/hooks/use-language";
-import { CreditCard, Landmark, Copy, Check, User, Building2, FileText } from "lucide-react";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-  DialogDescription,
-} from "@/components/ui/dialog";
+import { CreditCard, Landmark, Copy, Check, X } from "lucide-react";
 import { Link } from "react-router-dom";
+import { Motif } from "@/components/story/Ornaments";
 import { PageHead } from "@/components/layout/PageHead";
-import { ChapterHead, Divider, Motif } from "@/components/story/Ornaments";
 import { toast } from "sonner";
 
 const RevolutIcon = ({ className }: { className?: string }) => (
@@ -24,6 +16,7 @@ const RevolutIcon = ({ className }: { className?: string }) => (
 const Support: React.FC = () => {
   const { language } = useLanguage();
   const [copiedField, setCopiedField] = useState<"iban" | "reference" | null>(null);
+  const [showBank, setShowBank] = useState(false);
 
   const content = {
     en: {
@@ -160,359 +153,128 @@ const Support: React.FC = () => {
 
 
   return (
-
-    <div className="screen-anim">
-
+    <div className="rs-in">
       <PageHead title={t.subtitle} description={t.intro} language={language} />
 
+      <section className="ed-container" style={{ paddingTop: 'clamp(40px, 6vw, 80px)' }}>
+        <div className="grid grid-cols-1 min-[1000px]:grid-cols-[1.2fr_1fr] gap-x-[72px] gap-y-7 items-end" style={{ marginBottom: 'clamp(40px, 5vw, 64px)' }}>
+          <div>
+            <p className="rs-eyebrow" style={{ marginBottom: 16 }}>{t.subtitle}</p>
+            <h1 className="rs-display" style={{ fontSize: 'clamp(54px, 7.4vw, 116px)', lineHeight: 0.92, letterSpacing: '-0.025em', whiteSpace: 'pre-line' }}>{t.title}</h1>
+          </div>
+          <p className="m-0 mb-2.5" style={{ fontSize: 20, lineHeight: 1.6, color: 'var(--text-dim)', textWrap: 'pretty' }}>{t.intro}</p>
+        </div>
 
-
-      <section className="ed-container" style={{ paddingTop: 'clamp(48px, 7vw, 80px)', paddingBottom: 'clamp(48px, 6vw, 72px)' }}>
-
-        <ChapterHead as="h1" kicker={t.subtitle} title={t.title.replace('\n', ' ')} rosetteSize="lg">
-
-          <p className="sb-lede max-w-[620px]">{t.intro}</p>
-
-        </ChapterHead>
-
-      </section>
-
-
-
-      {/* Three ways to give */}
-
-      <section className="ed-container" style={{ paddingBottom: 'clamp(72px, 9vw, 104px)' }}>
-
-        <ul className="list-none m-0 p-0 grid grid-cols-1 md:grid-cols-3 gap-7 pt-4">
-
-          {tiers.map((tier) => {
-
-            const button = (
-
+        {/* Three ways to give, each an arched door. */}
+        <ul className="list-none m-0 p-0 grid gap-5 grid-cols-[repeat(auto-fit,minmax(min(100%,300px),1fr))]" style={{ paddingTop: 14 }}>
+          {tiers.map((tier) => (
+            <li key={tier.label} className={tier.recommended ? 'rs-tier is-recommended' : 'rs-tier'}>
+              {tier.recommended && <span className="rs-tier-badge">{en ? 'Recommended' : 'Recomandat'}</span>}
+              <span className="grid place-items-center" style={{ width: 52, height: 52, marginTop: 14, borderRadius: '50%', border: '1px solid var(--line)', color: 'var(--gold)' }} aria-hidden="true">
+                {tier.icon}
+              </span>
+              <h2 className="rs-display" style={{ fontSize: 36, lineHeight: 1, letterSpacing: 0 }}>{tier.label}</h2>
+              <p className="m-0" style={{ fontSize: 16, lineHeight: 1.55, color: 'var(--text-dim)', minHeight: '3.1em' }}>{tier.desc}</p>
               <button
-
                 type="button"
-
-                onClick={tier.onClick}
-
-                className={tier.recommended ? 'sb-btn justify-self-start mt-2' : 'sb-btn sb-btn-ghost justify-self-start mt-2'}
-
+                className={tier.recommended ? 'rs-btn w-full' : 'rs-btn rs-btn-ghost w-full'}
+                style={tier.recommended ? undefined : { borderColor: 'var(--gold)', color: 'var(--gold)' }}
+                onClick={tier.isDialog ? () => setShowBank((s) => !s) : tier.onClick}
+                aria-expanded={tier.isDialog ? showBank : undefined}
+                aria-controls={tier.isDialog ? 'bank-details' : undefined}
               >
-
-                {tier.cta}
-
+                {tier.isDialog && showBank ? (en ? 'Hide bank details' : 'Ascunde detaliile bancare') : tier.cta}
               </button>
-
-            );
-
-            return (
-
-              <li
-
-                key={tier.label}
-
-                className="relative grid gap-4 content-start"
-
-                style={{
-
-                  padding: '36px 30px 30px',
-
-                  borderRadius: 24,
-
-                  background: 'var(--paper)',
-
-                  border: `1px solid ${tier.recommended ? 'var(--gold-deep)' : 'var(--line-soft)'}`,
-
-                }}
-
-              >
-
-                {tier.recommended && (
-
-                  <span className="sb-tag absolute" style={{ top: -16, left: 30, background: 'var(--gold)', color: 'var(--on-gold)', borderColor: 'var(--gold)' }}>
-
-                    {en ? 'Recommended' : 'Recomandat'}
-
-                  </span>
-
-                )}
-
-                <span className="grid place-items-center" style={{ width: 56, height: 56, borderRadius: '50%', border: '1px solid var(--line)', color: 'var(--gold)' }} aria-hidden="true">
-
-                  {tier.icon}
-
-                </span>
-
-                <h2 className="sb-h3">{tier.label}</h2>
-
-                <p className="sb-dim text-[17px] leading-relaxed">{tier.desc}</p>
-
-                {tier.isDialog ? (
-
-                  <Dialog>
-
-                    <DialogTrigger asChild>{button}</DialogTrigger>
-
-                    <DialogContent
-
-                      className="sm:max-w-md p-0 overflow-hidden"
-
-                      style={{
-
-                        border: '1px solid var(--line)',
-
-                        background: 'var(--paper)',
-
-                        borderRadius: 24,
-
-                        color: 'var(--text)',
-
-                      }}
-
-                    >
-
-                      <DialogHeader className="px-7 pt-9 pb-3 space-y-3">
-
-                        <div className="grid place-items-center mx-auto" style={{ width: 56, height: 56, borderRadius: '50%', border: '1px solid var(--line)', color: 'var(--gold)' }}>
-
-                          <Landmark className="w-6 h-6" aria-hidden="true" />
-
-                        </div>
-
-                        <DialogTitle className="sb-h3 text-center" style={{ fontSize: 30 }}>
-
-                          {t.bankDetails.title}
-
-                        </DialogTitle>
-
-                        <Divider className="mx-auto" style={{ width: 120 }} />
-
-                        <DialogDescription className="text-center font-display italic text-[18px]" style={{ color: 'var(--text-dim)' }}>
-
-                          {t.bankDetails.subtitle}
-
-                        </DialogDescription>
-
-                      </DialogHeader>
-
-
-
-                      <div className="px-7 pb-8 space-y-5">
-
-                        <DetailRow icon={<User className="w-3.5 h-3.5" />} label={t.bankDetails.beneficiaryLabel} value={t.bankDetails.beneficiaryValue} />
-
-
-
-                        <div className="p-5 space-y-3" style={{ borderRadius: 16, background: 'var(--glow)', border: '1px solid var(--line)' }}>
-
-                          <div className="flex items-center justify-between gap-3">
-
-                            <p className="sb-kicker-sm">{t.bankDetails.ibanLabel}</p>
-
-                            <CopyButton
-
-                              copied={copiedField === 'iban'}
-
-                              onClick={() => handleCopy(t.bankDetails.ibanValue.replace(/\s+/g, ''), 'iban')}
-
-                              copy={t.bankDetails.copy}
-
-                              copiedLabel={t.bankDetails.copied}
-
-                            />
-
-                          </div>
-
-                          <p className="font-mono break-all select-all" style={{ fontSize: 15, color: 'var(--parchment)', lineHeight: 1.6, margin: 0 }}>
-
-                            {t.bankDetails.ibanValue}
-
-                          </p>
-
-                        </div>
-
-
-
-                        <DetailRow icon={<Building2 className="w-3.5 h-3.5" />} label={t.bankDetails.bankLabel} value={t.bankDetails.bankValue} />
-
-
-
-                        <div className="p-5 space-y-2" style={{ borderRadius: 16, border: '1px dashed var(--gold-deep)' }}>
-
-                          <div className="flex items-center justify-between gap-3">
-
-                            <p className="sb-kicker-sm flex items-center gap-2"><FileText className="w-3.5 h-3.5" aria-hidden="true" /> {t.bankDetails.referenceLabel}</p>
-
-                            <CopyButton
-
-                              copied={copiedField === 'reference'}
-
-                              onClick={() => handleCopy(t.bankDetails.referenceValue, 'reference')}
-
-                              copy={t.bankDetails.copy}
-
-                              copiedLabel={t.bankDetails.copied}
-
-                            />
-
-                          </div>
-
-                          <p className="font-display italic font-medium select-all" style={{ fontSize: 19, color: 'var(--gold)', margin: 0 }}>
-
-                            {t.bankDetails.referenceValue}
-
-                          </p>
-
-                        </div>
-
-                      </div>
-
-                    </DialogContent>
-
-                  </Dialog>
-
-                ) : button}
-
-              </li>
-
-            );
-
-          })}
-
+            </li>
+          ))}
         </ul>
 
-      </section>
-
-
-
-      {/* Where it goes — a ledger drawn in thread */}
-
-      <section className="sb-band">
-
-        <div className="ed-container sb-section">
-
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20 items-start">
-
-            <div className="flex flex-col gap-4">
-
-              <p className="sb-kicker">{t.whereTitle}</p>
-
-              <h2 className="sb-h2" style={{ fontSize: 'clamp(30px, 3.6vw, 52px)' }}>{t.whereLead}</h2>
-              {/* The percentages are an intention, not a report: said so,
-                  so donors aren't told something that can't be shown. */}
-              <p className="sb-meta">{t.wherePlan}</p>
-
+        {/* Bank details, opened in place under the doors. */}
+        <div id="bank-details" hidden={!showBank} className="rs-in" style={{ marginTop: 20, padding: 'clamp(22px, 3vw, 36px)', border: '1.5px dashed var(--gold-deep)', borderRadius: 24, background: 'var(--paper)' }}>
+          <div className="flex flex-wrap justify-between gap-3 mb-5">
+            <div>
+              <h2 className="rs-display" style={{ margin: '0 0 4px', fontSize: 30, letterSpacing: 0 }}>{t.bankDetails.title}</h2>
+              <p className="m-0" style={{ fontFamily: 'var(--ui)', fontSize: 13, color: 'var(--text-mute)' }}>{t.bankDetails.subtitle}</p>
             </div>
-
-            <ul className="list-none m-0 p-0 grid gap-6">
-
-              {t.whereRows.map((row) => (
-
-                <li key={row.label} className="flex flex-col gap-2.5">
-
-                  <div className="flex justify-between items-baseline gap-3">
-
-                    <span className="font-display italic text-[22px] leading-tight" style={{ color: 'var(--parchment)' }}>{row.label}</span>
-
-                    <span className="sb-numeral" style={{ fontSize: 22 }}>{row.pct}%</span>
-
-                  </div>
-
-                  <div className="relative" style={{ height: 8 }} aria-hidden="true">
-
-                    <span className="sb-thread absolute left-0 right-0" style={{ top: 3 }} />
-
-                    <span className="absolute left-0 top-0 bottom-0" style={{ width: `${row.pct}%`, borderRadius: 999, background: 'var(--gold)' }} />
-
-                  </div>
-
-                </li>
-
-              ))}
-
-            </ul>
-
+            <button type="button" onClick={() => setShowBank(false)} aria-label={en ? 'Close' : 'Închide'} className="sb-icon-btn grid" style={{ width: 40, height: 40 }}>
+              <X className="w-4 h-4" strokeWidth={1.75} />
+            </button>
           </div>
-
+          <dl className="m-0 grid gap-x-8 grid-cols-[repeat(auto-fit,minmax(min(100%,240px),1fr))]">
+            <BankRow label={t.bankDetails.beneficiaryLabel} value={t.bankDetails.beneficiaryValue} />
+            <BankRow
+              label={t.bankDetails.ibanLabel}
+              value={t.bankDetails.ibanValue}
+              mono
+              action={<CopyButton copied={copiedField === 'iban'} onClick={() => handleCopy(t.bankDetails.ibanValue.replace(/\s+/g, ''), 'iban')} copy={t.bankDetails.copy} copiedLabel={t.bankDetails.copied} />}
+            />
+            <BankRow label={t.bankDetails.bankLabel} value={t.bankDetails.bankValue} />
+            <BankRow
+              label={t.bankDetails.referenceLabel}
+              value={t.bankDetails.referenceValue}
+              action={<CopyButton copied={copiedField === 'reference'} onClick={() => handleCopy(t.bankDetails.referenceValue, 'reference')} copy={t.bankDetails.copy} copiedLabel={t.bankDetails.copied} />}
+            />
+          </dl>
         </div>
-
       </section>
 
-
+      {/* Where it will go */}
+      <section className="ed-container" style={{ paddingTop: 'clamp(64px, 8vw, 112px)' }}>
+        <div className="grid grid-cols-1 min-[1000px]:grid-cols-2 gap-[clamp(32px,5vw,88px)]">
+          <div>
+            <h2 className="rs-display" style={{ margin: '0 0 14px', fontSize: 'clamp(36px, 4vw, 56px)', lineHeight: 1 }}>{t.whereTitle}</h2>
+            <p className="m-0 mb-3.5 font-display italic" style={{ fontSize: 24, lineHeight: 1.35, color: 'var(--text)' }}>{t.whereLead}</p>
+            {/* The percentages are an intention, not a report: said so,
+                so donors aren't told something that can't be shown. */}
+            <p className="m-0" style={{ fontFamily: 'var(--ui)', fontSize: 13, color: 'var(--text-mute)' }}>{t.wherePlan}</p>
+          </div>
+          <ul className="list-none m-0 p-0 grid gap-[22px]">
+            {t.whereRows.map((row) => (
+              <li key={row.label}>
+                <div className="flex justify-between gap-3 mb-2">
+                  <span style={{ fontSize: 18, color: 'var(--parchment)' }}>{row.label}</span>
+                  <span className="font-display" style={{ fontSize: 24, color: 'var(--gold-2)' }}>{row.pct}%</span>
+                </div>
+                <div aria-hidden="true" style={{ height: 6, borderRadius: 6, background: 'var(--line-soft)', overflow: 'hidden' }}>
+                  <div style={{ height: '100%', width: `${row.pct}%`, borderRadius: 6, background: 'linear-gradient(90deg, var(--gold-deep), var(--gold))' }} />
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </section>
 
       {/* Thank you */}
-
-      <section className="ed-container" style={{ paddingBlock: 'clamp(72px, 9vw, 104px)' }}>
-
-        <div className="sb-chapter-head">
-
-          <Motif style={{ width: 260 }} />
-
-          <h2 className="sb-h2">{t.thank}</h2>
-
-          <p className="sb-lede max-w-[560px]">{t.thankMsg}</p>
-
-          <Link to="/" className="sb-btn sb-btn-ghost mt-2.5">{en ? 'Back to the stories' : 'Înapoi la povești'}</Link>
-
-        </div>
-
+      <section className="ed-container text-center" style={{ paddingTop: 'clamp(64px, 8vw, 112px)', maxWidth: 760 }}>
+        <Motif className="mx-auto mb-9" style={{ width: 260, maxWidth: '100%' }} />
+        <h2 className="rs-display" style={{ margin: '0 0 14px', fontStyle: 'italic', fontSize: 'clamp(44px, 5vw, 72px)', color: 'var(--gold-2)' }}>{t.thank}</h2>
+        <p className="m-0 mb-6" style={{ fontSize: 19, lineHeight: 1.7, color: 'var(--text-dim)' }}>{t.thankMsg}</p>
+        <Link to="/" className="rs-btn rs-btn-ghost">{en ? 'Back to the stories' : 'Înapoi la povești'}</Link>
       </section>
-
     </div>
-
   );
-
 };
 
-
-
-const DetailRow: React.FC<{ icon: React.ReactNode; label: string; value: string }> = ({ icon, label, value }) => (
-
-  <div className="flex items-start gap-3">
-
-    <div className="grid place-items-center shrink-0" style={{ width: 32, height: 32, borderRadius: '50%', border: '1px solid var(--line)', color: 'var(--gold)', marginTop: 2 }} aria-hidden="true">
-
-      {icon}
-
+const BankRow: React.FC<{ label: string; value: string; mono?: boolean; action?: React.ReactNode }> = ({ label, value, mono, action }) => (
+  <div className="flex items-center justify-between gap-3" style={{ padding: '14px 0', borderBottom: '1px solid var(--line-soft)' }}>
+    <div className="min-w-0">
+      <dt style={{ fontFamily: 'var(--ui)', fontSize: 12, fontWeight: 700, color: 'var(--text-mute)' }}>{label}</dt>
+      <dd className={mono ? 'font-mono break-all select-all' : 'select-all'} style={{ margin: '2px 0 0', fontSize: mono ? 15 : 17, color: 'var(--parchment)' }}>{value}</dd>
     </div>
-
-    <div className="flex-1 min-w-0">
-
-      <p className="sb-kicker-sm">{label}</p>
-
-      <p className="font-display italic" style={{ fontSize: 18, color: 'var(--parchment)', margin: '2px 0 0' }}>{value}</p>
-
-    </div>
-
+    {action}
   </div>
-
 );
-
-
 
 const CopyButton: React.FC<{ copied: boolean; onClick: () => void; copy: string; copiedLabel: string }> = ({ copied, onClick, copy, copiedLabel }) => (
-
   <button
-
     type="button"
-
     onClick={onClick}
-
-    className="sb-seg-btn"
-
-    style={{ minHeight: 32, padding: '6px 12px', border: '1px solid var(--line)', gap: 6, color: copied ? 'var(--gold)' : undefined }}
-
+    className="rs-chip shrink-0"
+    style={{ minHeight: 36, padding: '0 14px', color: 'var(--gold)' }}
   >
-
     {copied ? <Check className="w-3 h-3" aria-hidden="true" /> : <Copy className="w-3 h-3" aria-hidden="true" />}
-
     {copied ? copiedLabel : copy}
-
   </button>
-
 );
 
-
-
 export default Support;
-

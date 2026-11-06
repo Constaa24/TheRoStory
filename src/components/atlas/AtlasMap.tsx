@@ -13,6 +13,12 @@ import { STAR_PATH } from './glyphs';
  * instead (see the spider in `layout` below).
  */
 const MAX_K = 14;
+/**
+ * How far choosing a story zooms in. Closer than this and the reader loses
+ * the country around it; neighbours still too near merge into a numbered
+ * cluster beside the chosen pin, which never merges.
+ */
+const FOCUS_K = 2.6;
 
 export type AtlasLayers = { rivers: boolean; regions: boolean; unwritten: boolean };
 
@@ -42,6 +48,7 @@ type Props = {
   onSelectCounty: (name: string) => void;
   countiesWithStories: ReadonlySet<string>;
   layers: AtlasLayers;
+  onLayer: (layer: keyof AtlasLayers) => void;
   copy: AtlasCopy;
   lang: Lang;
   playing: boolean;
@@ -92,12 +99,18 @@ const StaticLayers = memo(({ tintD, hatchD, showHatch, showRegions, showRivers, 
 ));
 StaticLayers.displayName = 'StaticLayers';
 
+const LAYERS: [keyof AtlasLayers, 'layerRivers' | 'layerRegions' | 'layerUnwritten'][] = [
+  ['rivers', 'layerRivers'],
+  ['regions', 'layerRegions'],
+  ['unwritten', 'layerUnwritten'],
+];
+
 type Placed = AtlasStory & { sx: number; sy: number; dim: boolean };
 type Cluster = { key: string; x: number; y: number; m: Placed[] };
 
 const AtlasMap: React.FC<Props> = ({
   ref, stories, shown, stops, journeyKey, selected, selectedCounty, hover, onHover, onSelectStory, onSelectCounty,
-  countiesWithStories, layers, copy, lang, playing, readout, reduceMotion, hidden,
+  countiesWithStories, layers, onLayer, copy, lang, playing, readout, reduceMotion, hidden,
 }) => {
   const frameRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
@@ -114,6 +127,7 @@ const AtlasMap: React.FC<Props> = ({
   const [wheelHint, setWheelHint] = useState(false);
   const flight = useRef<number | null>(null);
   const key = usePopover();
+  const layerPop = usePopover();
 
   // Latest props for the imperative handle and gesture handlers.
   const live = useRef({ stories, shown, reduceMotion });
@@ -174,7 +188,7 @@ const AtlasMap: React.FC<Props> = ({
       min = Math.min(min, Math.hypot(o.x - s.x!, o.y! - s.y!));
     }
     const need = min === Infinity ? 3 : (28 * usRef.current) / min;
-    return clamp(Math.max(viewRef.current.k, 3, need), 1, MAX_K);
+    return clamp(Math.max(viewRef.current.k, Math.min(Math.max(3, need), FOCUS_K)), 1, MAX_K);
   }, []);
 
   const zoomAt = useCallback((px: number, py: number, f: number) => {
@@ -281,7 +295,7 @@ const AtlasMap: React.FC<Props> = ({
     const r = svgRef.current!.getBoundingClientRect();
     return { x: (e.clientX - r.left) * usRef.current, y: (e.clientY - r.top) * usRef.current };
   }, []);
-  const isControl = (t: EventTarget | null) => !!(t as Element | null)?.closest?.('.at-pin, .at-cluster, .at-zoom, .at-key');
+  const isControl = (t: EventTarget | null) => !!(t as Element | null)?.closest?.('.at-pin, .at-cluster, .at-zoom, .at-tools');
 
   const onPointerDown = (e: React.PointerEvent) => {
     if (e.pointerType === 'mouse' && e.button !== 0) return;
@@ -479,7 +493,10 @@ const AtlasMap: React.FC<Props> = ({
             </>
           )}
           {(() => {
-            const [x, y] = toScreen(geo.blackSea[0], geo.blackSea[1]);
+            const [sx, y] = toScreen(geo.blackSea[0], geo.blackSea[1]);
+            // Held clear of the frame's right edge: on a phone the label is
+            // wider than the sea it names, and "BLACK" lost its first letter.
+            const x = Math.min(sx, W - 40 * us);
             return (
               <text className="at-lbl at-lbl-feature" transform={label(x, y)} fontSize={12} letterSpacing={4} textAnchor="middle">
                 {copy.blackSea.map((w, i) => <tspan key={w} x={0} dy={i ? 16 : 0}>{w}</tspan>)}
@@ -576,9 +593,6 @@ const AtlasMap: React.FC<Props> = ({
 
       <div className="at-ui">
         <p id="at-map-help" className="sr-only">{copy.mapHelp}</p>
-        <span className="at-coords" aria-hidden="true">
-          {Math.abs(centre[1]).toFixed(1)}°{centre[1] >= 0 ? 'N' : 'S'} · {Math.abs(centre[0]).toFixed(1)}°{centre[0] >= 0 ? 'E' : 'W'}
-        </span>
         <div className="at-zoom">
           <button type="button" className="at-zoom-btn" aria-label={copy.zoomIn} title={copy.zoomIn} onClick={() => zoomAt(W / 2, H / 2, 1.8)}>
             <svg className="at-zoom-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true"><path d="M8 3v10M3 8h10" /></svg>
@@ -596,7 +610,13 @@ const AtlasMap: React.FC<Props> = ({
             <span className="at-readout-cap">{readout.caption}</span>
           </div>
         )}
-        <div className="at-scale" aria-hidden="true"><i style={{ width: scale.px }} /><span>{scale.km} km</span></div>
+        {/* Scale and the map's centre, together in the corner. */}
+        <div className="at-scale" aria-hidden="true">
+          <i style={{ width: scale.px }} /><span>{scale.km} km</span>
+          <span className="at-coords">
+            {Math.abs(centre[1]).toFixed(1)}°{centre[1] >= 0 ? 'N' : 'S'} · {Math.abs(centre[0]).toFixed(1)}°{centre[0] >= 0 ? 'E' : 'W'}
+          </span>
+        </div>
         {tipStory && (
           <div className="at-tip" ref={tipRef}>
             <span className="at-tip-m">{kindName(tipStory.kind, lang)} · {whenOf(tipStory, lang)}</span>
@@ -605,20 +625,46 @@ const AtlasMap: React.FC<Props> = ({
           </div>
         )}
         {wheelHint && <div className="at-wheel">{copy.wheel}</div>}
-        <div className="at-key" onKeyDown={key.onKeyDown}>
-          <button
-            type="button"
-            ref={key.btnRef}
-            className="at-key-btn"
-            aria-expanded={key.open}
-            aria-controls="at-pop-key"
-            onClick={key.toggle}
-          >
-            <svg className="at-ico" viewBox="0 0 12 12" aria-hidden="true"><circle cx="6" cy="6" r="4.6" fill="none" stroke="currentColor" strokeWidth="1.2" /><circle cx="6" cy="6" r="1.6" fill="currentColor" /></svg>
-            {copy.key}
-          </button>
-          <div className="at-pop" id="at-pop-key" ref={key.popRef} data-anchor="end" hidden={!key.open}>
-            <Legend copy={copy} />
+        {/* The map's own tools: what is drawn (layers) and what it means (key). */}
+        <div className="at-tools">
+          <div className="at-tool" onKeyDown={layerPop.onKeyDown}>
+            <button
+              type="button"
+              ref={layerPop.btnRef}
+              className="at-tool-btn"
+              aria-expanded={layerPop.open}
+              aria-controls="at-pop-layers"
+              id="at-btn-layers"
+              onClick={layerPop.toggle}
+            >
+              <svg className="at-ico" viewBox="0 0 12 12" aria-hidden="true"><path d="M6 1.5 11 4 6 6.5 1 4z" fill="none" stroke="currentColor" strokeWidth="1.1" strokeLinejoin="round" /><path d="M1 6.2 6 8.7l5-2.5M1 8.4l5 2.5 5-2.5" fill="none" stroke="currentColor" strokeWidth="1.1" strokeLinejoin="round" /></svg>
+              {copy.lblLayers}
+            </button>
+            <div className="at-pop" id="at-pop-layers" ref={layerPop.popRef} hidden={!layerPop.open}>
+              <div className="at-pop-list" role="group" aria-labelledby="at-btn-layers">
+                {LAYERS.map(([id, labelKey]) => (
+                  <button key={id} type="button" className="at-opt" data-layer={id} aria-pressed={layers[id]} onClick={() => onLayer(id)}>
+                    <span>{copy[labelKey]}</span><span className="at-tick" aria-hidden="true" />
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+          <div className="at-tool" onKeyDown={key.onKeyDown}>
+            <button
+              type="button"
+              ref={key.btnRef}
+              className="at-tool-btn"
+              aria-expanded={key.open}
+              aria-controls="at-pop-key"
+              onClick={key.toggle}
+            >
+              <svg className="at-ico" viewBox="0 0 12 12" aria-hidden="true"><circle cx="6" cy="6" r="4.6" fill="none" stroke="currentColor" strokeWidth="1.2" /><circle cx="6" cy="6" r="1.6" fill="currentColor" /></svg>
+              {copy.key}
+            </button>
+            <div className="at-pop" id="at-pop-key" ref={key.popRef} hidden={!key.open}>
+              <Legend copy={copy} />
+            </div>
           </div>
         </div>
       </div>

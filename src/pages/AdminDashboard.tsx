@@ -58,7 +58,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Plus, Trash2, Edit, Check, X, Loader2, Lock, Users, FileText, Tag, ShieldCheck, CheckCircle2, XCircle, Video, BookText, Images, HardDrive, Route } from "lucide-react";
+import { Plus, Trash2, Edit, Check, X, Loader2, Lock, Users, FileText, Tag, ShieldCheck, CheckCircle2, XCircle, Video, BookText, Images, HardDrive, Route, LayoutDashboard } from "lucide-react";
+import { DeskOverview, NewStoryMenu } from "@/components/organisms/DeskOverview";
 import { JourneysManager } from "@/components/organisms/JourneysManager";
 import { PageHead } from "@/components/layout/PageHead";
 import { storageImage } from "@/lib/image-url";
@@ -77,6 +78,7 @@ const AdminDashboard: React.FC = () => {
   const { user, isAdmin, isWriter } = useAuth();
   const { language, t } = useLanguage();
   const navigate = useNavigate();
+  const [deskTab, setDeskTab] = useState("overview");
   const [categories, setCategories] = useState<Category[]>([]);
   const [articles, setArticles] = useState<Article[]>([]);
   const [articlesPage, setArticlesPage] = useState(1);
@@ -506,7 +508,7 @@ const AdminDashboard: React.FC = () => {
       <div className="container mx-auto px-4 py-24 text-center">
         {pageHead}
         <Lock className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-        <h1 className="text-2xl font-serif italic mb-2">{t("admin.access.restricted")}</h1>
+        <h1 className="rs-display mb-2" style={{ fontSize: 34 }}>{t("admin.access.restricted")}</h1>
         <p className="text-muted-foreground">{t("admin.access.noPermission")}</p>
         <Button className="mt-6 rounded-full" onClick={() => navigate("/")}>{t("admin.access.backHome")}</Button>
       </div>
@@ -514,44 +516,55 @@ const AdminDashboard: React.FC = () => {
   }
 
   return (
-    <div className="container mx-auto px-3 sm:px-4 pt-28 pb-8 sm:pt-32 sm:pb-12 max-w-6xl animate-fade-in">
+    <div className="ed-container rs-in" style={{ paddingTop: 'clamp(28px, 4vw, 48px)' }}>
       {pageHead}
-      <header className="mb-8 sm:mb-12 space-y-4">
-        <h1 className="sb-h2" style={{ fontSize: 'clamp(34px, 4vw, 52px)' }}>
-          {t("admin.title")}
-        </h1>
-        <span aria-hidden="true" className="sb-thread block" style={{ width: 128 }} />
+      {/* The editorial desk (the redesign's AdminApp): its sections down the
+          side, the one open beside them, and a new story always one click
+          away. */}
+      <header className="flex flex-wrap items-end justify-between gap-5 mb-8 sm:mb-10">
+        <div>
+          <p className="rs-eyebrow" style={{ marginBottom: 10 }}>{language === 'en' ? 'The editorial desk' : 'Biroul editorial'}</p>
+          <h1 className="rs-display" style={{ fontSize: 'clamp(38px, 4.4vw, 60px)', lineHeight: 1 }}>{t("admin.title")}</h1>
+        </div>
+        <NewStoryMenu language={language} onPick={(path) => navigate(path)} />
       </header>
 
-      <Tabs defaultValue="articles" className="space-y-8">
-        <TabsList className="bg-secondary/50 p-1 rounded-xl sm:rounded-full flex flex-wrap gap-1 w-full sm:w-auto h-auto">
-          <TabsTrigger value="articles" className="rounded-full px-4 sm:px-8 flex gap-1 sm:gap-2 text-xs sm:text-sm" aria-label={isWriter ? t("admin.tabs.myStories") : t("admin.tabs.articles")}>
+      <Tabs value={deskTab} onValueChange={setDeskTab} orientation="vertical" className="grid grid-cols-1 lg:grid-cols-[220px_minmax(0,1fr)] gap-6 lg:gap-10 items-start">
+        <TabsList className="flex flex-row lg:flex-col items-stretch justify-start gap-1 h-auto p-0 pr-10 lg:pr-0 bg-transparent rounded-none overflow-x-auto lg:sticky lg:top-24 [mask-image:linear-gradient(to_left,transparent,#000_40px)] lg:[mask-image:none]">
+          <TabsTrigger value="overview" className="justify-start gap-2.5 rounded-xl px-4 py-2.5 font-ui text-[14px] font-semibold text-[color:var(--text-dim)] whitespace-nowrap data-[state=active]:bg-[color:var(--glow)] data-[state=active]:text-[color:var(--gold)] data-[state=active]:shadow-none hover:text-[color:var(--parchment)]">
+            <LayoutDashboard className="h-4 w-4" /> {language === 'en' ? 'Overview' : 'Prezentare'}
+          </TabsTrigger>
+          <TabsTrigger value="articles" className="justify-start gap-2.5 rounded-xl px-4 py-2.5 font-ui text-[14px] font-semibold text-[color:var(--text-dim)] whitespace-nowrap data-[state=active]:bg-[color:var(--glow)] data-[state=active]:text-[color:var(--gold)] data-[state=active]:shadow-none hover:text-[color:var(--parchment)]" aria-label={isWriter ? t("admin.tabs.myStories") : t("admin.tabs.articles")}>
             <FileText className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> <span className="hidden xs:inline">{isWriter ? t("admin.tabs.myStories") : t("admin.tabs.articles")}</span><span className="xs:hidden">{t("admin.tabs.stories")}</span>
           </TabsTrigger>
           {isAdmin && (
             <>
-              <TabsTrigger value="categories" className="rounded-full px-4 sm:px-8 flex gap-1 sm:gap-2 text-xs sm:text-sm" aria-label={t("admin.tabs.categories")}>
-                <Tag className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> <span className="hidden sm:inline">{t("admin.tabs.categories")}</span><span className="sm:hidden">{t("admin.tabs.categoriesShort")}</span>
+              <TabsTrigger value="categories" className="justify-start gap-2.5 rounded-xl px-4 py-2.5 font-ui text-[14px] font-semibold text-[color:var(--text-dim)] whitespace-nowrap data-[state=active]:bg-[color:var(--glow)] data-[state=active]:text-[color:var(--gold)] data-[state=active]:shadow-none hover:text-[color:var(--parchment)]" aria-label={t("admin.tabs.categories")}>
+                <Tag className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> {t("admin.tabs.categories")}
               </TabsTrigger>
-              <TabsTrigger value="journeys" className="rounded-full px-4 sm:px-8 flex gap-1 sm:gap-2 text-xs sm:text-sm" aria-label={language === 'en' ? 'Journeys' : 'Trasee'}>
+              <TabsTrigger value="journeys" className="justify-start gap-2.5 rounded-xl px-4 py-2.5 font-ui text-[14px] font-semibold text-[color:var(--text-dim)] whitespace-nowrap data-[state=active]:bg-[color:var(--glow)] data-[state=active]:text-[color:var(--gold)] data-[state=active]:shadow-none hover:text-[color:var(--parchment)]" aria-label={language === 'en' ? 'Journeys' : 'Trasee'}>
                 <Route className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> {language === 'en' ? 'Journeys' : 'Trasee'}
               </TabsTrigger>
-              <TabsTrigger value="users" className="rounded-full px-4 sm:px-8 flex gap-1 sm:gap-2 text-xs sm:text-sm" aria-label={t("admin.tabs.users")}>
+              <TabsTrigger value="users" className="justify-start gap-2.5 rounded-xl px-4 py-2.5 font-ui text-[14px] font-semibold text-[color:var(--text-dim)] whitespace-nowrap data-[state=active]:bg-[color:var(--glow)] data-[state=active]:text-[color:var(--gold)] data-[state=active]:shadow-none hover:text-[color:var(--parchment)]" aria-label={t("admin.tabs.users")}>
                 <Users className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> {t("admin.tabs.users")}
               </TabsTrigger>
-              <TabsTrigger value="storage" className="rounded-full px-4 sm:px-8 flex gap-1 sm:gap-2 text-xs sm:text-sm" aria-label={t("admin.tabs.storage")}>
+              <TabsTrigger value="storage" className="justify-start gap-2.5 rounded-xl px-4 py-2.5 font-ui text-[14px] font-semibold text-[color:var(--text-dim)] whitespace-nowrap data-[state=active]:bg-[color:var(--glow)] data-[state=active]:text-[color:var(--gold)] data-[state=active]:shadow-none hover:text-[color:var(--parchment)]" aria-label={t("admin.tabs.storage")}>
                 <HardDrive className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> {t("admin.tabs.storage")}
               </TabsTrigger>
-              <TabsTrigger value="permissions" className="rounded-full px-4 sm:px-8 flex gap-1 sm:gap-2 text-xs sm:text-sm" aria-label={t("admin.tabs.permissions")}>
-                <ShieldCheck className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> <span className="hidden sm:inline">{t("admin.tabs.permissions")}</span><span className="sm:hidden">{t("admin.tabs.permissionsShort")}</span>
+              <TabsTrigger value="permissions" className="justify-start gap-2.5 rounded-xl px-4 py-2.5 font-ui text-[14px] font-semibold text-[color:var(--text-dim)] whitespace-nowrap data-[state=active]:bg-[color:var(--glow)] data-[state=active]:text-[color:var(--gold)] data-[state=active]:shadow-none hover:text-[color:var(--parchment)]" aria-label={t("admin.tabs.permissions")}>
+                <ShieldCheck className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> {t("admin.tabs.permissions")}
               </TabsTrigger>
             </>
           )}
         </TabsList>
 
-        <TabsContent value="permissions" className="space-y-6">
+        <TabsContent value="overview" className="mt-0 min-w-0">
+          <DeskOverview language={language} onOpen={setDeskTab} />
+        </TabsContent>
+
+        <TabsContent value="permissions" className="space-y-6 mt-0 min-w-0">
           <div className="flex flex-col gap-4">
-          <h2 className="text-xl sm:text-2xl font-serif italic text-secondary-foreground">{t("admin.permissions.heading")}</h2>
+          <h2 className="rs-display" style={{ fontSize: 30, letterSpacing: 0 }}>{t("admin.permissions.heading")}</h2>
             <p className="text-muted-foreground">{t("admin.permissions.subheading")}</p>
           </div>
 
@@ -559,7 +572,7 @@ const AdminDashboard: React.FC = () => {
             {[
               {
                 role: t("admin.permissions.role.guest"),
-                icon: <Users className="h-6 w-6 text-muted-foreground" />,
+                icon: <Users className="h-5 w-5" />,
                 description: t("admin.permissions.role.guestDesc"),
                 permissions: [
                   { label: t("admin.permissions.perm.browseCategories"), allowed: true },
@@ -572,7 +585,7 @@ const AdminDashboard: React.FC = () => {
               },
               {
                 role: t("admin.permissions.role.reader"),
-                icon: <CheckCircle2 className="h-6 w-6 text-green-600" />,
+                icon: <CheckCircle2 className="h-5 w-5" />,
                 description: t("admin.permissions.role.readerDesc"),
                 permissions: [
                   { label: t("admin.permissions.perm.allGuestFeatures"), allowed: true },
@@ -585,7 +598,7 @@ const AdminDashboard: React.FC = () => {
               },
               {
                 role: t("admin.permissions.role.writer"),
-                icon: <Edit className="h-6 w-6 text-blue-600" />,
+                icon: <Edit className="h-5 w-5" />,
                 description: t("admin.permissions.role.writerDesc"),
                 permissions: [
                   { label: t("admin.permissions.perm.allReaderFeatures"), allowed: true },
@@ -598,7 +611,7 @@ const AdminDashboard: React.FC = () => {
               },
               {
                 role: t("admin.permissions.role.admin"),
-                icon: <ShieldCheck className="h-6 w-6 text-accent" />,
+                icon: <ShieldCheck className="h-5 w-5" />,
                 description: t("admin.permissions.role.adminDesc"),
                 permissions: [
                   { label: t("admin.permissions.perm.allWriterFeatures"), allowed: true },
@@ -610,22 +623,22 @@ const AdminDashboard: React.FC = () => {
                 ]
               }
             ].map((item, i) => (
-              <Card key={i} className="p-6 border-none shadow-elegant bg-background/50 backdrop-blur-sm flex flex-col h-full">
+              <Card key={i} className="rs-desk-card shadow-none flex flex-col h-full">
                 <div className="flex items-center gap-3 mb-4">
-                  <div className="p-2 bg-secondary rounded-xl">
+                  <div className="grid place-items-center h-10 w-10 rounded-full bg-[color:var(--glow)] text-[color:var(--gold)]">
                     {item.icon}
                   </div>
-                  <h3 className="text-xl font-serif font-bold italic">{item.role}</h3>
+                  <h3 className="rs-display" style={{ fontSize: 26, letterSpacing: 0 }}>{item.role}</h3>
                 </div>
                 <p className="text-sm text-muted-foreground mb-6 flex-grow">{item.description}</p>
                 <div className="space-y-3">
                   {item.permissions.map((p, j) => (
-                    <div key={j} className="flex items-center justify-between text-sm">
+                    <div key={j} className="flex items-center justify-between gap-3 font-ui text-[13px] font-semibold">
                       <span className={cn(p.allowed ? "text-foreground" : "text-muted-foreground line-through")}>
                         {p.label}
                       </span>
                       {p.allowed ? (
-                        <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" />
+                        <CheckCircle2 className="h-4 w-4 text-[color:var(--gold)] shrink-0" />
                       ) : (
                         <XCircle className="h-4 w-4 text-muted-foreground/50 shrink-0" />
                       )}
@@ -636,11 +649,11 @@ const AdminDashboard: React.FC = () => {
             ))}
           </div>
 
-          <Card className="p-4 sm:p-8 border-none shadow-elegant bg-accent/5 mt-8">
-            <h3 className="text-base sm:text-lg font-serif italic mb-4">{t("admin.permissions.enforcement.heading")}</h3>
+          <Card className="rs-desk-card shadow-none mt-8">
+            <h3 className="rs-display mb-5" style={{ fontSize: 26, letterSpacing: 0 }}>{t("admin.permissions.enforcement.heading")}</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-8 text-sm">
               <div className="space-y-4">
-                <h4 className="font-bold flex items-center gap-2">
+                <h4 className="font-ui text-[13px] font-bold flex items-center gap-2 text-[color:var(--gold)]">
                   <Lock className="h-4 w-4" /> {t("admin.permissions.enforcement.frontend")}
                 </h4>
                 <ul className="space-y-2 list-disc list-inside text-muted-foreground">
@@ -651,7 +664,7 @@ const AdminDashboard: React.FC = () => {
                 </ul>
               </div>
               <div className="space-y-4">
-                <h4 className="font-bold flex items-center gap-2">
+                <h4 className="font-ui text-[13px] font-bold flex items-center gap-2 text-[color:var(--gold)]">
                   <ShieldCheck className="h-4 w-4" /> {t("admin.permissions.enforcement.backend")}
                 </h4>
                 <ul className="space-y-2 list-disc list-inside text-muted-foreground">
@@ -668,13 +681,13 @@ const AdminDashboard: React.FC = () => {
         {/* Storage maintenance used to live at the bottom of the Permissions
             tab, which is where nobody looked for it — it has nothing to do
             with roles. Its own tab, next to the other admin-only surfaces. */}
-        <TabsContent value="storage" className="space-y-6">
-          <Card className="p-4 sm:p-8 border-none shadow-elegant bg-background/50 backdrop-blur-sm">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="p-2 bg-secondary rounded-xl">
-                <HardDrive className="h-5 w-5 text-muted-foreground" />
+        <TabsContent value="storage" className="space-y-6 mt-0 min-w-0">
+          <Card className="rs-desk-card shadow-none">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="grid place-items-center h-10 w-10 rounded-full bg-[color:var(--glow)] text-[color:var(--gold)]">
+                <HardDrive className="h-5 w-5" />
               </div>
-              <h3 className="text-base sm:text-lg font-serif italic">{t("admin.storage.heading")}</h3>
+              <h2 className="rs-display" style={{ fontSize: 30, letterSpacing: 0 }}>{t("admin.storage.heading")}</h2>
             </div>
             <p className="text-sm text-muted-foreground mb-6">{t("admin.storage.subheading")}</p>
 
@@ -708,7 +721,7 @@ const AdminDashboard: React.FC = () => {
               <div className="mt-6 text-sm">
                 {orphanTotals.count === 0 ? (
                   <p className="flex items-center gap-2 text-muted-foreground">
-                    <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" />
+                    <CheckCircle2 className="h-4 w-4 text-[color:var(--gold)] shrink-0" />
                     {t("admin.storage.clean")}
                   </p>
                 ) : (
@@ -744,9 +757,9 @@ const AdminDashboard: React.FC = () => {
           </Card>
         </TabsContent>
 
-        <TabsContent value="articles" className="space-y-6">
+        <TabsContent value="articles" className="space-y-6 mt-0 min-w-0">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-            <h2 className="text-xl sm:text-2xl font-serif italic text-secondary-foreground">{t("admin.articles.heading")}</h2>
+            <h2 className="rs-display" style={{ fontSize: 30, letterSpacing: 0 }}>{t("admin.articles.heading")}</h2>
             <div className="flex gap-2">
               <Dialog open={showTypeSelection} onOpenChange={setShowTypeSelection}>
                 <DialogTrigger asChild>
@@ -756,7 +769,7 @@ const AdminDashboard: React.FC = () => {
                 </DialogTrigger>
                 <DialogContent className="sm:max-w-md">
                   <DialogHeader>
-                    <DialogTitle className="text-center text-2xl font-serif italic">
+                    <DialogTitle className="text-center">
                       {t("admin.articles.typeSelect")}
                     </DialogTitle>
                     <DialogDescription className="text-center">
@@ -775,7 +788,7 @@ const AdminDashboard: React.FC = () => {
                       <div className="p-3 bg-accent/10 rounded-xl group-hover:scale-110 transition-transform">
                         <BookText className="h-8 w-8 text-accent" />
                       </div>
-                      <span className="font-serif italic text-lg">
+                      <span className="font-display text-[19px] font-medium">
                         {t("admin.articles.typeText")}
                       </span>
                     </Button>
@@ -790,7 +803,7 @@ const AdminDashboard: React.FC = () => {
                       <div className="p-3 bg-accent/10 rounded-xl group-hover:scale-110 transition-transform">
                         <Video className="h-8 w-8 text-accent" />
                       </div>
-                      <span className="font-serif italic text-lg">
+                      <span className="font-display text-[19px] font-medium">
                         {t("admin.articles.typeVideo")}
                       </span>
                     </Button>
@@ -805,7 +818,7 @@ const AdminDashboard: React.FC = () => {
                       <div className="p-3 bg-accent/10 rounded-xl group-hover:scale-110 transition-transform">
                         <Images className="h-8 w-8 text-accent" />
                       </div>
-                      <span className="font-serif italic text-lg">
+                      <span className="font-display text-[19px] font-medium">
                         {t("admin.articles.typeCarousel")}
                       </span>
                     </Button>
@@ -819,24 +832,24 @@ const AdminDashboard: React.FC = () => {
           <div className="block md:hidden space-y-3">
             {articlesLoading && articles.length === 0 && (
               [1, 2, 3].map((i) => (
-                <Card key={i} className="p-4 border-none shadow-sm bg-secondary/10 animate-pulse h-20" />
+                <Card key={i} className="rs-desk-card shadow-none p-4 animate-pulse h-20" />
               ))
             )}
             {articles.map((art) => (
-              <Card key={art.id} className="p-4 border-none shadow-sm bg-secondary/10">
+              <Card key={art.id} className="rs-desk-card shadow-none p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       {art.type === 'video' ? <Video className="h-3 w-3 text-accent" /> : art.type === 'carousel' ? <Images className="h-3 w-3 text-accent" /> : <BookText className="h-3 w-3 text-accent" />}
-                      <h3 className="font-medium text-sm truncate">{getLocalized(art, "title", language)}</h3>
+                      <h3 className="font-display text-[18px] leading-tight truncate">{getLocalized(art, "title", language)}</h3>
                     </div>
                     <p className="text-xs text-muted-foreground mt-1">
                       {categoriesById.get(art.categoryId) ? getLocalized(categoriesById.get(art.categoryId)!, "name", language) : t("admin.articles.uncategorized")}
                     </p>
                     <div className="flex items-center gap-2 mt-2">
                       <span className={cn(
-                        "px-2 py-0.5 rounded-full text-xs font-medium",
-                        art.isPublished ? "bg-green-100 text-green-700" : "bg-yellow-100 text-yellow-700"
+                        "inline-flex px-2.5 py-1 rounded-full font-ui text-[12px] font-bold border",
+                        art.isPublished ? "border-[color:var(--gold-deep)] bg-[color:var(--glow)] text-[color:var(--gold-2)]" : "border-dashed border-[color:var(--line)] text-[color:var(--text-dim)]"
                       )}>
                         {art.isPublished ? t("admin.articles.published") : t("admin.articles.draft")}
                       </span>
@@ -862,14 +875,14 @@ const AdminDashboard: React.FC = () => {
               </Card>
             ))}
             {!articlesLoading && articles.length === 0 && (
-              <div className="text-center py-10 text-muted-foreground italic">{t("admin.articles.empty")}</div>
+              <div className="text-center py-10 font-display italic text-[20px] text-[color:var(--text-dim)]">{t("admin.articles.empty")}</div>
             )}
           </div>
 
           {/* Desktop: Table layout */}
-          <Card className="border-none shadow-sm overflow-hidden bg-secondary/10 hidden md:block">
+          <Card className="rs-desk-card shadow-none p-0 overflow-hidden hidden md:block">
             <Table>
-              <TableHeader className="bg-secondary/30">
+              <TableHeader>
                 <TableRow>
                   <TableHead>{t("admin.articles.title")}</TableHead>
                   <TableHead>{t("admin.articles.category")}</TableHead>
@@ -881,24 +894,24 @@ const AdminDashboard: React.FC = () => {
               <TableBody>
                 {articles.map((art) => (
                   <TableRow key={art.id}>
-                    <TableCell className="font-medium">
-                      <div className="flex items-center gap-2">
+                    <TableCell className="font-display text-[18px] leading-tight">
+                      <div className="flex items-center gap-2.5">
                         {art.type === 'video' ? <Video className="h-4 w-4 text-accent" /> : art.type === 'carousel' ? <Images className="h-4 w-4 text-accent" /> : <BookText className="h-4 w-4 text-accent" />}
                         {getLocalized(art, "title", language)}
                       </div>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="font-ui text-[13px] text-[color:var(--text-dim)]">
                       {categoriesById.get(art.categoryId) ? getLocalized(categoriesById.get(art.categoryId)!, "name", language) : t("admin.articles.uncategorized")}
                     </TableCell>
                     <TableCell>
                       <span className={cn(
-                        "px-2 py-1 rounded-full text-xs font-medium",
-                        art.isPublished ? "bg-green-100 text-green-700" : "bg-yellow-100 text-yellow-700"
+                        "inline-flex px-2.5 py-1 rounded-full font-ui text-[12px] font-bold border",
+                        art.isPublished ? "border-[color:var(--gold-deep)] bg-[color:var(--glow)] text-[color:var(--gold-2)]" : "border-dashed border-[color:var(--line)] text-[color:var(--text-dim)]"
                       )}>
                         {art.isPublished ? t("admin.articles.published") : t("admin.articles.draft")}
                       </span>
                     </TableCell>
-                    <TableCell className="text-muted-foreground text-sm">
+                    <TableCell className="font-ui text-[12.5px] text-[color:var(--text-mute)] whitespace-nowrap tabular-nums">
                       {formatArticleDate(art.createdAt, language, "short")}
                     </TableCell>
                     <TableCell className="text-right">
@@ -942,7 +955,7 @@ const AdminDashboard: React.FC = () => {
                 )}
                 {!articlesLoading && articles.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center py-10 text-muted-foreground italic">
+                    <TableCell colSpan={5} className="text-center py-10 font-display italic text-[20px] text-[color:var(--text-dim)]">
                       {t("admin.articles.empty")}
                     </TableCell>
                   </TableRow>
@@ -990,14 +1003,14 @@ const AdminDashboard: React.FC = () => {
             content shouldn't render for them either (RLS blocks the writes
             server-side regardless). */}
         {isAdmin && (
-        <TabsContent value="categories" className="space-y-6">
+        <TabsContent value="categories" className="space-y-6 mt-0 min-w-0">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-8">
             {/* Category Form */}
-            <Card className="p-6 h-fit bg-secondary/10 border-none">
-              <h3 className="text-xl font-serif italic mb-6">{t("admin.categories.add")}</h3>
+            <Card className="rs-desk-card shadow-none h-fit">
+              <h3 className="rs-display mb-6" style={{ fontSize: 26, letterSpacing: 0 }}>{t("admin.categories.add")}</h3>
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <label htmlFor="cat-name-en" className="text-[13px] font-semibold text-muted-foreground">{t("admin.categories.nameEn")}</label>
+                  <label htmlFor="cat-name-en" className="font-ui text-[13px] font-bold text-[color:var(--text-dim)]">{t("admin.categories.nameEn")}</label>
                   <Input
                     id="cat-name-en"
                     value={newCategory.nameEn}
@@ -1005,7 +1018,7 @@ const AdminDashboard: React.FC = () => {
                   />
                 </div>
                 <div className="space-y-2">
-                  <label htmlFor="cat-name-ro" className="text-[13px] font-semibold text-muted-foreground">{t("admin.categories.nameRo")}</label>
+                  <label htmlFor="cat-name-ro" className="font-ui text-[13px] font-bold text-[color:var(--text-dim)]">{t("admin.categories.nameRo")}</label>
                   <Input
                     id="cat-name-ro"
                     value={newCategory.nameRo}
@@ -1013,7 +1026,7 @@ const AdminDashboard: React.FC = () => {
                   />
                 </div>
                 <div className="space-y-2">
-                  <label htmlFor="cat-slug" className="text-[13px] font-semibold text-muted-foreground">{t("admin.categories.slug")}</label>
+                  <label htmlFor="cat-slug" className="font-ui text-[13px] font-bold text-[color:var(--text-dim)]">{t("admin.categories.slug")}</label>
                   <Input
                     id="cat-slug"
                     placeholder={t("admin.categories.slugPlaceholder")}
@@ -1032,11 +1045,11 @@ const AdminDashboard: React.FC = () => {
               {/* Mobile: Card layout for categories */}
               <div className="block md:hidden space-y-3">
                 {categories.map((cat) => (
-                  <Card key={cat.id} className="p-4 border-none shadow-sm bg-secondary/10">
+                  <Card key={cat.id} className="rs-desk-card shadow-none p-4">
                     <div className="flex items-center justify-between gap-3">
                       <div className="flex-1 min-w-0">
-                        <p className="font-serif italic font-medium text-sm truncate">{cat.nameEn}</p>
-                        <p className="font-serif italic text-xs text-muted-foreground truncate">{cat.nameRo}</p>
+                        <p className="font-display text-[18px] leading-tight truncate">{cat.nameEn}</p>
+                        <p className="font-display text-[16px] text-[color:var(--text-dim)] truncate">{cat.nameRo}</p>
                         <p className="text-xs font-mono text-muted-foreground mt-1">{cat.slug}</p>
                       </div>
                       <Button
@@ -1051,9 +1064,9 @@ const AdminDashboard: React.FC = () => {
               </div>
 
               {/* Desktop: Table layout for categories */}
-              <Card className="border-none shadow-sm overflow-hidden bg-secondary/10 hidden md:block">
+              <Card className="rs-desk-card shadow-none p-0 overflow-hidden hidden md:block">
                 <Table>
-                  <TableHeader className="bg-secondary/30">
+                  <TableHeader>
                     <TableRow>
                       <TableHead>{t("admin.categories.nameEn")}</TableHead>
                       <TableHead>{t("admin.categories.nameRo")}</TableHead>
@@ -1064,9 +1077,9 @@ const AdminDashboard: React.FC = () => {
                   <TableBody>
                     {categories.map((cat) => (
                       <TableRow key={cat.id}>
-                        <TableCell className="font-serif italic font-medium">{cat.nameEn}</TableCell>
-                        <TableCell className="font-serif italic">{cat.nameRo}</TableCell>
-                        <TableCell className="text-xs font-mono">{cat.slug}</TableCell>
+                        <TableCell className="font-display text-[18px]">{cat.nameEn}</TableCell>
+                        <TableCell className="font-display text-[17px] text-[color:var(--text-dim)]">{cat.nameRo}</TableCell>
+                        <TableCell className="text-xs font-mono text-[color:var(--text-mute)]">{cat.slug}</TableCell>
                         <TableCell className="text-right">
                           <Button
                             variant="ghost"
@@ -1090,16 +1103,16 @@ const AdminDashboard: React.FC = () => {
         {/* Curated walks shown on the Atlas (/map). Admin-only, like
             categories; the manager loads its data when the tab opens. */}
         {isAdmin && (
-          <TabsContent value="journeys" className="space-y-6">
+          <TabsContent value="journeys" className="space-y-6 mt-0 min-w-0">
             <JourneysManager />
           </TabsContent>
         )}
 
         {isAdmin && (
-          <TabsContent value="users" className="space-y-6">
+          <TabsContent value="users" className="space-y-6 mt-0 min-w-0">
             <TooltipProvider delayDuration={150}>
             <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
-              <h2 className="text-xl sm:text-2xl font-serif italic text-secondary-foreground">{t("admin.users.heading")}</h2>
+              <h2 className="rs-display" style={{ fontSize: 30, letterSpacing: 0 }}>{t("admin.users.heading")}</h2>
               <div className="flex flex-wrap items-center gap-2 text-xs sm:text-sm">
                 <span className="text-muted-foreground">
                   {usersTotal !== null
@@ -1133,7 +1146,7 @@ const AdminDashboard: React.FC = () => {
             {/* Mobile: Card layout for users */}
             <div className="block md:hidden space-y-3">
               {allUsers.map((u) => (
-                <Card key={u.id} className="p-4 border-none shadow-sm bg-secondary/10">
+                <Card key={u.id} className="rs-desk-card shadow-none p-4">
                   <div className="flex items-start gap-3">
                     <div className="h-9 w-9 rounded-full bg-accent/20 flex items-center justify-center overflow-hidden shrink-0">
                       {u.avatarUrl ? (
@@ -1150,7 +1163,7 @@ const AdminDashboard: React.FC = () => {
                             <TooltipTrigger asChild>
                               <span
                                 tabIndex={0}
-                                className="text-[11px] px-1.5 py-0.5 rounded-full border border-amber-500/40 text-amber-500 font-ui cursor-help"
+                                className="font-ui text-[12px] font-bold px-2 py-0.5 rounded-full border border-dashed border-[color:var(--gold-deep)] text-[color:var(--gold-2)] cursor-help"
                               >
                                 {t("admin.users.unverified")}
                               </span>
@@ -1192,9 +1205,9 @@ const AdminDashboard: React.FC = () => {
             </div>
 
             {/* Desktop: Table layout for users */}
-            <Card className="border-none shadow-sm overflow-hidden bg-secondary/10 hidden md:block">
+            <Card className="rs-desk-card shadow-none p-0 overflow-hidden hidden md:block">
               <Table>
-                <TableHeader className="bg-secondary/30">
+                <TableHeader>
                   <TableRow>
                     <TableHead>{t("admin.users.user")}</TableHead>
                     <TableHead>{t("admin.users.email")}</TableHead>
@@ -1226,7 +1239,7 @@ const AdminDashboard: React.FC = () => {
                               <TooltipTrigger asChild>
                                 <span
                                   tabIndex={0}
-                                  className="text-[11px] px-1.5 py-0.5 rounded-full border border-amber-500/40 text-amber-500 font-ui shrink-0 cursor-help"
+                                  className="font-ui text-[12px] font-bold px-2 py-0.5 rounded-full border border-dashed border-[color:var(--gold-deep)] text-[color:var(--gold-2)] shrink-0 cursor-help"
                                 >
                                   {t("admin.users.unverified")}
                                 </span>
@@ -1254,7 +1267,7 @@ const AdminDashboard: React.FC = () => {
                           </SelectContent>
                         </Select>
                       </TableCell>
-                      <TableCell className="text-muted-foreground text-sm">
+                      <TableCell className="font-ui text-[12.5px] text-[color:var(--text-mute)] whitespace-nowrap tabular-nums">
                         {u.createdAt ? formatArticleDate(u.createdAt, language, "short") : '—'}
                       </TableCell>
                       <TableCell className="text-right">

@@ -17,12 +17,14 @@
     <!--
       The typefaces are self-hosted (scripts/fetch-fonts.mjs, src/styles/
       fonts.css): no request leaves for Google, and no render-blocking
-      stylesheet from another origin. These two are preloaded because the
-      first screen of every page needs them — the italic display face for
-      titles and captions, the reading face for text — and the browser would
-      otherwise only discover them once the CSS has been parsed.
+      stylesheet from another origin. These three are preloaded because the
+      first screen of every page needs them — the upright display face for
+      titles, the UI face for the header and captions, the reading face for
+      text — and the browser would otherwise only discover them once the CSS
+      has been parsed.
     -->
-    <link rel="preload" href="/fonts/cormorant-garamond-italic-latin-v21.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/fonts/cormorant-garamond-normal-latin-v21.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/fonts/manrope-normal-latin-v23.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="preload" href="/fonts/newsreader-normal-latin-v26.woff2" as="font" type="font/woff2" crossorigin />
     <!--
       Every page's stories, and every cover image, come from Supabase, and

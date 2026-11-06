@@ -25,7 +25,6 @@
 :where(.sb-btn) { display: inline-flex; }
 :where(.sb-btn-word) { display: inline-flex; }
 :where(.sb-icon-btn) { display: grid; }
-:where(.sb-chip) { display: inline-flex; }
 :where(.sb-seg) { display: inline-flex; }
 :where(.sb-seg-btn) { display: inline-flex; }
 :where(.sb-divider) { display: flex; }
@@ -52,22 +51,32 @@
 /* Positioned so a line's offsetTop is measured from the panel itself:
    Read along scrolls the spoken line into view from it. */
 :where(.sb-readalong-list) { position: relative; }
+/* The site frame (header, menus, search, footer): see the end of the sheet. */
+:where(.rs-navlink) { display: flex; position: relative; }
+:where(.rs-pill) { display: flex; }
+:where(.rs-support) { display: inline-flex; }
+:where(.rs-row) { display: flex; }
+:where(.rs-num) { display: grid; }
+:where(.rs-menu-link) { display: flex; }
+:where(.rs-result) { display: grid; }
+:where(.rs-result-thumb) { display: block; position: relative; }
+:where(.rs-chip) { display: inline-flex; }
+:where(.rs-menu) { position: absolute; }
 
 /* ---------- type ---------- */
-.sb-h1,
-.sb-h2,
 .sb-h3,
 .sb-h4 {
-  font-family: var(--display); font-style: italic; font-weight: 500;
+  font-family: var(--display); font-style: normal; font-weight: 500;
   color: var(--parchment); margin: 0; letter-spacing: -0.01em; text-wrap: balance;
 }
-.sb-h1 { font-size: clamp(48px, 7vw, 104px); line-height: 0.98; }
-.sb-h2 { font-size: clamp(36px, 4.6vw, 64px); line-height: 1.04; }
 .sb-h3 { font-size: clamp(25px, 2.4vw, 34px); line-height: 1.12; }
 .sb-h4 { font-size: 23px; line-height: 1.18; }
-.sb-kicker { font-family: var(--display); font-style: italic; font-size: 20px; line-height: 1.35; color: var(--gold); margin: 0; }
-.sb-kicker-sm { font-family: var(--display); font-style: italic; font-size: 17px; line-height: 1.35; color: var(--gold); margin: 0; }
-.sb-lede { font-size: clamp(18px, 1.6vw, 21px); line-height: 1.6; color: var(--text-dim); margin: 0; text-wrap: pretty; }
+/* Labels over a card or a column: the redesign's eyebrow. */
+.sb-kicker,
+.sb-kicker-sm {
+  margin: 0; font-family: var(--ui); font-style: normal; font-size: 12px; font-weight: 700; line-height: 1.5;
+  letter-spacing: 0.14em; text-transform: uppercase; color: var(--gold);
+}
 .sb-dim { color: var(--text-dim); margin: 0; }
 .sb-meta { font-family: var(--ui); font-size: 13px; font-weight: 500; letter-spacing: 0.01em; line-height: 1.5; color: var(--text-mute); margin: 0; }
 .sb-numeral { font-family: var(--display); font-style: normal; font-weight: 600; color: var(--gold); letter-spacing: 0.06em; }
@@ -90,9 +99,9 @@
 
 /* ---------- buttons and controls ---------- */
 .sb-btn {
-  align-items: center; justify-content: center; gap: 10px; min-height: 46px; padding: 12px 22px;
+  align-items: center; justify-content: center; gap: 10px; min-height: 48px; padding: 0 22px;
   border-radius: 999px; border: 1px solid var(--gold); background: var(--gold); color: var(--on-gold);
-  font-family: var(--ui); font-size: 14px; font-weight: 600; letter-spacing: 0.01em; line-height: 1;
+  font-family: var(--ui); font-size: 14px; font-weight: 700; line-height: 1.2;
   cursor: pointer; white-space: nowrap; transition: background 0.2s, border-color 0.2s;
 }
 .sb-btn:hover { background: var(--gold-2); border-color: var(--gold-2); }
@@ -111,18 +120,10 @@
   place-items: center; cursor: pointer; color: var(--text); flex: none;
 }
 .sb-icon-btn:hover { color: var(--gold); border-color: var(--gold-deep); }
-.sb-chip {
-  align-items: center; gap: 8px; min-height: 40px; padding: 6px 16px; border-radius: 999px;
-  border: 1px solid var(--line); background: transparent; cursor: pointer; white-space: nowrap;
-  font-family: var(--display); font-style: italic; font-size: 19px; color: var(--text-dim);
-}
-.sb-chip:hover { border-color: var(--gold-deep); color: var(--parchment); }
-.sb-chip[aria-pressed="true"] { background: var(--glow); border-color: var(--gold-deep); color: var(--gold-2); }
-.sb-chip-n { font-family: var(--ui); font-style: normal; font-size: 12px; font-weight: 600; color: var(--text-dim); }
 .sb-seg { padding: 3px; gap: 2px; border: 1px solid var(--line); border-radius: 999px; }
 .sb-seg-btn {
   border: 0; background: transparent; border-radius: 999px; padding: 8px 14px; min-height: 36px; cursor: pointer;
-  align-items: center; font-family: var(--ui); font-size: 13px; font-weight: 600; color: var(--text-dim);
+  align-items: center; font-family: var(--ui); font-size: 13px; font-weight: 700; color: var(--text-dim);
 }
 .sb-seg-btn[aria-pressed="true"],
 .sb-seg-btn[aria-current="page"] { background: var(--gold); color: var(--on-gold); }
@@ -156,27 +157,16 @@
 .sb-arch-thumb { border-radius: 50% 50% 9px 9px / 36% 36% 9px 9px; }
 .sb-frame > img,
 .sb-arch > img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
-.sb-window { padding: 10px; border: 1px solid var(--line); border-radius: 50% 50% 22px 22px / 31% 31% 22px 22px; }
-.sb-window-shallow { padding: 10px; border: 1px solid var(--line); border-radius: 50% 50% 22px 22px / 19% 19% 22px 22px; }
 .sb-scrim { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(13, 11, 8, 0) 40%, rgba(13, 11, 8, 0.86) 100%); pointer-events: none; }
 .sb-tag {
   align-items: center; gap: 6px; padding: 5px 13px; border-radius: 999px;
   background: rgba(13, 11, 8, 0.62); border: 1px solid rgba(201, 169, 110, 0.45); color: #f4ead7;
-  font-family: var(--display); font-style: italic; font-size: 17px; line-height: 1.2;
+  font-family: var(--ui); font-size: 12px; font-weight: 600; line-height: 1.2;
 }
 
 /* ---------- story cards ---------- */
 .sb-card-media > img { transition: transform 0.7s ease; }
 .sb-card:hover .sb-card-media > img { transform: scale(1.03); }
-.sb-card-title {
-  font-family: var(--display); font-style: italic; font-weight: 500; font-size: 27px; line-height: 1.08;
-  color: var(--parchment); margin: 6px 0 10px; text-wrap: balance;
-}
-.sb-card-first { font-size: 16.5px; line-height: 1.6; color: var(--text-dim); margin: 0; text-wrap: pretty; }
-.sb-card-first::before {
-  content: "\201C"; font-family: var(--display); font-size: 1.7em; line-height: 0;
-  vertical-align: -0.32em; margin-right: 3px; color: var(--gold);
-}
 .sb-heart {
   position: absolute; top: 12px; right: 12px; width: 40px; height: 40px; border-radius: 50%;
   place-items: center; cursor: pointer; color: #f4ead7;
@@ -203,7 +193,8 @@
 .sb-path-step.is-now .sb-path-label { color: var(--parchment); }
 
 /* ---------- place and time ---------- */
-.sb-place-card { gap: 14px; padding: 22px; border-radius: 18px; background: var(--paper); border: 1px solid var(--line-soft); }
+/* A margin card: the same card the redesign uses beside a story. */
+.sb-place-card { gap: 14px; padding: 20px; border-radius: 24px; background: var(--ink-2); border: 1px solid var(--line); }
 .sb-mini-map { aspect-ratio: 10 / 7; }
 .sb-mini-map::before {
   content: ""; position: absolute; inset: 0; background: var(--gold);
@@ -218,7 +209,7 @@
 
 /* ---------- forms ---------- */
 .sb-field { gap: 8px; }
-.sb-label { font-family: var(--ui); font-size: 14px; font-weight: 500; color: var(--text-dim); }
+.sb-label { font-family: var(--ui); font-size: 13px; font-weight: 700; color: var(--text-dim); }
 .sb-input {
   width: 100%; min-height: 50px; padding: 13px 16px; border-radius: 12px; border: 1px solid var(--line);
   background: var(--ink-2); color: var(--text); font-family: var(--serif); font-size: 17px;
@@ -228,20 +219,61 @@ textarea.sb-input { min-height: 190px; resize: vertical; line-height: 1.6; }
 .sb-error { font-family: var(--ui); font-size: 13px; color: var(--danger); margin: 0; }
 
 /* ---------- surfaces and sections ---------- */
-.sb-section { padding-block: clamp(64px, 9vw, 128px); }
 .sb-paper { background: var(--paper); border: 1px solid var(--line-soft); border-radius: 24px; }
-.sb-band { background: var(--ink-2); }
 .sb-chapter-head { justify-items: center; text-align: center; gap: 14px; }
 .sb-measure { max-width: 680px; margin-inline: auto; }
 
 /* ---------- the story page ---------- */
 /* Sits under the sticky navigation (80px bar + its 2px thread). */
-.sb-reading-bar { position: sticky; top: 82px; z-index: 40; background: var(--ink); border-bottom: 1px solid var(--line-soft); }
 .sb-verse {
   margin: 0; font-family: var(--display); font-style: italic; font-weight: 500;
   font-size: calc(var(--sb-prose-size, 20px) * 1.12); line-height: 1.55; color: var(--parchment);
+  /* A line too long for its column carries on indented, as in a printed book. */
+  padding-left: 1.2em; text-indent: -1.2em;
 }
 .sb-verse-en { color: var(--text-dim); }
+
+/* A poem, one language: the stanza numerals in a column as wide as the
+   widest of them, each on the baseline of its stanza's first line. */
+:where(.sb-poem-one, .sb-poem-two) { display: grid; }
+.sb-poem-one { grid-template-columns: max-content minmax(0, 1fr); gap: 40px 28px; align-items: baseline; }
+/* Right-aligned, so each numeral sits against its stanza, not out at the margin. */
+.sb-poem-no { justify-self: end; font-size: 17px; line-height: 1; }
+/* Both languages: every line placed on its own row (--n on a phone, where
+   each English line sits under its Romanian one; --w on a wide screen, in
+   two columns), so a pair always starts level. */
+.sb-poem-two { grid-template-columns: max-content minmax(0, 1fr); align-items: baseline; }
+.sb-poem-two > * { grid-row: var(--n); }
+.sb-poem-two > .sb-poem-head { display: none; }
+.sb-poem-two > .sb-poem-head-sm { grid-row: 1; margin-bottom: 26px; }
+.sb-poem-two .sb-poem-no { grid-column: 1; padding-right: 20px; }
+.sb-poem-ro,
+.sb-poem-en { grid-column: 2; }
+.sb-poem-two .sb-poem-en { padding-bottom: 10px; font-size: calc(var(--sb-prose-size-sm, 19px) * 0.95); }
+.sb-poem-two .sb-poem-no[data-first],
+.sb-poem-two .sb-poem-ro[data-first] { padding-top: 30px; }
+@media (min-width: 768px) {
+  .sb-poem-two { grid-template-columns: max-content minmax(0, 1fr) minmax(0, 1fr); }
+  .sb-poem-two > * { grid-row: var(--w); }
+  .sb-poem-two > .sb-poem-head { display: block; grid-row: 1; padding-bottom: 30px; }
+  .sb-poem-two > .sb-poem-head[lang="en"] { padding-left: 29px; }
+  .sb-poem-two > .sb-poem-head-sm { display: none; }
+  .sb-poem-two .sb-poem-no { padding-right: 28px; }
+  .sb-poem-ro { padding-right: 28px; }
+  /* The dashed rule between the languages runs unbroken down the poem; the
+     English keeps the verse's hanging indent inside its own padding. */
+  .sb-poem-two .sb-poem-en {
+    grid-column: 3; padding-bottom: 0; padding-left: calc(28px + 1.2em);
+    border-left: 1px dashed var(--line);
+  }
+  /* Two columns of verse in a reading column: a touch smaller than one
+     language alone, so fewer lines have to wrap. */
+  .sb-poem-two .sb-poem-ro,
+  .sb-poem-two .sb-poem-en { font-size: calc(var(--sb-prose-size, 20px) * 0.98); }
+  .sb-poem-two .sb-poem-no[data-first],
+  .sb-poem-two .sb-poem-ro[data-first],
+  .sb-poem-two .sb-poem-en[data-first] { padding-top: 46px; }
+}
 .sb-thumb {
   padding: 0; border: 1.5px solid transparent; border-radius: 10px; overflow: hidden;
   opacity: 0.55; cursor: pointer; background: var(--paper); transition: opacity 0.2s, border-color 0.2s;
@@ -258,8 +290,8 @@ textarea.sb-input { min-height: 190px; resize: vertical; line-height: 1.6; }
   grid-template-columns: auto minmax(0, 1fr) auto; gap: 12px; align-items: center;
   padding: 10px 16px; border-radius: 999px; background: var(--ink-2); border: 1px solid var(--gold-deep); box-shadow: var(--shadow-soft);
 }
-/* The pill only shows below xl (Tailwind's 1280px). */
-@media (max-width: 1279px) {
+/* The pill only shows below 1100px; wider, the chapter path sits beside the story. */
+@media (max-width: 1099px) {
   body[data-chapter-pill="on"] .scroll-to-top { bottom: 92px; }
   body[data-chapter-pill="open"] .scroll-to-top { visibility: hidden; opacity: 0; }
 }
@@ -289,7 +321,8 @@ textarea.sb-input { min-height: 190px; resize: vertical; line-height: 1.6; }
 .sb-moment { flex-direction: column; align-items: center; gap: 10px; padding: 0 8px; color: inherit; text-decoration: none; border-radius: 10px; }
 .sb-moment .sb-knot { background: var(--ink); }
 .sb-moment .sb-numeral { font-size: 22px; line-height: 1.1; }
-.sb-moment .sb-kicker-sm { color: var(--text-dim); font-size: 16px; transition: color 0.2s ease; }
+/* A moment's words read as a caption, not a label: no capitals, no tracking. */
+.sb-moment .sb-kicker-sm { font-size: 13px; font-weight: 600; letter-spacing: 0; text-transform: none; color: var(--text-dim); transition: color 0.2s ease; }
 .sb-moment:hover .sb-kicker-sm,
 .sb-moment:focus-visible .sb-kicker-sm { color: var(--gold); }
 .sb-moment:focus-visible { outline: 2px solid var(--gold); outline-offset: 6px; }
@@ -325,3 +358,415 @@ textarea.sb-input { min-height: 190px; resize: vertical; line-height: 1.6; }
   .sb-readalong-list { max-height: none; overflow: visible; }
 }
 
+
+/* ---------- the site frame ----------
+   The redesign's shell (RoStory.dc.html): header, account menu, phone
+   menu, search, footer. Its captions are letter-spaced capitals in the UI
+   face rather than the storybook's italics, and its links are set in the
+   UI face too, so the frame reads as the binding around the pages. */
+.rs-kicker {
+  margin: 0; font-family: var(--ui); font-size: 12px; font-weight: 700; letter-spacing: 0.14em;
+  text-transform: uppercase; color: var(--gold);
+}
+.rs-wordmark {
+  font-family: var(--display); font-style: italic; font-weight: 600; font-size: 25px; line-height: 1.2;
+  letter-spacing: -0.01em; white-space: nowrap; padding: 0.1em 0;
+  background: var(--logo-gradient); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+}
+.rs-navlink {
+  flex-direction: column; align-items: center; gap: 5px; padding: 12px 12px 6px;
+  font-family: var(--ui); font-size: 14px; font-weight: 600; letter-spacing: 0.01em; line-height: 1.2;
+  color: var(--text); white-space: nowrap; transition: color 0.2s;
+}
+.rs-navlink:hover,
+.rs-navlink[aria-current="page"] { color: var(--gold); }
+.rs-pill {
+  align-items: center; gap: 10px; height: 42px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--line);
+  background: transparent; color: var(--text-dim); cursor: pointer; font-family: var(--ui); font-size: 13px; font-weight: 500;
+}
+.rs-pill:hover { border-color: var(--gold-deep); color: var(--parchment); }
+@media (min-width: 1280px) {
+  .rs-pill { padding: 0 16px; }
+}
+.rs-kbd {
+  font-family: var(--ui); font-size: 11px; font-weight: 600; padding: 2px 6px; border-radius: 6px;
+  border: 1px solid var(--line); color: var(--text-mute);
+}
+.rs-support {
+  align-items: center; gap: 8px; height: 42px; padding: 0 18px; border-radius: 999px; border: 1px solid var(--gold);
+  color: var(--gold); font-family: var(--ui); font-size: 13px; font-weight: 700; white-space: nowrap;
+}
+.rs-support:hover { background: var(--glow); color: var(--gold-2); }
+.rs-underline { color: var(--gold); text-decoration: underline; text-underline-offset: 4px; }
+.rs-underline:hover { color: var(--gold-2); }
+
+/* Account menu */
+.rs-pop {
+  width: min(340px, calc(100vw - 32px)); background: var(--ink-2); border: 1px solid var(--line); border-radius: 20px;
+  box-shadow: var(--shadow-dropdown); overflow: hidden;
+}
+.rs-title {
+  font-family: var(--display); font-weight: 500; font-size: 30px; line-height: 1.05; letter-spacing: -0.01em; color: var(--parchment);
+}
+.rs-row { align-items: center; gap: 14px; padding: 12px 24px; color: var(--text); }
+.rs-row:hover { background: var(--glow); }
+.rs-num {
+  place-items: center; width: 34px; height: 34px; flex: none; border-radius: 50%; border: 1px solid var(--line);
+  color: var(--gold); font-family: var(--ui); font-size: 12px; font-weight: 700;
+}
+.rs-logout {
+  width: 100%; text-align: left; padding: 16px 24px; border: 0; background: transparent; cursor: pointer;
+  color: var(--danger); font-family: var(--ui); font-size: 14px; font-weight: 700;
+}
+.rs-logout:hover { background: var(--hover-subtle); }
+
+/* Phone and tablet menu: a sheet under the header */
+.rs-menu {
+  left: 0; right: 0; top: 100%; z-index: 65; background: var(--ink);
+  border-bottom: 1px solid var(--line); box-shadow: var(--shadow-soft);
+  /* Fills the screen under the header: the menu is modal, so the page is not shown half-covered. */
+  height: calc(100dvh - 73px); overflow-y: auto; overscroll-behavior: contain;
+}
+.rs-menu-link {
+  align-items: center; justify-content: space-between; gap: 16px; padding: 16px 2px; border-bottom: 1px dashed var(--line);
+  font-family: var(--display); font-size: 32px; line-height: 1; color: var(--parchment);
+}
+.rs-menu-link:hover,
+.rs-menu-link[aria-current="page"] { color: var(--gold); }
+
+/* Search */
+.rs-search {
+  width: min(760px, 100%); max-height: calc(100vh - 24px); overflow: hidden; display: flex; flex-direction: column;
+  background: var(--ink-2); border: 1px solid var(--line); border-radius: 24px; box-shadow: var(--shadow-dropdown);
+}
+.rs-search-input {
+  width: 100%; background: transparent; border: 0; border-bottom: 2px solid var(--gold-deep); border-radius: 0;
+  padding: 8px 44px 14px 0; font-family: var(--display); font-size: clamp(28px, 4vw, 40px); line-height: 1.15;
+  color: var(--parchment); outline: none;
+}
+/* Focus is the underline brightening and thickening, as the design draws it,
+   rather than the site's box ring round the whole line. */
+.rs-search-input:focus,
+.rs-search-input:focus-visible { outline: none; border-bottom-color: var(--gold); box-shadow: 0 1px 0 var(--gold); }
+.rs-result {
+  width: 100%; grid-template-columns: 56px minmax(0, 1fr) auto; align-items: center; gap: 16px; padding: 10px 12px;
+  border: 0; border-radius: 14px; background: transparent; cursor: pointer; text-align: left;
+}
+.rs-result.is-selected { background: var(--glow); }
+.rs-result-thumb { width: 56px; height: 64px; overflow: hidden; border-radius: 50% 50% 9px 9px / 36% 36% 9px 9px; background: var(--paper); }
+.rs-result-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.rs-result-where {
+  font-family: var(--ui); font-size: 12px; font-weight: 600; color: var(--gold);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.rs-chip {
+  align-items: center; gap: 8px; white-space: nowrap; min-height: 40px; padding: 6px 16px; border-radius: 999px; border: 1px solid var(--line);
+  background: transparent; color: var(--text-dim); cursor: pointer; font-family: var(--ui); font-size: 13px; font-weight: 600;
+}
+.rs-chip:hover { border-color: var(--gold-deep); color: var(--parchment); }
+
+/* Footer */
+.rs-foot-link { font-size: 16px; color: var(--text); transition: color 0.2s; }
+.rs-foot-link:hover { color: var(--gold); }
+
+/* Menus and dialogs in the frame rise in quickly (0.2 s, the design's
+   rs-in); the page entrance (.screen-anim, 0.6 s) left a menu see-through
+   for half a second. */
+.rs-in { animation: rs-in 0.2s ease both; }
+@keyframes rs-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+
+/* ---------- story cards (redesign, StoryCard.dc.html) ---------- */
+:where(.rs-card) { position: relative; }
+:where(.rs-card-frame) { display: block; position: relative; }
+:where(.rs-card-thumb) { display: block; position: relative; }
+:where(.rs-card-compact) { display: grid; }
+:where(.rs-card-kind) { display: inline-flex; position: absolute; }
+:where(.rs-card-heart) { display: grid; position: absolute; }
+.rs-card-frame {
+  aspect-ratio: 4 / 5; overflow: hidden; background: var(--paper); box-shadow: 0 0 0 1px var(--line-soft);
+  border-radius: 50% 50% 14px 14px / 30% 30% 14px 14px;
+}
+.rs-card-thumb { flex: none; overflow: hidden; background: var(--paper); border-radius: 50% 50% 9px 9px / 36% 36% 9px 9px; }
+.rs-card-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transition: transform 0.7s ease; }
+.rs-card:hover .rs-card-img { transform: scale(1.04); }
+.rs-card-kind {
+  left: 14px; bottom: 14px; align-items: center; gap: 6px; padding: 5px 12px; border-radius: 999px;
+  background: rgba(13, 11, 8, 0.62); border: 1px solid rgba(201, 169, 110, 0.45); color: #f4ead7;
+  font-family: var(--ui); font-size: 12px; font-weight: 600; backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+}
+.rs-card-where { font-family: var(--ui); font-size: 12px; font-weight: 600; letter-spacing: 0.01em; color: var(--gold); }
+.rs-card-title {
+  margin: 6px 0 10px; font-family: var(--display); font-weight: 500; font-size: 27px; line-height: 1.08;
+  letter-spacing: -0.01em; color: var(--parchment); text-wrap: balance; transition: color 0.2s;
+}
+.rs-card-compact:hover .rs-card-title { color: var(--gold-2); }
+.rs-card-first { font-size: 16px; line-height: 1.6; color: var(--text-dim); text-wrap: pretty; }
+.rs-card-quote { font-family: var(--display); font-size: 1.6em; line-height: 0; vertical-align: -0.3em; margin-right: 3px; color: var(--gold); }
+.rs-card-meta { font-family: var(--ui); font-size: 12px; font-weight: 500; color: var(--text-mute); }
+.rs-card-num { font-family: var(--ui); font-size: 13px; font-weight: 700; color: var(--gold); font-variant-numeric: tabular-nums; }
+.rs-card-compact { grid-template-columns: 84px minmax(0, 1fr); gap: 18px; align-items: center; }
+.rs-card-heart {
+  top: 12px; right: 12px; place-items: center; width: 40px; height: 40px; border-radius: 50%; cursor: pointer;
+  color: #f4ead7; background: rgba(13, 11, 8, 0.55); border: 1px solid rgba(201, 169, 110, 0.35);
+  backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+}
+.rs-card-heart.is-on { color: #d9bf8c; }
+
+/* ---------- pages (redesign) ----------
+   Shared by the redesigned pages: the letter-spaced eyebrow over a title,
+   upright display titles with an italic gold phrase, pill buttons and
+   filter chips in the UI face. */
+:where(.rs-btn) { display: inline-flex; }
+:where(.rs-word) { display: inline-flex; }
+/* Margins reset at zero specificity, so a heading's own spacing (mb-6, …) wins. */
+:where(.rs-eyebrow, .rs-display, .rs-lede) { margin: 0; }
+.rs-eyebrow {
+  font-family: var(--ui); font-size: 12px; font-weight: 700; letter-spacing: 0.14em;
+  text-transform: uppercase; color: var(--gold);
+}
+.rs-display { font-family: var(--display); font-weight: 500; letter-spacing: -0.02em; color: var(--parchment); text-wrap: balance; }
+.rs-display em { font-style: italic; color: var(--gold-2); }
+.rs-lede { font-size: clamp(18px, 1.5vw, 20px); line-height: 1.6; color: var(--text-dim); text-wrap: pretty; }
+.rs-btn {
+  align-items: center; justify-content: center; gap: 10px; min-height: 48px; padding: 0 22px; border-radius: 999px;
+  border: 1px solid var(--gold); background: var(--gold); color: var(--on-gold); cursor: pointer; white-space: nowrap;
+  font-family: var(--ui); font-size: 14px; font-weight: 700; line-height: 1.2; transition: background-color 0.2s, border-color 0.2s;
+}
+.rs-btn:hover { background: var(--gold-2); border-color: var(--gold-2); color: var(--on-gold); }
+.rs-btn-ghost { background: transparent; border-color: var(--line); color: var(--parchment); }
+.rs-btn-ghost:hover { background: var(--glow); border-color: var(--gold-deep); color: var(--parchment); }
+.rs-btn:disabled { opacity: 0.45; cursor: default; }
+.rs-btn:disabled:hover { background: var(--gold); border-color: var(--gold); }
+.rs-btn-ghost:disabled:hover { background: transparent; border-color: var(--line); }
+.rs-chip[aria-pressed="true"] { background: var(--glow); border-color: var(--gold-deep); color: var(--gold-2); }
+.rs-chip-n { font-size: 12px; font-weight: 700; color: var(--text-mute); }
+/* On a chosen chip's gold tint the muted count fell below 4.5:1. */
+.rs-chip[aria-pressed="true"] .rs-chip-n { color: var(--text-dim); }
+.rs-word {
+  align-items: center; gap: 10px; border: 0; background: none; padding: 6px 0; cursor: pointer;
+  font-family: var(--display); font-style: italic; font-size: 21px; color: var(--gold);
+}
+.rs-word:hover { color: var(--gold-2); }
+.rs-band { background: var(--ink-2); border-block: 1px solid var(--line-soft); }
+
+/* ---------- shelves (redesign, Shelves.dc.html) ---------- */
+:where(.rs-shelves) { display: grid; }
+:where(.rs-shelf) { display: flex; }
+:where(.rs-shelf-window) { display: block; }
+.rs-shelves { grid-template-columns: repeat(auto-fill, minmax(min(100%, 270px), 1fr)); gap: clamp(40px, 5vw, 64px) clamp(24px, 3vw, 40px); }
+.rs-shelf { flex-direction: column; text-align: left; color: inherit; }
+.rs-shelf-window {
+  padding: 8px; border: 1px solid var(--line); border-radius: 50% 50% 20px 20px / 30% 30% 20px 20px; transition: border-color 0.3s;
+}
+.rs-shelf:hover .rs-shelf-window { border-color: var(--gold-deep); }
+/* Four across on a wide screen, every other door set lower: a shelf, not a grid. */
+@media (min-width: 1100px) {
+  .rs-shelves > :nth-child(even) { margin-top: 48px; }
+}
+.rs-crumbs { display: flex; flex-wrap: wrap; gap: 10px; margin: 0 0 20px; padding: 0; list-style: none; font-family: var(--ui); font-size: 13px; font-weight: 600; }
+.rs-crumbs a { color: var(--text-dim); }
+.rs-crumbs a:hover { color: var(--gold); }
+.rs-seg-icon { place-items: center; width: 36px; height: 34px; border: 0; border-radius: 999px; cursor: pointer; background: transparent; color: var(--text-dim); }
+.rs-seg-icon[aria-pressed="true"] { background: var(--gold); color: var(--on-gold); }
+:where(.rs-seg-icon) { display: grid; }
+.rs-select {
+  min-height: 40px; padding: 0 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--ink-2);
+  color: var(--text); font-family: var(--ui); font-size: 13px; font-weight: 600;
+}
+.rs-pill-link {
+  align-items: center; gap: 10px; min-height: 46px; padding: 4px 18px 4px 4px; border-radius: 999px; border: 1px solid var(--line);
+  background: transparent; font-family: var(--display); font-size: 19px; color: var(--parchment);
+}
+.rs-pill-link:hover { border-color: var(--gold-deep); background: var(--glow); }
+:where(.rs-pill-link) { display: inline-flex; }
+
+/* ---------- story page (redesign, StoryPage.dc.html) ---------- */
+:where(.rs-story-grid) { display: grid; }
+:where(.rs-aside) { display: flex; }
+:where(.rs-act) { display: inline-flex; }
+:where(.rs-story-crumbs) { display: flex; }
+:where(.rs-journey-strip) { display: flex; }
+:where(.rs-film-extras) { display: grid; }
+:where(.rs-chapter-row) { display: flex; }
+:where(.rs-round) { display: grid; }
+:where(.rs-diamond) { display: grid; position: relative; }
+:where(.rs-progress) { position: sticky; }
+/* The thread under the header, filling as the reader goes down the page. */
+.rs-progress { top: 73px; z-index: 50; height: 3px; background: var(--line-soft); }
+.rs-progress-fill {
+  display: block; height: 100%; width: var(--story-progress, 0%);
+  background: repeating-linear-gradient(90deg, var(--gold) 0 8px, transparent 8px 14px);
+}
+.rs-journey-strip {
+  flex-wrap: wrap; align-items: center; gap: 10px 18px; padding: 10px 18px; border: 1px dashed var(--gold-deep); border-radius: 999px;
+  font-family: var(--ui); font-size: 13px; font-weight: 600; color: var(--text-dim);
+}
+/* Links in the strip and the crumbs are 28 px tall: a comfortable tap (WCAG 2.5.8 asks 24). */
+.rs-journey-next { margin-left: auto; display: inline-flex; align-items: center; min-height: 28px; font-weight: 700; color: var(--gold); }
+.rs-journey-next:hover { color: var(--gold-2); }
+/* On a phone the strip wraps to three lines: a pill that tall turns into a
+   lozenge, so it becomes a rounded card with the link under the words. */
+@media (max-width: 639px) {
+  .rs-journey-strip { border-radius: 20px; padding: 12px 16px; gap: 4px 14px; }
+  .rs-journey-next { margin-left: 0; }
+}
+.rs-story-crumbs { flex-wrap: wrap; align-items: center; gap: 10px; font-family: var(--ui); font-size: 13px; font-weight: 600; color: var(--text-dim); }
+.rs-crumb-back { display: inline-flex; align-items: center; min-height: 28px; border: 0; background: none; padding: 0; cursor: pointer; font: inherit; color: var(--text-dim); }
+.rs-crumb-back:hover { color: var(--gold); }
+.rs-crumb-shelf { display: inline-flex; align-items: center; justify-content: center; min-height: 28px; min-width: 24px; color: var(--gold); }
+.rs-crumb-shelf:hover { color: var(--gold-2); }
+.rs-facts { display: grid; grid-template-columns: auto 1fr; gap: 8px 18px; margin: 4px 0 0; font-family: var(--ui); font-size: 13.5px; }
+.rs-facts dt { font-weight: 700; color: var(--text-mute); }
+.rs-facts dd { margin: 0; color: var(--text); }
+.rs-act {
+  align-items: center; gap: 8px; min-height: 44px; padding: 0 18px; border-radius: 999px; border: 1px solid var(--line);
+  background: transparent; color: var(--parchment); cursor: pointer; font-family: var(--ui); font-size: 13px; font-weight: 700;
+}
+.rs-act:hover { border-color: var(--gold-deep); }
+.rs-act.is-dim { color: var(--text-dim); }
+.rs-act.is-dim:hover { color: var(--parchment); }
+.rs-act.is-on { border-color: var(--gold); background: var(--glow); color: var(--gold-2); }
+.rs-story-grid { grid-template-columns: minmax(0, 1fr); gap: clamp(40px, 5vw, 88px); align-items: start; }
+.rs-aside { flex-direction: column; gap: 28px; }
+/* One column on tablets: keep the line a readable length, and set the margin
+   cards two across under the story instead of one stretched card per row. */
+@media (max-width: 1099px) {
+  .rs-story-main { max-width: 720px; }
+}
+@media (min-width: 700px) and (max-width: 1099px) {
+  .rs-aside { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; align-items: start; }
+}
+@media (min-width: 1100px) {
+  .rs-story-grid { grid-template-columns: minmax(0, 1fr) 340px; }
+  /* Sticky beside the words; scrolls on its own if it is taller than the screen. */
+  .rs-aside { position: sticky; top: 100px; max-height: calc(100vh - 116px); overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; }
+}
+.rs-margin-card { padding: 20px; border: 1px solid var(--line); border-radius: 24px; background: var(--ink-2); }
+.rs-margin-card.is-dashed { border-style: dashed; background: transparent; }
+
+/* Film: chapters and read-along under the player */
+.rs-film-extras { gap: clamp(28px, 4vw, 56px); margin-top: clamp(32px, 4vw, 48px); }
+@media (min-width: 900px) {
+  .rs-film-extras.has-both { grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); }
+}
+.rs-film-extras .sb-readalong-list { margin-top: 0; }
+.rs-chapter-row {
+  width: 100%; gap: 14px; align-items: baseline; padding: 12px 0; border: 0; border-bottom: 1px solid var(--line-soft);
+  background: transparent; cursor: pointer; text-align: left;
+}
+.rs-chapter-time { font-family: var(--ui); font-size: 12px; font-weight: 700; color: var(--gold); font-variant-numeric: tabular-nums; }
+.rs-chapter-name { font-family: var(--display); font-size: 21px; color: var(--parchment); }
+.rs-chapter-row:hover .rs-chapter-name,
+.rs-chapter-row[aria-current="step"] .rs-chapter-name { color: var(--gold); }
+
+/* Visual essay: frame controls */
+.rs-round {
+  place-items: center; width: 50px; height: 50px; border-radius: 50%; border: 1px solid var(--line);
+  background: transparent; color: var(--parchment); cursor: pointer; font-size: 18px;
+}
+.rs-round.is-gold { border-color: var(--gold); background: var(--gold); color: var(--on-gold); }
+.rs-round:disabled { opacity: 0.4; cursor: default; }
+/* A 24 px target (WCAG 2.5.8) around a 12 px knot. */
+.rs-diamond { place-items: center; width: 24px; height: 24px; padding: 0; border: 0; background: transparent; cursor: pointer; }
+.rs-diamond::before { content: ""; width: 11px; height: 11px; transform: rotate(45deg); border: 1.5px solid var(--gold); }
+.rs-diamond[aria-current="step"]::before { background: var(--gold); }
+
+/* ---------- about pages (redesign) ---------- */
+.rs-pullquote {
+  position: relative; margin: 0; padding-left: 28px; font-family: var(--display); font-style: italic;
+  font-size: clamp(26px, 2.6vw, 36px); line-height: 1.3; color: var(--parchment); text-wrap: pretty;
+}
+.rs-pullquote::before {
+  content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 2px;
+  background: repeating-linear-gradient(180deg, var(--gold-deep) 0 7px, transparent 7px 13px);
+}
+/* Four columns under a stitched rule, each with a dashed edge. */
+/* My Story: the four truths. No rules between them: each opens on its own
+   stitched thread, its icon the knot. Four across, two on a tablet, one on
+   a phone, so a row never ends with one alone. */
+:where(.rs-truths) { display: grid; }
+:where(.rs-truth-head) { display: flex; }
+:where(.rs-truth-ico) { display: grid; }
+.rs-truths { grid-template-columns: minmax(0, 1fr); gap: 44px clamp(28px, 3.4vw, 52px); }
+@media (min-width: 640px) {
+  .rs-truths { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (min-width: 1100px) {
+  .rs-truths { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+.rs-truth-head { align-items: center; gap: 14px; margin-bottom: 22px; }
+.rs-truth-ico {
+  flex: none; place-items: center; width: 46px; height: 46px; border-radius: 50%;
+  border: 1px solid var(--gold-deep); background: var(--glow); color: var(--gold);
+}
+.rs-truth-thread { flex: 1; min-width: 0; }
+/* Support: the three ways to give, as arched doors. */
+:where(.rs-tier) { display: flex; position: relative; }
+.rs-tier {
+  flex-direction: column; align-items: center; gap: 14px; padding: 30px 28px 28px; text-align: center;
+  border: 1px solid var(--line); border-radius: 50% 50% 24px 24px / 18% 18% 24px 24px; background: transparent;
+}
+.rs-tier.is-recommended { border-color: var(--gold-deep); background: var(--paper); }
+.rs-tier-badge {
+  position: absolute; top: -13px; left: 50%; transform: translateX(-50%); padding: 4px 14px; border-radius: 999px; white-space: nowrap;
+  background: var(--gold); color: var(--on-gold); font-family: var(--ui); font-size: 12px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase;
+}
+/* Forms in the redesign: UI-face labels, chips that are real radios, and
+   the letter's lined paper. */
+.rs-field-label { padding: 0; font-family: var(--ui); font-size: 13px; font-weight: 700; color: var(--text-dim); }
+.rs-radio-chip { position: relative; cursor: pointer; }
+.rs-radio-chip > input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.rs-radio-face {
+  display: inline-flex; align-items: center; min-height: 40px; padding: 4px 16px; border-radius: 999px; border: 1px solid var(--line);
+  font-family: var(--ui); font-size: 13px; font-weight: 600; color: var(--text-dim);
+}
+.rs-radio-chip:hover .rs-radio-face { border-color: var(--gold-deep); color: var(--parchment); }
+.rs-radio-chip > input:checked + .rs-radio-face { background: var(--glow); border-color: var(--gold-deep); color: var(--gold-2); }
+.rs-radio-chip > input:focus-visible + .rs-radio-face { outline: 2px solid var(--gold); outline-offset: 2px; }
+.rs-lined {
+  width: 100%; padding: 6px 0; border: 0; border-bottom: 1px solid var(--line); border-radius: 0; resize: vertical;
+  background: repeating-linear-gradient(180deg, transparent 0 33px, var(--line) 33px 34px);
+  color: var(--text); font-family: var(--serif); font-size: 19px; line-height: 34px;
+}
+.rs-lined:focus { outline: none; border-bottom-color: var(--gold); }
+.rs-lined:focus-visible { outline: 2px solid var(--gold); outline-offset: 4px; }
+/* The fine print's contents, on a dashed rule. */
+.rs-toc { display: flex; flex-direction: column; gap: 2px; padding-left: 14px; border-left: 2px dashed var(--line); }
+.rs-toc-link { padding: 5px 0; font-family: var(--ui); font-size: 13px; font-weight: 600; line-height: 1.4; color: var(--text-dim); }
+.rs-toc-link:hover,
+.rs-toc-link[aria-current="location"] { color: var(--gold); }
+/* Tabs (the profile): UI-face labels, the chosen one underlined with thread. */
+.rs-tabs { display: flex; gap: 4px; overflow-x: auto; border-bottom: 1px solid var(--line-soft); }
+.rs-tab {
+  position: relative; padding: 12px 16px 14px; border: 0; background: transparent; cursor: pointer; white-space: nowrap;
+  font-family: var(--ui); font-size: 14px; font-weight: 700; color: var(--text-dim);
+}
+.rs-tab:hover { color: var(--parchment); }
+.rs-tab[aria-selected="true"] { color: var(--gold); }
+.rs-tab[aria-selected="true"]::after {
+  content: ""; position: absolute; left: 0; right: 0; bottom: -1px; height: 2px;
+  background: repeating-linear-gradient(90deg, var(--gold) 0 8px, transparent 8px 14px);
+}
+
+/* ---------- the editorial desk (redesign, AdminApp.dc.html) ---------- */
+:where(.rs-kpi) { display: flex; }
+:where(.rs-desk-row) { display: flex; }
+.rs-kpi {
+  flex-direction: column; align-items: flex-start; gap: 6px; padding: 20px 22px; text-align: left; cursor: pointer;
+  border: 1px solid var(--line); border-radius: 20px; background: var(--ink-2);
+}
+.rs-kpi:hover { border-color: var(--gold-deep); }
+@media (max-width: 639px) {
+  .rs-kpi { padding: 16px; }
+  .rs-kpi-value { font-size: 36px; }
+}
+.rs-kpi-label { font-family: var(--ui); font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-mute); }
+.rs-kpi-value { font-family: var(--display); font-size: 44px; line-height: 1; color: var(--gold-2); }
+.rs-kpi-sub { font-family: var(--ui); font-size: 12px; color: var(--text-mute); }
+.rs-desk-card { padding: 24px; border: 1px solid var(--line); border-radius: 22px; background: var(--ink-2); }
+.rs-desk-row { align-items: center; gap: 14px; padding: 12px 0; border-bottom: 1px solid var(--line-soft); }
+.rs-desk-kind { width: 100%; padding: 10px 12px; border: 0; border-radius: 12px; background: transparent; cursor: pointer; text-align: left; }
+.rs-desk-kind:hover { background: var(--glow); }

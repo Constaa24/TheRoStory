@@ -22,7 +22,7 @@ const EMPTY: Journey = { id: "", titleEn: "", titleRo: "", introEn: "", introRo:
 const slugify = (s: string) =>
   s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, JOURNEY_LIMITS.ID_MAX);
 
-const label = "text-[13px] font-semibold text-muted-foreground";
+const label = "font-ui text-[13px] font-bold text-[color:var(--text-dim)]";
 
 /**
  * The dashboard's Journeys tab: curated walks through published stories,
@@ -125,8 +125,8 @@ export const JourneysManager: React.FC = () => {
   }
   if (journeys === null) {
     return (
-      <Card className="p-6 bg-secondary/10 border-none">
-        <p className="font-serif italic">
+      <Card className="rs-desk-card shadow-none">
+        <p className="m-0" style={{ fontSize: 16, lineHeight: 1.6, color: "var(--text-dim)" }}>
           {en
             ? "Journeys need the Atlas database update. Apply migration 20261031120000_atlas_places_dates_and_journeys.sql, then reload this tab."
             : "Traseele au nevoie de actualizarea bazei de date pentru Atlas. Aplică migrarea 20261031120000_atlas_places_dates_and_journeys.sql, apoi reîncarcă această filă."}
@@ -139,24 +139,24 @@ export const JourneysManager: React.FC = () => {
   const available = stories.filter((s) => !draft?.stops.includes(s.id));
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-[1fr_1.3fr] gap-6 sm:gap-8 items-start">
+    <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)] gap-6 sm:gap-8 items-start">
       <div className="space-y-3">
         <div className="flex items-center justify-between gap-3">
-          <h2 className="text-xl sm:text-2xl font-serif italic text-secondary-foreground">{en ? "Journeys" : "Trasee"}</h2>
+          <h2 className="rs-display" style={{ fontSize: 30, letterSpacing: 0 }}>{en ? "Journeys" : "Trasee"}</h2>
           <Button onClick={startNew} className="rounded-full" size="sm"><Plus className="h-4 w-4 mr-1" />{en ? "New journey" : "Traseu nou"}</Button>
         </div>
-        <p className="text-sm text-muted-foreground">
+        <p className="m-0" style={{ fontSize: 16, lineHeight: 1.6, color: "var(--text-dim)" }}>
           {en
             ? "Curated walks through published stories, shown on the Atlas in this order. Only published journeys appear there."
             : "Trasee curate prin poveștile publicate, afișate pe Atlas în această ordine. Doar traseele publicate apar acolo."}
         </p>
-        {journeys.length === 0 && <p className="font-serif italic text-muted-foreground py-6">{en ? "No journeys yet." : "Încă nu există trasee."}</p>}
+        {journeys.length === 0 && <p className="font-display italic py-6" style={{ fontSize: 20, color: "var(--text-dim)" }}>{en ? "No journeys yet." : "Încă nu există trasee."}</p>}
         {journeys.map((j) => (
-          <Card key={j.id} className="p-4 border-none shadow-sm bg-secondary/10">
+          <Card key={j.id} className="rs-desk-card shadow-none p-4">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
-                <p className="font-serif italic font-medium truncate">{en ? j.titleEn : j.titleRo}</p>
-                <p className="text-xs text-muted-foreground mt-1">
+                <p className="font-display text-[20px] leading-tight truncate" style={{ color: "var(--parchment)" }}>{en ? j.titleEn : j.titleRo}</p>
+                <p className="font-ui text-[12px] mt-1.5" style={{ color: "var(--text-mute)" }}>
                   <span className="font-mono">{j.id}</span> · {j.stops.length} {en ? (j.stops.length === 1 ? "stop" : "stops") : (j.stops.length === 1 ? "oprire" : "opriri")} · {j.isPublished ? (en ? "Published" : "Publicat") : (en ? "Draft" : "Ciornă")}
                 </p>
               </div>
@@ -170,9 +170,9 @@ export const JourneysManager: React.FC = () => {
       </div>
 
       {draft && (
-        <Card className="p-6 bg-secondary/10 border-none space-y-4">
+        <Card className="rs-desk-card shadow-none space-y-4">
           <div className="flex items-center justify-between">
-            <h3 className="text-xl font-serif italic">{originalId ? (en ? "Edit journey" : "Editează traseul") : (en ? "New journey" : "Traseu nou")}</h3>
+            <h3 className="rs-display" style={{ fontSize: 26, letterSpacing: 0 }}>{originalId ? (en ? "Edit journey" : "Editează traseul") : (en ? "New journey" : "Traseu nou")}</h3>
             <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setDraft(null)} aria-label={en ? "Close" : "Închide"}><X className="h-4 w-4" /></Button>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -212,9 +212,9 @@ export const JourneysManager: React.FC = () => {
             {draft.stops.length === 0 && <p className="text-sm text-muted-foreground">{en ? "Add at least two stories." : "Adaugă cel puțin două povești."}</p>}
             <ol className="space-y-1">
               {draft.stops.map((id, i) => (
-                <li key={id} className="flex items-center gap-2 rounded-md bg-secondary/20 px-3 py-1.5">
-                  <span className="text-xs font-bold w-5 text-muted-foreground">{i + 1}</span>
-                  <span className="flex-1 min-w-0 truncate font-serif italic text-sm">{title(id)}</span>
+                <li key={id} className="flex items-center gap-2 rounded-xl px-3 py-1.5" style={{ border: "1px solid var(--line-soft)", background: "var(--paper)" }}>
+                  <span className="font-ui text-[12px] font-bold w-5" style={{ color: "var(--gold)" }}>{i + 1}</span>
+                  <span className="flex-1 min-w-0 truncate font-display text-[17px]">{title(id)}</span>
                   <Button variant="ghost" size="icon" className="h-7 w-7" disabled={i === 0} onClick={() => move(i, -1)} aria-label={en ? "Move up" : "Mută mai sus"}><ArrowUp className="h-3.5 w-3.5" /></Button>
                   <Button variant="ghost" size="icon" className="h-7 w-7" disabled={i === draft.stops.length - 1} onClick={() => move(i, 1)} aria-label={en ? "Move down" : "Mută mai jos"}><ArrowDown className="h-3.5 w-3.5" /></Button>
                   <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => set({ stops: draft.stops.filter((s) => s !== id) })} aria-label={en ? "Remove stop" : "Elimină oprirea"}><X className="h-3.5 w-3.5" /></Button>
@@ -227,7 +227,7 @@ export const JourneysManager: React.FC = () => {
                 id="jr-add"
                 value={addStop}
                 onChange={(e) => setAddStop(e.target.value)}
-                className="flex-1 min-w-0 h-9 rounded-md border border-input bg-transparent px-2 text-sm"
+                className="flex-1 min-w-0 h-10 rounded-xl px-3 font-serif text-[15px]"
               >
                 <option value="">{en ? "Choose a published story…" : "Alege o poveste publicată…"}</option>
                 {available.map((s) => <option key={s.id} value={s.id}>{en ? s.titleEn : s.titleRo}</option>)}
@@ -245,7 +245,7 @@ export const JourneysManager: React.FC = () => {
               <Input id="jr-order" type="number" min={0} max={999} value={draft.sortOrder}
                 onChange={(e) => set({ sortOrder: Math.max(0, Math.min(999, Math.trunc(Number(e.target.value) || 0))) })} />
             </div>
-            <label className="flex items-center gap-2 text-sm cursor-pointer h-9">
+            <label className="flex items-center gap-2 font-ui text-[13px] font-semibold cursor-pointer h-11">
               <input type="checkbox" checked={draft.isPublished} onChange={(e) => set({ isPublished: e.target.checked })} className="h-4 w-4 accent-[color:var(--gold)]" />
               {en ? "Published on the Atlas" : "Publicat pe Atlas"}
             </label>

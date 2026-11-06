@@ -1,5 +1,4 @@
-import React, { useEffect, useId, useMemo, useRef, useState } from "react";
-import { ChevronDown } from "lucide-react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import type { Article, FilmChapter } from "@/lib/supabase";
 import { cueAt, formatClock, parseVtt, type Cue } from "@/lib/subtitles";
 
@@ -127,10 +126,12 @@ const groupCues = (cues: Cue[], chapters: FilmChapter[]): Group[] => {
 };
 
 /**
- * "Read along": the film's words under the player, grouped by chapter, with
- * the line being spoken highlighted. Clicking a line plays from there; each
- * chapter heading is a button, so keyboards can jump too. Closed until
- * asked for, but always in the page, for search engines and for print.
+ * Under the player (the redesign's StoryPage, film): the film's chapters on
+ * one side, each a button that plays from there, and on the other its words
+ * to read along, grouped by chapter, with the line being spoken highlighted.
+ * Clicking a line plays from there. Open from the start, so the words are in
+ * the page for search engines, for print and for anyone who would rather
+ * read than listen.
  */
 export const ReadAlong: React.FC<{
   cues: Cue[];
@@ -142,10 +143,10 @@ export const ReadAlong: React.FC<{
   languages: Lang[];
   onSubLang: (lang: Lang) => void;
   language: Lang;
-}> = ({ cues, chapters, active, playing, onSeek, subLang, languages, onSubLang, language }) => {
+  /** The chapter playing now, -1 before the first. */
+  currentChapter: number;
+}> = ({ cues, chapters, active, playing, onSeek, subLang, languages, onSubLang, language, currentChapter }) => {
   const en = language === "en";
-  const [open, setOpen] = useState(false);
-  const id = useId();
   const listRef = useRef<HTMLDivElement>(null);
   const lastManualScroll = useRef(0);
   const groups = useMemo(() => groupCues(cues, chapters), [cues, chapters]);
@@ -156,85 +157,90 @@ export const ReadAlong: React.FC<{
   // the transcript themselves.
   useEffect(() => {
     const list = listRef.current;
-    if (!open || !playing || active < 0 || !list) return;
+    if (!playing || active < 0 || !list) return;
     if (Date.now() - lastManualScroll.current < 4000) return;
     const line = list.querySelector<HTMLElement>(`[data-cue="${active}"]`);
     if (!line) return;
     const target = line.offsetTop - list.clientHeight / 3;
     list.scrollTo({ top: Math.max(0, target), behavior: "smooth" });
-  }, [active, open, playing]);
+  }, [active, playing]);
 
   const markManual = () => { lastManualScroll.current = Date.now(); };
 
   return (
-    <div className="sb-readalong">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <button
-          type="button"
-          className="sb-btn-word inline-flex items-center gap-2"
-          aria-expanded={open}
-          aria-controls={id}
-          onClick={() => setOpen((o) => !o)}
-          style={{ fontSize: 20 }}
-        >
-          {hasWords ? (en ? "Read along" : "Citește odată cu filmul") : (en ? "Chapters" : "Capitole")}
-          <ChevronDown className="w-4 h-4 transition-transform" style={{ transform: open ? "rotate(180deg)" : undefined }} aria-hidden="true" />
-        </button>
-        {hasWords && languages.length > 1 && (
-          <div className="sb-seg" role="group" aria-label={en ? "Subtitle language" : "Limba subtitrării"}>
-            {languages.map((l) => (
-              <button key={l} type="button" aria-pressed={subLang === l} className="sb-seg-btn" onClick={() => onSubLang(l)}>
-                {l === "en" ? "English" : "Română"}
-              </button>
+    <div className={hasWords && chapters.length ? "rs-film-extras has-both" : "rs-film-extras"}>
+      {chapters.length > 0 && (
+        <div>
+          <p className="rs-eyebrow" style={{ marginBottom: 14 }}>{en ? "Chapters" : "Capitole"}</p>
+          <ol className="list-none m-0 p-0">
+            {chapters.map((c, i) => (
+              <li key={`${c.t}-${i}`}>
+                <button type="button" className="rs-chapter-row" aria-current={i === currentChapter ? "step" : undefined} onClick={() => onSeek(c.t)}>
+                  <span className="rs-chapter-time">{formatClock(c.t)}</span>
+                  <span className="rs-chapter-name">{chapterTitle(c, language)}</span>
+                </button>
+              </li>
             ))}
+          </ol>
+        </div>
+      )}
+      {hasWords && (
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center justify-between gap-3" style={{ marginBottom: 14 }}>
+            <p className="rs-eyebrow">{en ? "Read along" : "Citește odată cu filmul"}</p>
+            {languages.length > 1 && (
+              <div className="sb-seg" role="group" aria-label={en ? "Subtitle language" : "Limba subtitrării"}>
+                {languages.map((l) => (
+                  <button key={l} type="button" aria-pressed={subLang === l} className="sb-seg-btn" onClick={() => onSubLang(l)}>
+                    {l === "en" ? "English" : "Română"}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
-        )}
-      </div>
-      <div
-        id={id}
-        ref={listRef}
-        hidden={!open}
-        className="sb-readalong-list"
-        lang={subLang}
-        onWheel={markManual}
-        onTouchMove={markManual}
-        onKeyDown={markManual}
-      >
-        {hasWords && (
-          <p className="sb-meta m-0 mb-4">
+          <p className="m-0 mb-3" style={{ fontFamily: "var(--ui)", fontSize: 12, color: "var(--text-mute)" }}>
             {en ? "Select a line to play the film from there." : "Alege o replică pentru a porni filmul de acolo."}
           </p>
-        )}
-        {groups.map((g, gi) => (
-          <section key={gi}>
-            {g.chapter && (
-              <h3 className="m-0">
-                <button type="button" className="sb-readalong-chapter" onClick={() => onSeek(g.chapter!.t)}>
-                  <span className="sb-numeral" style={{ fontVariantNumeric: "tabular-nums" }}>{formatClock(g.chapter.t)}</span>
-                  <span>{chapterTitle(g.chapter, language)}</span>
-                </button>
-              </h3>
-            )}
-            {g.paragraphs.map((paragraph, pi) => (
-              <p key={pi} className="sb-readalong-p">
-                {paragraph[0].cue.speaker && <span className="sb-cue-speaker">{paragraph[0].cue.speaker} </span>}
-                {paragraph.map(({ cue, index }) => (
-                  <React.Fragment key={index}>
-                    <span
-                      data-cue={index}
-                      className={index === active ? "sb-cue is-active" : "sb-cue"}
-                      onClick={() => onSeek(cue.start)}
-                      title={formatClock(cue.start)}
-                    >
-                      {cue.text.replace(/\n/g, " ")}
-                    </span>{" "}
-                  </React.Fragment>
+          <div
+            ref={listRef}
+            className="sb-readalong-list"
+            lang={subLang}
+            onWheel={markManual}
+            onTouchMove={markManual}
+            onKeyDown={markManual}
+          >
+            {groups.map((g, gi) => (
+              <section key={gi}>
+                {g.chapter && (
+                  <h3 className="m-0">
+                    <button type="button" className="sb-readalong-chapter" onClick={() => onSeek(g.chapter!.t)}>
+                      <span className="sb-numeral" style={{ fontVariantNumeric: "tabular-nums" }}>{formatClock(g.chapter.t)}</span>
+                      <span>{chapterTitle(g.chapter, language)}</span>
+                    </button>
+                  </h3>
+                )}
+                {g.paragraphs.map((paragraph, pi) => (
+                  <p key={pi} className="sb-readalong-p">
+                    {paragraph[0].cue.speaker && <span className="sb-cue-speaker">{paragraph[0].cue.speaker} </span>}
+                    {paragraph.map(({ cue, index }) => (
+                      <React.Fragment key={index}>
+                        <span
+                          data-cue={index}
+                          className={index === active ? "sb-cue is-active" : "sb-cue"}
+                          onClick={() => onSeek(cue.start)}
+                          title={formatClock(cue.start)}
+                        >
+                          {cue.text.replace(/\n/g, " ")}
+                        </span>{" "}
+                      </React.Fragment>
+                    ))}
+                  </p>
                 ))}
-              </p>
+              </section>
             ))}
-          </section>
-        ))}
-      </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

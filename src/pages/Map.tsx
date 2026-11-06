@@ -230,6 +230,18 @@ const MapPage: React.FC = () => {
     focusCardTitle();
   }, [view, stopPlay, focusCardTitle]);
 
+  // "Nearest story": the closest other story still on the map.
+  const selectNearest = (s: AtlasStory) => {
+    let best: AtlasStory | null = null;
+    let bestD = Infinity;
+    for (const o of stories) {
+      if (o.id === s.id || o.x == null || !shown.has(o.id)) continue;
+      const d = (o.x - s.x!) ** 2 + (o.y! - s.y!) ** 2;
+      if (d < bestD) { bestD = d; best = o; }
+    }
+    if (best) selectStory(best.id);
+  };
+
   const clearSelection = useCallback(() => {
     setSelected(null);
     setSelectedCounty(null);
@@ -267,6 +279,13 @@ const MapPage: React.FC = () => {
     setSelected(null);
     mapRef.current?.reset();
   }, []);
+
+  // One way in for the years, from the era chips and the timeline's handles:
+  // the whole axis means "no year filter".
+  const onRange = (r: [number, number]) => {
+    stopPlay();
+    setRangeSel(r[0] <= scale.start && r[1] >= scale.end ? null : r);
+  };
 
   const clearFilter = (kind: FilterKind) => {
     stopPlay();
@@ -412,6 +431,7 @@ const MapPage: React.FC = () => {
       excerpt={excerptFor(s.id)}
       partOf={partOf(s.id)}
       onJourney={startJourney}
+      onNearest={s.x != null ? () => selectNearest(s) : undefined}
       onClose={inPanel ? undefined : clearSelection}
       from={from}
       copy={copy}
@@ -460,18 +480,22 @@ const MapPage: React.FC = () => {
     <div className="atlas-page screen-anim">
       <PageHead title={copy.pageTitle} description={copy.pageDescription} language={lang} />
       <div className="ed-container">
-        <section className="at-intro">
+        <header className="at-intro">
           <div>
-            <p className="eyebrow m-0">{copy.eyebrow}</p>
-            <h1>{headline}</h1>
-            <p className="at-lede">{copy.lede}</p>
+            <p className="rs-eyebrow">{copy.eyebrow}</p>
+            <h1 className="rs-display">{headline}</h1>
           </div>
+          {/* Map or list: the same stories under the same filters. */}
           {data && (
-            <ul className="at-facts">
-              {facts.map(([k, v]) => <li key={k}><b>{v}</b><span>{k}</span></li>)}
-            </ul>
+            <>
+              <span className="sr-only" id="at-lbl-view">{copy.lblView}</span>
+              <div className="at-seg" role="group" aria-labelledby="at-lbl-view">
+                <button type="button" className="at-seg-btn" data-view="map" aria-pressed={view === "map"} onClick={() => setView("map")}>{copy.viewMap}</button>
+                <button type="button" className="at-seg-btn" data-view="list" aria-pressed={view === "list"} onClick={() => setView("list")}>{copy.viewList}</button>
+              </div>
+            </>
           )}
-        </section>
+        </header>
 
         {!data && !loadFailed && (
           <div className="at-loading">
@@ -492,12 +516,9 @@ const MapPage: React.FC = () => {
               total={stories.length}
               filters={filters}
               scale={scale}
-              layers={layers}
-              view={view}
               onTheme={(id) => { stopPlay(); setTheme(id); }}
               onFormat={(k) => { stopPlay(); setFormat(k); }}
-              onLayer={(id) => setLayers((l) => ({ ...l, [id]: !l[id] }))}
-              onView={setView}
+              onRange={onRange}
               onClear={clearFilter}
               copy={copy}
               lang={lang}
@@ -519,6 +540,7 @@ const MapPage: React.FC = () => {
                   onSelectCounty={selectCounty}
                   countiesWithStories={countiesWithStories}
                   layers={layers}
+                  onLayer={(id) => setLayers((l) => ({ ...l, [id]: !l[id] }))}
                   copy={copy}
                   lang={lang}
                   playing={play.year != null}
@@ -534,7 +556,7 @@ const MapPage: React.FC = () => {
                   scale={scale}
                   range={filters.range}
                   showTimeless={showTimeless}
-                  onRange={(r) => { stopPlay(); setRangeSel(r[0] <= scale.start && r[1] >= scale.end ? null : r); }}
+                  onRange={onRange}
                   onToggleTimeless={() => { stopPlay(); setShowTimeless((v) => !v); }}
                   matched={shown}
                   stops={stopSet}
@@ -549,6 +571,10 @@ const MapPage: React.FC = () => {
                   copy={copy}
                   lang={lang}
                 />
+                {/* The archive at a glance, under the map. */}
+                <p className="at-countline">
+                  {facts.map(([k, v]) => <span key={k}><b>{v}</b> {k.toLowerCase()}</span>)}
+                </p>
               </div>
 
               <AtlasPanel
@@ -581,11 +607,12 @@ const MapPage: React.FC = () => {
               />
             </div>
 
-            <section className="at-notes" aria-labelledby="at-notes-title">
-              <h2 id="at-notes-title">{copy.notesTitle}</h2>
+            {/* The small print about the map, folded away. */}
+            <details className="at-notes">
+              <summary>{copy.notesTitle}</summary>
               <p>{copy.notesData}</p>
               <p>{copy.notesPlaces}</p>
-            </section>
+            </details>
           </>
         )}
       </div>

@@ -30,3 +30,6 @@ export const invert = (x: number, y: number): [number, number] => [
 /** A county's centre in plate units, for stories pinned to the county only. */
 export const countyCentre = (name: string): [number, number] | null =>
   (plate.counties as Record<string, number[]>)[name] as [number, number] | undefined ?? null;
+
+/** The 42 counties (Bucharest included), by name, from the plate's own list. */
+export const COUNTY_NAMES: string[] = Object.keys(plate.counties as Record<string, unknown>);

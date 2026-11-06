@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { toast } from "sonner";
-import { Article, Category } from "@/lib/supabase";
+import { Article, Category, ReaderNote, fetchReaderNotes, getLocalized } from "@/lib/supabase";
 import { fetchUserFavorites, fetchCategories, deleteOwnAccount, exportOwnData, supabase, deleteStorageFile, extractStoragePath, uploadUserFile } from "@/lib/supabase";
 import { useFavorites } from "@/hooks/use-favorites";
 import { isAbortError } from "@/lib/utils";
@@ -26,6 +26,7 @@ import { motion } from "framer-motion";
 import { ReducedMotionConfig } from "@/components/ui/reduced-motion-config";
 import { PageHead } from "@/components/layout/PageHead";
 import { storageImage } from "@/lib/image-url";
+import { formatArticleDate } from "@/lib/article-utils";
 
 // Hoisted so StoryCard's React.memo can actually skip re-renders — an inline
 // literal would be a new object identity every render (see Home).
@@ -38,7 +39,7 @@ const Profile: React.FC = () => {
   const { handleFavoriteToggle: toggleFavoriteShared, isFavorited } = useFavorites();
   const { language, t } = useLanguage();
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [displayName, setDisplayName] = useState("");
   const [avatarUrl, setAvatarUrl] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -61,6 +62,21 @@ const Profile: React.FC = () => {
   }, []);
 
   const activeTab = searchParams.get("tab") || "profile";
+  // Three tabs, as the redesign draws the profile: the shelf (the default,
+  // and what ?tab=favorites always meant), the reader's notes, and settings.
+  const tab: "shelf" | "notes" | "settings" =
+    activeTab === "settings" || activeTab === "notes" ? activeTab : "shelf";
+  const setTab = (next: "shelf" | "notes" | "settings") =>
+    setSearchParams(next === "shelf" ? {} : { tab: next }, { replace: true });
+  const [notes, setNotes] = useState<ReaderNote[] | null>(null);
+  useEffect(() => {
+    if (!user?.id) return;
+    let cancelled = false;
+    fetchReaderNotes(user.id)
+      .then((rows) => { if (!cancelled) setNotes(rows); })
+      .catch(() => { if (!cancelled) setNotes([]); });
+    return () => { cancelled = true; };
+  }, [user?.id]);
   const isMountedRef = useRef(true);
   useEffect(() => () => { isMountedRef.current = false; }, []);
 
@@ -80,16 +96,6 @@ const Profile: React.FC = () => {
     // for our purposes; the effect should re-run only when the user changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
-
-  // The account menu's "Favorites" link is /profile?tab=favorites: bring the
-  // shelf into view once it has its height.
-  useEffect(() => {
-    if (activeTab !== "favorites" || isLoadingFavorites) return;
-    const raf = window.requestAnimationFrame(() => {
-      document.getElementById("shelf")?.scrollIntoView({ behavior: "smooth", block: "start" });
-    });
-    return () => window.cancelAnimationFrame(raf);
-  }, [activeTab, isLoadingFavorites]);
 
   const loadFavorites = async () => {
     if (!user) return;
@@ -310,28 +316,64 @@ const Profile: React.FC = () => {
               : <span aria-hidden="true">{initial}</span>}
           </div>
           <div className="flex flex-col gap-2">
-            <p className="sb-kicker flex items-center gap-2.5 flex-wrap">
+            <p className="rs-eyebrow flex items-center gap-2.5 flex-wrap">
               {en ? 'Your profile' : 'Profilul tău'}
-              <span className="sb-tag" style={{ fontSize: 15, padding: '2px 11px', background: 'transparent', color: 'var(--gold)' }}>
+              <span className="sb-tag" style={{ padding: '4px 11px', background: 'transparent', color: 'var(--gold)' }}>
                 <Shield className="h-3.5 w-3.5" aria-hidden="true" />
                 <span className="capitalize">{role}</span>
               </span>
             </p>
-            <h1 className="sb-h1 break-words" style={{ fontSize: 'clamp(40px, 5vw, 76px)' }}>
+            <h1 className="rs-display break-words" style={{ fontSize: 'clamp(40px, 5vw, 76px)', lineHeight: 1 }}>
               {greetingName
                 ? (en ? `Welcome back, ${greetingName}.` : `Bine ai revenit, ${greetingName}.`)
                 : (en ? 'Welcome back.' : 'Bine ai revenit.')}
             </h1>
-            <p className="sb-dim text-[18px]">{t("profile.subtitle")}</p>
+            <p className="m-0" style={{ fontFamily: 'var(--ui)', fontSize: 13, color: 'var(--text-mute)' }}>{t("profile.subtitle")}</p>
           </div>
+          <dl className="flex gap-8 m-0 sm:ml-auto">
+            <div>
+              <dt style={{ fontFamily: 'var(--ui)', fontSize: 12, fontWeight: 600, color: 'var(--text-mute)' }}>{en ? 'Saved' : 'Păstrate'}</dt>
+              <dd className="m-0 mt-0.5 font-display" style={{ fontSize: 40, lineHeight: 1, color: 'var(--gold-2)' }}>{isLoadingFavorites ? '·' : favorites.length}</dd>
+            </div>
+            <div>
+              <dt style={{ fontFamily: 'var(--ui)', fontSize: 12, fontWeight: 600, color: 'var(--text-mute)' }}>{en ? 'Notes' : 'Note'}</dt>
+              <dd className="m-0 mt-0.5 font-display" style={{ fontSize: 40, lineHeight: 1, color: 'var(--gold-2)' }}>{notes ? notes.length : '·'}</dd>
+            </div>
+          </dl>
+        </div>
+        <div role="tablist" aria-label={en ? 'Your profile' : 'Profilul tău'} className="rs-tabs" style={{ marginTop: 36 }}
+          onKeyDown={(e) => {
+            const order = ['shelf', 'notes', 'settings'] as const;
+            if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
+            e.preventDefault();
+            const next = order[(order.indexOf(tab) + (e.key === 'ArrowRight' ? 1 : 2)) % 3];
+            setTab(next);
+            requestAnimationFrame(() => document.getElementById(`profile-tab-${next}`)?.focus());
+          }}
+        >
+          {([['shelf', en ? 'Your shelf' : 'Raftul tău'], ['notes', en ? 'Your notes' : 'Notele tale'], ['settings', en ? 'Settings' : 'Setări']] as const).map(([key, label]) => (
+            <button
+              key={key}
+              id={`profile-tab-${key}`}
+              type="button"
+              role="tab"
+              aria-selected={tab === key}
+              aria-controls={`profile-panel-${key}`}
+              tabIndex={tab === key ? 0 : -1}
+              onClick={() => setTab(key)}
+              className="rs-tab"
+            >
+              {label}
+            </button>
+          ))}
         </div>
       </section>
 
-      <section className="ed-container" style={{ paddingBottom: 'clamp(64px, 8vw, 96px)' }}>
-        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,420px)_minmax(0,1fr)] gap-14 items-start">
-          <div className="flex flex-col gap-6">
+      <section className="ed-container" style={{ paddingTop: 'clamp(36px, 5vw, 56px)' }}>
+          {tab === 'settings' && (
+          <div id="profile-panel-settings" role="tabpanel" aria-labelledby="profile-tab-settings" className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
             <form onSubmit={handleUpdateProfile} className="sb-paper grid gap-5" style={{ padding: 'clamp(24px, 3vw, 34px)' }}>
-              <h2 className="sb-h4">{en ? 'About you' : 'Despre tine'}</h2>
+              <h2 className="rs-display" style={{ fontSize: 28, letterSpacing: 0 }}>{en ? 'About you' : 'Despre tine'}</h2>
 
               <div className="sb-field">
                 <span className="sb-label">{t("profile.avatar")}</span>
@@ -405,7 +447,7 @@ const Profile: React.FC = () => {
             </form>
 
             <div className="grid gap-3" style={{ border: '1px dashed var(--gold-deep)', borderRadius: 20, padding: '24px 28px' }}>
-              <h2 className="sb-h4">{en ? 'Your data' : 'Datele tale'}</h2>
+              <h2 className="rs-display" style={{ fontSize: 28, letterSpacing: 0 }}>{en ? 'Your data' : 'Datele tale'}</h2>
               <p className="sb-dim text-[16px] leading-relaxed">
                 {en
                   ? 'Download a JSON copy of your account, profile, articles, comments, and favorites — or close your account for good.'
@@ -470,14 +512,15 @@ const Profile: React.FC = () => {
               </div>
             </div>
           </div>
+          )}
 
-          {/* The shelf: what used to be the Favorites tab. /profile?tab=favorites
-              (the account menu's link) scrolls straight here. */}
-          <section id="shelf" aria-labelledby="shelf-title" className="flex flex-col gap-7 scroll-mt-8">
+          {/* The shelf: /profile and /profile?tab=favorites (the account
+              menu's links) open here. */}
+          {tab === 'shelf' && (
+          <section id="profile-panel-shelf" role="tabpanel" aria-labelledby="profile-tab-shelf" className="flex flex-col gap-7">
             <div className="flex flex-wrap justify-between items-end gap-4">
               <div className="flex flex-col gap-2">
-                <p className="sb-kicker">{en ? 'Your shelf' : 'Raftul tău'}</p>
-                <h2 id="shelf-title" className="sb-h2" style={{ fontSize: 'clamp(32px, 3.4vw, 48px)' }}>
+                <h2 id="shelf-title" className="rs-display" style={{ fontSize: 'clamp(32px, 3.4vw, 48px)', lineHeight: 1 }}>
                   {en ? 'The stories you saved.' : 'Poveștile pe care le-ai păstrat.'}
                 </h2>
               </div>
@@ -538,7 +581,37 @@ const Profile: React.FC = () => {
               </div>
             )}
           </section>
-        </div>
+          )}
+
+          {tab === 'notes' && (
+            <section id="profile-panel-notes" role="tabpanel" aria-labelledby="profile-tab-notes" style={{ maxWidth: 820 }}>
+              {notes === null ? (
+                <p className="m-0 font-display italic" style={{ fontSize: 20, color: 'var(--text-dim)' }}>{en ? 'Gathering your notes…' : 'Îți adunăm notele…'}</p>
+              ) : notes.length === 0 ? (
+                <div className="py-16 px-6 text-center" style={{ border: '1px dashed var(--gold-deep)', borderRadius: 24 }}>
+                  <p className="m-0 mb-2 font-display italic" style={{ fontSize: 30, color: 'var(--parchment)' }}>{en ? 'No notes yet.' : 'Încă nicio notă.'}</p>
+                  <p className="m-0" style={{ fontSize: 17, color: 'var(--text-dim)' }}>
+                    {en ? 'A note you leave under a story will be kept here.' : 'O notă lăsată sub o poveste va fi păstrată aici.'}
+                  </p>
+                </div>
+              ) : (
+                notes.map((n) => (
+                  <article key={n.id} style={{ padding: '22px 0', borderBottom: '1px solid var(--line-soft)' }}>
+                    <p className="m-0 mb-1.5" style={{ fontFamily: 'var(--ui)', fontSize: 12, fontWeight: 600, color: 'var(--text-mute)' }}>
+                      {formatArticleDate(n.createdAt, language, 'short')}
+                      {n.article && (
+                        <>
+                          {' · '}{en ? 'on' : 'la'}{' '}
+                          <Link to={`/article/${n.article.id}`} className="rs-underline">{getLocalized(n.article, 'title', language)}</Link>
+                        </>
+                      )}
+                    </p>
+                    <p className="m-0" style={{ fontSize: 18, lineHeight: 1.6, color: 'var(--text)', whiteSpace: 'pre-wrap' }}>{n.content}</p>
+                  </article>
+                ))
+              )}
+            </section>
+          )}
       </section>
     </div>
   );

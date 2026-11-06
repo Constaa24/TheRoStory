@@ -443,7 +443,7 @@ const VideoStoryCreate: React.FC = () => {
               ? (language === 'en' ? 'Editing · Film' : 'Editare · Film')
               : (language === 'en' ? 'New entry · Film' : 'Intrare nouă · Film')}
           </div>
-          <h1 className="font-display italic font-medium m-0" style={{ fontSize: 'clamp(48px, 7vw, 96px)', lineHeight: 0.95, letterSpacing: '-0.01em', color: 'var(--parchment)' }}>
+          <h1 className="font-display font-medium m-0" style={{ fontSize: 'clamp(48px, 7vw, 96px)', lineHeight: 0.95, letterSpacing: '-0.01em', color: 'var(--parchment)' }}>
             {isEditing
               ? (language === 'en' ? 'Edit film.' : 'Editează filmul.')
               : (language === 'en' ? 'Publish a film.' : 'Publică un film.')}
@@ -570,7 +570,7 @@ const VideoStoryCreate: React.FC = () => {
             <div className="flex flex-col gap-7">
               <div>
                 <div className="eyebrow mb-2">{language === 'en' ? 'Video file' : 'Fișier video'}</div>
-                <h2 className="font-display italic m-0" style={{ fontSize: 28, lineHeight: 1.1, color: 'var(--parchment)' }}>
+                <h2 className="font-display m-0" style={{ fontSize: 28, lineHeight: 1.1, color: 'var(--parchment)' }}>
                   {videoUrl
                     ? (language === 'en' ? 'Preview' : 'Previzualizare')
                     : (language === 'en' ? 'Upload your film.' : 'Încarcă filmul tău.')}

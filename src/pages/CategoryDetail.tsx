@@ -1,9 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
-import { Category, Article, Journey, getLocalized, supabase, toCamelCase, fetchArticlesPage, fetchArchiveIndex, fetchArticleCardsByIds, fetchCategories, fetchJourneys } from "@/lib/supabase";
+import { Category, Article, Journey, getLocalized, supabase, toCamelCase, fetchArticlesPage, fetchArchiveIndex, fetchArticleCardsByIds, fetchCategories, fetchJourneys, fetchViewCounts } from "@/lib/supabase";
 import { useLanguage } from "@/hooks/use-language";
 import { useFavorites } from "@/hooks/use-favorites";
-import { Loader2 } from "lucide-react";
+import { LayoutGrid, List, Loader2 } from "lucide-react";
 import { isAbortError, toJsonLd } from "@/lib/utils";
 import { PageHead } from "@/components/layout/PageHead";
 import { StoryCard } from "@/components/ui/story-card";
@@ -12,14 +12,17 @@ import { SITE_URL } from "@/lib/constants";
 import { localizedPath } from "@/lib/locale";
 import { countLabel, joinMeta, type CountNoun } from "@/lib/article-utils";
 import { categoryDescription, categoryImageSources, getCategoryImage } from "@/lib/category-copy";
-import { formatYear, placeOf } from "@/lib/story-facts";
-import { StoryLoading, Thread } from "@/components/story/Ornaments";
+import { formatYear, kindWord, placeOf } from "@/lib/story-facts";
+import { StoryLoading } from "@/components/story/Ornaments";
 import { MiniMap } from "@/components/story/MiniMap";
 
 // Fetched in pages so a large category doesn't pull hundreds of full-content
-// rows (previously: up to 500 articles × both 50k-char content columns in
-// one request).
-const CATEGORY_PAGE_SIZE = 24;
+// rows at once; most shelves fit in the first.
+const CATEGORY_PAGE_SIZE = 36;
+
+type Sort = 'new' | 'old' | 'era' | 'read';
+type Layout = 'grid' | 'list';
+const LAYOUT_KEY = 'rostory_shelf_layout';
 
 const kindNoun = (a: Article): CountNoun =>
   a.type === 'video' ? 'film'
@@ -29,7 +32,7 @@ const kindNoun = (a: Article): CountNoun =>
           : 'essay';
 
 /**
- * The line under a shelf's title: how many stories, in which forms, from
+ * The line beside a shelf's title: how many stories, in which forms, from
  * when — "3 stories · all films · timeless". Forms and dates are only told
  * once every story on the shelf has loaded, so the line never describes half
  * a shelf as if it were all of it.
@@ -59,6 +62,7 @@ const shelfFacts = (articles: Article[], total: number, complete: boolean, langu
   return joinMeta(parts);
 };
 
+/** A shelf (the redesign's Shelves detail): its stories, by kind and in the reader's order. */
 const CategoryDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -80,9 +84,21 @@ const CategoryDetail: React.FC = () => {
   // the dedupe drops a row, which left "Load more" visible forever.
   const [reachedEnd, setReachedEnd] = useState(false);
   const [loadFailed, setLoadFailed] = useState(false);
+  const [moreFailed, setMoreFailed] = useState(false);
   const [otherShelves, setOtherShelves] = useState<Category[]>([]);
   const [journey, setJourney] = useState<{ journey: Journey; stops: Article[] } | null>(null);
+  const [kind, setKind] = useState<string | null>(null);
+  const [sort, setSort] = useState<Sort>('new');
+  const [views, setViews] = useState<Record<string, number> | null>(null);
+  const [layout, setLayoutState] = useState<Layout>(() => {
+    try { return localStorage.getItem(LAYOUT_KEY) === 'list' ? 'list' : 'grid'; } catch { return 'grid'; }
+  });
   const en = language === 'en';
+
+  const setLayout = (next: Layout) => {
+    setLayoutState(next);
+    try { localStorage.setItem(LAYOUT_KEY, next); } catch { /* ignore */ }
+  };
 
   // Stable identity so StoryCard's React.memo can skip re-renders — an
   // inline object literal would defeat the shallow prop comparison.
@@ -99,6 +115,9 @@ const CategoryDetail: React.FC = () => {
     setTotalCount(0);
     setLoadedPages(1);
     setReachedEnd(false);
+    setMoreFailed(false);
+    setKind(null);
+    setViews(null);
     try {
       const [categoryRes, articlesPage] = await Promise.all([
         supabase.from('categories').select('*').eq('id', id).maybeSingle(),
@@ -159,34 +178,72 @@ const CategoryDetail: React.FC = () => {
     return () => { cancelled = true; };
   }, [id]);
 
-  const loadMore = async () => {
+  // "Most read" needs the counts, fetched the first time it is chosen.
+  useEffect(() => {
+    if (sort !== 'read' || views || !articles.length) return;
+    let cancelled = false;
+    fetchViewCounts(articles.map((a) => a.id))
+      .then((v) => { if (!cancelled) setViews(v); })
+      .catch(() => { if (!cancelled) setViews({}); });
+    return () => { cancelled = true; };
+  }, [sort, views, articles]);
+
+  const loadMore = useCallback(async () => {
     if (!id || isLoadingMore || reachedEnd) return;
     setIsLoadingMore(true);
+    setMoreFailed(false);
     try {
       const nextPage = loadedPages + 1;
       const { articles: more, total } = await fetchArticlesPage(nextPage, CATEGORY_PAGE_SIZE, id);
-      setArticles(prev => {
-        const seen = new Set(prev.map(a => a.id));
-        return [...prev, ...more.filter(a => !seen.has(a.id))];
+      setArticles((prev) => {
+        const seen = new Set(prev.map((a) => a.id));
+        return [...prev, ...more.filter((a) => !seen.has(a.id))];
       });
       setTotalCount(total);
       setLoadedPages(nextPage);
+      setViews(null);
       if (more.length < CATEGORY_PAGE_SIZE) setReachedEnd(true);
     } catch (error) {
       if (!isAbortError(error)) console.error("Error loading more articles:", error);
+      setMoreFailed(true);
     } finally {
       setIsLoadingMore(false);
     }
-  };
+  }, [id, isLoadingMore, reachedEnd, loadedPages]);
+
+  // An order other than newest first, or a kind filter, ranks the whole
+  // shelf: the pages not loaded yet come in first, or "Oldest first" would
+  // only have reversed the newest page. (A failed page stops the chain; the
+  // "Load more" button is still there to try again.)
+  useEffect(() => {
+    if ((sort === 'new' && !kind) || isLoading || reachedEnd || isLoadingMore || moreFailed) return;
+    void loadMore();
+  }, [sort, kind, isLoading, reachedEnd, isLoadingMore, moreFailed, loadMore]);
+
+  const kinds = useMemo(() => {
+    const seen = new Map<string, string>();
+    for (const a of articles) {
+      const k = kindNoun(a);
+      if (!seen.has(k)) seen.set(k, kindWord(a, language));
+    }
+    return [...seen.entries()];
+  }, [articles, language]);
+
+  const items = useMemo(() => {
+    const list = (kind ? articles.filter((a) => kindNoun(a) === kind) : articles).slice();
+    if (sort === 'old') list.reverse();
+    // Undated stories (legends) go to the end of the timeline.
+    if (sort === 'era') list.sort((a, b) => (a.yearStart ?? Infinity) - (b.yearStart ?? Infinity));
+    if (sort === 'read' && views) list.sort((a, b) => (views[b.id] || 0) - (views[a.id] || 0));
+    return list;
+  }, [articles, kind, sort, views]);
 
   if (isLoading) {
-    return (
-      <StoryLoading language={language} className="items-center" style={{ minHeight: '100vh' }} />
-    );
+    return <StoryLoading language={language} className="items-center" style={{ minHeight: '100vh' }} />;
   }
   if (loadFailed) {
     return (
-      <div className="screen-anim">
+      <div className="rs-in">
         <section className="ed-container" style={{ padding: '80px 0' }}>
           <LoadError onRetry={() => loadData()} />
         </section>
@@ -196,7 +253,6 @@ const CategoryDetail: React.FC = () => {
   if (!category) return null;
 
   const categoryName = getLocalized(category, "name", language);
-  const pageTitle = categoryName;
   const pageDescription = en
     ? `Stories about ${categoryName} — explore Romania through ${countLabel(totalCount, "story", "en")} curated by The RoStory.`
     : `Povești despre ${categoryName} — descoperă România prin ${countLabel(totalCount, "story", "ro")} pe The RoStory.`;
@@ -210,9 +266,8 @@ const CategoryDetail: React.FC = () => {
   const breadcrumbLd = {
     "@context": "https://schema.org", "@type": "BreadcrumbList",
     itemListElement: [
-      { "@type": "ListItem", position: 1, name: en ? "Home" : "Acasă", item: url("/") },
-      { "@type": "ListItem", position: 2, name: en ? "Categories" : "Categorii", item: url("/categories") },
-      { "@type": "ListItem", position: 3, name: categoryName, item: url(`/category/${category.id}`) },
+      { "@type": "ListItem", position: 1, name: en ? "Shelves" : "Rafturi", item: url("/categories") },
+      { "@type": "ListItem", position: 2, name: categoryName, item: url(`/category/${category.id}`) },
     ],
   };
   const itemListLd = {
@@ -228,61 +283,103 @@ const CategoryDetail: React.FC = () => {
     : [];
 
   return (
-    <div className="screen-anim">
-      <PageHead title={pageTitle} description={pageDescription} language={language}>
+    <div className="rs-in">
+      <PageHead title={categoryName} description={pageDescription} language={language}>
         <script type="application/ld+json">{toJsonLd(breadcrumbLd)}</script>
         <script type="application/ld+json">{toJsonLd(itemListLd)}</script>
       </PageHead>
 
-      <section className="ed-container" style={{ paddingTop: 40, paddingBottom: 'clamp(56px, 7vw, 88px)' }}>
-        <nav aria-label={en ? 'Breadcrumb' : 'Navigare'} className="mb-10">
-          <ol className="flex flex-wrap items-center gap-2.5 list-none m-0 p-0 font-display italic text-[18px]" style={{ color: 'var(--text-mute)' }}>
-            <li><Link to="/" className="transition-colors hover:text-gold" style={{ color: 'var(--text-dim)' }}>{en ? 'Home' : 'Acasă'}</Link></li>
-            <li aria-hidden="true">›</li>
-            <li><Link to="/categories" className="transition-colors hover:text-gold" style={{ color: 'var(--text-dim)' }}>{en ? 'Categories' : 'Categorii'}</Link></li>
-            <li aria-hidden="true">›</li>
-            <li aria-current="page" style={{ color: 'var(--gold)' }}>{categoryName}</li>
-          </ol>
-        </nav>
-
-        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)] gap-10 lg:gap-16 items-center">
-          <div className="flex flex-col gap-5">
-            <p className="sb-kicker">{en ? 'A shelf of the archive' : 'Un raft al arhivei'}</p>
-            <h1 className="sb-h1">{categoryName}</h1>
-            <p className="sb-lede max-w-[560px]">{categoryDescription(category.slug, categoryName, language)}</p>
-            <div className="flex items-center gap-3.5 mt-2">
-              <Thread style={{ width: 56 }} />
-              <p className="sb-meta">{shelfFacts(articles, totalCount, reachedEnd, language)}</p>
-            </div>
+      {/* The shelf's picture, faint behind its name. */}
+      <section className="relative overflow-hidden" style={{ borderBottom: '1px solid var(--line-soft)' }}>
+        <picture aria-hidden="true">
+          <source type="image/avif" srcSet={categoryImageSources(art).avif} sizes="100vw" />
+          <source type="image/webp" srcSet={categoryImageSources(art).webp} sizes="100vw" />
+          <img src={`${art}.jpg`} alt="" decoding="async" className="absolute inset-0 w-full h-full object-cover" style={{ opacity: 0.22, filter: 'blur(2px) saturate(.8)' }} />
+        </picture>
+        <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg, transparent 0%, var(--ink) 92%)' }} />
+        <div className="ed-container relative grid grid-cols-1 min-[900px]:grid-cols-[minmax(0,1fr)_auto] gap-x-16 gap-y-8 items-end" style={{ paddingTop: 'clamp(32px, 5vw, 64px)', paddingBottom: 'clamp(40px, 5vw, 64px)' }}>
+          <div>
+            <nav aria-label={en ? 'Breadcrumb' : 'Fir de navigare'}>
+              <ol className="rs-crumbs">
+                <li><Link to="/categories">{en ? 'Shelves' : 'Rafturi'}</Link></li>
+                <li aria-hidden="true" style={{ color: 'var(--text-mute)' }}>/</li>
+                <li aria-current="page" style={{ color: 'var(--gold)' }}>{categoryName}</li>
+              </ol>
+            </nav>
+            <h1 className="rs-display" style={{ margin: '0 0 18px', fontSize: 'clamp(52px, 7vw, 108px)', lineHeight: 0.94, letterSpacing: '-0.025em' }}>{categoryName}</h1>
+            <p className="m-0 max-w-[620px]" style={{ fontSize: 20, lineHeight: 1.55, color: 'var(--text)', textWrap: 'pretty' }}>
+              {categoryDescription(category.slug, categoryName, language)}
+            </p>
           </div>
-          <div className="sb-window w-full max-w-[440px] justify-self-center lg:justify-self-end">
-            <div className="sb-arch" style={{ aspectRatio: '4 / 4.6' }}>
-              <picture>
-                <source type="image/avif" srcSet={categoryImageSources(art).avif} sizes="(min-width: 1024px) 440px, 90vw" />
-                <source type="image/webp" srcSet={categoryImageSources(art).webp} sizes="(min-width: 1024px) 440px, 90vw" />
-                <img src={`${art}.jpg`} alt="" width={1024} height={1024} decoding="async" className="absolute inset-0 w-full h-full object-cover" />
-              </picture>
-            </div>
+          <div className="flex flex-col gap-3.5 items-start">
+            <span className="font-display italic" style={{ fontSize: 26, color: 'var(--gold-2)' }}>{shelfFacts(articles, totalCount, reachedEnd, language)}</span>
+            <Link to={`/map${category.slug ? `?theme=${encodeURIComponent(category.slug)}` : ''}`} className="rs-btn rs-btn-ghost" style={{ minHeight: 46, background: 'var(--overlay-nav)' }}>
+              {en ? 'See this shelf on the map' : 'Vezi raftul pe hartă'}
+            </Link>
           </div>
         </div>
       </section>
 
-      <section className="ed-container" style={{ paddingBottom: 'clamp(56px, 7vw, 88px)' }}>
-        <div className="flex flex-wrap justify-between items-end gap-5 mb-2">
-          <h2 className="sb-h2" style={{ fontSize: 'clamp(32px, 3.4vw, 46px)' }}>{en ? 'Contents' : 'Cuprins'}</h2>
-          {articles.length > 1 && <p className="sb-kicker-sm" style={{ color: 'var(--text-dim)' }}>{en ? 'Newest first' : 'Cele mai noi întâi'}</p>}
-        </div>
-        <Thread style={{ opacity: 0.35 }} />
-        {articles.length === 0 ? (
-          <div className="py-20 text-center flex flex-col items-center gap-6">
-            <p className="font-display italic text-2xl sb-dim">{t("articles.noArticles")}</p>
-            <Link to="/categories" className="sb-btn sb-btn-ghost">
-              {en ? 'Explore other categories' : 'Explorează alte categorii'}
-            </Link>
+      <section className="ed-container" style={{ paddingTop: 28 }}>
+        {articles.length > 0 && (
+          <div className="flex flex-wrap items-center justify-between gap-4 pb-5 mb-9" style={{ borderBottom: '1px dashed var(--line)' }}>
+            <div role="group" aria-label={en ? 'Kind of story' : 'Fel de poveste'} className="flex flex-wrap gap-2">
+              <button type="button" className="rs-chip" style={{ minHeight: 38 }} aria-pressed={kind === null} onClick={() => setKind(null)}>
+                {en ? 'Everything' : 'Toate'}
+              </button>
+              {kinds.length > 1 && kinds.map(([k, label]) => (
+                <button key={k} type="button" className="rs-chip" style={{ minHeight: 38 }} aria-pressed={kind === k} onClick={() => setKind(k)}>
+                  {label}
+                </button>
+              ))}
+            </div>
+            <div className="flex items-center gap-3">
+              <label htmlFor="shelf-sort" style={{ fontFamily: 'var(--ui)', fontSize: 12, fontWeight: 700, color: 'var(--text-mute)' }}>{en ? 'Sort' : 'Ordonează'}</label>
+              <select id="shelf-sort" className="rs-select" value={sort} onChange={(e) => setSort(e.target.value as Sort)}>
+                <option value="new">{en ? 'Newest first' : 'Cele mai noi'}</option>
+                <option value="old">{en ? 'Oldest first' : 'Cele mai vechi'}</option>
+                <option value="era">{en ? 'By era' : 'După epocă'}</option>
+                <option value="read">{en ? 'Most read' : 'Cele mai citite'}</option>
+              </select>
+              <div role="group" aria-label={en ? 'Layout' : 'Aranjare'} className="inline-flex p-[3px]" style={{ border: '1px solid var(--line)', borderRadius: 999 }}>
+                <button type="button" className="rs-seg-icon" aria-pressed={layout === 'grid'} aria-label={en ? 'Grid' : 'Grilă'} onClick={() => setLayout('grid')}>
+                  <LayoutGrid className="w-[15px] h-[15px]" strokeWidth={1.75} />
+                </button>
+                <button type="button" className="rs-seg-icon" aria-pressed={layout === 'list'} aria-label={en ? 'List' : 'Listă'} onClick={() => setLayout('list')}>
+                  <List className="w-[15px] h-[15px]" strokeWidth={1.75} />
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {items.length === 0 ? (
+          <div className="text-center" style={{ padding: '64px 20px', border: '1px dashed var(--gold-deep)', borderRadius: 24 }}>
+            <p className="m-0 mb-2 font-display italic" style={{ fontSize: 30, color: 'var(--parchment)' }}>
+              {articles.length ? (en ? 'Nothing on this part of the shelf yet.' : 'Încă nimic pe această parte a raftului.') : t("articles.noArticles")}
+            </p>
+            <p className="m-0" style={{ fontSize: 16, color: 'var(--text-dim)' }}>
+              {en ? 'Try another kind of story, or come back next month.' : 'Încearcă alt fel de poveste sau revino luna viitoare.'}
+            </p>
+          </div>
+        ) : layout === 'grid' ? (
+          <div className="grid gap-x-10 gap-y-14 grid-cols-[repeat(auto-fill,minmax(min(100%,300px),1fr))]">
+            {items.map((article) => (
+              <StoryCard
+                key={article.id}
+                article={article}
+                category={category}
+                language={language}
+                size="md"
+                linkState={cardLinkState}
+                isArticleFavorited={isFavorited(article.id)}
+                onFavoriteToggle={handleFavoriteToggle}
+              />
+            ))}
           </div>
         ) : (
-          <div>
-            {articles.map((article, i) => (
+          <div style={{ borderTop: '1px solid var(--line-soft)' }}>
+            {items.map((article, i) => (
               <StoryCard
                 key={article.id}
                 article={article}
@@ -300,15 +397,10 @@ const CategoryDetail: React.FC = () => {
 
         {articles.length > 0 && !reachedEnd && (
           <div className="flex justify-center pt-12">
-            <button
-              type="button"
-              onClick={loadMore}
-              disabled={isLoadingMore}
-              className="sb-btn sb-btn-ghost"
-            >
+            <button type="button" onClick={loadMore} disabled={isLoadingMore} className="rs-btn rs-btn-ghost">
               {isLoadingMore ? (
                 <>
-                  <Loader2 className="sb-ico animate-spin" aria-hidden="true" />
+                  <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
                   {en ? 'Loading…' : 'Se încarcă…'}
                 </>
               ) : (
@@ -322,54 +414,55 @@ const CategoryDetail: React.FC = () => {
             </button>
           </div>
         )}
-      </section>
 
-      {journey && (
-        <section className="ed-container" style={{ paddingBottom: 'clamp(64px, 8vw, 104px)' }}>
-          <div className="sb-place-card md:grid-cols-[minmax(0,280px)_minmax(0,1fr)_auto] md:items-center md:gap-9" style={{ padding: 'clamp(22px, 3vw, 28px) clamp(22px, 3vw, 36px)' }}>
+        {journey && (
+          <div
+            className="grid grid-cols-1 md:grid-cols-[minmax(0,280px)_minmax(0,1fr)_auto] md:items-center gap-6 md:gap-9"
+            style={{ marginTop: 'clamp(56px, 7vw, 88px)', padding: 'clamp(22px, 3vw, 28px) clamp(22px, 3vw, 36px)', border: '1px solid var(--line)', borderRadius: 24, background: 'var(--paper)' }}
+          >
             <MiniMap stories={journey.stops} />
             <div className="flex flex-col gap-2.5">
-              <p className="sb-kicker">{en ? 'Follow them as a journey' : 'Urmează-le ca pe o călătorie'}</p>
-              <h2 className="sb-h3">{getLocalized(journey.journey, 'title', language)}</h2>
+              <p className="rs-eyebrow">{en ? 'Follow them as a journey' : 'Urmează-le ca pe o călătorie'}</p>
+              <h2 className="rs-display" style={{ fontSize: 32, lineHeight: 1.05, letterSpacing: 0 }}>{getLocalized(journey.journey, 'title', language)}</h2>
               {getLocalized(journey.journey, 'intro', language) && (
-                <p className="sb-dim text-[17px] leading-relaxed">{getLocalized(journey.journey, 'intro', language)}</p>
+                <p className="m-0" style={{ fontSize: 17, lineHeight: 1.6, color: 'var(--text-dim)' }}>{getLocalized(journey.journey, 'intro', language)}</p>
               )}
-              <p className="sb-meta">{countLabel(journey.stops.length, 'stop', language)} · {journeyPlaces.join(' → ')}</p>
+              <p className="m-0" style={{ fontFamily: 'var(--ui)', fontSize: 12.5, fontWeight: 500, color: 'var(--text-mute)' }}>
+                {countLabel(journey.stops.length, 'stop', language)} · {journeyPlaces.join(' → ')}
+              </p>
             </div>
-            <Link to={`/map?journey=${journey.journey.id}`} className="sb-btn justify-self-start">
+            <Link to={`/map?journey=${journey.journey.id}`} className="rs-btn justify-self-start">
               {en ? 'Start on the map →' : 'Pornește pe hartă →'}
             </Link>
           </div>
-        </section>
-      )}
+        )}
 
-      {otherShelves.length > 0 && (
-        <section className="sb-band">
-          <div className="ed-container" style={{ paddingTop: 72, paddingBottom: 72 }}>
-            <p className="sb-kicker mb-7">{en ? 'Other shelves' : 'Alte rafturi'}</p>
-            <ul className="list-none m-0 p-0 grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-7 gap-x-5 gap-y-8">
+        {otherShelves.length > 0 && (
+          <div style={{ marginTop: 'clamp(56px, 7vw, 88px)' }}>
+            <p className="rs-eyebrow" style={{ marginBottom: 16 }}>{en ? 'The other shelves' : 'Celelalte rafturi'}</p>
+            <ul className="flex flex-wrap gap-2.5 list-none m-0 p-0">
               {otherShelves.map((c) => {
                 const name = getLocalized(c, 'name', language);
                 const img = getCategoryImage(c.slug || name.toLowerCase());
                 return (
                   <li key={c.id}>
-                    <Link to={`/category/${c.id}`} className="sb-card grid gap-2.5 justify-items-center text-center">
-                      <div className="sb-arch sb-card-media w-full" style={{ aspectRatio: '3 / 4' }}>
+                    <Link to={`/category/${c.id}`} className="rs-pill-link">
+                      <span className="relative block overflow-hidden" style={{ width: 36, height: 36, borderRadius: '50%', background: 'var(--paper)' }}>
                         <picture>
-                          <source type="image/avif" srcSet={categoryImageSources(img).avif} sizes="(min-width: 1024px) 13vw, (min-width: 640px) 23vw, 31vw" />
-                          <source type="image/webp" srcSet={categoryImageSources(img).webp} sizes="(min-width: 1024px) 13vw, (min-width: 640px) 23vw, 31vw" />
+                          <source type="image/avif" srcSet={categoryImageSources(img).avif} sizes="36px" />
+                          <source type="image/webp" srcSet={categoryImageSources(img).webp} sizes="36px" />
                           <img src={`${img}.jpg`} alt="" loading="lazy" decoding="async" className="absolute inset-0 w-full h-full object-cover" />
                         </picture>
-                      </div>
-                      <span className="font-display italic text-[19px] leading-tight" style={{ color: 'var(--parchment)' }}>{name}</span>
+                      </span>
+                      {name}
                     </Link>
                   </li>
                 );
               })}
             </ul>
           </div>
-        </section>
-      )}
+        )}
+      </section>
     </div>
   );
 };

@@ -82,13 +82,14 @@ test.describe('read along', () => {
   test('offers subtitles, and the transcript by chapter in either language', async ({ page }) => {
     await page.goto(`/article/${FILM}`);
     await expect(page.getByRole('button', { name: 'Subtitles' })).toHaveAttribute('aria-pressed', 'true');
-    await page.getByRole('button', { name: 'Read along' }).click();
+    // Open from the start: the chapters on one side, the words on the other.
+    await expect(page.locator('.rs-chapter-row')).toHaveCount(2);
     const list = page.locator('.sb-readalong-list');
     await expect(list).toBeVisible();
     await expect(list.locator('.sb-readalong-chapter')).toHaveCount(2);
     await expect(list.locator('.sb-cue')).toHaveCount(12);
     await expect(list.locator('.sb-cue').first()).toHaveText('English line 1');
-    await page.getByRole('button', { name: 'Română' }).click();
+    await page.getByRole('button', { name: 'Română', exact: true }).click();
     await expect(list).toHaveAttribute('lang', 'ro');
     await expect(list.locator('.sb-cue').first()).toHaveText('Replica 1');
     expect(await blockingViolations(page)).toEqual([]);
@@ -98,7 +99,6 @@ test.describe('read along', () => {
     await page.addInitScript(() => window.localStorage.setItem('theme', 'light'));
     await page.goto(`/article/${FILM}`);
     await expect(page.locator('html')).toHaveClass(/light/);
-    await page.getByRole('button', { name: 'Read along' }).click();
     await expect(page.locator('.sb-readalong-list')).toBeVisible();
     expect(await blockingViolations(page)).toEqual([]);
   });

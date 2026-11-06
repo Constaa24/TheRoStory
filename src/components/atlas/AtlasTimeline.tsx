@@ -97,9 +97,6 @@ const AtlasTimeline: React.FC<Props> = ({
     setHandle(i, v);
   };
 
-  // An era's label: the long name if it fits its band, else the short one,
-  // else nothing. The name read out stays whole either way.
-  const fits = (text: string, px: number) => text.length * 7.6 + 12 <= px;
   const markState = (s: AtlasStory) => [
     !matched.has(s.id) && !stops?.has(s.id) && 'at-out',
     selected === s.id && 'at-sel',
@@ -121,7 +118,7 @@ const AtlasTimeline: React.FC<Props> = ({
       <div className="at-tl-head">
         <h2 id="at-tl-title">{copy.tlTitle}</h2>
         {dated.length > 0 && (
-          <button type="button" className="at-btn-gold" aria-pressed={playing} onClick={onPlay}>
+          <button type="button" className="at-play" aria-pressed={playing} onClick={onPlay}>
             <PlayIcon playing={playing} />
             {playLabel}
           </button>
@@ -130,36 +127,6 @@ const AtlasTimeline: React.FC<Props> = ({
       </div>
       <div className="at-tl-body">
         <div className="at-tl-track" ref={trackRef}>
-          <div className="at-tl-eras">
-            {scale.eras.map((era) => {
-              const long = pick(era.long, lang);
-              const short = pick(era.short, lang);
-              const px = ((xOf(scale, era.to) - xOf(scale, era.from)) / 100) * width;
-              const title = `${long} · ${formatYear(era.from, lang)}–${era.to >= scale.end ? copy.today : formatYear(era.to, lang)}`;
-              const shown = fits(long, px) ? long : fits(short, px) ? short : '';
-              // The accessible name starts with the words on the button
-              // (WCAG 2.5.3, Label in Name): a narrow era shows "Now" or
-              // "Med.", and a voice-control user saying "click Now" found
-              // nothing while the name was only "Today · 2000–today".
-              const label = shown && shown !== long ? `${shown}: ${title}` : title;
-              const pressed = a === era.from && b === era.to;
-              return (
-                <button
-                  key={era.id}
-                  type="button"
-                  className="at-tl-era"
-                  data-era={era.id}
-                  style={{ left: `${xOf(scale, era.from)}%`, width: `${xOf(scale, era.to) - xOf(scale, era.from)}%` }}
-                  title={title}
-                  aria-label={label}
-                  aria-pressed={pressed}
-                  onClick={() => onRange(pressed ? [scale.start, scale.end] : [era.from, era.to])}
-                >
-                  {shown}
-                </button>
-              );
-            })}
-          </div>
           {/* Every mark is also a row in the story list, so the marks
               themselves stay out of the tab order and the reading order. */}
           <div className="at-tl-marks" aria-hidden="true" style={{ height: 10 + laneCount * 14 }}>

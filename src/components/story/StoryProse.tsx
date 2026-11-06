@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import type { Article } from "@/lib/supabase";
 import { parseStoryChapters, splitOpening, splitTitle, toRoman, type StoryChapter } from "@/lib/story-facts";
 import { Divider, Motif, Rosette } from "@/components/story/Ornaments";
+import { alignStanzas, type StanzaPair } from "@/lib/poem";
 
 type Lang = "en" | "ro";
 
@@ -21,7 +22,7 @@ const PullQuote: React.FC<{ text: string; language: Lang }> = ({ text, language 
   <figure className="text-center" style={{ margin: "52px 0" }}>
     <Rosette size="sm" />
     <blockquote className="m-0 mt-3.5">
-      <p className="sb-h3 m-0" style={{ fontSize: "clamp(26px, 2.6vw, 34px)", lineHeight: 1.25 }}>
+      <p className="sb-h3 m-0" style={{ fontSize: "clamp(26px, 2.6vw, 34px)", lineHeight: 1.25, fontStyle: "italic" }}>
         {language === "en" ? `“${text}”` : `„${text}”`}
       </p>
     </blockquote>
@@ -132,7 +133,56 @@ const stanzasOf = (content: string): string[][] =>
     .map((stanza) => stanza.split("\n").map((l) => l.replace(/^>\s*/, "").trimEnd()).filter((l) => l.trim()))
     .filter((lines) => lines.length);
 
-export type PoemMode = "both" | "ro" | "en";
+type PoemMode = "both" | "ro" | "en";
+
+/**
+ * Both languages at once, line beside line: a Romanian line and its English
+ * reading always start level, however either wraps. Wide screens set them
+ * in two columns; a phone sets each English line under its Romanian one.
+ *
+ * One grid for the whole poem, every line placed on its row explicitly, so
+ * the page itself keeps reading order — a stanza in Romanian, then the same
+ * stanza in English — for a screen reader, while the eye gets the pairs.
+ */
+const SideBySide: React.FC<{ pairs: StanzaPair[]; roTitle: string; enTitle: string; language: Lang }> = ({ pairs, roTitle, enTitle, language }) => {
+  const en = language === "en";
+  let wide = 2; // row 1 holds the column titles
+  let narrow = 2;
+  return (
+    <div className="sb-poem-two">
+      <p className="sb-kicker-sm sb-poem-head" lang="ro" style={{ gridColumn: 2 }}>{roTitle} · {en ? "in Romanian" : "în română"}</p>
+      <p className="sb-kicker-sm sb-poem-head" lang="en" style={{ gridColumn: 3 }}>{enTitle} · {en ? "in English" : "în engleză"}</p>
+      <p className="sb-kicker-sm sb-poem-head-sm" style={{ gridColumn: 2 }}>
+        {en ? "Each line in Romanian, its English beneath" : "Fiecare vers în română, cu engleza dedesubt"}
+      </p>
+      {pairs.map((pair, i) => {
+        const n = Math.max(pair.ro.length, pair.en.length);
+        const w0 = wide;
+        const n0 = narrow;
+        wide += n;
+        narrow += n * 2;
+        const at = (j: number, side: "ro" | "en") =>
+          ({ "--w": w0 + j, "--n": n0 + j * 2 + (side === "en" ? 1 : 0) }) as React.CSSProperties;
+        const first = (j: number) => (j === 0 && i > 0 ? "" : undefined);
+        return (
+          <React.Fragment key={i}>
+            <span className="sb-numeral sb-poem-no" aria-hidden="true" data-first={i > 0 ? "" : undefined} style={at(0, "ro")}>{toRoman(i + 1)}</span>
+            {Array.from({ length: n }, (_, j) => (
+              <p key={`ro${j}`} lang="ro" className="sb-verse sb-poem-ro" data-first={first(j)} style={at(j, "ro")} aria-hidden={pair.ro[j] ? undefined : true}>
+                {pair.ro[j] ?? ""}
+              </p>
+            ))}
+            {Array.from({ length: n }, (_, j) => (
+              <p key={`en${j}`} lang="en" className="sb-verse sb-verse-en sb-poem-en" data-first={first(j)} style={at(j, "en")} aria-hidden={pair.en[j] ? undefined : true}>
+                {pair.en[j] ?? ""}
+              </p>
+            ))}
+          </React.Fragment>
+        );
+      })}
+    </div>
+  );
+};
 
 /**
  * A poem on its own page, in either language or both side by side — the
@@ -140,9 +190,14 @@ export type PoemMode = "both" | "ro" | "en";
  */
 export const PoemPage: React.FC<{ article: Article; language: Lang; footer?: React.ReactNode }> = ({ article, language, footer }) => {
   const en = language === "en";
-  const ro = stanzasOf(article.contentRo || "");
-  const enStanzas = stanzasOf(article.contentEn || "");
-  const bilingual = ro.length > 0 && enStanzas.length > 0 && (article.contentRo || "").trim() !== (article.contentEn || "").trim();
+  const roRaw = stanzasOf(article.contentRo || "");
+  const enRaw = stanzasOf(article.contentEn || "");
+  const bilingual = roRaw.length > 0 && enRaw.length > 0 && (article.contentRo || "").trim() !== (article.contentEn || "").trim();
+  // One stanza shape for both languages (see lib/poem): a blank line missing
+  // from one of them no longer throws every later stanza out of step.
+  const pairs = bilingual ? alignStanzas(roRaw, enRaw) : null;
+  const ro = pairs ? pairs.map((p) => p.ro).filter((s) => s.length) : roRaw;
+  const enStanzas = pairs ? pairs.map((p) => p.en).filter((s) => s.length) : enRaw;
 
   // Side by side needs the width; a phone starts in the reader's language.
   const [mode, setMode] = useState<PoemMode>(() => {
@@ -150,6 +205,9 @@ export const PoemPage: React.FC<{ article: Article; language: Lang; footer?: Rea
     try { return window.matchMedia("(min-width: 768px)").matches ? "both" : language; } catch { return language; }
   });
   const shown: PoemMode = bilingual ? mode : (language === "ro" ? (ro.length ? "ro" : "en") : (enStanzas.length ? "en" : "ro"));
+
+  // The one language shown when the poem isn't side by side.
+  const single: Lang = shown === "both" ? language : shown;
 
   const titleIn = (l: Lang) => splitTitle(l === "ro" ? article.titleRo : article.titleEn).main;
   const modes: { key: PoemMode; label: string }[] = [
@@ -159,7 +217,7 @@ export const PoemPage: React.FC<{ article: Article; language: Lang; footer?: Rea
   ];
 
   return (
-    <div className="sb-paper" style={{ borderRadius: 26, padding: "clamp(26px, 5vw, 72px)" }}>
+    <div className="sb-paper" style={{ borderRadius: 26, padding: "clamp(26px, 5vw, 64px) clamp(18px, 3.4vw, 48px)" }}>
       {bilingual && (
         <div className="flex justify-center mb-10">
           <div className="sb-seg" role="group" aria-label={en ? "Read the poem in" : "Citește poemul în"}>
@@ -172,40 +230,27 @@ export const PoemPage: React.FC<{ article: Article; language: Lang; footer?: Rea
         </div>
       )}
 
-      {shown === "both" ? (
-        <div>
-          <div className="hidden md:grid gap-x-10" style={{ gridTemplateColumns: "40px minmax(0, 1fr) minmax(0, 1fr)" }}>
-            <span />
-            <p className="sb-kicker-sm" lang="ro" style={{ marginBottom: 26 }}>{titleIn("ro")} · {en ? "in Romanian" : "în română"}</p>
-            <p className="sb-kicker-sm" lang="en" style={{ marginBottom: 26 }}>{titleIn("en")} · {en ? "in English" : "în engleză"}</p>
-          </div>
-          {Array.from({ length: Math.max(ro.length, enStanzas.length) }, (_, i) => (
-            <div key={i} className="grid gap-x-6 md:gap-x-10 grid-cols-[32px_minmax(0,1fr)] md:grid-cols-[40px_minmax(0,1fr)_minmax(0,1fr)]" style={{ paddingBottom: 40 }}>
-              <span className="sb-numeral" style={{ fontSize: 18, paddingTop: 10 }} aria-hidden="true">{toRoman(i + 1)}</span>
-              <div lang="ro">
-                {(ro[i] || []).map((l, j) => <p key={j} className="sb-verse">{l}</p>)}
-              </div>
-              <div lang="en" className="col-start-2 md:col-start-auto mt-5 md:mt-0 pt-5 md:pt-0 md:pl-10 md:-ml-5 border-t md:border-t-0 md:border-l border-dashed" style={{ borderColor: "var(--line)" }}>
-                {(enStanzas[i] || []).map((l, j) => <p key={j} className="sb-verse sb-verse-en">{l}</p>)}
-              </div>
-            </div>
-          ))}
-        </div>
+      {shown === "both" && pairs ? (
+        <SideBySide pairs={pairs} roTitle={titleIn("ro")} enTitle={titleIn("en")} language={language} />
       ) : (
-        <div lang={shown} className="mx-auto" style={{ maxWidth: 560 }}>
+        <div lang={single} className="mx-auto" style={{ maxWidth: 600 }}>
           {bilingual && (
-            <p className="sb-kicker-sm text-center" style={{ marginBottom: 26 }}>
-              {titleIn(shown)} · {shown === "ro" ? (en ? "in Romanian" : "în română") : (en ? "in English" : "în engleză")}
+            <p className="sb-kicker-sm text-center" style={{ marginBottom: 32 }}>
+              {titleIn(single)} · {single === "ro" ? (en ? "in Romanian" : "în română") : (en ? "in English" : "în engleză")}
             </p>
           )}
-          {(shown === "ro" ? ro : enStanzas).map((stanza, i) => (
-            <div key={i} className="grid" style={{ gridTemplateColumns: "40px minmax(0, 1fr)", paddingBottom: 40 }}>
-              <span className="sb-numeral" style={{ fontSize: 18, paddingTop: 10 }} aria-hidden="true">{toRoman(i + 1)}</span>
-              <div>
-                {stanza.map((l, j) => <p key={j} className="sb-verse" style={{ fontSize: "min(calc(var(--sb-prose-size, 20px) * 1.4), 5.4vw)" }}>{l}</p>)}
-              </div>
-            </div>
-          ))}
+          {/* The numerals' column is as wide as the widest of them (XVIII,
+              XXI…), so a long poem's numbers never run into its lines. */}
+          <div className="sb-poem-one">
+            {(single === "ro" ? ro : enStanzas).map((stanza, i) => (
+              <React.Fragment key={i}>
+                <span className="sb-numeral sb-poem-no" aria-hidden="true">{toRoman(i + 1)}</span>
+                <div>
+                  {stanza.map((l, j) => <p key={j} className="sb-verse" style={{ fontSize: "min(calc(var(--sb-prose-size, 20px) * 1.4), 5.4vw)" }}>{l}</p>)}
+                </div>
+              </React.Fragment>
+            ))}
+          </div>
         </div>
       )}
 
