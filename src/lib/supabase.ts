@@ -47,6 +47,12 @@ const COLUMN_MAP: Record<string, string> = {
   subtitlesEnUrl: 'subtitles_en_url',
   subtitlesRoUrl: 'subtitles_ro_url',
   filmChapters: 'film_chapters',
+  // The editorial desk (migration 20261110120000). A column missing here
+  // keeps its snake_case name, and the camelCase field reads undefined.
+  publishAt: 'publish_at',
+  hiddenAt: 'hidden_at',
+  descriptionEn: 'description_en',
+  descriptionRo: 'description_ro',
 };
 
 const REVERSE_MAP: Record<string, string> = Object.fromEntries(

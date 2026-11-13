@@ -1,5 +1,25 @@
 import { describe, it, expect } from 'vitest';
 import { groupNotes, lastDays, statusOf } from './desk';
+import { toCamelCase, type Article, type Category, type Comment } from './supabase';
+
+describe("the desk's columns, as the app reads them", () => {
+  // Rows come back snake_case; a column the map doesn't know keeps that
+  // name, and code reading the camelCase field silently gets undefined.
+  it('a story keeps its schedule', () => {
+    const a = toCamelCase<Article>({ id: 'a', is_published: false, publish_at: '2026-12-01T07:00:00Z' });
+    expect(a.publishAt).toBe('2026-12-01T07:00:00Z');
+    expect(statusOf(a)).toBe('scheduled');
+  });
+
+  it('a note knows it is hidden', () => {
+    expect(toCamelCase<Comment>({ id: 'n', hidden_at: '2026-11-10T10:00:00Z' }).hiddenAt).toBe('2026-11-10T10:00:00Z');
+  });
+
+  it('a shelf has its descriptions and its place', () => {
+    const c = toCamelCase<Category>({ id: 'c', description_en: 'Painters.', description_ro: 'Pictori.', sort_order: 3 });
+    expect([c.descriptionEn, c.descriptionRo, c.sortOrder]).toEqual(['Painters.', 'Pictori.', 3]);
+  });
+});
 
 describe('statusOf', () => {
   it('is published, scheduled or a draft', () => {
