@@ -770,3 +770,75 @@ textarea.sb-input { min-height: 190px; resize: vertical; line-height: 1.6; }
 .rs-desk-row { align-items: center; gap: 14px; padding: 12px 0; border-bottom: 1px solid var(--line-soft); }
 .rs-desk-kind { width: 100%; padding: 10px 12px; border: 0; border-radius: 12px; background: transparent; cursor: pointer; text-align: left; }
 .rs-desk-kind:hover { background: var(--glow); }
+
+/* The desk's sections: reads chart, stories table, bulk bar, small controls. */
+:where(.rs-bars) { display: flex; }
+:where(.rs-bulk) { display: flex; }
+:where(.rs-status) { display: inline-flex; }
+:where(.rs-icon-act) { display: inline-grid; }
+:where(.rs-desk-thumb) { display: block; position: relative; }
+:where(.rs-desk-initial) { display: grid; }
+:where(.rs-link-quiet) { display: inline-flex; }
+.rs-bars { align-items: flex-end; gap: 4px; height: 180px; padding-bottom: 6px; border-bottom: 1px solid var(--line-soft); }
+.rs-bar { flex: 1; min-width: 0; border-radius: 4px 4px 1px 1px; background: color-mix(in oklab, var(--gold) 45%, transparent); }
+.rs-bar.is-today { background: var(--gold); }
+.rs-status {
+  align-items: center; padding: 3px 10px; border-radius: 999px; border: 1px solid var(--line); white-space: nowrap;
+  font-family: var(--ui); font-size: 12px; font-weight: 700; color: var(--text-dim);
+}
+.rs-status.is-published { border-color: var(--gold-deep); background: var(--glow); color: var(--gold-2); }
+.rs-status.is-scheduled { border-color: var(--gold); color: var(--gold); }
+.rs-status.is-draft { border-style: dashed; }
+.rs-status.is-suspended { border-color: color-mix(in oklab, var(--danger) 45%, transparent); color: var(--danger); }
+.rs-desk-input {
+  width: 100%; min-height: 42px; padding: 0 14px; border-radius: 12px; border: 1px solid var(--line);
+  background: var(--ink-2); color: var(--text); font-family: var(--ui); font-size: 14px;
+}
+.rs-desk-input:focus { border-color: var(--gold); }
+.rs-bulk { flex-wrap: wrap; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 14px; border: 1px dashed var(--gold-deep); background: var(--glow); }
+.rs-btn-danger { color: var(--danger); border-color: color-mix(in oklab, var(--danger) 45%, transparent); }
+.rs-btn-danger:hover { color: var(--danger); border-color: var(--danger); }
+.rs-btn-restore { color: var(--gold-2); }
+.rs-btn-restore:hover { color: var(--gold); }
+.rs-link-quiet {
+  align-items: center; min-height: 28px; padding: 0; border: 0; background: none; cursor: pointer;
+  font-family: var(--ui); font-size: 12.5px; font-weight: 700; color: var(--text-dim);
+}
+.rs-link-quiet:hover { color: var(--parchment); }
+.rs-desk-table { width: 100%; border-collapse: collapse; }
+.rs-desk-table th {
+  padding: 14px 10px; border-bottom: 1px solid var(--line); text-align: left; white-space: nowrap;
+  font-family: var(--ui); font-size: 12px; font-weight: 700; color: var(--text-mute);
+}
+.rs-desk-table td { padding: 10px; border-bottom: 1px solid var(--line-soft); vertical-align: middle; }
+.rs-desk-table th:first-child,
+.rs-desk-table td:first-child { padding-left: 18px; }
+.rs-desk-table th:last-child,
+.rs-desk-table td:last-child { padding-right: 18px; }
+.rs-desk-table tr.is-selected td { background: var(--glow); }
+.rs-desk-card.is-selected { border-color: var(--gold-deep); background: var(--glow); }
+.rs-desk-dim { font-family: var(--ui); font-size: 13px; color: var(--text-dim); }
+.rs-check { width: 18px; height: 18px; accent-color: var(--gold); cursor: pointer; }
+.rs-desk-thumb { flex: none; width: 38px; height: 46px; overflow: hidden; border-radius: 50% 50% 7px 7px / 36% 36% 7px 7px; background: var(--paper); }
+.rs-desk-thumb-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+/* A reader's arch: their picture, or their initial in gold. */
+.rs-desk-initial {
+  place-items: center; width: 34px; height: 40px; border: 1px solid var(--line);
+  font-family: var(--display); font-style: italic; font-size: 17px; line-height: 1; color: var(--gold);
+}
+.rs-icon-act {
+  place-items: center; width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--line); background: transparent;
+  color: var(--parchment); cursor: pointer; font-family: var(--ui); font-size: 14px;
+}
+.rs-icon-act:hover { border-color: var(--gold-deep); color: var(--gold); }
+.rs-icon-act.is-danger { color: var(--danger); }
+.rs-icon-act.is-danger:hover { border-color: var(--danger); color: var(--danger); }
+.rs-icon-act:disabled { opacity: 0.4; cursor: default; }
+.rs-nav-badge {
+  min-width: 22px; padding: 1px 7px; border-radius: 999px; background: var(--gold); color: var(--on-gold);
+  font-family: var(--ui); font-size: 11px; font-weight: 800; text-align: center;
+}
+
+/* The editors' "Before it goes out" list: a knot, filled once the thing is there. */
+.rs-check-knot { flex: none; width: 9px; height: 9px; transform: rotate(45deg); border: 1.5px solid var(--gold-deep); }
+.rs-check-knot[data-done] { border-color: var(--gold); background: var(--gold); }

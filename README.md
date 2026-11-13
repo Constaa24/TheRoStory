@@ -102,6 +102,7 @@ npm run lint:types   # TypeScript typecheck (src + middleware.ts/api)
 npm run lint:js      # ESLint only
 npm run lint:css     # Stylelint only
 npm run lint:edge    # Type-check the Deno edge functions (requires Deno)
+npm run test:edge    # Unit tests of the edge functions' shared code (requires Deno)
 npm run icons        # Regenerate the app icons from public/logo.png
 npm run atlas:geo    # Regenerate the Atlas county geometry
 npm run fonts        # Re-download the self-hosted typefaces

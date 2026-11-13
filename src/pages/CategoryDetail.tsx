@@ -11,7 +11,7 @@ import { LoadError } from "@/components/ui/load-error";
 import { SITE_URL } from "@/lib/constants";
 import { localizedPath } from "@/lib/locale";
 import { countLabel, joinMeta, type CountNoun } from "@/lib/article-utils";
-import { categoryDescription, categoryImageSources, getCategoryImage } from "@/lib/category-copy";
+import { shelfBlurb, categoryImageSources, getCategoryImage } from "@/lib/category-copy";
 import { formatYear, kindWord, placeOf } from "@/lib/story-facts";
 import { StoryLoading } from "@/components/story/Ornaments";
 import { MiniMap } from "@/components/story/MiniMap";
@@ -308,7 +308,7 @@ const CategoryDetail: React.FC = () => {
             </nav>
             <h1 className="rs-display" style={{ margin: '0 0 18px', fontSize: 'clamp(52px, 7vw, 108px)', lineHeight: 0.94, letterSpacing: '-0.025em' }}>{categoryName}</h1>
             <p className="m-0 max-w-[620px]" style={{ fontSize: 20, lineHeight: 1.55, color: 'var(--text)', textWrap: 'pretty' }}>
-              {categoryDescription(category.slug, categoryName, language)}
+              {shelfBlurb(category, language)}
             </p>
           </div>
           <div className="flex flex-col gap-3.5 items-start">

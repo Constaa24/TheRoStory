@@ -193,12 +193,14 @@ Deno.serve(async (req) => {
     if (action === 'exportOwnData') {
       try {
         const normalizedEmail = (user.email ?? '').trim().toLowerCase()
-        const [profileRes, articlesRes, commentsRes, favoritesRes, roleRes, newsletterRes] = await Promise.all([
+        const [profileRes, articlesRes, commentsRes, favoritesRes, roleRes, flagsRes, newsletterRes] = await Promise.all([
           adminClient.from('profiles').select('*').eq('id', user.id).maybeSingle(),
           adminClient.from('articles').select('*').eq('user_id', user.id),
           adminClient.from('comments').select('*').eq('user_id', user.id),
           adminClient.from('favorites').select('*').eq('user_id', user.id),
           adminClient.from('user_roles').select('role').eq('user_id', user.id).maybeSingle(),
+          // Notes this reader flagged for the editors (migration 20261110120000).
+          adminClient.from('comment_flags').select('comment_id, created_at').eq('user_id', user.id),
           normalizedEmail
             ? adminClient.from('newsletter_subscribers')
                 .select('email, status, created_at, confirmed_at, unsubscribed_at')
@@ -220,6 +222,7 @@ Deno.serve(async (req) => {
           articles: articlesRes.data ?? [],
           comments: commentsRes.data ?? [],
           favorites: favoritesRes.data ?? [],
+          flags: flagsRes.data ?? [],
           newsletter: newsletterRes.data ?? null,
         }
 
@@ -286,6 +289,9 @@ Deno.serve(async (req) => {
           role: roleMatch ? roleMatch.role : 'reader',
           createdAt: u.created_at,
           emailVerified: !!u.email_confirmed_at,
+          // Suspended from the desk (see setUserSuspended): signed out and
+          // unable to sign back in until restored.
+          suspended: !!u.banned_until && new Date(u.banned_until).getTime() > Date.now(),
         }
       })
 
@@ -325,6 +331,25 @@ Deno.serve(async (req) => {
 
       if (error) throw error
 
+      return jsonResponse(200, { success: true }, corsHeaders)
+    }
+
+    // Suspend or restore a reader. A suspension is a ban in Supabase Auth:
+    // the account can't sign in or refresh a session until it's lifted, and
+    // nothing they wrote is removed. "876000h" is about a hundred years —
+    // the API has no "indefinitely".
+    if (action === 'setUserSuspended') {
+      const { userId, suspended } = body
+      if (!userId || typeof suspended !== 'boolean') {
+        return jsonResponse(400, { error: 'Missing userId or suspended' }, corsHeaders)
+      }
+      if (userId === user.id) {
+        return jsonResponse(400, { error: 'Admins cannot suspend themselves' }, corsHeaders)
+      }
+      const { error } = await adminClient.auth.admin.updateUserById(userId, {
+        ban_duration: suspended ? '876000h' : 'none',
+      })
+      if (error) throw error
       return jsonResponse(200, { success: true }, corsHeaders)
     }
 

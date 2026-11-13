@@ -8,6 +8,7 @@ import { useLanguage } from "@/hooks/use-language";
 import { useAuth } from "@/hooks/use-auth";
 import { useUnsavedChangesWarning } from "@/hooks/use-unsaved-changes";
 import { UnsavedChangesDialog } from "@/components/ui/unsaved-changes-dialog";
+import { PublishingFields, usePublishGuard, publishAtToSave, scheduleProblem, toLocalInput, type CheckItem } from "@/components/organisms/PublishingFields";
 import { FormBlock, Field } from "@/components/ui/form-field";
 import { PageHead } from "@/components/layout/PageHead";
 import {
@@ -89,8 +90,15 @@ const CarouselStoryCreate: React.FC = () => {
   const noteSupportedRef = useRef(false);
   const [showPlaceErrors, setShowPlaceErrors] = useState(false);
   const placeErrors = placeDateErrors(placeDate, language);
+  // Publishing: a schedule (a datetime-local value, "" when there is none)
+  // and what the loaded story's state was.
+  const [publishAt, setPublishAt] = useState("");
+  const [hadSchedule, setHadSchedule] = useState(false);
+  const [wasPublished, setWasPublished] = useState(false);
 
-  const formSnapshot = JSON.stringify({ titleEn, titleRo, descriptionEn, descriptionRo, categoryId, location, posterUrl, items: items.map(i => i.url), mediaCaptions, placeDate, note });
+  // The status and the schedule count as changes too: leaving after
+  // choosing "Scheduled" and a time would otherwise lose them silently.
+  const formSnapshot = JSON.stringify({ titleEn, titleRo, descriptionEn, descriptionRo, categoryId, location, posterUrl, items: items.map(i => i.url), mediaCaptions, placeDate, note, published: isPublished, publishAt });
   const isDirty = initialSnapshotRef.current !== null && formSnapshot !== initialSnapshotRef.current;
 
   useUnsavedChangesWarning(isDirty && !isSaving);
@@ -99,6 +107,22 @@ const CarouselStoryCreate: React.FC = () => {
   // are unsaved changes, using the site's styled dialog. (beforeunload covers
   // tab close/refresh; this covers the editor's own exits.)
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
+
+  // What a finished story has.
+  const checklist: CheckItem[] = [
+    { label: language === 'en' ? 'A title in English' : 'Un titlu în engleză', done: !!titleEn.trim() },
+    { label: language === 'en' ? 'A title in Romanian' : 'Un titlu în română', done: !!titleRo.trim() },
+    { label: language === 'en' ? 'An opening line in both languages' : 'Un rând de început în ambele limbi', done: !!descriptionEn.trim() && !!descriptionRo.trim() },
+    { label: language === 'en' ? 'A caption for every frame, in both languages' : 'O legendă pentru fiecare cadru, în ambele limbi', done: items.length > 0 && items.every((_, i) => !!mediaCaptions[i]?.en?.trim() && !!mediaCaptions[i]?.ro?.trim()) },
+    { label: language === 'en' ? 'A place on the map' : 'Un loc pe hartă', done: !!location || !!placeDate.coords.trim() },
+  ];
+  const publishGuard = usePublishGuard({
+    language,
+    // Asked once, as the story first goes out; not on every later edit.
+    goingOut: isAdmin && !wasPublished && (isPublished || !!publishAt),
+    scheduled: !isPublished && !!publishAt,
+    checklist,
+  });
   const leaveToDashboard = () => {
     if (isDirty && !isSaving) {
       setShowLeaveConfirm(true);
@@ -136,6 +160,9 @@ const CarouselStoryCreate: React.FC = () => {
           setCategoryId(article.categoryId || '');
           setLocation(article.location || '');
           setIsPublished(!!article.isPublished);
+          setPublishAt(article.isPublished ? "" : toLocalInput(article.publishAt));
+          setHadSchedule(!!article.publishAt);
+          setWasPublished(!!article.isPublished);
           setPosterUrl(article.posterUrl || '');
           setPosterStoragePath(article.posterUrl ? extractStoragePath(article.posterUrl, 'articles') : null);
           const urls = article.mediaUrls || (article.mediaUrl ? [article.mediaUrl] : []);
@@ -168,11 +195,14 @@ const CarouselStoryCreate: React.FC = () => {
             mediaCaptions: loadedCaptions,
             placeDate: loadedPlaceDate.draft,
             note: loadedNote,
+            published: !!article.isPublished,
+            publishAt: article.isPublished ? "" : toLocalInput(article.publishAt),
           });
         } else {
           initialSnapshotRef.current = JSON.stringify({
             titleEn: '', titleRo: '', descriptionEn: '', descriptionRo: '',
             categoryId: '', location: '', posterUrl: '', items: [], mediaCaptions: [], placeDate: EMPTY_PLACE_DATE, note: EMPTY_NOTE,
+            published: false, publishAt: '',
           });
         }
       } catch (err) {
@@ -313,6 +343,11 @@ const CarouselStoryCreate: React.FC = () => {
   };
 
   const handleSave = async () => {
+    const scheduleError = isAdmin ? scheduleProblem(isPublished, publishAt, language) : null;
+    if (scheduleError) {
+      toast.error(scheduleError);
+      return;
+    }
     if (!titleEn || !titleRo || !categoryId || items.length === 0 || !user) {
       toast.error(language === 'en' ? "Please fill all required fields and upload at least one image" : "Vă rugăm să completați toate câmpurile obligatorii și să încărcați cel puțin o imagine");
       return;
@@ -347,10 +382,13 @@ const CarouselStoryCreate: React.FC = () => {
       // loaded state through and the DB trigger
       // (enforce_article_publish_rights) pins it server-side regardless.
       if (isEditing && editingId) {
-        await updateArticle({ ...payload, id: editingId, isPublished });
+        // Only an editor schedules; a writer's save leaves the schedule alone.
+        const at = isAdmin ? publishAtToSave(isPublished, publishAt, hadSchedule) : undefined;
+        await updateArticle({ ...payload, id: editingId, isPublished: isPublished, ...(at !== undefined ? { publishAt: at } : {}) });
         toast.success(language === 'en' ? "Visual essay updated!" : "Eseul a fost actualizat!");
       } else {
-        await createArticle({ ...payload, userId: user.id, isPublished: isAdmin && isPublished });
+        const at = isAdmin ? publishAtToSave(isPublished, publishAt, false) : undefined;
+        await createArticle({ ...payload, userId: user.id, isPublished: isAdmin && isPublished, ...(at !== undefined ? { publishAt: at } : {}) });
         toast.success(language === 'en' ? "Visual essay created!" : "Eseul a fost creat!");
       }
       savedRef.current = true;
@@ -398,6 +436,7 @@ const CarouselStoryCreate: React.FC = () => {
   return (
     <div className="screen-anim pb-32">
       {pageHead}
+      {publishGuard.dialog}
       <UnsavedChangesDialog
         open={showLeaveConfirm}
         onOpenChange={setShowLeaveConfirm}
@@ -491,30 +530,15 @@ const CarouselStoryCreate: React.FC = () => {
                 </Field>
               </FormBlock>
 
-              {isAdmin && (
-                <FormBlock title={language === 'en' ? 'Visibility' : 'Vizibilitate'}>
-                  <label className="flex items-start gap-3 cursor-pointer select-none" style={{ marginBottom: 0 }}>
-                    <input
-                      type="checkbox"
-                      checked={isPublished}
-                      onChange={(e) => setIsPublished(e.target.checked)}
-                      className="mt-1 w-4 h-4 accent-[color:var(--gold)]"
-                    />
-                    <span style={{ flex: 1, marginBottom: 0, textTransform: 'none', letterSpacing: 'normal' }}>
-                      <span className="font-display italic block" style={{ color: 'var(--parchment)', fontSize: 17 }}>
-                        {isEditing
-                          ? (language === 'en' ? 'Published' : 'Publicat')
-                          : (language === 'en' ? 'Publish immediately' : 'Publică imediat')}
-                      </span>
-                      <span className="font-ui text-[13px] mt-1 block" style={{ color: 'var(--text-mute)' }}>
-                        {isEditing
-                          ? (language === 'en' ? 'Toggle off to revert to draft.' : 'Dezactivează pentru a reveni la ciornă.')
-                          : (language === 'en' ? 'Otherwise saved as a draft only you can see.' : 'Altfel se salvează ca ciornă, vizibilă doar pentru tine.')}
-                      </span>
-                    </span>
-                  </label>
-                </FormBlock>
-              )}
+              <PublishingFields
+                language={language}
+                isAdmin={isAdmin}
+                published={isPublished}
+                onPublished={setIsPublished}
+                publishAt={publishAt}
+                onPublishAt={setPublishAt}
+                checklist={checklist}
+              />
 
               <FormBlock title={language === 'en' ? 'Description (dek)' : 'Descriere (subtitlu)'}>
                 <p className="font-ui text-[13px] mb-2" style={{ color: 'var(--text-mute)' }}>
@@ -836,7 +860,7 @@ const CarouselStoryCreate: React.FC = () => {
             {language === 'en' ? 'Cancel' : 'Anulează'}
           </button>
           <button
-            onClick={handleSave}
+            onClick={() => publishGuard.guard(handleSave)}
             disabled={isSaving || isUploading || items.length === 0}
             className="btn-ed"
             style={{ opacity: isSaving || isUploading || items.length === 0 ? 0.5 : 1 }}
@@ -851,7 +875,9 @@ const CarouselStoryCreate: React.FC = () => {
                 <Save className="w-3.5 h-3.5" />
                 {isEditing
                   ? (language === 'en' ? 'Save changes' : 'Salvează modificările')
-                  : (isAdmin && isPublished
+                  : (isAdmin && !isPublished && publishAt
+                      ? (language === 'en' ? 'Schedule visual essay' : 'Programează eseul')
+                      : isAdmin && isPublished
                       ? (language === 'en' ? 'Publish visual essay' : 'Publică eseul')
                       : (language === 'en' ? 'Save as draft' : 'Salvează ca ciornă'))}
               </>

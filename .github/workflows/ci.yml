@@ -123,3 +123,7 @@ jobs:
       # Not installing it at all makes that guarantee structural here.
       - name: Deno check
         run: npm run lint:edge
+
+      # The functions' own unit tests (Resend is faked; no network, no secrets).
+      - name: Deno test
+        run: npm run test:edge

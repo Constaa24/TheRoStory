@@ -1,22 +1,18 @@
 import React, { useEffect, useState, useMemo } from "react";
 import {
   Category,
-  Article,
   AdminUserSummary,
-  getLocalized,
-  fetchAdminArticlesPage,
   fetchCategories,
   invalidatePublicContentCache,
   fetchAllUsers,
   deleteUser as deleteUserFunc,
   updateUserRole as updateUserRoleFunc,
-  deleteStorageFile,
-  extractStoragePath,
+  setUserSuspended,
   fetchOrphanedMedia,
   purgeOrphanedMedia,
   SWEEPABLE_BUCKETS,
-  toCamelCase,
 } from "@/lib/supabase";
+import { fetchDeskStats, fetchNoteCounts } from "@/lib/desk";
 import type { OrphanedMediaReport } from "@/lib/supabase";
 import { supabase } from "@/lib/supabase";
 import { useLanguage } from "@/hooks/use-language";
@@ -31,24 +27,8 @@ import {
   SelectValue
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow
-} from "@/components/ui/table";
 import { Card } from "@/components/ui/card";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-  DialogDescription
-} from "@/components/ui/dialog";
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -58,9 +38,14 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Plus, Trash2, Edit, Check, X, Loader2, Lock, Users, FileText, Tag, ShieldCheck, CheckCircle2, XCircle, Video, BookText, Images, HardDrive, Route, LayoutDashboard } from "lucide-react";
+import { Trash2, Edit, Loader2, Lock, Users, FileText, Tag, ShieldCheck, CheckCircle2, XCircle, HardDrive, Route, LayoutDashboard, MessageSquare, Mail } from "lucide-react";
 import { DeskOverview, NewStoryMenu } from "@/components/organisms/DeskOverview";
 import { JourneysManager } from "@/components/organisms/JourneysManager";
+import { DeskStories } from "@/components/desk/DeskStories";
+import { DeskShelves } from "@/components/desk/DeskShelves";
+import { DeskComments } from "@/components/desk/DeskComments";
+import { DeskNewsletter } from "@/components/desk/DeskNewsletter";
+import type { DeskConfirm } from "@/components/desk/types";
 import { PageHead } from "@/components/layout/PageHead";
 import { storageImage } from "@/lib/image-url";
 import { toast } from "sonner";
@@ -68,11 +53,10 @@ import { cn, isAbortError } from "@/lib/utils";
 // The dashboard used raw toLocaleDateString(), which follows the browser's
 // locale and so ignored the app's EN/RO toggle — the only surface in the app
 // that did. formatArticleDate is what every reader-facing view already uses.
-import { formatArticleDate } from "@/lib/article-utils";
+import { formatArticleDate, joinMeta } from "@/lib/article-utils";
 import { useNavigate } from "react-router-dom";
 
 const USERS_PER_PAGE = 25;
-const ARTICLES_PER_PAGE = 20;
 
 const AdminDashboard: React.FC = () => {
   const { user, isAdmin, isWriter } = useAuth();
@@ -80,16 +64,16 @@ const AdminDashboard: React.FC = () => {
   const navigate = useNavigate();
   const [deskTab, setDeskTab] = useState("overview");
   const [categories, setCategories] = useState<Category[]>([]);
-  const [articles, setArticles] = useState<Article[]>([]);
-  const [articlesPage, setArticlesPage] = useState(1);
-  const [articlesTotal, setArticlesTotal] = useState(0);
-  const [articlesLoading, setArticlesLoading] = useState(true);
+  // Bumped when a shelf is added or deleted, so the shelves list reloads.
+  const [shelvesKey, setShelvesKey] = useState(0);
+  // Notes flagged by readers and still on the site: the Comments tab's badge.
+  const [flagged, setFlagged] = useState(0);
+  const [noteCounts, setNoteCounts] = useState<Record<string, number>>({});
   const [allUsers, setAllUsers] = useState<AdminUserSummary[]>([]);
   const [usersLoadError, setUsersLoadError] = useState<string | null>(null);
   const [usersPage, setUsersPage] = useState(1);
   const [usersTotal, setUsersTotal] = useState<number | null>(null);
   const [usersHasMore, setUsersHasMore] = useState(false);
-  const [showTypeSelection, setShowTypeSelection] = useState(false);
 
   // Confirmation dialog state — replaces the inconsistent native confirm()
   // calls so destructive actions feel like the rest of the app.
@@ -98,6 +82,8 @@ const AdminDashboard: React.FC = () => {
     description: string;
     confirmLabel: string;
     cancelLabel: string;
+    /** "gold" for a deliberate send; the default is the destructive red. */
+    tone?: "gold";
     onConfirm: () => void | Promise<void>;
   };
   const [confirmDialog, setConfirmDialog] = useState<ConfirmConfig | null>(null);
@@ -107,9 +93,6 @@ const AdminDashboard: React.FC = () => {
 
   // Form states
   const [newCategory, setNewCategory] = useState({ nameEn: "", nameRo: "", slug: "" });
-
-  // Indexed lookup so the article tables don't .find() per row.
-  const categoriesById = useMemo(() => new Map(categories.map(c => [c.id, c])), [categories]);
 
   // Categories load once per user/role — they don't paginate and are reused
   // by the category-management tab. Public-content cache is invalidated first
@@ -129,27 +112,17 @@ const AdminDashboard: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id, isAdmin, isWriter]);
 
-  // Articles are fetched one page at a time (server-side range + exact count)
-  // so the dashboard scales past the old 500-row ceiling. Writers get an
-  // ownerId-scoped query so the DB only returns their own rows.
+  // The Comments badge and the Readers table's note counts. Admins only:
+  // both read what RLS keeps from everyone else.
+  const refreshFlagged = React.useCallback(() => {
+    fetchDeskStats().then((s) => setFlagged(s?.flagged ?? 0)).catch(() => {});
+  }, []);
   useEffect(() => {
-    if (!user || (!isAdmin && !isWriter)) return;
-    let cancelled = false;
-    setArticlesLoading(true);
-    fetchAdminArticlesPage(articlesPage, ARTICLES_PER_PAGE, isWriter && !isAdmin ? user.id : undefined)
-      .then(({ articles: rows, total }) => {
-        if (cancelled) return;
-        setArticles(rows);
-        setArticlesTotal(total);
-      })
-      .catch((error) => {
-        if (cancelled) return;
-        if (!isAbortError(error)) console.error("Error fetching content:", error);
-      })
-      .finally(() => { if (!cancelled) setArticlesLoading(false); });
-    return () => { cancelled = true; };
+    if (!user || !isAdmin) return;
+    refreshFlagged();
+    fetchNoteCounts().then(setNoteCounts).catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id, isAdmin, isWriter, articlesPage]);
+  }, [user?.id, isAdmin]);
 
   // Fetch users separately so pagination doesn't re-fetch content
   useEffect(() => {
@@ -187,17 +160,16 @@ const AdminDashboard: React.FC = () => {
   const fetchData = async () => {
     invalidatePublicContentCache();
     try {
-      const [cats, page] = await Promise.all([
-        fetchCategories(),
-        fetchAdminArticlesPage(articlesPage, ARTICLES_PER_PAGE, isWriter && !isAdmin ? user?.id : undefined),
-      ]);
-      setCategories(cats);
-      setArticles(page.articles);
-      setArticlesTotal(page.total);
+      setCategories(await fetchCategories());
+      setShelvesKey((k) => k + 1);
     } catch (error) {
       if (!isAbortError(error)) console.error("Error fetching data:", error);
     }
   };
+
+  // The desk's sections ask before anything that can't be taken back,
+  // through the one dialog at the foot of this page.
+  const deskConfirm: DeskConfirm = (c) => setConfirmDialog({ ...c, cancelLabel: t("admin.common.cancel") });
 
   const handleAddCategory = async () => {
     if (!newCategory.nameEn || !newCategory.nameRo || !newCategory.slug) {
@@ -228,7 +200,9 @@ const AdminDashboard: React.FC = () => {
         id,
         name_en: newCategory.nameEn.trim(),
         name_ro: newCategory.nameRo.trim(),
-        slug: newCategory.slug
+        slug: newCategory.slug,
+        // A new shelf goes last in the site's order.
+        sort_order: Math.max(0, ...categories.map((c) => c.sortOrder ?? 0)) + 1,
       });
       if (error) throw error;
       setNewCategory({ nameEn: "", nameRo: "", slug: "" });
@@ -237,88 +211,6 @@ const AdminDashboard: React.FC = () => {
     } catch {
       toast.error(t("admin.categories.errAdd"));
     }
-  };
-
-  const togglePublish = async (article: Article) => {
-    if (!isAdmin) {
-      toast.error(t("admin.articles.adminOnlyPublish"));
-      return;
-    }
-    try {
-      const newValue = !article.isPublished;
-      const { error } = await supabase
-        .from('articles')
-        .update({ is_published: newValue })
-        .eq('id', article.id);
-
-      if (error) throw error;
-      // Publishing changes what the public sees, and fetchArticleCategoryCounts
-      // filters on is_published — so its cached counts are wrong the moment
-      // this succeeds. Invalidate here rather than relying on fetchData() to
-      // do it: that coupling holds today, but it breaks silently the first
-      // time someone optimizes this to patch local state instead of refetching.
-      invalidatePublicContentCache();
-      fetchData();
-      toast.success(newValue ? t("admin.articles.publishedToast") : t("admin.articles.unpublishedToast"));
-    } catch {
-      toast.error(t("admin.articles.errUpdate"));
-    }
-  };
-
-  const performDeleteArticle = async (id: string) => {
-    try {
-      // Collect the article's storage paths BEFORE deleting the row, so we
-      // can clean up the bucket afterwards. Without this every deleted
-      // article orphaned its cover/poster/gallery/video files forever.
-      // The full row, not the admin list's: the list selects a fixed set of
-      // columns, and a film's subtitle files (migration 20261102140000) live
-      // in columns it doesn't load. select('*') returns whichever columns
-      // the database has, before and after that migration.
-      const { data: row } = await supabase.from('articles').select('*').eq('id', id).maybeSingle();
-      const article = row ? toCamelCase<Article>(row) : articles.find(a => a.id === id);
-      const storagePaths = article
-        ? [article.mediaUrl, article.posterUrl, ...(article.mediaUrls ?? []), article.subtitlesEnUrl, article.subtitlesRoUrl]
-            .map(url => (url ? extractStoragePath(url, 'articles') : null))
-            .filter((p): p is string => !!p)
-        : [];
-
-      const { error } = await supabase.from('articles').delete().eq('id', id);
-      if (error) throw error;
-
-      // Must happen here, not in fetchData(). Deleting the last row of a page
-      // past the first takes the setArticlesPage branch below, which refetches
-      // through the articlesPage effect and never touches the public-content
-      // cache — leaving the deleted story counted for the rest of the TTL.
-      invalidatePublicContentCache();
-
-      // Best-effort: deleteStorageFile swallows failures, and admins can
-      // remove other users' files via the storage RLS admin override.
-      for (const path of storagePaths) {
-        void deleteStorageFile('articles', path);
-      }
-
-      // If we just removed the last row on a non-first page, step back so the
-      // user doesn't land on an empty page; the page effect refetches. Else
-      // refetch the current page in place.
-      if (articles.length === 1 && articlesPage > 1) {
-        setArticlesPage((p) => Math.max(1, p - 1));
-      } else {
-        fetchData();
-      }
-      toast.success(t("admin.articles.deleted"));
-    } catch {
-      toast.error(t("admin.articles.errDelete"));
-    }
-  };
-
-  const requestDeleteArticle = (id: string) => {
-    setConfirmDialog({
-      title: t("admin.articles.deleteTitle"),
-      description: t("admin.articles.deleteDesc"),
-      confirmLabel: t("admin.common.delete"),
-      cancelLabel: t("admin.common.cancel"),
-      onConfirm: () => performDeleteArticle(id),
-    });
   };
 
   const performDeleteUser = async (id: string) => {
@@ -484,12 +376,34 @@ const AdminDashboard: React.FC = () => {
     }
   };
 
+  // Suspend: no sign-in until restored. Asked first; restoring is not.
+  const handleSuspend = (u: AdminUserSummary) => {
+    if (!isAdmin || u.id === user?.id) return;
+    const en = language === 'en';
+    const next = !u.suspended;
+    const apply = async () => {
+      const ok = await setUserSuspended(u.id, next);
+      if (!ok) {
+        toast.error(en ? "That could not be saved." : "Nu a putut fi salvat.");
+        return;
+      }
+      setAllUsers(prev => prev.map(x => x.id === u.id ? { ...x, suspended: next } : x));
+      toast.success(next ? (en ? "Suspended." : "Suspendat.") : (en ? "Restored." : "Restabilit."));
+    };
+    if (!next) { void apply(); return; }
+    setConfirmDialog({
+      title: en ? "Suspend this reader?" : "Suspendi acest cititor?",
+      description: en
+        ? "They won't be able to sign in until you restore them (a session already open ends within the hour). Nothing they wrote is removed."
+        : "Nu se va mai putea autentifica până îl restabilești (o sesiune deja deschisă se încheie în cel mult o oră). Nimic din ce a scris nu este șters.",
+      confirmLabel: en ? "Suspend" : "Suspendă",
+      cancelLabel: t("admin.common.cancel"),
+      onConfirm: apply,
+    });
+  };
+
   const usersRangeStart = allUsers.length === 0 ? 0 : (usersPage - 1) * USERS_PER_PAGE + 1;
   const usersRangeEnd = allUsers.length === 0 ? 0 : usersRangeStart + allUsers.length - 1;
-
-  const articlesTotalPages = Math.max(1, Math.ceil(articlesTotal / ARTICLES_PER_PAGE));
-  const articlesRangeStart = articles.length === 0 ? 0 : (articlesPage - 1) * ARTICLES_PER_PAGE + 1;
-  const articlesRangeEnd = articles.length === 0 ? 0 : articlesRangeStart + articles.length - 1;
 
   // Without this the dashboard has no <title> at all (the static index.html
   // fallback is stripped at boot). noindex mirrors robots.txt's /admin block.
@@ -534,24 +448,31 @@ const AdminDashboard: React.FC = () => {
           <TabsTrigger value="overview" className="justify-start gap-2.5 rounded-xl px-4 py-2.5 font-ui text-[14px] font-semibold text-[color:var(--text-dim)] whitespace-nowrap data-[state=active]:bg-[color:var(--glow)] data-[state=active]:text-[color:var(--gold)] data-[state=active]:shadow-none hover:text-[color:var(--parchment)]">
             <LayoutDashboard className="h-4 w-4" /> {language === 'en' ? 'Overview' : 'Prezentare'}
           </TabsTrigger>
-          <TabsTrigger value="articles" className="justify-start gap-2.5 rounded-xl px-4 py-2.5 font-ui text-[14px] font-semibold text-[color:var(--text-dim)] whitespace-nowrap data-[state=active]:bg-[color:var(--glow)] data-[state=active]:text-[color:var(--gold)] data-[state=active]:shadow-none hover:text-[color:var(--parchment)]" aria-label={isWriter ? t("admin.tabs.myStories") : t("admin.tabs.articles")}>
-            <FileText className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> <span className="hidden xs:inline">{isWriter ? t("admin.tabs.myStories") : t("admin.tabs.articles")}</span><span className="xs:hidden">{t("admin.tabs.stories")}</span>
+          <TabsTrigger value="articles" className="justify-start gap-2.5 rounded-xl px-4 py-2.5 font-ui text-[14px] font-semibold text-[color:var(--text-dim)] whitespace-nowrap data-[state=active]:bg-[color:var(--glow)] data-[state=active]:text-[color:var(--gold)] data-[state=active]:shadow-none hover:text-[color:var(--parchment)]" >
+            <FileText className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> {isWriter && !isAdmin ? t("admin.tabs.myStories") : t("admin.tabs.stories")}
           </TabsTrigger>
           {isAdmin && (
             <>
-              <TabsTrigger value="categories" className="justify-start gap-2.5 rounded-xl px-4 py-2.5 font-ui text-[14px] font-semibold text-[color:var(--text-dim)] whitespace-nowrap data-[state=active]:bg-[color:var(--glow)] data-[state=active]:text-[color:var(--gold)] data-[state=active]:shadow-none hover:text-[color:var(--parchment)]" aria-label={t("admin.tabs.categories")}>
+              <TabsTrigger value="categories" className="justify-start gap-2.5 rounded-xl px-4 py-2.5 font-ui text-[14px] font-semibold text-[color:var(--text-dim)] whitespace-nowrap data-[state=active]:bg-[color:var(--glow)] data-[state=active]:text-[color:var(--gold)] data-[state=active]:shadow-none hover:text-[color:var(--parchment)]">
                 <Tag className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> {t("admin.tabs.categories")}
               </TabsTrigger>
-              <TabsTrigger value="journeys" className="justify-start gap-2.5 rounded-xl px-4 py-2.5 font-ui text-[14px] font-semibold text-[color:var(--text-dim)] whitespace-nowrap data-[state=active]:bg-[color:var(--glow)] data-[state=active]:text-[color:var(--gold)] data-[state=active]:shadow-none hover:text-[color:var(--parchment)]" aria-label={language === 'en' ? 'Journeys' : 'Trasee'}>
+              <TabsTrigger value="journeys" className="justify-start gap-2.5 rounded-xl px-4 py-2.5 font-ui text-[14px] font-semibold text-[color:var(--text-dim)] whitespace-nowrap data-[state=active]:bg-[color:var(--glow)] data-[state=active]:text-[color:var(--gold)] data-[state=active]:shadow-none hover:text-[color:var(--parchment)]">
                 <Route className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> {language === 'en' ? 'Journeys' : 'Trasee'}
               </TabsTrigger>
-              <TabsTrigger value="users" className="justify-start gap-2.5 rounded-xl px-4 py-2.5 font-ui text-[14px] font-semibold text-[color:var(--text-dim)] whitespace-nowrap data-[state=active]:bg-[color:var(--glow)] data-[state=active]:text-[color:var(--gold)] data-[state=active]:shadow-none hover:text-[color:var(--parchment)]" aria-label={t("admin.tabs.users")}>
+              <TabsTrigger value="comments" className="justify-start gap-2.5 rounded-xl px-4 py-2.5 font-ui text-[14px] font-semibold text-[color:var(--text-dim)] whitespace-nowrap data-[state=active]:bg-[color:var(--glow)] data-[state=active]:text-[color:var(--gold)] data-[state=active]:shadow-none hover:text-[color:var(--parchment)]">
+                <MessageSquare className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> {language === 'en' ? 'Comments' : 'Comentarii'}
+                {flagged > 0 && <span className="rs-nav-badge lg:ml-auto" aria-label={language === 'en' ? `${flagged} flagged` : `${flagged} semnalate`}>{flagged}</span>}
+              </TabsTrigger>
+              <TabsTrigger value="users" className="justify-start gap-2.5 rounded-xl px-4 py-2.5 font-ui text-[14px] font-semibold text-[color:var(--text-dim)] whitespace-nowrap data-[state=active]:bg-[color:var(--glow)] data-[state=active]:text-[color:var(--gold)] data-[state=active]:shadow-none hover:text-[color:var(--parchment)]">
                 <Users className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> {t("admin.tabs.users")}
               </TabsTrigger>
-              <TabsTrigger value="storage" className="justify-start gap-2.5 rounded-xl px-4 py-2.5 font-ui text-[14px] font-semibold text-[color:var(--text-dim)] whitespace-nowrap data-[state=active]:bg-[color:var(--glow)] data-[state=active]:text-[color:var(--gold)] data-[state=active]:shadow-none hover:text-[color:var(--parchment)]" aria-label={t("admin.tabs.storage")}>
+              <TabsTrigger value="newsletter" className="justify-start gap-2.5 rounded-xl px-4 py-2.5 font-ui text-[14px] font-semibold text-[color:var(--text-dim)] whitespace-nowrap data-[state=active]:bg-[color:var(--glow)] data-[state=active]:text-[color:var(--gold)] data-[state=active]:shadow-none hover:text-[color:var(--parchment)]">
+                <Mail className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> {language === 'en' ? 'Newsletter' : 'Buletin'}
+              </TabsTrigger>
+              <TabsTrigger value="storage" className="justify-start gap-2.5 rounded-xl px-4 py-2.5 font-ui text-[14px] font-semibold text-[color:var(--text-dim)] whitespace-nowrap data-[state=active]:bg-[color:var(--glow)] data-[state=active]:text-[color:var(--gold)] data-[state=active]:shadow-none hover:text-[color:var(--parchment)]">
                 <HardDrive className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> {t("admin.tabs.storage")}
               </TabsTrigger>
-              <TabsTrigger value="permissions" className="justify-start gap-2.5 rounded-xl px-4 py-2.5 font-ui text-[14px] font-semibold text-[color:var(--text-dim)] whitespace-nowrap data-[state=active]:bg-[color:var(--glow)] data-[state=active]:text-[color:var(--gold)] data-[state=active]:shadow-none hover:text-[color:var(--parchment)]" aria-label={t("admin.tabs.permissions")}>
+              <TabsTrigger value="permissions" className="justify-start gap-2.5 rounded-xl px-4 py-2.5 font-ui text-[14px] font-semibold text-[color:var(--text-dim)] whitespace-nowrap data-[state=active]:bg-[color:var(--glow)] data-[state=active]:text-[color:var(--gold)] data-[state=active]:shadow-none hover:text-[color:var(--parchment)]">
                 <ShieldCheck className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> {t("admin.tabs.permissions")}
               </TabsTrigger>
             </>
@@ -559,7 +480,7 @@ const AdminDashboard: React.FC = () => {
         </TabsList>
 
         <TabsContent value="overview" className="mt-0 min-w-0">
-          <DeskOverview language={language} onOpen={setDeskTab} />
+          <DeskOverview language={language} ownerId={isWriter && !isAdmin ? user?.id : undefined} onOpen={setDeskTab} />
         </TabsContent>
 
         <TabsContent value="permissions" className="space-y-6 mt-0 min-w-0">
@@ -758,254 +679,18 @@ const AdminDashboard: React.FC = () => {
         </TabsContent>
 
         <TabsContent value="articles" className="space-y-6 mt-0 min-w-0">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-            <h2 className="rs-display" style={{ fontSize: 30, letterSpacing: 0 }}>{t("admin.articles.heading")}</h2>
-            <div className="flex gap-2">
-              <Dialog open={showTypeSelection} onOpenChange={setShowTypeSelection}>
-                <DialogTrigger asChild>
-                  <Button className="rounded-full bg-accent hover:bg-accent/90">
-                    <Plus className="mr-2 h-4 w-4" /> {t("admin.addArticle")}
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="sm:max-w-md">
-                  <DialogHeader>
-                    <DialogTitle className="text-center">
-                      {t("admin.articles.typeSelect")}
-                    </DialogTitle>
-                    <DialogDescription className="text-center">
-                      {t("admin.articles.typeSelectDesc")}
-                    </DialogDescription>
-                  </DialogHeader>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 py-6">
-                    <Button
-                      variant="outline"
-                      className="h-32 flex flex-col gap-3 rounded-2xl hover:border-accent hover:bg-accent/5 transition-all group"
-                      onClick={() => {
-                        setShowTypeSelection(false);
-                        navigate("/admin/text-story/create");
-                      }}
-                    >
-                      <div className="p-3 bg-accent/10 rounded-xl group-hover:scale-110 transition-transform">
-                        <BookText className="h-8 w-8 text-accent" />
-                      </div>
-                      <span className="font-display text-[19px] font-medium">
-                        {t("admin.articles.typeText")}
-                      </span>
-                    </Button>
-                    <Button
-                      variant="outline"
-                      className="h-32 flex flex-col gap-3 rounded-2xl hover:border-accent hover:bg-accent/5 transition-all group"
-                      onClick={() => {
-                        setShowTypeSelection(false);
-                        navigate("/admin/video-story/create");
-                      }}
-                    >
-                      <div className="p-3 bg-accent/10 rounded-xl group-hover:scale-110 transition-transform">
-                        <Video className="h-8 w-8 text-accent" />
-                      </div>
-                      <span className="font-display text-[19px] font-medium">
-                        {t("admin.articles.typeVideo")}
-                      </span>
-                    </Button>
-                    <Button
-                      variant="outline"
-                      className="h-32 flex flex-col gap-3 rounded-2xl hover:border-accent hover:bg-accent/5 transition-all group"
-                      onClick={() => {
-                        setShowTypeSelection(false);
-                        navigate("/admin/carousel-story/create");
-                      }}
-                    >
-                      <div className="p-3 bg-accent/10 rounded-xl group-hover:scale-110 transition-transform">
-                        <Images className="h-8 w-8 text-accent" />
-                      </div>
-                      <span className="font-display text-[19px] font-medium">
-                        {t("admin.articles.typeCarousel")}
-                      </span>
-                    </Button>
-                  </div>
-                </DialogContent>
-              </Dialog>
-            </div>
-          </div>
-
-          {/* Mobile: Card layout */}
-          <div className="block md:hidden space-y-3">
-            {articlesLoading && articles.length === 0 && (
-              [1, 2, 3].map((i) => (
-                <Card key={i} className="rs-desk-card shadow-none p-4 animate-pulse h-20" />
-              ))
-            )}
-            {articles.map((art) => (
-              <Card key={art.id} className="rs-desk-card shadow-none p-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      {art.type === 'video' ? <Video className="h-3 w-3 text-accent" /> : art.type === 'carousel' ? <Images className="h-3 w-3 text-accent" /> : <BookText className="h-3 w-3 text-accent" />}
-                      <h3 className="font-display text-[18px] leading-tight truncate">{getLocalized(art, "title", language)}</h3>
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {categoriesById.get(art.categoryId) ? getLocalized(categoriesById.get(art.categoryId)!, "name", language) : t("admin.articles.uncategorized")}
-                    </p>
-                    <div className="flex items-center gap-2 mt-2">
-                      <span className={cn(
-                        "inline-flex px-2.5 py-1 rounded-full font-ui text-[12px] font-bold border",
-                        art.isPublished ? "border-[color:var(--gold-deep)] bg-[color:var(--glow)] text-[color:var(--gold-2)]" : "border-dashed border-[color:var(--line)] text-[color:var(--text-dim)]"
-                      )}>
-                        {art.isPublished ? t("admin.articles.published") : t("admin.articles.draft")}
-                      </span>
-                      <span className="text-xs text-muted-foreground">
-                        {formatArticleDate(art.createdAt, language, "short")}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="flex gap-1 shrink-0">
-                    {isAdmin && (
-                      <Button variant="outline" size="icon" className="rounded-full h-7 w-7" onClick={() => togglePublish(art)}>
-                        {art.isPublished ? <X className="h-3.5 w-3.5" /> : <Check className="h-3.5 w-3.5" />}
-                      </Button>
-                    )}
-                    <Button variant="outline" size="icon" className="rounded-full h-7 w-7" onClick={() => navigate(`/admin/${art.type === 'video' ? 'video' : art.type === 'carousel' ? 'carousel' : 'text'}-story/edit/${art.id}`)}>
-                      <Edit className="h-3.5 w-3.5" />
-                    </Button>
-                    <Button variant="outline" size="icon" className="rounded-full h-7 w-7 text-destructive hover:text-destructive" onClick={() => requestDeleteArticle(art.id)}>
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
-                  </div>
-                </div>
-              </Card>
-            ))}
-            {!articlesLoading && articles.length === 0 && (
-              <div className="text-center py-10 font-display italic text-[20px] text-[color:var(--text-dim)]">{t("admin.articles.empty")}</div>
-            )}
-          </div>
-
-          {/* Desktop: Table layout */}
-          <Card className="rs-desk-card shadow-none p-0 overflow-hidden hidden md:block">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>{t("admin.articles.title")}</TableHead>
-                  <TableHead>{t("admin.articles.category")}</TableHead>
-                  <TableHead>{t("admin.articles.status")}</TableHead>
-                  <TableHead>{t("admin.articles.date")}</TableHead>
-                  <TableHead className="text-right">{t("admin.articles.actions")}</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {articles.map((art) => (
-                  <TableRow key={art.id}>
-                    <TableCell className="font-display text-[18px] leading-tight">
-                      <div className="flex items-center gap-2.5">
-                        {art.type === 'video' ? <Video className="h-4 w-4 text-accent" /> : art.type === 'carousel' ? <Images className="h-4 w-4 text-accent" /> : <BookText className="h-4 w-4 text-accent" />}
-                        {getLocalized(art, "title", language)}
-                      </div>
-                    </TableCell>
-                    <TableCell className="font-ui text-[13px] text-[color:var(--text-dim)]">
-                      {categoriesById.get(art.categoryId) ? getLocalized(categoriesById.get(art.categoryId)!, "name", language) : t("admin.articles.uncategorized")}
-                    </TableCell>
-                    <TableCell>
-                      <span className={cn(
-                        "inline-flex px-2.5 py-1 rounded-full font-ui text-[12px] font-bold border",
-                        art.isPublished ? "border-[color:var(--gold-deep)] bg-[color:var(--glow)] text-[color:var(--gold-2)]" : "border-dashed border-[color:var(--line)] text-[color:var(--text-dim)]"
-                      )}>
-                        {art.isPublished ? t("admin.articles.published") : t("admin.articles.draft")}
-                      </span>
-                    </TableCell>
-                    <TableCell className="font-ui text-[12.5px] text-[color:var(--text-mute)] whitespace-nowrap tabular-nums">
-                      {formatArticleDate(art.createdAt, language, "short")}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
-                        {isAdmin && (
-                          <Button 
-                            variant="outline" 
-                            size="icon" 
-                            className="rounded-full h-8 w-8"
-                            onClick={() => togglePublish(art)}
-                          >
-                            {art.isPublished ? <X className="h-4 w-4" /> : <Check className="h-4 w-4" />}
-                          </Button>
-                        )}
-                        <Button
-                          variant="outline"
-                          size="icon"
-                          className="rounded-full h-8 w-8"
-                          onClick={() => navigate(`/admin/${art.type === 'video' ? 'video' : art.type === 'carousel' ? 'carousel' : 'text'}-story/edit/${art.id}`)}
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button 
-                          variant="outline" 
-                          size="icon" 
-                          className="rounded-full h-8 w-8 text-destructive hover:text-destructive"
-                          onClick={() => requestDeleteArticle(art.id)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-                {articlesLoading && articles.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={5} className="text-center py-10">
-                      <Loader2 className="h-5 w-5 animate-spin mx-auto text-muted-foreground" />
-                    </TableCell>
-                  </TableRow>
-                )}
-                {!articlesLoading && articles.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={5} className="text-center py-10 font-display italic text-[20px] text-[color:var(--text-dim)]">
-                      {t("admin.articles.empty")}
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </Card>
-
-          {articlesTotal > ARTICLES_PER_PAGE && (
-            <div className="flex flex-col sm:flex-row justify-center sm:justify-between items-center gap-3 pt-2">
-              <span className="text-xs text-muted-foreground">
-                {t("admin.users.range")
-                  .replace("{start}", String(articlesRangeStart))
-                  .replace("{end}", String(articlesRangeEnd))
-                  .replace("{total}", String(articlesTotal))}
-              </span>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="rounded-full"
-                  disabled={articlesPage <= 1}
-                  onClick={() => setArticlesPage((p) => Math.max(1, p - 1))}
-                >
-                  {t("admin.users.previous")}
-                </Button>
-                <span className="text-xs text-muted-foreground px-1">
-                  {t("admin.users.pageOnly").replace("{page}", String(articlesPage))}
-                </span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="rounded-full"
-                  disabled={articlesPage >= articlesTotalPages}
-                  onClick={() => setArticlesPage((p) => p + 1)}
-                >
-                  {t("admin.users.next")}
-                </Button>
-              </div>
-            </div>
-          )}
+          <h2 className="rs-display" style={{ fontSize: 30, letterSpacing: 0 }}>{t("admin.articles.heading")}</h2>
+          <DeskStories language={language} isAdmin={isAdmin} ownerId={isWriter && !isAdmin ? user?.id : undefined} confirm={deskConfirm} />
         </TabsContent>
 
         {/* Gated like the users tab — writers never see the trigger, but the
             content shouldn't render for them either (RLS blocks the writes
             server-side regardless). */}
         {isAdmin && (
-        <TabsContent value="categories" className="space-y-6 mt-0 min-w-0">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-8">
-            {/* Category Form */}
+        <TabsContent value="categories" className="space-y-8 mt-0 min-w-0">
+          <h2 className="rs-display" style={{ fontSize: 30, letterSpacing: 0 }}>{language === 'en' ? 'Shelves' : 'Rafturi'}</h2>
+          <DeskShelves language={language} refreshKey={shelvesKey} onChanged={() => { invalidatePublicContentCache(); fetchCategories().then(setCategories).catch(() => {}); }} onDelete={requestDeleteCategory} />
+          <div className="max-w-[520px]">
             <Card className="rs-desk-card shadow-none h-fit">
               <h3 className="rs-display mb-6" style={{ fontSize: 26, letterSpacing: 0 }}>{t("admin.categories.add")}</h3>
               <div className="space-y-4">
@@ -1039,63 +724,6 @@ const AdminDashboard: React.FC = () => {
                 </Button>
               </div>
             </Card>
-
-            {/* Category List */}
-            <div className="md:col-span-2">
-              {/* Mobile: Card layout for categories */}
-              <div className="block md:hidden space-y-3">
-                {categories.map((cat) => (
-                  <Card key={cat.id} className="rs-desk-card shadow-none p-4">
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="flex-1 min-w-0">
-                        <p className="font-display text-[18px] leading-tight truncate">{cat.nameEn}</p>
-                        <p className="font-display text-[16px] text-[color:var(--text-dim)] truncate">{cat.nameRo}</p>
-                        <p className="text-xs font-mono text-muted-foreground mt-1">{cat.slug}</p>
-                      </div>
-                      <Button
-                        variant="ghost" size="icon" className="h-7 w-7 text-destructive shrink-0"
-                        onClick={() => requestDeleteCategory(cat.id)}
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
-                    </div>
-                  </Card>
-                ))}
-              </div>
-
-              {/* Desktop: Table layout for categories */}
-              <Card className="rs-desk-card shadow-none p-0 overflow-hidden hidden md:block">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>{t("admin.categories.nameEn")}</TableHead>
-                      <TableHead>{t("admin.categories.nameRo")}</TableHead>
-                      <TableHead>{t("admin.categories.slug")}</TableHead>
-                      <TableHead className="text-right">{t("admin.articles.actions")}</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {categories.map((cat) => (
-                      <TableRow key={cat.id}>
-                        <TableCell className="font-display text-[18px]">{cat.nameEn}</TableCell>
-                        <TableCell className="font-display text-[17px] text-[color:var(--text-dim)]">{cat.nameRo}</TableCell>
-                        <TableCell className="text-xs font-mono text-[color:var(--text-mute)]">{cat.slug}</TableCell>
-                        <TableCell className="text-right">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-destructive"
-                            onClick={() => requestDeleteCategory(cat.id)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </Card>
-            </div>
           </div>
         </TabsContent>
         )}
@@ -1105,6 +733,20 @@ const AdminDashboard: React.FC = () => {
         {isAdmin && (
           <TabsContent value="journeys" className="space-y-6 mt-0 min-w-0">
             <JourneysManager />
+          </TabsContent>
+        )}
+
+        {isAdmin && (
+          <TabsContent value="comments" className="space-y-6 mt-0 min-w-0">
+            <h2 className="rs-display" style={{ fontSize: 30, letterSpacing: 0 }}>{language === 'en' ? "Readers' notes" : 'Notele cititorilor'}</h2>
+            <DeskComments language={language} confirm={deskConfirm} onChanged={refreshFlagged} />
+          </TabsContent>
+        )}
+
+        {isAdmin && (
+          <TabsContent value="newsletter" className="space-y-6 mt-0 min-w-0">
+            <h2 className="rs-display" style={{ fontSize: 30, letterSpacing: 0 }}>{language === 'en' ? 'The dispatch' : 'Buletinul'}</h2>
+            <DeskNewsletter language={language} confirm={deskConfirm} />
           </TabsContent>
         )}
 
@@ -1148,16 +790,14 @@ const AdminDashboard: React.FC = () => {
               {allUsers.map((u) => (
                 <Card key={u.id} className="rs-desk-card shadow-none p-4">
                   <div className="flex items-start gap-3">
-                    <div className="h-9 w-9 rounded-full bg-accent/20 flex items-center justify-center overflow-hidden shrink-0">
-                      {u.avatarUrl ? (
-                        <img src={storageImage(u.avatarUrl, "avatar")} alt={u.displayName} className="h-full w-full object-cover" loading="lazy" />
-                      ) : (
-                        <span className="text-xs">{u.displayName?.charAt(0) || u.email.charAt(0)}</span>
-                      )}
-                    </div>
+                    <span className="rs-desk-thumb rs-desk-initial" aria-hidden="true">
+                      {u.avatarUrl
+                        ? <img src={storageImage(u.avatarUrl, "avatar")} alt="" className="rs-desk-thumb-img" loading="lazy" />
+                        : (u.displayName?.charAt(0) || u.email.charAt(0)).toUpperCase()}
+                    </span>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <p className="font-medium text-sm truncate">{u.displayName || t("admin.users.anonymous")}</p>
+                        <p className="m-0 font-ui font-bold text-sm truncate" style={{ color: 'var(--parchment)' }}>{u.displayName || t("admin.users.anonymous")}</p>
                         {!u.emailVerified && (
                           <Tooltip>
                             <TooltipTrigger asChild>
@@ -1177,7 +817,7 @@ const AdminDashboard: React.FC = () => {
                       <p className="text-xs text-muted-foreground truncate">{u.email}</p>
                       <div className="flex items-center gap-2 mt-2">
                         <Select value={u.role} onValueChange={(val) => handleUpdateRole(u.id, val)} disabled={u.id === user?.id}>
-                          <SelectTrigger className="w-24 h-7 text-xs rounded-full">
+                          <SelectTrigger className="w-36 h-8 text-xs rounded-full" aria-label={language === 'en' ? `Role of ${u.displayName || t("admin.users.anonymous")}` : `Rolul lui ${u.displayName || t("admin.users.anonymous")}`}>
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
@@ -1190,10 +830,25 @@ const AdminDashboard: React.FC = () => {
                           {u.createdAt ? formatArticleDate(u.createdAt, language, "short") : '—'}
                         </span>
                       </div>
+                      <div className="flex flex-wrap items-center gap-2 mt-2">
+                        <span className="text-xs text-muted-foreground">{noteCounts[u.id] || 0} {language === 'en' ? ((noteCounts[u.id] || 0) === 1 ? 'note' : 'notes') : ((noteCounts[u.id] || 0) === 1 ? 'notă' : 'note')}</span>
+                        {u.suspended && <span className="rs-status is-suspended">{language === 'en' ? 'Suspended' : 'Suspendat'}</span>}
+                        <button
+                          type="button"
+                          className={cn("rs-btn rs-btn-ghost whitespace-nowrap", u.suspended ? "rs-btn-restore" : "rs-btn-danger")}
+                          style={{ minHeight: 32, padding: '0 12px', fontSize: 12 }}
+                          onClick={() => handleSuspend(u)}
+                          disabled={u.id === user?.id}
+                        >
+                          {u.suspended ? (language === 'en' ? 'Restore' : 'Restabilește') : (language === 'en' ? 'Suspend' : 'Suspendă')}
+                          <span className="sr-only"> {u.displayName || t("admin.users.anonymous")}</span>
+                        </button>
+                      </div>
                     </div>
-                    <Button variant="outline" size="icon" className="rounded-full h-7 w-7 text-destructive hover:text-destructive shrink-0" onClick={() => requestDeleteUser(u.id)} disabled={u.id === user?.id}>
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
+                    <button type="button" className="rs-icon-act is-danger shrink-0" onClick={() => requestDeleteUser(u.id)} disabled={u.id === user?.id}
+                      aria-label={language === 'en' ? `Delete ${u.displayName || t("admin.users.anonymous")}` : `Șterge ${u.displayName || t("admin.users.anonymous")}`} title={t("admin.common.delete")}>
+                      <Trash2 className="h-4 w-4" />
+                    </button>
                   </div>
                 </Card>
               ))}
@@ -1204,95 +859,121 @@ const AdminDashboard: React.FC = () => {
               )}
             </div>
 
-            {/* Desktop: Table layout for users */}
-            <Card className="rs-desk-card shadow-none p-0 overflow-hidden hidden md:block">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>{t("admin.users.user")}</TableHead>
-                    <TableHead>{t("admin.users.email")}</TableHead>
-                    <TableHead>{t("admin.users.role")}</TableHead>
-                    <TableHead>{t("admin.users.joined")}</TableHead>
-                    <TableHead className="text-right">{t("admin.articles.actions")}</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {allUsers.map((u) => (
-                    <TableRow key={u.id}>
-                      <TableCell className="font-medium">
-                        <div className="flex items-center gap-2">
-                          <div className="h-8 w-8 rounded-full bg-accent/20 flex items-center justify-center overflow-hidden">
-                            {u.avatarUrl ? (
-                              <img src={storageImage(u.avatarUrl, "avatar")} alt={u.displayName} className="h-full w-full object-cover" loading="lazy" />
-                            ) : (
-                              <span className="text-xs">{u.displayName?.charAt(0) || u.email.charAt(0)}</span>
-                            )}
-                          </div>
-                          {u.displayName || t("admin.users.anonymous")}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <span className="truncate">{u.email}</span>
-                          {!u.emailVerified && (
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <span
-                                  tabIndex={0}
-                                  className="font-ui text-[12px] font-bold px-2 py-0.5 rounded-full border border-dashed border-[color:var(--gold-deep)] text-[color:var(--gold-2)] shrink-0 cursor-help"
-                                >
-                                  {t("admin.users.unverified")}
+            {/* Desktop: the design's table. The email sits under the name
+                rather than in a column of its own, and the reader's column
+                takes whatever room is left (its text truncates), so the role
+                and the actions are never cut off. Below 1280px, beside the
+                desk's sections, "Joined" and "Notes" fold under the email. */}
+            <div className="rs-desk-card hidden md:block" style={{ padding: 0, overflow: 'hidden' }}>
+              <div className="relative overflow-x-auto">
+                <table className="rs-desk-table" style={{ minWidth: 560 }}>
+                  <thead>
+                    <tr>
+                      <th>{language === 'en' ? 'Reader' : 'Cititor'}</th>
+                      <th className="hidden xl:table-cell">{t("admin.users.joined")}</th>
+                      <th className="hidden xl:table-cell" style={{ textAlign: 'right' }}>{language === 'en' ? 'Notes' : 'Note'}</th>
+                      <th>{t("admin.users.role")}</th>
+                      <th><span className="sr-only">{t("admin.articles.actions")}</span></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {allUsers.map((u) => {
+                      const name = u.displayName || t("admin.users.anonymous");
+                      const own = u.id === user?.id;
+                      const notes = noteCounts[u.id] || 0;
+                      return (
+                        <tr key={u.id}>
+                          <td style={{ width: '100%', maxWidth: 0 }}>
+                            <div className="flex items-center gap-3 min-w-0">
+                              <span className="rs-desk-thumb rs-desk-initial" aria-hidden="true">
+                                {u.avatarUrl
+                                  ? <img src={storageImage(u.avatarUrl, "avatar")} alt="" className="rs-desk-thumb-img" loading="lazy" />
+                                  : (u.displayName?.charAt(0) || u.email.charAt(0)).toUpperCase()}
+                              </span>
+                              <span className="flex-1 min-w-0">
+                                <span className="flex flex-wrap items-center gap-x-2 gap-y-1 min-w-0">
+                                  <span className="font-ui font-bold truncate min-w-0" style={{ fontSize: 14, color: 'var(--parchment)' }}>{name}</span>
+                                  {u.suspended && <span className="rs-status is-suspended">{language === 'en' ? 'Suspended' : 'Suspendat'}</span>}
                                 </span>
-                              </TooltipTrigger>
-                              <TooltipContent side="top" className="max-w-[220px] text-center">
-                                {t("admin.users.unverifiedTooltip")}
-                              </TooltipContent>
-                            </Tooltip>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Select 
-                          value={u.role} 
-                          onValueChange={(val) => handleUpdateRole(u.id, val)}
-                          disabled={u.id === user?.id}
-                        >
-                          <SelectTrigger className="w-32 h-8 text-xs rounded-full">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="admin">{t("admin.permissions.role.admin")}</SelectItem>
-                            <SelectItem value="writer">{t("admin.permissions.role.writer")}</SelectItem>
-                            <SelectItem value="reader">{t("admin.permissions.role.reader")}</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </TableCell>
-                      <TableCell className="font-ui text-[12.5px] text-[color:var(--text-mute)] whitespace-nowrap tabular-nums">
-                        {u.createdAt ? formatArticleDate(u.createdAt, language, "short") : '—'}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Button 
-                          variant="outline" 
-                          size="icon" 
-                          className="rounded-full h-8 w-8 text-destructive hover:text-destructive"
-                          onClick={() => requestDeleteUser(u.id)}
-                          disabled={u.id === user?.id}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                  {allUsers.length === 0 && (
-                    <TableRow>
-                      <TableCell colSpan={5} className={cn("text-center py-12", usersLoadError ? "text-destructive" : "text-muted-foreground")}>
-                        {usersLoadError || "No users found"}
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
-            </Card>
+                                <span className="flex items-center gap-2 mt-0.5 min-w-0">
+                                  <span className="truncate min-w-0" style={{ fontFamily: 'var(--ui)', fontSize: 12.5, color: 'var(--text-mute)' }}>{u.email}</span>
+                                  {!u.emailVerified && (
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <span
+                                          tabIndex={0}
+                                          className="font-ui text-[11.5px] font-bold px-2 py-px rounded-full border border-dashed border-[color:var(--gold-deep)] text-[color:var(--gold-2)] shrink-0 cursor-help"
+                                        >
+                                          {t("admin.users.unverified")}
+                                        </span>
+                                      </TooltipTrigger>
+                                      <TooltipContent side="top" className="max-w-[220px] text-center">
+                                        {t("admin.users.unverifiedTooltip")}
+                                      </TooltipContent>
+                                    </Tooltip>
+                                  )}
+                                </span>
+                                <span className="block xl:hidden mt-0.5" style={{ fontFamily: 'var(--ui)', fontSize: 12, color: 'var(--text-mute)' }}>
+                                  {joinMeta([
+                                    u.createdAt ? `${t("admin.users.joined")} ${formatArticleDate(u.createdAt, language, "short")}` : null,
+                                    language === 'en' ? `${notes} ${notes === 1 ? 'note' : 'notes'}` : `${notes} ${notes === 1 ? 'notă' : 'note'}`,
+                                  ])}
+                                </span>
+                              </span>
+                            </div>
+                          </td>
+                          <td className="hidden xl:table-cell rs-desk-dim whitespace-nowrap tabular-nums">
+                            {u.createdAt ? formatArticleDate(u.createdAt, language, "short") : '—'}
+                          </td>
+                          <td className="hidden xl:table-cell rs-desk-dim tabular-nums" style={{ textAlign: 'right' }}>{notes}</td>
+                          <td>
+                            <Select value={u.role} onValueChange={(val) => handleUpdateRole(u.id, val)} disabled={own}>
+                              <SelectTrigger className="w-36 h-8 text-xs rounded-full" aria-label={language === 'en' ? `Role of ${name}` : `Rolul lui ${name}`}>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="admin">{t("admin.permissions.role.admin")}</SelectItem>
+                                <SelectItem value="writer">{t("admin.permissions.role.writer")}</SelectItem>
+                                <SelectItem value="reader">{t("admin.permissions.role.reader")}</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </td>
+                          <td>
+                            <div className="flex justify-end items-center gap-1.5">
+                              <button
+                                type="button"
+                                className={cn("rs-btn rs-btn-ghost whitespace-nowrap", u.suspended ? "rs-btn-restore" : "rs-btn-danger")}
+                                style={{ minHeight: 32, padding: '0 12px', fontSize: 12 }}
+                                onClick={() => handleSuspend(u)}
+                                disabled={own}
+                              >
+                                {u.suspended ? (language === 'en' ? 'Restore' : 'Restabilește') : (language === 'en' ? 'Suspend' : 'Suspendă')}
+                                <span className="sr-only"> {name}</span>
+                              </button>
+                              <button
+                                type="button"
+                                className="rs-icon-act is-danger"
+                                onClick={() => requestDeleteUser(u.id)}
+                                disabled={own}
+                                aria-label={language === 'en' ? `Delete ${name}` : `Șterge ${name}`}
+                                title={t("admin.common.delete")}
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+              {allUsers.length === 0 && (
+                <p className={cn("m-0 text-center font-display italic", usersLoadError ? "text-destructive" : "")} style={{ padding: 36, fontSize: 20, color: usersLoadError ? undefined : 'var(--text-dim)' }}>
+                  {usersLoadError || t("admin.users.empty")}
+                </p>
+              )}
+            </div>
 
             <div className="flex justify-center sm:justify-end items-center gap-2">
               <Button
@@ -1343,7 +1024,7 @@ const AdminDashboard: React.FC = () => {
                 auto-close the dialog on click — we manage close + in-flight
                 state explicitly here. */}
             <Button
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              className={confirmDialog?.tone === "gold" ? undefined : "bg-destructive text-destructive-foreground hover:bg-destructive/90"}
               disabled={isConfirming}
               onClick={async () => {
                 const action = confirmDialog?.onConfirm;

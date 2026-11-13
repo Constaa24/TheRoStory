@@ -9,7 +9,7 @@ import { SITE_URL } from "@/lib/constants";
 import { LoadError } from "@/components/ui/load-error";
 import { localizedPath } from "@/lib/locale";
 import { countLabel } from "@/lib/article-utils";
-import { categoryDescription, categoryImageSources, getCategoryImage } from "@/lib/category-copy";
+import { shelfBlurb, categoryImageSources, getCategoryImage } from "@/lib/category-copy";
 import { toRoman } from "@/lib/story-facts";
 
 // "Eight shelves, one country." — the number spelled out, as a book would.
@@ -141,7 +141,7 @@ const Categories: React.FC = () => {
                     </span>
                     <h2 className="rs-display" style={{ marginTop: 20, fontSize: 32, lineHeight: 1.02, letterSpacing: 0 }}>{name}</h2>
                     <span className="block mt-2" style={{ fontSize: 15.5, lineHeight: 1.55, color: 'var(--text-dim)', textWrap: 'pretty' }}>
-                      {categoryDescription(category.slug || name.toLowerCase(), name, language)}
+                      {shelfBlurb(category, language)}
                     </span>
                     <span className="block mt-3" style={{ fontFamily: 'var(--ui)', fontSize: 12.5, fontWeight: 700, color: 'var(--gold)' }}>
                       {countLabel(count, 'story', language)} →

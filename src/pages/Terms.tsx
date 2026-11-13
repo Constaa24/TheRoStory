@@ -13,7 +13,7 @@ const Terms: React.FC = () => {
   // digital consent in Romania), the "Pictures and films" section (every
   // picture and film is AI-made, which the EU AI Act requires saying),
   // providers' fees on donations, and naming the operator.
-  const lastUpdated = "2026-11-02";
+  const lastUpdated = "2026-11-10";
 
   const content = {
     en: {
@@ -43,7 +43,7 @@ const Terms: React.FC = () => {
         },
         {
           heading: "Content moderation",
-          body: "We reserve the right to remove any content or close any account that violates these terms or that we judge to be harmful to the community, at our sole discretion. We'll try to be reasonable, but we don't promise advance notice.",
+          body: "We reserve the right to hide or remove any content, and to suspend or close any account, that violates these terms or that we judge to be harmful to the community, at our sole discretion. We'll try to be reasonable, but we don't promise advance notice.",
         },
         {
           heading: "Intellectual property",
@@ -107,7 +107,7 @@ const Terms: React.FC = () => {
         },
         {
           heading: "Moderarea conținutului",
-          body: "Ne rezervăm dreptul de a elimina orice conținut sau de a închide orice cont care încalcă acești termeni sau pe care îl considerăm dăunător comunității, la discreția noastră. Vom încerca să fim rezonabili, dar nu promitem notificare în avans.",
+          body: "Ne rezervăm dreptul de a ascunde sau elimina orice conținut și de a suspenda sau închide orice cont care încalcă acești termeni sau pe care îl considerăm dăunător comunității, la discreția noastră. Vom încerca să fim rezonabili, dar nu promitem notificare în avans.",
         },
         {
           heading: "Proprietate intelectuală",

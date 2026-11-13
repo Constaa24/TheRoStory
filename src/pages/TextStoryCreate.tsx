@@ -6,6 +6,7 @@ import { useLanguage } from "@/hooks/use-language";
 import { useAuth } from "@/hooks/use-auth";
 import { useUnsavedChangesWarning } from "@/hooks/use-unsaved-changes";
 import { UnsavedChangesDialog } from "@/components/ui/unsaved-changes-dialog";
+import { PublishingFields, usePublishGuard, publishAtToSave, scheduleProblem, toLocalInput, type CheckItem } from "@/components/organisms/PublishingFields";
 import { FormBlock, Field } from "@/components/ui/form-field";
 import { PageHead } from "@/components/layout/PageHead";
 import {
@@ -136,8 +137,15 @@ const TextStoryCreate: React.FC = () => {
   const placeDateSupportedRef = useRef(false);
   const [note, setNote] = useState<StoryNoteDraft>(EMPTY_NOTE);
   const noteSupportedRef = useRef(false);
+  // Publishing: a schedule (a datetime-local value, "" when there is none)
+  // and what the loaded story's state was.
+  const [publishAt, setPublishAt] = useState("");
+  const [hadSchedule, setHadSchedule] = useState(false);
+  const [wasPublished, setWasPublished] = useState(false);
 
-  const formSnapshot = JSON.stringify({ titleEn, titleRo, categoryId, location, mediaUrl, subtype, chaptersEn, chaptersRo, placeDate, note, moments });
+  // The status and the schedule count as changes too: leaving after
+  // choosing "Scheduled" and a time would otherwise lose them silently.
+  const formSnapshot = JSON.stringify({ titleEn, titleRo, categoryId, location, mediaUrl, subtype, chaptersEn, chaptersRo, placeDate, note, moments, published: publishImmediately, publishAt });
   const isDirty = initialSnapshotRef.current !== null && formSnapshot !== initialSnapshotRef.current;
 
   useUnsavedChangesWarning(isDirty && !isSaving);
@@ -146,6 +154,22 @@ const TextStoryCreate: React.FC = () => {
   // are unsaved changes, using the site's styled dialog. (beforeunload covers
   // tab close/refresh; this covers the editor's own exits.)
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
+
+  // What a finished story has.
+  const checklist: CheckItem[] = [
+    { label: language === 'en' ? 'A title in English' : 'Un titlu în engleză', done: !!titleEn.trim() },
+    { label: language === 'en' ? 'A title in Romanian' : 'Un titlu în română', done: !!titleRo.trim() },
+    { label: language === 'en' ? 'The text in both languages' : 'Textul în ambele limbi', done: chaptersEn.some((c) => c.trim() !== "") && chaptersRo.some((c) => c.trim() !== "") },
+    { label: language === 'en' ? 'A cover picture' : 'O imagine de copertă', done: !!mediaUrl },
+    { label: language === 'en' ? 'A place on the map' : 'Un loc pe hartă', done: !!location || !!placeDate.coords.trim() },
+  ];
+  const publishGuard = usePublishGuard({
+    language,
+    // Asked once, as the story first goes out; not on every later edit.
+    goingOut: isAdmin && !wasPublished && (publishImmediately || !!publishAt),
+    scheduled: !publishImmediately && !!publishAt,
+    checklist,
+  });
   const leaveToDashboard = () => {
     if (isDirty && !isSaving) {
       setShowLeaveConfirm(true);
@@ -186,6 +210,9 @@ const TextStoryCreate: React.FC = () => {
           setMediaStoragePath(article.mediaUrl ? extractStoragePath(article.mediaUrl, 'articles') : null);
           setSubtype((article.subtype as ArticleSubtype | null) || 'essay');
           setPublishImmediately(!!article.isPublished);
+          setPublishAt(article.isPublished ? "" : toLocalInput(article.publishAt));
+          setHadSchedule(!!article.publishAt);
+          setWasPublished(!!article.isPublished);
           const loadedPlaceDate = draftFromArticle(article);
           setPlaceDate(loadedPlaceDate.draft);
           placeDateSupportedRef.current = loadedPlaceDate.supported;
@@ -219,12 +246,14 @@ const TextStoryCreate: React.FC = () => {
             placeDate: loadedPlaceDate.draft,
             note: loadedNote,
             moments: loadedMoments,
+            published: !!article.isPublished,
+            publishAt: article.isPublished ? "" : toLocalInput(article.publishAt),
           });
         } else {
           initialSnapshotRef.current = JSON.stringify({
             titleEn: '', titleRo: '', categoryId: '', location: '', mediaUrl: '',
             subtype: 'essay', chaptersEn: [''], chaptersRo: [''], placeDate: EMPTY_PLACE_DATE, note: EMPTY_NOTE,
-            moments: [EMPTY_MOMENT],
+            moments: [EMPTY_MOMENT], published: false, publishAt: '',
           });
         }
       } catch (err) {
@@ -337,6 +366,11 @@ const TextStoryCreate: React.FC = () => {
   const errorFor = (field: string) => validationErrors.find(e => e.field === field);
 
   const handleSave = async () => {
+    const scheduleError = isAdmin ? scheduleProblem(publishImmediately, publishAt, language) : null;
+    if (scheduleError) {
+      toast.error(scheduleError);
+      return;
+    }
     if (!user) return;
     setShowErrors(true);
     if (validationErrors.length > 0) {
@@ -373,10 +407,13 @@ const TextStoryCreate: React.FC = () => {
       // regardless. Previously writer saves forced false, silently
       // unpublishing their published stories.
       if (isEditing && editingId) {
-        await updateArticle({ ...payload, id: editingId, isPublished: publishImmediately });
+        // Only an editor schedules; a writer's save leaves the schedule alone.
+        const at = isAdmin ? publishAtToSave(publishImmediately, publishAt, hadSchedule) : undefined;
+        await updateArticle({ ...payload, id: editingId, isPublished: publishImmediately, ...(at !== undefined ? { publishAt: at } : {}) });
         toast.success(language === "en" ? "Story updated!" : "Povestea a fost actualizată!");
       } else {
-        await createArticle({ ...payload, userId: user.id, isPublished: isAdmin && publishImmediately });
+        const at = isAdmin ? publishAtToSave(publishImmediately, publishAt, false) : undefined;
+        await createArticle({ ...payload, userId: user.id, isPublished: isAdmin && publishImmediately, ...(at !== undefined ? { publishAt: at } : {}) });
         toast.success(language === "en" ? "Story created!" : "Povestea a fost creată!");
       }
       savedRef.current = true;
@@ -422,6 +459,7 @@ const TextStoryCreate: React.FC = () => {
   return (
     <div className="screen-anim pb-32">
       {pageHead}
+      {publishGuard.dialog}
       <UnsavedChangesDialog
         open={showLeaveConfirm}
         onOpenChange={setShowLeaveConfirm}
@@ -631,30 +669,15 @@ const TextStoryCreate: React.FC = () => {
                 </Field>
               </FormBlock>
 
-              {isAdmin && (
-                <FormBlock title={language === 'en' ? 'Visibility' : 'Vizibilitate'}>
-                  <label className="flex items-start gap-3 cursor-pointer select-none" style={{ marginBottom: 0 }}>
-                    <input
-                      type="checkbox"
-                      checked={publishImmediately}
-                      onChange={(e) => setPublishImmediately(e.target.checked)}
-                      className="mt-1 w-4 h-4 accent-[color:var(--gold)]"
-                    />
-                    <span style={{ flex: 1, marginBottom: 0, textTransform: 'none', letterSpacing: 'normal' }}>
-                      <span className="font-display italic block" style={{ color: 'var(--parchment)', fontSize: 17 }}>
-                        {isEditing
-                          ? (language === 'en' ? 'Published' : 'Publicat')
-                          : (language === 'en' ? 'Publish immediately' : 'Publică imediat')}
-                      </span>
-                      <span className="font-ui text-[13px] mt-1 block" style={{ color: 'var(--text-mute)' }}>
-                        {isEditing
-                          ? (language === 'en' ? 'Toggle off to revert to draft.' : 'Dezactivează pentru a reveni la ciornă.')
-                          : (language === 'en' ? 'Otherwise saved as a draft only you can see.' : 'Altfel se salvează ca ciornă, vizibilă doar pentru tine.')}
-                      </span>
-                    </span>
-                  </label>
-                </FormBlock>
-              )}
+              <PublishingFields
+                language={language}
+                isAdmin={isAdmin}
+                published={publishImmediately}
+                onPublished={setPublishImmediately}
+                publishAt={publishAt}
+                onPublishAt={setPublishAt}
+                checklist={checklist}
+              />
             </div>
 
             {/* RIGHT — chapters */}
@@ -824,7 +847,7 @@ const TextStoryCreate: React.FC = () => {
             {language === 'en' ? 'Cancel' : 'Anulează'}
           </button>
           <button
-            onClick={handleSave}
+            onClick={() => publishGuard.guard(handleSave)}
             disabled={isSaving || isUploading}
             className="btn-ed"
             style={{ opacity: isSaving || isUploading ? 0.5 : 1 }}
@@ -839,7 +862,9 @@ const TextStoryCreate: React.FC = () => {
                 <Save className="w-3.5 h-3.5" />
                 {isEditing
                   ? (language === 'en' ? 'Save changes' : 'Salvează modificările')
-                  : (isAdmin && publishImmediately
+                  : (isAdmin && !publishImmediately && publishAt
+                      ? (language === 'en' ? 'Schedule story' : 'Programează povestea')
+                      : isAdmin && publishImmediately
                       ? (language === 'en' ? 'Publish story' : 'Publică povestea')
                       : (language === 'en' ? 'Save as draft' : 'Salvează ca ciornă'))}
               </>

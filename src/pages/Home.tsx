@@ -12,9 +12,8 @@ import { StoryCard } from "@/components/ui/story-card";
 import { SITE_NAME, SITE_URL } from "@/lib/constants";
 import { localizedPath } from "@/lib/locale";
 import { storageImage, storageSrcSet } from "@/lib/image-url";
-import { toneFor, articleExcerpt, articleCoverUrl, countLabel } from "@/lib/article-utils";
+import { toneFor, articleExcerpt, articleCoverUrl } from "@/lib/article-utils";
 import { kindWord, placeAndTime } from "@/lib/story-facts";
-import { countyCentre } from "@/lib/atlas/projection";
 import { Knot, Motif, Thread } from "@/components/story/Ornaments";
 
 const PAGE_SIZE = 9;
@@ -242,8 +241,8 @@ const Home: React.FC = () => {
     }, { replace: true });
   }, [isLoading, totalCount, currentPage, totalPages, setSearchParams]);
 
-  // The light index of every published story: the facts line under the
-  // title, the counts on the shelf chips and the ticker. null while loading;
+  // The light index of every published story: the counts on the shelf
+  // chips and the ticker. null while loading;
   // [] when it failed, which removes the ticker rather than leaving it empty.
   const [archiveIndex, setArchiveIndex] = useState<ArchiveEntry[] | null>(null);
   useEffect(() => {
@@ -270,10 +269,9 @@ const Home: React.FC = () => {
 
   const facts = useMemo(() => {
     if (!archiveIndex?.length) return null;
-    const counties = new Set(archiveIndex.map((a) => a.location).filter((l): l is string => !!l && !!countyCentre(l)));
     const byCategory = new Map<string, number>();
     archiveIndex.forEach((a) => byCategory.set(a.categoryId, (byCategory.get(a.categoryId) || 0) + 1));
-    return { total: archiveIndex.length, counties: counties.size, byCategory };
+    return { total: archiveIndex.length, byCategory };
   }, [archiveIndex]);
 
   const pageTitle = en ? 'Stories of Romania' : 'Povești din România';
@@ -349,16 +347,6 @@ const Home: React.FC = () => {
                 <button type="button" className="rs-btn rs-btn-ghost" onClick={handleRandomStory}>
                   {en ? 'A story at random' : 'O poveste la întâmplare'}
                 </button>
-              </div>
-              {/* The line holds its height until the counts arrive, so
-                  nothing below it moves. */}
-              <div className="flex items-center gap-3.5" style={{ minHeight: 20 }}>
-                <Thread style={{ width: 56, opacity: 0.45 }} />
-                <p className="m-0" style={{ fontFamily: 'var(--ui)', fontSize: 13, fontWeight: 500, color: 'var(--text-mute)' }}>
-                  {facts && (en
-                    ? `${countLabel(facts.total, 'story', 'en')}, from ${facts.counties} of Romania’s 42 counties`
-                    : `${countLabel(facts.total, 'story', 'ro')}, din ${facts.counties} dintre cele 42 de județe ale României`)}
-                </p>
               </div>
             </div>
           </div>

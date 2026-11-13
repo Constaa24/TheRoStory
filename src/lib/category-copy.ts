@@ -56,6 +56,22 @@ export const categoryDescription = (
     : `Povești din categoria ${name.toLowerCase()} — eseuri, eseuri vizuale și filme.`;
 };
 
+/**
+ * What a shelf says about itself: the description written for it at the
+ * desk in this language (migration 20261110120000), else the built-in line
+ * above. An English-only description is not shown to Romanian readers; they
+ * keep the built-in Romanian one.
+ */
+export const shelfBlurb = (
+  shelf: { slug?: string; nameEn: string; nameRo: string; descriptionEn?: string | null; descriptionRo?: string | null },
+  language: 'en' | 'ro'
+): string => {
+  const own = (language === 'ro' ? shelf.descriptionRo : shelf.descriptionEn)?.trim();
+  if (own) return own;
+  const name = language === 'ro' ? shelf.nameRo : shelf.nameEn;
+  return categoryDescription(shelf.slug || name.toLowerCase(), name, language);
+};
+
 // Extension-less base paths — each has a .avif, .webp and .jpg sibling, served
 // through <picture> on the Categories and category pages. They shipped as ~800 KB files named .png that were
 // actually JPEGs inside; the same AVIF/WebP treatment the hero images already

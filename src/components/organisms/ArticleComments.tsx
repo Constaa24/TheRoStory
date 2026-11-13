@@ -22,7 +22,8 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
-import { Send, Pencil, Trash2, Check, X } from "lucide-react";
+import { Send, Pencil, Trash2, Check, X, Flag } from "lucide-react";
+import { fetchMyFlags, flagNote } from "@/lib/desk";
 
 interface Props {
   articleId: string;
@@ -45,6 +46,8 @@ export const ArticleComments: React.FC<Props> = ({ articleId }) => {
   // One mis-tap on the trash icon used to delete permanently — route the
   // action through a confirmation dialog instead.
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  // Notes this reader has flagged for the editors (migration 20261110120000).
+  const [flaggedIds, setFlaggedIds] = useState<Set<string>>(new Set());
 
   const mountedRef = useRef(true);
   const currentArticleIdRef = useRef(articleId);
@@ -221,6 +224,29 @@ export const ArticleComments: React.FC<Props> = ({ articleId }) => {
     } finally {
       if (mountedRef.current) setIsPosting(false);
     }
+  };
+
+  // Which of the notes on show this reader has already flagged. Keyed on the
+  // ids so "load more" picks up the new page's.
+  const noteIds = comments.map((c) => c.id).join(",");
+  useEffect(() => {
+    if (!user?.id || !noteIds) { setFlaggedIds(new Set()); return; }
+    let cancelled = false;
+    fetchMyFlags(noteIds.split(",")).then((ids) => { if (!cancelled) setFlaggedIds(ids); });
+    return () => { cancelled = true; };
+  }, [user?.id, noteIds]);
+
+  // A reader asks the editors to look at a note. It stays where it is; the
+  // editors decide (the desk's Comments section).
+  const handleFlag = async (commentId: string) => {
+    if (!user || flaggedIds.has(commentId)) return;
+    const flagged = await flagNote(commentId);
+    if (!flagged) {
+      toast.error(language === "en" ? "The note could not be flagged. Try again." : "Nota nu a putut fi semnalată. Încearcă din nou.");
+      return;
+    }
+    setFlaggedIds((prev) => new Set(prev).add(commentId));
+    toast.success(language === "en" ? "Thank you. The editors will take a look." : "Mulțumim. Editorii vor arunca o privire.");
   };
 
   const handleDelete = async (commentId: string) => {
@@ -410,11 +436,38 @@ export const ArticleComments: React.FC<Props> = ({ articleId }) => {
                               </button>
                             </div>
                           )}
+                          {user && !isOwn && (
+                            flaggedIds.has(comment.id) ? (
+                              <span style={{ fontFamily: "var(--ui)", fontSize: 12, fontWeight: 600, color: "var(--text-mute)" }}>
+                                {en ? "Flagged" : "Semnalată"}
+                              </span>
+                            ) : (
+                              <div className="flex items-center md:opacity-0 md:group-hover:opacity-100 md:focus-within:opacity-100 transition-opacity">
+                                <button
+                                  type="button"
+                                  onClick={() => handleFlag(comment.id)}
+                                  aria-label={en ? `Flag ${displayName}'s note for the editors` : `Semnalează editorilor nota lui ${displayName}`}
+                                  title={en ? "Flag for the editors" : "Semnalează editorilor"}
+                                  className="p-1.5 rounded-full transition-colors hover:text-gold"
+                                  style={{ color: "var(--text-mute)" }}
+                                >
+                                  <Flag className="h-3.5 w-3.5" />
+                                </button>
+                              </div>
+                            )
+                          )}
                           <span style={{ fontFamily: "var(--ui)", fontSize: 12, fontWeight: 500, color: "var(--text-mute)" }}>
                             {formatArticleDate(comment.createdAt, language, "short")}
                           </span>
                         </div>
                       </div>
+                      {comment.hiddenAt && (
+                        <p className="m-0 mt-1.5" style={{ fontFamily: "var(--ui)", fontSize: 12, fontWeight: 600, color: "var(--danger)" }}>
+                          {isOwn
+                            ? (en ? "Hidden by the editors. Only you can see this note." : "Ascunsă de editori. Doar tu vezi această notă.")
+                            : (en ? "Hidden. Readers don't see this note." : "Ascunsă. Cititorii nu văd această notă.")}
+                        </p>
+                      )}
                       {isEditing ? (
                         <div className="mt-3 grid gap-2.5">
                           <textarea

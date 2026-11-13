@@ -3,6 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getCorsHeaders, isAllowedOrigin } from "../_shared/cors.ts";
 import { createRateLimiter, getClientIp } from "../_shared/rate-limit.ts";
 import { jsonResponse } from "../_shared/http.ts";
+import { addToNewsletterSegment } from "../_shared/resend-segment.ts";
 
 const json = (body: unknown, corsHeaders: Record<string, string>) =>
   // Always HTTP 200: supabase.functions.invoke() treats non-2xx as a thrown
@@ -115,6 +116,12 @@ Deno.serve(async (req) => {
     const synced = await syncContactToResend(RESEND_API_KEY, row.email);
     if (!synced) {
       return json({ ok: false, error: "server" }, corsHeaders);
+    }
+    // ...and into the newsletter segment, which is what a dispatch is sent
+    // to. Best effort: if it fails, the next dispatch adds them before it
+    // goes out (fillNewsletterSegment), so it never costs a confirmation.
+    if (!await addToNewsletterSegment(RESEND_API_KEY, row.email)) {
+      console.warn("newsletter-confirm: not yet in the newsletter segment; the next dispatch adds them");
     }
 
     const { error: updateError } = await admin

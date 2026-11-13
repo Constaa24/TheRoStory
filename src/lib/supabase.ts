@@ -69,7 +69,7 @@ export function toCamelCase<T>(obj: Record<string, unknown>): T {
   return result as T;
 }
 
-function toCamelCaseArray<T>(arr: Record<string, unknown>[]): T[] {
+export function toCamelCaseArray<T>(arr: Record<string, unknown>[]): T[] {
   return arr.map(item => toCamelCase<T>(item));
 }
 
@@ -81,6 +81,11 @@ export type Category = {
   nameRo: string;
   slug: string;
   createdAt: string;
+  // A shelf's description and its place in the site's order (migration
+  // 20261110120000).
+  descriptionEn?: string | null;
+  descriptionRo?: string | null;
+  sortOrder?: number;
 };
 
 export type MediaCaption = { en: string; ro: string };
@@ -140,6 +145,8 @@ export type Article = {
   subtitlesRoUrl?: string | null;
   filmChapters?: FilmChapter[] | null;
   moments?: StoryMoment[] | null;
+  /** A draft's scheduled publication time (migration 20261110120000). */
+  publishAt?: string | null;
   createdAt: string;
   updatedAt?: string;
 };
@@ -164,6 +171,8 @@ export type Comment = {
   userDisplayName?: string;
   content: string;
   createdAt: string;
+  /** Hidden by the editors: then only its writer and admins see it. */
+  hiddenAt?: string | null;
 };
 
 export type AdminUserSummary = {
@@ -174,6 +183,8 @@ export type AdminUserSummary = {
   role: 'admin' | 'writer' | 'reader';
   createdAt: string;
   emailVerified: boolean;
+  /** Suspended from the desk: can't sign in until restored. */
+  suspended: boolean;
 };
 
 export type AdminUsersPage = {
@@ -593,46 +604,6 @@ export const fetchRelatedArticles = async (
 };
 
 /**
- * Paginated admin/writer dashboard fetcher for articles. Skips the
- * public-content cache (admins always want fresh data) and accepts an
- * optional `ownerId` so writers fetch only their own rows server-side.
- *
- * Returns the requested page plus the exact total so the dashboard can show
- * Previous/Next controls and a result range — replacing the old all-at-once
- * `.limit(500)` fetch, which silently hid stories beyond the 500th.
- *
- * Categories are fetched separately via `fetchCategories()`; they don't
- * paginate and are reused by the category-management tab.
- */
-export const fetchAdminArticlesPage = async (
-  page: number,
-  pageSize: number,
-  ownerId?: string
-): Promise<{ articles: Article[]; total: number }> => {
-  const safePage = Number.isFinite(page) ? Math.max(1, Math.floor(page)) : 1;
-  const safeSize = Number.isFinite(pageSize) ? Math.min(100, Math.max(1, Math.floor(pageSize))) : 20;
-  const start = (safePage - 1) * safeSize;
-  const end = start + safeSize - 1;
-
-  // The dashboard table renders title / category / type / status only, and
-  // the delete path needs the media URLs for storage cleanup. It never shows
-  // an excerpt, so both full content columns were pure waste — 20 rows x 2
-  // languages x up to 50k chars per page load. The editors load the full row
-  // separately via fetchAnyArticle().
-  let query = supabase
-    .from('articles')
-    .select(ARTICLE_CARD_COLUMNS, { count: 'exact' })
-    .order('created_at', { ascending: false })
-    // See PAGINATION_TIEBREAKER note above fetchArticlesPage.
-    .order('id', { ascending: true });
-  if (ownerId) query = query.eq('user_id', ownerId);
-
-  const { data, error, count } = await query.range(start, end);
-  if (error) throw error;
-  return { articles: toCamelCaseArray<Article>(data || []), total: count ?? 0 };
-};
-
-/**
  * Unified article creation. All three story types funnel through here:
  * one INSERT shape, one validation pass, UUID-based IDs, and consistent
  * cache invalidation. Replaces three near-identical inserts spread across
@@ -667,6 +638,12 @@ export type NewArticleInput = {
   film?: { subtitlesEnUrl: string | null; subtitlesRoUrl: string | null; chapters: FilmChapter[] | null };
   /** A text story's dated moments. Omit to leave the column untouched. */
   moments?: StoryMoment[] | null;
+  /**
+   * When a draft should publish itself (ISO), or null for no schedule. Omit
+   * to leave the column untouched. Only an admin's value is kept: the
+   * database pins it for everyone else (migration 20261110120000).
+   */
+  publishAt?: string | null;
 };
 
 export type ArticlePlaceDate = {
@@ -894,6 +871,8 @@ export const createArticle = async (input: NewArticleInput): Promise<{ id: strin
     ...(input.note ? noteRow(input.note) : {}),
     ...(input.film ? filmRow(input.film) : {}),
     ...(input.moments !== undefined ? momentsRow(input.moments) : {}),
+    // A published story has no schedule left to keep.
+    ...(input.publishAt !== undefined ? { publish_at: input.isPublished ? null : input.publishAt } : {}),
   };
 
   const { error } = await supabase.from('articles').insert(row);
@@ -953,6 +932,8 @@ export const updateArticle = async (input: UpdateArticleInput): Promise<void> =>
     ...(input.note ? noteRow(input.note) : {}),
     ...(input.film ? filmRow(input.film) : {}),
     ...(input.moments !== undefined ? momentsRow(input.moments) : {}),
+    // A published story has no schedule left to keep.
+    ...(input.publishAt !== undefined ? { publish_at: input.isPublished ? null : input.publishAt } : {}),
   };
 
   const { error } = await supabase.from('articles').update(updates).eq('id', input.id);
@@ -969,10 +950,18 @@ export const fetchCategories = async (): Promise<Category[]> => {
     return _categoriesCache.data;
   }
 
-  const { data, error } = await supabase
+  // The order the desk sets (sort_order), then by name for any ties. A
+  // database that predates the column (migration 20261110120000) answers
+  // "undefined column"; then it is by name alone, as it always was, so the
+  // site reads the same before and after the migration runs.
+  let { data, error } = await supabase
     .from('categories')
     .select('*')
+    .order('sort_order', { ascending: true })
     .order('name_en', { ascending: true });
+  if (error && isMissingColumn(error)) {
+    ({ data, error } = await supabase.from('categories').select('*').order('name_en', { ascending: true }));
+  }
   if (error) throw error;
   const categories = toCamelCaseArray<Category>(data || []);
   _categoriesCache = { data: categories, time: Date.now() };
@@ -1463,26 +1452,32 @@ const isFunction401 = (error: unknown): boolean => {
   return response?.status === 401;
 };
 
-const invokeAdminApi = async <T = unknown>(body: Record<string, unknown>): Promise<T> => {
+/**
+ * Calls an admin edge function with the reader's session, refreshing the
+ * session once on a 401. Exported for the desk's newsletter function.
+ */
+export const invokeAdminFunction = async <T = unknown>(fn: string, body: Record<string, unknown>): Promise<T> => {
   let headers = await getAuthHeaders();
-  let result = await supabase.functions.invoke('admin-api', { body, headers });
+  let result = await supabase.functions.invoke(fn, { body, headers });
 
   if (result.error && isFunction401(result.error)) {
     const firstError = await getFunctionErrorDebug(result.error);
-    console.warn("admin-api returned 401, attempting session refresh and retry", firstError);
+    console.warn(`${fn} returned 401, attempting session refresh and retry`, firstError);
 
     headers = await getAuthHeaders({ refresh: true });
-    result = await supabase.functions.invoke('admin-api', { body, headers });
+    result = await supabase.functions.invoke(fn, { body, headers });
   }
 
   if (result.error) {
     const debug = await getFunctionErrorDebug(result.error);
-    console.error("admin-api call failed:", { body, ...debug, error: result.error });
+    console.error(`${fn} call failed:`, { body, ...debug, error: result.error });
     throw result.error;
   }
 
   return result.data as T;
 };
+
+const invokeAdminApi = <T = unknown>(body: Record<string, unknown>): Promise<T> => invokeAdminFunction<T>('admin-api', body);
 
 export const fetchAllUsers = async (page: number = 1, perPage: number = 25): Promise<AdminUsersPage> => {
   try {
@@ -1507,6 +1502,7 @@ export const fetchAllUsers = async (page: number = 1, perPage: number = 25): Pro
       role: (u.role ?? 'reader') as AdminUserSummary['role'],
       createdAt: u.createdAt ?? '',
       emailVerified: u.emailVerified ?? true,
+      suspended: u.suspended ?? false,
     }));
 
     return {
@@ -1646,6 +1642,17 @@ export const exportOwnData = async (): Promise<UserDataExport | null> => {
   } catch (error) {
     console.error("Error exporting user data:", error);
     return null;
+  }
+};
+
+/** Suspend a reader (no sign-in until restored) or restore them. Nothing they wrote is removed. */
+export const setUserSuspended = async (userId: string, suspended: boolean): Promise<boolean> => {
+  try {
+    const data = await invokeAdminApi<{ success?: boolean }>({ action: 'setUserSuspended', userId, suspended });
+    return !!data?.success;
+  } catch (error) {
+    console.error("Error suspending user:", error);
+    return false;
   }
 };
 

@@ -465,3 +465,11 @@ enabled = true
 # inside the function (RESEND_WEBHOOK_SECRET).
 verify_jwt = false
 entrypoint = "./functions/newsletter-webhook/index.ts"
+
+[functions.newsletter-dispatch]
+enabled = true
+# The desk's Newsletter section: sends a test to the signed-in admin, or the
+# dispatch to the newsletter segment. Admin JWT required, and the function
+# re-checks the admin role itself.
+verify_jwt = true
+entrypoint = "./functions/newsletter-dispatch/index.ts"

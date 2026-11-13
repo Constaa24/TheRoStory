@@ -18,6 +18,7 @@
     "lint:css": "stylelint \"src/**/*.css\"",
     "lint": "npm run lint:types && npm run lint:js && npm run lint:css",
     "lint:edge": "deno check --config supabase/functions/deno.check.json supabase/functions/**/*.ts",
+    "test:edge": "deno test --config supabase/functions/deno.check.json --allow-env=NEWSLETTER_SEGMENT_ID supabase/functions",
     "icons": "node scripts/generate-icons.mjs",
     "atlas:geo": "node scripts/generate-atlas-geo.mjs",
     "fonts": "node scripts/fetch-fonts.mjs"
