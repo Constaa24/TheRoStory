@@ -128,7 +128,7 @@ export const ChapterPill: React.FC<{
           className="sb-btn-word"
           style={{ fontSize: 17, padding: 0 }}
           aria-expanded={open}
-          aria-controls="sb-chapter-menu"
+          aria-controls={open ? "sb-chapter-menu" : undefined}
           onClick={() => setOpen((o) => !o)}
         >
           {en ? "Chapters" : "Capitole"} {open ? "▴" : "▾"}

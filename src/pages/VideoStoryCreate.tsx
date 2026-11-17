@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Category } from "@/lib/supabase";
-import { fetchCategories, uploadUserFile, uploadSubtitleFile, createArticle, updateArticle, deleteStorageFile, fetchAnyArticle, extractStoragePath, previewArticle, type Article } from "@/lib/supabase";
+import { fetchCategories, uploadUserFile, uploadSubtitleFile, createArticle, updateArticle, deleteStorageFile, fetchAnyArticle, extractStoragePath, previewArticle, publicationDate, isArchiveMediaUrl, foreignMediaMessage, type Article } from "@/lib/supabase";
 import { ARTICLE_LIMITS, MAX_VIDEO_BYTES, asMb } from "@/lib/supabase";
 import { useLanguage } from "@/hooks/use-language";
 import { useAuth } from "@/hooks/use-auth";
@@ -202,7 +202,7 @@ const VideoStoryCreate: React.FC = () => {
           setHadSchedule(!!article.publishAt);
           setWasPublished(!!article.isPublished);
           setLoadedUpdatedAt(article.updatedAt ?? article.createdAt ?? null);
-          setLoadedCreatedAt(article.createdAt ?? null);
+          setLoadedCreatedAt(publicationDate(article));
           const loadedPlaceDate = draftFromArticle(article);
           setPlaceDate(loadedPlaceDate.draft);
           placeDateSupportedRef.current = loadedPlaceDate.supported;
@@ -451,7 +451,11 @@ const VideoStoryCreate: React.FC = () => {
       return;
     }
     if (!titleEn || !titleRo || !categoryId || !videoUrl || !user) {
-      toast.error(language === 'en' ? "Please fill all required fields and upload a video" : "Vă rugăm să completați toate câmpurile obligatorii și să încărcați un video");
+      toast.error(language === 'en' ? "Please fill all required fields and upload a video" : "Completează toate câmpurile obligatorii și încarcă un film");
+      return;
+    }
+    if (!isArchiveMediaUrl(posterUrl) || !isArchiveMediaUrl(videoUrl)) {
+      toast.error(foreignMediaMessage(language));
       return;
     }
     if (placeErrors.length) {
@@ -771,7 +775,10 @@ const VideoStoryCreate: React.FC = () => {
                   </div>
                 )}
 
-                <Field label={language === 'en' ? 'Poster URL' : 'URL Poster'}>
+                <Field
+                  label={language === 'en' ? 'Or the link of an uploaded poster' : 'Sau linkul unui poster încărcat'}
+                  error={isArchiveMediaUrl(posterUrl) ? undefined : foreignMediaMessage(language)}
+                >
                   <div className="flex gap-2">
                     <input
                       type="url"

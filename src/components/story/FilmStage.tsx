@@ -319,6 +319,11 @@ export const FilmStage: React.FC<{ article: Article; language: Lang; onDuration?
                 poster={storageImage(article.posterUrl, posterSurface)}
                 className="absolute inset-0 w-full h-full object-cover"
                 style={{ cursor: controlsVisible ? 'pointer' : 'none' }}
+                // Only the length and first frame until the reader presses
+                // play: films are served straight from storage (never through
+                // the service worker) and every byte is billed, but the
+                // runtime beside the title needs the metadata.
+                preload="metadata"
                 playsInline
                 onClick={togglePlay}
               >

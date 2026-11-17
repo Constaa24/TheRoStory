@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Category, MediaCaption } from "@/lib/supabase";
-import { fetchCategories, uploadUserFile, createArticle, updateArticle, deleteStorageFile, fetchAnyArticle, extractStoragePath, ARTICLE_LIMITS, previewArticle, type Article } from "@/lib/supabase";
+import { fetchCategories, uploadUserFile, createArticle, updateArticle, deleteStorageFile, fetchAnyArticle, extractStoragePath, ARTICLE_LIMITS, previewArticle, publicationDate, isArchiveMediaUrl, foreignMediaMessage, type Article } from "@/lib/supabase";
 
 type GalleryItem = { id: string; url: string; storagePath: string | null };
 import { useLanguage } from "@/hooks/use-language";
@@ -187,7 +187,7 @@ const CarouselStoryCreate: React.FC = () => {
           setHadSchedule(!!article.publishAt);
           setWasPublished(!!article.isPublished);
           setLoadedUpdatedAt(article.updatedAt ?? article.createdAt ?? null);
-          setLoadedCreatedAt(article.createdAt ?? null);
+          setLoadedCreatedAt(publicationDate(article));
           setPosterUrl(article.posterUrl || '');
           setPosterStoragePath(article.posterUrl ? extractStoragePath(article.posterUrl, 'articles') : null);
           const urls = article.mediaUrls || (article.mediaUrl ? [article.mediaUrl] : []);
@@ -431,7 +431,11 @@ const CarouselStoryCreate: React.FC = () => {
       return;
     }
     if (!titleEn || !titleRo || !categoryId || items.length === 0 || !user) {
-      toast.error(language === 'en' ? "Please fill all required fields and upload at least one image" : "Vă rugăm să completați toate câmpurile obligatorii și să încărcați cel puțin o imagine");
+      toast.error(language === 'en' ? "Please fill all required fields and upload at least one image" : "Completează toate câmpurile obligatorii și încarcă cel puțin o imagine");
+      return;
+    }
+    if (!isArchiveMediaUrl(posterUrl) || items.some((i) => !isArchiveMediaUrl(i.url))) {
+      toast.error(foreignMediaMessage(language));
       return;
     }
     if (placeErrors.length) {
@@ -662,7 +666,10 @@ const CarouselStoryCreate: React.FC = () => {
                   </div>
                 )}
 
-                <Field label={language === 'en' ? 'Poster URL' : 'URL Poster'}>
+                <Field
+                  label={language === 'en' ? 'Or the link of an uploaded poster' : 'Sau linkul unui poster încărcat'}
+                  error={isArchiveMediaUrl(posterUrl) ? undefined : foreignMediaMessage(language)}
+                >
                   <div className="flex gap-2">
                     <input
                       type="url"

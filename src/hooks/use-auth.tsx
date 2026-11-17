@@ -2,8 +2,23 @@ import React, { createContext, useContext, useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import type { AuthResponse, AuthTokenResponsePassword, OAuthResponse, User, UserResponse } from "@supabase/supabase-js";
 import { isAbortError } from "@/lib/utils";
-import { detectLanguage, localizedPath } from "@/lib/locale";
+import { detectLanguage, localizedPath, stripLanguage } from "@/lib/locale";
 import { clearStoryDrafts } from "@/lib/story-draft";
+import { rememberReturnPath } from "@/lib/return-path";
+
+/**
+ * Keeps the page the reader is on as the place to return to after signing
+ * in (see lib/return-path). Read from window.location because this provider
+ * sits above the Router; the /ro prefix comes off, since the Router adds it
+ * back. On the sign-in pages themselves there is nothing to keep, and an
+ * earlier page already kept stays as it is.
+ */
+const rememberHere = () => {
+  const { pathname, search, hash } = window.location;
+  const path = stripLanguage(pathname);
+  if (/^\/(?:auth|reset-password)(?:\/|$)/.test(path)) return;
+  rememberReturnPath(path + search + hash);
+};
 
 // Extended user type that includes our custom profile fields
 interface ExtendedUser extends User {
@@ -314,6 +329,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // a Romanian reader sent to a bare "/auth" would land in English and,
     // worse, come back from the auth flow on the English side of the site.
     const language = detectLanguage(window.location.pathname);
+    rememberHere();
     window.location.href = localizedPath(language, "/auth");
   };
 
@@ -366,6 +382,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     supabase.auth.signInWithPassword({ email, password });
 
   const signInWithGoogle = () => {
+    // From the account menu on any page, Google brings the reader back to
+    // /auth/callback; that page then returns them here.
+    rememberHere();
     return supabase.auth.signInWithOAuth({
       provider: 'google',
       options: { redirectTo: callbackUrl() }

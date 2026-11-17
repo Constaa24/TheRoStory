@@ -55,7 +55,12 @@ Deno.serve(async (req) => {
       return jsonResponse(429, { ok: false, error: "Too many requests. Please try again later." }, corsHeaders, { "Retry-After": "600" });
     }
 
-    const { name, email, message, website, subject } = await req.json();
+    // A body that isn't JSON is the caller's mistake: 400, not "Server error".
+    const parsed = await req.json().catch(() => null);
+    if (!parsed || typeof parsed !== "object") {
+      return jsonResponse(400, { ok: false, error: "Invalid request" }, corsHeaders);
+    }
+    const { name, email, message, website, subject } = parsed as Record<string, unknown>;
 
     // Honeypot field for basic bot filtering
     if (String(website || "").trim()) {

@@ -70,7 +70,7 @@ export const FavoritesProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     e.preventDefault();
     e.stopPropagation();
     if (!userId) {
-      toast.error(language === 'en' ? "Please log in to favorite articles" : "Vă rugăm să vă autentificați pentru a salva articolele favorite");
+      toast.error(language === 'en' ? "Sign in to keep stories on your shelf" : "Intră în cont ca să păstrezi poveștile pe raftul tău");
       login();
       return;
     }
@@ -82,14 +82,14 @@ export const FavoritesProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       const added = await toggleFavorite(articleId);
       if (added) {
         setUserFavorites(prev => [...prev, articleId]);
-        toast.success(language === 'en' ? "Added to favorites" : "Adăugat la favorite");
+        toast.success(language === 'en' ? "Saved to your shelf" : "Păstrată pe raftul tău");
       } else {
         setUserFavorites(prev => prev.filter(fav => fav !== articleId));
-        toast.success(language === 'en' ? "Removed from favorites" : "Eliminat de la favorite");
+        toast.success(language === 'en' ? "Taken off your shelf" : "Scoasă de pe raftul tău");
       }
       return added;
     } catch {
-      toast.error(language === 'en' ? "Failed to update favorites" : "Eroare la actualizarea favoritelor");
+      toast.error(language === 'en' ? "Your shelf could not be updated. Try again." : "Raftul tău nu a putut fi actualizat. Încearcă din nou.");
       return null;
     } finally {
       togglingRef.current.delete(articleId);

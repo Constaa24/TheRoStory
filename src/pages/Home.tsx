@@ -2,13 +2,13 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Category, Article, ArchiveEntry, getLocalized, fetchCategories, fetchArticlesPage, fetchRandomArticle, fetchArchiveIndex, supabase } from "@/lib/supabase";
 import { useLanguage } from "@/hooks/use-language";
 import { useFavorites } from "@/hooks/use-favorites";
-import { useCooldown } from "@/hooks/use-cooldown";
 import { ArrowRight } from "lucide-react";
 import { isAbortError, toJsonLd } from "@/lib/utils";
 import { toast } from "sonner";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { PageHead } from "@/components/layout/PageHead";
 import { StoryCard } from "@/components/ui/story-card";
+import { LoadError } from "@/components/ui/load-error";
 import { SITE_NAME, SITE_URL } from "@/lib/constants";
 import { localizedPath } from "@/lib/locale";
 import { storageImage, storageSrcSet } from "@/lib/image-url";
@@ -33,13 +33,12 @@ const NewsletterForm: React.FC<{ language: 'en' | 'ro' }> = ({ language }) => {
   const [website, setWebsite] = useState(""); // honeypot — humans never see it
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [sent, setSent] = useState(false);
-  const { remaining: cooldown, start: setCooldown } = useCooldown();
   const en = language === 'en';
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const trimmed = email.trim();
-    if (!trimmed || isSubmitting || cooldown > 0) return;
+    if (!trimmed || isSubmitting) return;
     setIsSubmitting(true);
     try {
       const { data, error } = await supabase.functions.invoke('newsletter-subscribe', {
@@ -47,13 +46,21 @@ const NewsletterForm: React.FC<{ language: 'en' | 'ro' }> = ({ language }) => {
       });
       if (error || !data?.ok) throw error ?? new Error('Subscribe failed');
       setEmail("");
-      setCooldown(30);
+      // The form gives way to the next step (below), so there is nothing
+      // left to send twice.
       setSent(true);
     } catch (err) {
       if (!isAbortError(err)) console.error('Newsletter subscribe failed:', err);
-      toast.error(en
-        ? 'Could not subscribe right now. Please try again later.'
-        : 'Abonarea nu a funcționat. Te rugăm să încerci mai târziu.');
+      // Say what the reader can do about it: the function answers 400 for an
+      // address it won't take and 429 for too many tries from one place.
+      const status = (err as { context?: { status?: number } } | null)?.context?.status;
+      toast.error(
+        status === 400
+          ? (en ? 'That email address doesn’t look right. Check it and try again.' : 'Adresa de email nu pare corectă. Verific-o și încearcă din nou.')
+          : status === 429
+            ? (en ? 'Too many tries for now. Please wait a few minutes.' : 'Prea multe încercări deocamdată. Așteaptă câteva minute.')
+            : (en ? 'Could not subscribe right now. Please try again later.' : 'Abonarea nu a funcționat. Încearcă din nou mai târziu.')
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -95,12 +102,10 @@ const NewsletterForm: React.FC<{ language: 'en' | 'ro' }> = ({ language }) => {
           className="sb-input"
           style={{ flex: '1 1 240px', width: 'auto', minHeight: 50, background: 'var(--ink-2)' }}
         />
-        <button type="submit" className="rs-btn" disabled={isSubmitting || cooldown > 0} style={{ minHeight: 50 }}>
+        <button type="submit" className="rs-btn" disabled={isSubmitting} style={{ minHeight: 50 }}>
           {isSubmitting
             ? (en ? 'Sending…' : 'Se trimite…')
-            : cooldown > 0
-              ? (en ? `Wait ${cooldown}s` : `Așteaptă ${cooldown}s`)
-              : (en ? 'Send me the letters' : 'Trimite-mi scrisorile')}
+            : (en ? 'Send me the letters' : 'Trimite-mi scrisorile')}
         </button>
       </div>
       <p className="m-0" style={{ fontFamily: 'var(--ui)', fontSize: 12.5, fontWeight: 500, lineHeight: 1.5, color: 'var(--text-mute)' }}>
@@ -144,6 +149,14 @@ const Home: React.FC = () => {
   }, [setSearchParams]);
   const [totalCount, setTotalCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
+  // Failures, each with its own retry: the lead and "Just added", and the
+  // archive grid. A failed load used to look like an empty archive (or, on a
+  // shelf, "No stories found in this category"), and the lead's placeholder
+  // pulsed for good.
+  const [frontFailed, setFrontFailed] = useState(false);
+  const [frontAttempt, setFrontAttempt] = useState(0);
+  const [gridFailed, setGridFailed] = useState(false);
+  const [gridAttempt, setGridAttempt] = useState(0);
 
   // "All" pages through the archive after the five already on the front
   // page; a shelf pages through everything on it.
@@ -195,18 +208,23 @@ const Home: React.FC = () => {
   // The newest five, whole (the lead shows its opening lines).
   useEffect(() => {
     let cancelled = false;
+    setFront(null);
+    setFrontFailed(false);
     fetchArticlesPage(1, FRONT_COUNT, null)
       .then(({ articles }) => { if (!cancelled) setFront(articles); })
       .catch((error) => {
-        if (!isAbortError(error)) console.error('Error fetching the newest stories:', error);
-        if (!cancelled) setFront([]);
+        if (isAbortError(error) || cancelled) return;
+        console.error('Error fetching the newest stories:', error);
+        setFront([]);
+        setFrontFailed(true);
       });
     return () => { cancelled = true; };
-  }, []);
+  }, [frontAttempt]);
 
   useEffect(() => {
     let cancelled = false;
     setIsLoading(true);
+    setGridFailed(false);
     fetchArticlesPage(currentPage, PAGE_SIZE, selectedCategory, skip)
       .then(({ articles, total }) => {
         if (cancelled) return;
@@ -223,10 +241,12 @@ const Home: React.FC = () => {
           return;
         }
         console.error('Error fetching articles:', error);
+        setArticles([]);
+        setGridFailed(true);
       })
       .finally(() => { if (!cancelled) setIsLoading(false); });
     return () => { cancelled = true; };
-  }, [currentPage, selectedCategory, skip, setSearchParams]);
+  }, [currentPage, selectedCategory, skip, setSearchParams, gridAttempt]);
 
   // A page past the end (an old ?page= link, or an archive that has since
   // shrunk) showed an empty archive with no pager to get back. Land on the
@@ -340,10 +360,10 @@ const Home: React.FC = () => {
                   : 'O arhivă vie de istorii, tradiții și povești vizuale — adunate sat cu sat, secol cu secol, prin țara pe care o numim acasă.'}
               </p>
               <div className="flex flex-wrap gap-2.5">
-                <button type="button" className="rs-btn" onClick={() => navigate('/map')}>
+                <Link to="/map" className="rs-btn">
                   {en ? 'Open the map' : 'Deschide harta'}
                   <ArrowRight className="w-[15px] h-[15px]" strokeWidth={2} aria-hidden="true" />
-                </button>
+                </Link>
                 <button type="button" className="rs-btn rs-btn-ghost" onClick={handleRandomStory}>
                   {en ? 'A story at random' : 'O poveste la întâmplare'}
                 </button>
@@ -394,9 +414,17 @@ const Home: React.FC = () => {
                   </span>
                 </Link>
               </article>
-            ) : (
+            ) : frontFailed ? (
+              <LoadError
+                message={en ? 'The newest stories could not be loaded right now.' : 'Cele mai noi povești nu au putut fi încărcate acum.'}
+                onRetry={() => setFrontAttempt((n) => n + 1)}
+              />
+            ) : front === null ? (
               // Holds the lead's place while it loads.
               <div aria-hidden="true" className="animate-pulse" style={{ aspectRatio: '5 / 4', borderRadius: '50% 50% 24px 24px / 18% 18% 24px 24px', background: 'var(--paper)' }} />
+            ) : (
+              // Nothing published yet: no lead to hold a place for.
+              <div aria-hidden="true" />
             )}
 
             <aside aria-labelledby="just-added">
@@ -501,9 +529,9 @@ const Home: React.FC = () => {
                 <p className="rs-eyebrow" style={{ marginBottom: 12 }}>{en ? 'The archive' : 'Arhiva'}</p>
                 <h2 className="rs-display" style={{ fontSize: 'clamp(40px, 4.6vw, 68px)', lineHeight: 1 }}>{en ? 'From the field.' : 'Din teren.'}</h2>
               </div>
-              <button type="button" className="rs-btn rs-btn-ghost" style={{ minHeight: 46 }} onClick={() => navigate('/categories')}>
+              <Link to="/categories" className="rs-btn rs-btn-ghost" style={{ minHeight: 46 }}>
                 {en ? 'All shelves →' : 'Toate rafturile →'}
-              </button>
+              </Link>
             </div>
 
             {/* The shelves as chips, each with how many stories it holds —
@@ -524,6 +552,8 @@ const Home: React.FC = () => {
                   <div key={i} className="rs-card-frame animate-pulse" />
                 ))}
               </div>
+            ) : gridFailed ? (
+              <LoadError onRetry={() => setGridAttempt((n) => n + 1)} />
             ) : articles.length > 0 ? (
               <>
                 <div className="grid gap-x-11 gap-y-14 grid-cols-[repeat(auto-fill,minmax(min(100%,300px),1fr))]">

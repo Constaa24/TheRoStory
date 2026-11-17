@@ -42,6 +42,8 @@ const userStoragePrefixes = (userId: string): { bucket: string; prefix: string }
   { bucket: 'articles', prefix: `carousels/${userId}` },
   { bucket: 'articles', prefix: `stories/videos/${userId}` },
   { bucket: 'articles', prefix: `stories/posters/${userId}` },
+  // A film's subtitles (uploadSubtitleFile in src/lib/supabase.ts).
+  { bucket: 'articles', prefix: `stories/subtitles/${userId}` },
 ]
 
 // Best-effort recursive cleanup of all files a user owns. Errors are
@@ -167,11 +169,43 @@ Deno.serve(async (req) => {
       return jsonResponse(401, { error: 'Invalid or expired token' }, corsHeaders)
     }
 
-    const body = await req.json()
+    // A body that isn't JSON is the caller's mistake, not ours: 400, not 500.
+    // Each action checks the type of every field it reads (str() below).
+    let body: Record<string, unknown>
+    try {
+      const parsed: unknown = await req.json()
+      body = parsed && typeof parsed === 'object' ? parsed as Record<string, unknown> : {}
+    } catch {
+      return jsonResponse(400, { error: 'Invalid JSON body' }, corsHeaders)
+    }
     const action = body.action
+    /** A non-empty string field of the body, or null. */
+    const str = (key: string): string | null => {
+      const value = body[key]
+      return typeof value === 'string' && value.trim() ? value : null
+    }
 
     // Self-service actions (any authenticated user)
     if (action === 'deleteOwnAccount') {
+      // Never an admin. Every story belongs to the account that wrote it and
+      // goes with it (articles.user_id cascades), and an admin's account is
+      // the archive's: deleting it would take every story they published
+      // and leave the site with no one able to run it. An admin who really
+      // means to leave hands the role on first, and is then a writer or a
+      // reader like anyone else.
+      const { data: ownRole, error: ownRoleError } = await adminClient
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', user.id)
+        .maybeSingle()
+      if (ownRoleError) {
+        console.error('deleteOwnAccount role lookup failed', ownRoleError.message)
+        return jsonResponse(500, { error: 'Failed to delete account' }, corsHeaders)
+      }
+      if (ownRole?.role === 'admin') {
+        return jsonResponse(403, { error: 'Admins cannot delete their own account' }, corsHeaders)
+      }
+
       // Storage cleanup before the auth row delete: storage objects don't
       // cascade with auth.users, so without this they orphan forever.
       // The articles/comments rows themselves cascade via the FK
@@ -310,7 +344,8 @@ Deno.serve(async (req) => {
     }
 
     if (action === 'updateUserRole') {
-      const { userId, role } = body
+      const userId = str('userId')
+      const role = str('role')
       if (!userId || !role) {
         return jsonResponse(400, { error: 'Missing userId or role' }, corsHeaders)
       }
@@ -339,7 +374,8 @@ Deno.serve(async (req) => {
     // nothing they wrote is removed. "876000h" is about a hundred years —
     // the API has no "indefinitely".
     if (action === 'setUserSuspended') {
-      const { userId, suspended } = body
+      const userId = str('userId')
+      const suspended = body.suspended
       if (!userId || typeof suspended !== 'boolean') {
         return jsonResponse(400, { error: 'Missing userId or suspended' }, corsHeaders)
       }
@@ -354,7 +390,7 @@ Deno.serve(async (req) => {
     }
 
     if (action === 'deleteUser') {
-      const { id } = body
+      const id = str('id')
       if (!id) {
         return jsonResponse(400, { error: 'Missing user id' }, corsHeaders)
       }

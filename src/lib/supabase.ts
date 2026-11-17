@@ -10,6 +10,54 @@ if (!supabaseUrl || !supabaseAnonKey) {
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
+/**
+ * Every row a query matches, a page at a time.
+ *
+ * PostgREST caps a response at the project's `max-rows` (1,000) whatever
+ * `.limit()` asks for, and cuts it short without an error, so anything that
+ * can grow past that (the desk's daily reads, view counts, notes) has to
+ * page. `page(from, to)` builds the query for one window: it must apply
+ * `.range(from, to)` to a total order, ending in a unique column, so
+ * consecutive windows neither overlap nor skip a row.
+ */
+export const fetchAllRows = async <T>(
+  page: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: unknown }>,
+  { pageSize = 1000, maxPages = 100 }: { pageSize?: number; maxPages?: number } = {}
+): Promise<T[]> => {
+  const rows: T[] = [];
+  for (let i = 0; i < maxPages; i++) {
+    const from = i * pageSize;
+    const { data, error } = await page(from, from + pageSize - 1);
+    if (error) throw error;
+    const batch = data || [];
+    rows.push(...batch);
+    if (batch.length < pageSize) break;
+  }
+  return rows;
+};
+
+/**
+ * Where every picture, film and subtitle file lives: this project's public
+ * storage. The site's Content-Security-Policy (vercel.json) loads media from
+ * Supabase only, so a story pointing anywhere else saves without complaint
+ * and then shows a broken picture to every reader.
+ */
+const STORAGE_PUBLIC_PREFIX = supabaseUrl ? `${supabaseUrl.replace(/\/+$/, '')}/storage/v1/object/public/` : '';
+
+/** Whether a media URL is a file in the archive's own storage (empty counts as fine: no media). */
+export const isArchiveMediaUrl = (url: string | null | undefined): boolean => {
+  const u = (url || '').trim();
+  if (!u) return true;
+  // Without a configured project (unit tests) only the scheme can be checked.
+  return STORAGE_PUBLIC_PREFIX ? u.startsWith(STORAGE_PUBLIC_PREFIX) : /^https:\/\//i.test(u);
+};
+
+/** What the editors say beside a pasted link that isn't one of the archive's files. */
+export const foreignMediaMessage = (language: 'en' | 'ro'): string =>
+  language === 'en'
+    ? 'Only files uploaded to the archive can be shown on the site. Upload the file instead of pasting a link to it.'
+    : 'Pe site pot apărea doar fișierele încărcate în arhivă. Încarcă fișierul în loc să lipești un link către el.';
+
 // ---- Column name mapping utilities ----
 
 const COLUMN_MAP: Record<string, string> = {
@@ -51,6 +99,8 @@ const COLUMN_MAP: Record<string, string> = {
   // keeps its snake_case name, and the camelCase field reads undefined.
   publishAt: 'publish_at',
   hiddenAt: 'hidden_at',
+  // Migration 20261117120000.
+  firstPublishedAt: 'first_published_at',
   descriptionEn: 'description_en',
   descriptionRo: 'description_ro',
 };
@@ -153,9 +203,27 @@ export type Article = {
   moments?: StoryMoment[] | null;
   /** A draft's scheduled publication time (migration 20261110120000). */
   publishAt?: string | null;
+  /**
+   * When the story first went public (migration 20261117120000); null for a
+   * story never published. Its first publication also sets createdAt, the
+   * date readers see.
+   */
+  firstPublishedAt?: string | null;
   createdAt: string;
   updatedAt?: string;
 };
+
+/**
+ * The date readers see on a story that has already been published, or null
+ * for one that hasn't: the database dates a story the moment it first goes
+ * public (or its scheduled time), not when its draft was begun. A row read
+ * before migration 20261117120000 has no firstPublishedAt; then a published
+ * story counts as dated.
+ */
+export const publicationDate = (a: Pick<Article, 'createdAt' | 'isPublished' | 'firstPublishedAt'>): string | null =>
+  a.firstPublishedAt !== undefined
+    ? (a.firstPublishedAt ? a.createdAt : null)
+    : (a.isPublished ? a.createdAt : null);
 
 /** A curated walk through stories, shown on the Atlas. */
 export type Journey = {
@@ -816,7 +884,12 @@ const assertLen = (value: string, max: number, field: string) => {
   }
 };
 
-export const createArticle = async (input: NewArticleInput): Promise<{ id: string }> => {
+/**
+ * The checks every save runs, new story or edit, so the two can't drift
+ * apart: what's required, the length caps, and that every media file is one
+ * of the archive's own (see isArchiveMediaUrl).
+ */
+const validateArticleInput = (input: Omit<NewArticleInput, 'userId'>): void => {
   const titleEn = input.titleEn.trim();
   const titleRo = input.titleRo.trim();
   const location = input.location?.trim() || null;
@@ -824,7 +897,6 @@ export const createArticle = async (input: NewArticleInput): Promise<{ id: strin
   if (!titleEn) throw new Error('Title (English) is required');
   if (!titleRo) throw new Error('Title (Romanian) is required');
   if (!input.categoryId) throw new Error('Category is required');
-  if (!input.userId) throw new Error('Not authenticated');
 
   assertLen(titleEn, ARTICLE_LIMITS.TITLE_MAX, 'Title (English)');
   assertLen(titleRo, ARTICLE_LIMITS.TITLE_MAX, 'Title (Romanian)');
@@ -846,6 +918,24 @@ export const createArticle = async (input: NewArticleInput): Promise<{ id: strin
       if (cap?.ro) assertLen(cap.ro, ARTICLE_LIMITS.MEDIA_CAPTION_MAX, `Caption #${i + 1} (Romanian)`);
     });
   }
+
+  const media: [string | null | undefined, string][] = [
+    [input.mediaUrl, 'The cover or film'],
+    [input.posterUrl, 'The poster'],
+    ...(input.mediaUrls ?? []).map((url, i): [string, string] => [url, `Gallery image #${i + 1}`]),
+    [input.film?.subtitlesEnUrl, 'Subtitles (English)'],
+    [input.film?.subtitlesRoUrl, 'Subtitles (Romanian)'],
+  ];
+  for (const [url, field] of media) {
+    if (!isArchiveMediaUrl(url)) {
+      throw new Error(`${field} is a link to another site. Only files uploaded to the archive can be shown: upload it instead.`);
+    }
+  }
+};
+
+export const createArticle = async (input: NewArticleInput): Promise<{ id: string }> => {
+  if (!input.userId) throw new Error('Not authenticated');
+  validateArticleInput(input);
 
   const id = `art_${crypto.randomUUID()}`;
 
@@ -900,43 +990,16 @@ export const previewArticle = (input: NewArticleInput, at: { id: string; created
 export type UpdateArticleInput = Omit<NewArticleInput, 'userId'> & { id: string };
 
 export const updateArticle = async (input: UpdateArticleInput): Promise<void> => {
-  const titleEn = input.titleEn.trim();
-  const titleRo = input.titleRo.trim();
-  const location = input.location?.trim() || null;
-
   if (!input.id) throw new Error('Article id is required');
-  if (!titleEn) throw new Error('Title (English) is required');
-  if (!titleRo) throw new Error('Title (Romanian) is required');
-  if (!input.categoryId) throw new Error('Category is required');
-
-  assertLen(titleEn, ARTICLE_LIMITS.TITLE_MAX, 'Title (English)');
-  assertLen(titleRo, ARTICLE_LIMITS.TITLE_MAX, 'Title (Romanian)');
-  assertLen(input.contentEn, ARTICLE_LIMITS.CONTENT_MAX, 'Content (English)');
-  assertLen(input.contentRo, ARTICLE_LIMITS.CONTENT_MAX, 'Content (Romanian)');
-  if (location) assertLen(location, ARTICLE_LIMITS.LOCATION_MAX, 'Location');
-  if (input.mediaUrl) assertLen(input.mediaUrl, ARTICLE_LIMITS.MEDIA_URL_MAX, 'Media URL');
-  if (input.posterUrl) assertLen(input.posterUrl, ARTICLE_LIMITS.MEDIA_URL_MAX, 'Poster URL');
-
-  if (input.mediaUrls) {
-    if (input.mediaUrls.length > ARTICLE_LIMITS.MEDIA_URLS_MAX) {
-      throw new Error(`Too many gallery images (max ${ARTICLE_LIMITS.MEDIA_URLS_MAX})`);
-    }
-    input.mediaUrls.forEach((url, i) => assertLen(url, ARTICLE_LIMITS.MEDIA_URL_MAX, `Gallery image #${i + 1}`));
-  }
-  if (input.mediaCaptions) {
-    input.mediaCaptions.forEach((cap, i) => {
-      if (cap?.en) assertLen(cap.en, ARTICLE_LIMITS.MEDIA_CAPTION_MAX, `Caption #${i + 1} (English)`);
-      if (cap?.ro) assertLen(cap.ro, ARTICLE_LIMITS.MEDIA_CAPTION_MAX, `Caption #${i + 1} (Romanian)`);
-    });
-  }
+  validateArticleInput(input);
 
   const updates: Record<string, unknown> = {
-    title_en: titleEn,
-    title_ro: titleRo,
+    title_en: input.titleEn.trim(),
+    title_ro: input.titleRo.trim(),
     content_en: input.contentEn,
     content_ro: input.contentRo,
     category_id: input.categoryId,
-    location,
+    location: input.location?.trim() || null,
     media_url: input.mediaUrl ?? null,
     poster_url: input.posterUrl ?? null,
     media_urls: input.mediaUrls ?? null,
@@ -1020,16 +1083,19 @@ export const searchArticles = async (query: string, limit = 6): Promise<Article[
     p_limit: limit,
   });
   if (error) throw error;
-  const results = toCamelCaseArray<Article>(data || []);
-  return withPlaceAndDate(results);
+  const rows = (data || []) as Record<string, unknown>[];
+  const results = toCamelCaseArray<Article>(rows);
+  // search_articles returns place and date itself since migration
+  // 20261117120000; before that, a second request adds them.
+  return rows.length && !('lat' in rows[0]) ? withPlaceAndDate(results) : results;
 };
 
 /**
  * Adds each story's place and date (the Atlas columns) to rows that were
- * selected without them. search_articles returns a fixed column set from
- * before the Atlas, and the search results lead with "place · when" like
- * every other story card. One small query for at most a handful of ids; on
- * any failure the rows come back as they were, county and all.
+ * selected without them: search_articles' results before migration
+ * 20261117120000, which lead with "place · when" like every other story
+ * card. One small query for at most a handful of ids; on any failure the
+ * rows come back as they were, county and all.
  */
 const withPlaceAndDate = async (rows: Article[]): Promise<Article[]> => {
   if (!rows.length) return rows;
@@ -1300,7 +1366,14 @@ export const fetchCommentsThroughPage = async (
   }
 };
 
-export const postComment = async (comment: Omit<Comment, 'id' | 'createdAt' | 'userDisplayName'>) => {
+/**
+ * Posts a reader's note: "ok", "rate-limited" (the database allows five a
+ * minute: the insert policy's private.comment_count_last_minute check, which
+ * refuses with an RLS violation), or "failed".
+ */
+export const postComment = async (
+  comment: Omit<Comment, 'id' | 'createdAt' | 'userDisplayName'>
+): Promise<'ok' | 'rate-limited' | 'failed'> => {
   // user_display_name is set server-side by the set_comment_display_name
   // BEFORE INSERT trigger (migrations 20260507/20260508). Sending one from
   // the client used to look meaningful but was always discarded — strip it
@@ -1310,10 +1383,15 @@ export const postComment = async (comment: Omit<Comment, 'id' | 'createdAt' | 'u
       id: `cmt_${crypto.randomUUID()}`,
       ...comment
     }));
-    return !error;
+    if (!error) return 'ok';
+    // A signed-in reader posting as themselves fails the insert policy only
+    // on its rate limit.
+    if (error.code === '42501') return 'rate-limited';
+    console.error("Error posting comment to Supabase:", error);
+    return 'failed';
   } catch (error) {
     console.error("Error posting comment to Supabase:", error);
-    return false;
+    return 'failed';
   }
 };
 
@@ -1863,13 +1941,6 @@ export type UploadUserFileResult = {
 };
 
 /**
- * Validates a user-supplied file against an extension allowlist and MIME
- * prefix, then uploads it to a UUID-named path under the user's folder.
- *
- * Throws Error on validation failure or upload failure. Callers should
- * surface a localized message to the user.
- */
-/**
  * Uploads a film's subtitles: WebVTT text already checked and converted by
  * prepareSubtitleFile (lib/subtitles). Same folder scheme as the film itself,
  * stories/<kind>/<user id>/<random id>, which the storage policies for the
@@ -1892,6 +1963,13 @@ export const uploadSubtitleFile = async (vtt: string, userId: string): Promise<U
   return { publicUrl: data.publicUrl, storagePath: path };
 };
 
+/**
+ * Validates a user-supplied file against an extension allowlist and MIME
+ * prefix, then uploads it to a UUID-named path under the user's folder.
+ *
+ * Throws Error on validation failure or upload failure. Callers should
+ * surface a localized message to the user.
+ */
 export const uploadUserFile = async (
   file: File,
   opts: UploadUserFileOptions

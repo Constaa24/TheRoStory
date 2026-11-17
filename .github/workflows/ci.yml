@@ -76,30 +76,28 @@ jobs:
       # diff, so running them after the code checks means a genuine breakage
       # always surfaces first instead of being masked by a fresh advisory.
       #
-      # README ("Dependency advisories") states the standard this enforces:
-      # zero vulnerabilities in BOTH trees. Nothing checked it until now, so
-      # "keep it that way" relied on someone remembering to run it by hand.
-      #
       # Split into two steps so a red build names which tree is affected
       # without opening the log: the first ships to readers, the second does
       # not. --audit-level=low is npm's own default, stated explicitly so a
       # future change to that default cannot quietly loosen the gate.
 
-      # Blocking: these packages are in the bundle users download.
+      # Blocking, with no exceptions: these packages are in the bundle users
+      # download.
       - name: Audit production dependencies
         run: npm audit --omit=dev --audit-level=low
 
-      # Also blocking, per the README. Build tooling never reaches a browser,
-      # so if this proves noisy the honest fix is `continue-on-error: true`
-      # here — which keeps the finding visible while unblocking merges — not
-      # deleting the step.
+      # Also blocking. Fails on any advisory except the few named in
+      # scripts/audit.mjs, each a build-tool advisory with no patched release
+      # and a stated reason it can't reach a reader (README, "Dependency
+      # advisories"). A plain `npm audit` here was red for good the day
+      # picomatch published an advisory it had no fix for.
       - name: Audit full dependency tree (including dev)
-        run: npm audit --audit-level=low
+        run: npm run audit:all
 
   # Separate job: different toolchain, and a jsr.io/esm.sh hiccup should name
   # itself rather than fail the job that checks the app.
   #
-  # These six functions hold the newsletter double opt-in, the Svix signature
+  # These seven functions hold the newsletter double opt-in, the Svix signature
   # check and every service-role code path in the project, and nothing in CI
   # had ever type-checked them — `npm run lint` cannot, because tsc can't
   # resolve their jsr:/https: specifiers (see README, "Available Scripts").
@@ -127,3 +125,57 @@ jobs:
       # The functions' own unit tests (Resend is faked; no network, no secrets).
       - name: Deno test
         run: npm run test:edge
+
+  # The browser suite (e2e/): accessibility (axe), keyboard paths, the
+  # Atlas, story features and the editors' unsaved copy, on a desktop and a
+  # phone, against a real production build served by `vite preview`.
+  #
+  # It reads the live archive, so it needs the site's public Supabase URL and
+  # publishable key as repository secrets (Settings → Secrets and variables →
+  # Actions): VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY. Both are already
+  # public in every page the site serves; they are secrets here only to keep
+  # them out of the workflow file. Every write the tests make is intercepted
+  # in the browser, and a view counted from CI's origin is refused by
+  # increment-view, so the run changes nothing in production. Until the
+  # secrets exist the job says so and passes, rather than failing every push.
+  e2e:
+    name: Browser tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+      VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+
+    steps:
+      - name: Skip without the Supabase secrets
+        if: ${{ env.VITE_SUPABASE_URL == '' }}
+        run: echo "::notice::Browser tests skipped — add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY as repository secrets to run them."
+
+      - uses: actions/checkout@v5
+        if: ${{ env.VITE_SUPABASE_URL != '' }}
+
+      - uses: actions/setup-node@v5
+        if: ${{ env.VITE_SUPABASE_URL != '' }}
+        with:
+          node-version: '26'
+          cache: npm
+
+      - name: Install dependencies
+        if: ${{ env.VITE_SUPABASE_URL != '' }}
+        run: npm ci
+
+      - name: Install Chromium
+        if: ${{ env.VITE_SUPABASE_URL != '' }}
+        run: npx playwright install --with-deps chromium
+
+      - name: Playwright
+        if: ${{ env.VITE_SUPABASE_URL != '' }}
+        run: npm run test:e2e
+
+      - name: Keep the report of a failed run
+        if: ${{ failure() && env.VITE_SUPABASE_URL != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-results
+          path: e2e/.results
+          retention-days: 7

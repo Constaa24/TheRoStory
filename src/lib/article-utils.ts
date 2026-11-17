@@ -157,9 +157,6 @@ export const readMinutes = (article: Article, language: 'en' | 'ro'): number => 
   return Math.max(1, Math.ceil(words / WORDS_PER_MINUTE));
 };
 
-export const placeLabel = (article: Pick<Article, 'location'>): string =>
-  (article.location || '').toUpperCase();
-
 /**
  * A story's text as one plain line for a card, cut at a word.
  *

@@ -15,7 +15,7 @@ The RoStory was born from a desire to correct misconceptions and limited percept
 - **Animation:** Framer Motion
 - **Backend:** Supabase (PostgreSQL, Auth, Storage)
 - **Email:** Resend
-- **Maps:** d3-geo + TopoJSON (custom SVG map of Romania's 42 counties)
+- **Maps:** a custom SVG map of Romania's 42 counties, drawn from geometry precomputed at build time (d3-geo + TopoJSON in `scripts/generate-atlas-geo.mjs`; only the paths ship)
 - **Deployment:** Vercel
 
 ## Features
@@ -101,6 +101,7 @@ npm run lint         # Run all linting (TypeScript, ESLint, Stylelint)
 npm run lint:types   # TypeScript typecheck (src + middleware.ts/api)
 npm run lint:js      # ESLint only
 npm run lint:css     # Stylelint only
+npm run audit:all    # npm audit over the whole tree, accepted advisories named (see below)
 npm run lint:edge    # Type-check the Deno edge functions (requires Deno)
 npm run test:edge    # Unit tests of the edge functions' shared code (requires Deno)
 npm run icons        # Regenerate the app icons from public/logo.png
@@ -139,7 +140,7 @@ path in `config.toml` — cannot pick it up.
 **Never edit anything in `public/` by hand.** Every icon is generated:
 
 ```bash
-npm run icons        # regenerates all nine from brand/logo-master.png
+npm run icons        # regenerates all eleven from brand/logo-master.png
 ```
 
 `brand/logo-master.png` (512x512, full lockup — illustration *and* the
@@ -204,7 +205,7 @@ roughly 0.68 starts clipping corners on a circular mask.
 
 ## Edge function secrets
 
-The six Supabase edge functions read their configuration from Supabase's own
+The seven Supabase edge functions read their configuration from Supabase's own
 secret store, not from `.env`. Three are injected automatically on every
 project (`SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`);
 the five below must be set by hand, and nothing in the build or the deploy
@@ -214,10 +215,11 @@ than left to be rediscovered.
 
 | Secret | Used by | What breaks without it |
 |---|---|---|
-| `RESEND_API_KEY` | contact-email, newsletter-subscribe, newsletter-confirm, admin-api | All outbound mail; account deletion stops removing the Resend contact |
-| `CONTACT_FROM_EMAIL` | contact-email, newsletter-subscribe | Contact form and newsletter opt-in mail |
+| `RESEND_API_KEY` | contact-email, newsletter-subscribe, newsletter-confirm, newsletter-dispatch, admin-api | All outbound mail; account deletion stops removing the Resend contact |
+| `CONTACT_FROM_EMAIL` | contact-email, newsletter-subscribe, newsletter-dispatch | Contact form, and the newsletter's sender when `NEWSLETTER_FROM_EMAIL` is unset |
 | `CONTACT_TO_EMAIL` | contact-email | Where the contact form delivers |
-| `NEWSLETTER_FROM_EMAIL` | newsletter-subscribe | Newsletter double opt-in mail |
+| `NEWSLETTER_FROM_EMAIL` | newsletter-subscribe, newsletter-dispatch | Newsletter double opt-in mail and the dispatch |
+| `NEWSLETTER_SEGMENT_ID` | newsletter-confirm, newsletter-dispatch | Optional: pins the Resend segment a dispatch goes to. Without it, the account's only segment, or the one named for the newsletter |
 | `RESEND_WEBHOOK_SECRET` | newsletter-webhook | Svix signature check — every webhook is rejected, so unsubscribes stop syncing back |
 
 Set them against the linked project:
@@ -237,8 +239,32 @@ provider, not here.
 
 ## Dependency advisories
 
-`npm audit` currently reports **0 vulnerabilities**, for both `--omit=dev`
-and the full tree. Keep it that way; a non-empty audit here is news.
+`npm audit --omit=dev` reports **0 vulnerabilities**: nothing a reader
+downloads has a known advisory. Keep it that way; CI fails on any.
+
+The full tree, build tools included, is checked by `npm run audit:all`
+(`scripts/audit.mjs`). It fails on every advisory except those in its
+`ACCEPTED` list, each with the reason it can't reach a reader and a date to
+look at it again. `npm audit` itself has no way to acknowledge an advisory,
+so without the list CI is either red for good or loosened for everything.
+
+| Advisory | Package | Why it is accepted | Review by |
+|---|---|---|---|
+| GHSA-fc5q-39xc-vjpf (ReDoS) | `picomatch` ≤ 4.0.7, no patched release | Reached only by build tools (Tailwind's content scanner, Vite, Vitest, Workbox, Stylelint) matching the project's own globs: never input from a visitor, never in the bundle | 2027-01-31 |
+
+It reached the production tree only because `tailwindcss-animate`, a
+Tailwind plugin, was listed under `dependencies`; it is a devDependency now.
+
+## Browser tests in CI
+
+The `e2e` job in `.github/workflows/ci.yml` runs the Playwright suite
+(accessibility with axe, keyboard paths, the Atlas, story features, the
+editors' unsaved copy) on a desktop and a phone. It reads the live archive,
+so it needs two repository secrets (Settings → Secrets and variables →
+Actions): `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`, the same public
+values as `.env`. Until they exist the job says so and passes. The suite
+writes nothing: every write is intercepted in the browser, and a view
+counted from CI's origin is refused by `increment-view`.
 
 ### Build tooling — `overrides` in package.json (November 2026)
 

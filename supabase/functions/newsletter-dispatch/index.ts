@@ -32,17 +32,25 @@ const escapeHtml = (s: string) =>
 type Story = {
   id: string; title_en: string | null; title_ro: string | null; type: string | null;
   media_url: string | null; poster_url: string | null; media_urls: string[] | null;
-  place_name_en: string | null; location: string | null;
+  place_name_en: string | null; place_name_ro: string | null; location: string | null;
 };
+
+/** The thumbnail's box in the letter, in CSS pixels. */
+const THUMB_W = 72;
+const THUMB_H = 86;
 
 const coverOf = (s: Story): string | null => {
   const raw = s.type === "video" ? s.poster_url
     : s.type === "carousel" ? (s.poster_url || s.media_urls?.[0] || s.media_url)
     : (s.media_url || s.poster_url);
   if (!raw) return null;
-  // A small JPEG/PNG from Supabase's resizer: email clients don't all read WebP.
+  // A small JPEG/PNG from Supabase's resizer (email clients don't all read
+  // WebP), cropped by the server to the thumbnail's own shape at twice its
+  // size. Outlook and Gmail ignore CSS object-fit, so an image of any other
+  // shape came out squashed into the 72x86 box.
   return raw.includes("/storage/v1/object/public/")
-    ? raw.replace("/storage/v1/object/public/", "/storage/v1/render/image/public/") + "?width=240&resize=contain&quality=72"
+    ? raw.replace("/storage/v1/object/public/", "/storage/v1/render/image/public/") +
+      `?width=${THUMB_W * 2}&height=${THUMB_H * 2}&resize=cover&quality=72`
     : raw;
 };
 
@@ -52,16 +60,23 @@ const letterHtml = (subject: string, body: string, stories: Story[], unsubscribe
     `<p style="margin:0 0 16px;font-family:Georgia,'Times New Roman',serif;font-size:17px;line-height:1.65;color:#2a241b;">${escapeHtml(p.trim()).replace(/\n/g, "<br>")}</p>`
   ).join("");
   const storyRows = stories.map((s) => {
-    const url = `${SITE_URL}/article/${encodeURIComponent(s.id)}`;
+    // The letter goes to readers of both languages, so each title links to
+    // the story in its own language: the English one to the English page,
+    // the Romanian one (under it) to /ro.
+    const enUrl = `${SITE_URL}/article/${encodeURIComponent(s.id)}`;
+    const roUrl = `${SITE_URL}/ro/article/${encodeURIComponent(s.id)}`;
     const cover = coverOf(s);
-    const where = s.place_name_en || s.location || "";
+    const placeEn = s.place_name_en || s.location || "";
+    const placeRo = s.place_name_ro || s.location || "";
+    const where = placeEn && placeRo && placeEn !== placeRo ? `${placeEn} · ${placeRo}` : placeEn || placeRo;
+    const leadUrl = s.title_en ? enUrl : roUrl;
     return `<tr><td style="padding-top:14px;padding-bottom:14px;border-top:1px solid #e6dcc8;">
       <table cellpadding="0" cellspacing="0" border="0" width="100%"><tr>
-        ${cover ? `<td width="72" valign="top" style="padding-right:16px;"><a href="${url}"><img src="${escapeHtml(cover)}" width="72" height="86" alt="" border="0" style="display:block;width:72px;height:86px;border-radius:36px 36px 6px 6px;object-fit:cover;"></a></td>` : ""}
+        ${cover ? `<td width="${THUMB_W}" valign="top" style="padding-right:16px;"><a href="${leadUrl}"><img src="${escapeHtml(cover)}" width="${THUMB_W}" height="${THUMB_H}" alt="" border="0" style="display:block;width:${THUMB_W}px;height:${THUMB_H}px;border-radius:36px 36px 6px 6px;"></a></td>` : ""}
         <td valign="top">
           ${where ? `<p style="margin:0 0 4px;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:1.4;color:#8a6d3b;font-weight:bold;">${escapeHtml(where)}</p>` : ""}
-          <a href="${url}" style="font-family:Georgia,'Times New Roman',serif;font-size:20px;line-height:1.25;color:#1a1611;text-decoration:none;">${escapeHtml(s.title_en || s.title_ro || "")}</a>
-          ${s.title_ro && s.title_ro !== s.title_en ? `<p style="margin:4px 0 0;font-family:Georgia,'Times New Roman',serif;font-style:italic;font-size:15px;line-height:1.4;color:#6b5f4c;">${escapeHtml(s.title_ro)}</p>` : ""}
+          <a href="${leadUrl}" style="font-family:Georgia,'Times New Roman',serif;font-size:20px;line-height:1.25;color:#1a1611;text-decoration:none;">${escapeHtml(s.title_en || s.title_ro || "")}</a>
+          ${s.title_en && s.title_ro && s.title_ro !== s.title_en ? `<p style="margin:4px 0 0;font-family:Georgia,'Times New Roman',serif;font-style:italic;font-size:15px;line-height:1.4;"><a href="${roUrl}" lang="ro" style="color:#6b5f4c;text-decoration:none;">${escapeHtml(s.title_ro)}</a></p>` : ""}
         </td>
       </tr></table>
     </td></tr>`;
@@ -94,7 +109,12 @@ const letterHtml = (subject: string, body: string, stories: Story[], unsubscribe
 const letterText = (subject: string, body: string, stories: Story[], unsubscribe: string) =>
   [
     "THE ROSTORY — THE DISPATCH", "", subject, "", body.trim(), "",
-    ...stories.map((s) => `- ${s.title_en || s.title_ro}: ${SITE_URL}/article/${s.id}`),
+    ...stories.flatMap((s) => [
+      `- ${s.title_en || s.title_ro}: ${SITE_URL}/article/${encodeURIComponent(s.id)}`,
+      ...(s.title_en && s.title_ro && s.title_ro !== s.title_en
+        ? [`  ${s.title_ro}: ${SITE_URL}/ro/article/${encodeURIComponent(s.id)}`]
+        : []),
+    ]),
     "", `Unsubscribe / Dezabonează-te: ${unsubscribe}`,
   ].join("\n");
 
@@ -144,7 +164,7 @@ Deno.serve(async (req) => {
     if (storyIds.length) {
       const { data, error } = await admin
         .from("articles")
-        .select("id, title_en, title_ro, type, media_url, poster_url, media_urls, place_name_en, location")
+        .select("id, title_en, title_ro, type, media_url, poster_url, media_urls, place_name_en, place_name_ro, location")
         .in("id", storyIds)
         .eq("is_published", true);
       if (error) throw error;
@@ -175,74 +195,100 @@ Deno.serve(async (req) => {
     }
 
     // action === "send"
-    const { data: recent } = await admin
+    //
+    // The guard against a second send claims first and looks second: this
+    // send's row goes in, then any other within the window means someone
+    // else is sending (or has just sent), and this one stands down. Looking
+    // first and recording after the send let two clicks a moment apart both
+    // find nothing and both go out. Two claims at the same instant each see
+    // the other and both stand down, the safe way to lose that race.
+    const { data: claim, error: claimError } = await admin
       .from("newsletter_dispatches")
-      .select("sent_at")
-      .gt("sent_at", new Date(Date.now() - RESEND_GUARD_MS).toISOString())
-      .limit(1);
-    if (recent && recent.length) {
-      return jsonResponse(409, { error: "A dispatch went out in the last ten minutes. Wait before sending another." }, corsHeaders);
+      .insert({ subject, body: letter, story_ids: stories.map((s) => s.id), recipients: 0, sent_by: user.id })
+      .select("id")
+      .single();
+    if (claimError || !claim) throw claimError ?? new Error("could not record the dispatch");
+
+    let sentOut = false;
+    try {
+      const { count: others, error: othersError } = await admin
+        .from("newsletter_dispatches")
+        .select("id", { count: "exact", head: true })
+        .gt("sent_at", new Date(Date.now() - RESEND_GUARD_MS).toISOString())
+        .neq("id", claim.id);
+      if (othersError) throw othersError;
+      if (others) return jsonResponse(409, { error: "A dispatch went out in the last ten minutes. Wait before sending another." }, corsHeaders);
+
+      const segmentId = await newsletterSegmentId(RESEND_API_KEY);
+      if (!segmentId) return jsonResponse(500, { error: "The newsletter list could not be found in Resend." }, corsHeaders);
+
+      // Everyone confirmed, a page at a time (the API returns at most 1,000 rows).
+      const confirmed: string[] = [];
+      for (let from = 0; ; from += 1000) {
+        const { data, error } = await admin
+          .from("newsletter_subscribers")
+          .select("email")
+          .eq("status", "confirmed")
+          .order("email")
+          .range(from, from + 999);
+        if (error) throw error;
+        confirmed.push(...(data as { email: string }[]).map((r) => r.email));
+        if (!data || data.length < 1000) break;
+      }
+      if (!confirmed.length) return jsonResponse(400, { error: "There are no confirmed subscribers yet." }, corsHeaders);
+
+      // The broadcast reaches only the segment, so first make sure every
+      // confirmed subscriber is in it (see _shared/resend-segment.ts).
+      const filled = await fillNewsletterSegment(RESEND_API_KEY, segmentId, confirmed);
+      if (!filled) return jsonResponse(502, { error: "The newsletter list could not be checked. Nothing was sent; try again in a minute." }, corsHeaders);
+      if (filled.added) console.log(`newsletter-dispatch: added ${filled.added} confirmed subscriber(s) to the segment`);
+      const recipients = confirmed.length - filled.missing;
+      if (!recipients) return jsonResponse(502, { error: "None of the confirmed subscribers could be put on the newsletter list. Nothing was sent." }, corsHeaders);
+
+      const unsubscribe = "{{{RESEND_UNSUBSCRIBE_URL}}}";
+      const headers = { Authorization: `Bearer ${RESEND_API_KEY}`, "Content-Type": "application/json" };
+      const created = await fetch("https://api.resend.com/broadcasts", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          segment_id: segmentId,
+          from: FROM,
+          subject,
+          name: `Dispatch · ${subject}`.slice(0, 120),
+          html: letterHtml(subject, letter, stories, unsubscribe),
+          text: letterText(subject, letter, stories, unsubscribe),
+        }),
+      });
+      if (!created.ok) {
+        console.error("newsletter-dispatch create failed", created.status, await created.text().catch(() => ""));
+        return jsonResponse(502, { error: "The dispatch could not be prepared." }, corsHeaders);
+      }
+      const { id: broadcastId } = await created.json() as { id: string };
+      const sent = await fetch(`https://api.resend.com/broadcasts/${encodeURIComponent(broadcastId)}/send`, { method: "POST", headers, body: "{}" });
+      if (!sent.ok) {
+        console.error("newsletter-dispatch send failed", sent.status, await sent.text().catch(() => ""));
+        return jsonResponse(502, { error: "The dispatch was prepared but not sent. It is waiting in Resend as a draft." }, corsHeaders);
+      }
+      sentOut = true;
+
+      // The claim becomes the record of what went out.
+      const { error: logError } = await admin
+        .from("newsletter_dispatches")
+        .update({ recipients, resend_broadcast_id: broadcastId, sent_at: new Date().toISOString() })
+        .eq("id", claim.id);
+      if (logError) console.error("newsletter-dispatch: sent, but the record was not completed", logError.message);
+
+      // `missing`: confirmed here but not reachable on Resend's side (no
+      // contact there, say). The desk says so rather than counting them in.
+      return jsonResponse(200, { ok: true, recipients, missing: filled.missing }, corsHeaders);
+    } finally {
+      // Nothing went out: the claim goes, so it neither blocks the next
+      // attempt nor shows on the desk as a letter that was sent.
+      if (!sentOut) {
+        const { error } = await admin.from("newsletter_dispatches").delete().eq("id", claim.id);
+        if (error) console.error("newsletter-dispatch: could not release the claim", error.message);
+      }
     }
-
-    const segmentId = await newsletterSegmentId(RESEND_API_KEY);
-    if (!segmentId) return jsonResponse(500, { error: "The newsletter list could not be found in Resend." }, corsHeaders);
-
-    // Everyone confirmed, a page at a time (the API returns at most 1,000 rows).
-    const confirmed: string[] = [];
-    for (let from = 0; ; from += 1000) {
-      const { data, error } = await admin
-        .from("newsletter_subscribers")
-        .select("email")
-        .eq("status", "confirmed")
-        .order("email")
-        .range(from, from + 999);
-      if (error) throw error;
-      confirmed.push(...(data as { email: string }[]).map((r) => r.email));
-      if (!data || data.length < 1000) break;
-    }
-    if (!confirmed.length) return jsonResponse(400, { error: "There are no confirmed subscribers yet." }, corsHeaders);
-
-    // The broadcast reaches only the segment, so first make sure every
-    // confirmed subscriber is in it (see _shared/resend-segment.ts).
-    const filled = await fillNewsletterSegment(RESEND_API_KEY, segmentId, confirmed);
-    if (!filled) return jsonResponse(502, { error: "The newsletter list could not be checked. Nothing was sent; try again in a minute." }, corsHeaders);
-    if (filled.added) console.log(`newsletter-dispatch: added ${filled.added} confirmed subscriber(s) to the segment`);
-    const recipients = confirmed.length - filled.missing;
-    if (!recipients) return jsonResponse(502, { error: "None of the confirmed subscribers could be put on the newsletter list. Nothing was sent." }, corsHeaders);
-
-    const unsubscribe = "{{{RESEND_UNSUBSCRIBE_URL}}}";
-    const headers = { Authorization: `Bearer ${RESEND_API_KEY}`, "Content-Type": "application/json" };
-    const created = await fetch("https://api.resend.com/broadcasts", {
-      method: "POST",
-      headers,
-      body: JSON.stringify({
-        segment_id: segmentId,
-        from: FROM,
-        subject,
-        name: `Dispatch · ${subject}`.slice(0, 120),
-        html: letterHtml(subject, letter, stories, unsubscribe),
-        text: letterText(subject, letter, stories, unsubscribe),
-      }),
-    });
-    if (!created.ok) {
-      console.error("newsletter-dispatch create failed", created.status, await created.text().catch(() => ""));
-      return jsonResponse(502, { error: "The dispatch could not be prepared." }, corsHeaders);
-    }
-    const { id: broadcastId } = await created.json() as { id: string };
-    const sent = await fetch(`https://api.resend.com/broadcasts/${encodeURIComponent(broadcastId)}/send`, { method: "POST", headers, body: "{}" });
-    if (!sent.ok) {
-      console.error("newsletter-dispatch send failed", sent.status, await sent.text().catch(() => ""));
-      return jsonResponse(502, { error: "The dispatch was prepared but not sent. It is waiting in Resend as a draft." }, corsHeaders);
-    }
-
-    const { error: logError } = await admin.from("newsletter_dispatches").insert({
-      subject, body: letter, story_ids: stories.map((s) => s.id), recipients, resend_broadcast_id: broadcastId, sent_by: user.id,
-    });
-    if (logError) console.error("newsletter-dispatch: sent, but not recorded", logError.message);
-
-    // `missing`: confirmed here but not reachable on Resend's side (no
-    // contact there, say). The desk says so rather than counting them in.
-    return jsonResponse(200, { ok: true, recipients, missing: filled.missing }, corsHeaders);
   } catch (error) {
     console.error("newsletter-dispatch error:", error instanceof Error ? error.message : String(error));
     return jsonResponse(500, { error: "Something went wrong." }, corsHeaders);

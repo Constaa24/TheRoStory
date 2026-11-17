@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Category, CHAPTER_DELIMITER, ARTICLE_LIMITS, parseChapters, ArticleSubtype, MAX_IMAGE_BYTES, asMb, MOMENT_LIMITS, type Article, type StoryMoment } from "@/lib/supabase";
-import { fetchCategories, uploadUserFile, createArticle, updateArticle, fetchAnyArticle, deleteStorageFile, extractStoragePath, previewArticle } from "@/lib/supabase";
+import { fetchCategories, uploadUserFile, createArticle, updateArticle, fetchAnyArticle, deleteStorageFile, extractStoragePath, previewArticle, publicationDate, isArchiveMediaUrl, foreignMediaMessage } from "@/lib/supabase";
 import { useLanguage } from "@/hooks/use-language";
 import { useAuth } from "@/hooks/use-auth";
 import { useUnsavedChangesWarning } from "@/hooks/use-unsaved-changes";
@@ -237,7 +237,7 @@ const TextStoryCreate: React.FC = () => {
           setHadSchedule(!!article.publishAt);
           setWasPublished(!!article.isPublished);
           setLoadedUpdatedAt(article.updatedAt ?? article.createdAt ?? null);
-          setLoadedCreatedAt(article.createdAt ?? null);
+          setLoadedCreatedAt(publicationDate(article));
           const loadedPlaceDate = draftFromArticle(article);
           setPlaceDate(loadedPlaceDate.draft);
           placeDateSupportedRef.current = loadedPlaceDate.supported;
@@ -385,13 +385,14 @@ const TextStoryCreate: React.FC = () => {
     if (!categoryId) errs.push({ field: "category", message: language === "en" ? "Please choose a category" : "Alege o categorie" });
     const hasContent = chaptersEn.some(c => c.trim() !== "") || chaptersRo.some(c => c.trim() !== "");
     if (!hasContent) errs.push({ field: "content", message: language === "en" ? "Write at least one chapter" : "Scrie cel puțin un capitol" });
+    if (!isArchiveMediaUrl(mediaUrl)) errs.push({ field: "mediaUrl", message: foreignMediaMessage(language) });
     moments.forEach((m, i) => {
       if ((m.label_en.trim() || m.label_ro.trim()) && !m.when_en.trim() && !m.when_ro.trim()) {
         errs.push({ field: `moment-${i}`, message: language === "en" ? `Chapter ${i + 1}: a moment needs its date (“1383”, “Today”).` : `Capitolul ${i + 1}: momentul are nevoie de o dată („1383”, „Astăzi”).` });
       }
     });
     return [...errs, ...placeDateErrors(placeDate, language)];
-  }, [titleEn, titleRo, categoryId, chaptersEn, chaptersRo, moments, placeDate, language]);
+  }, [titleEn, titleRo, categoryId, chaptersEn, chaptersRo, mediaUrl, moments, placeDate, language]);
 
   const errorFor = (field: string) => validationErrors.find(e => e.field === field);
 
@@ -720,7 +721,10 @@ const TextStoryCreate: React.FC = () => {
                   accept="image/*"
                   className="hidden"
                 />
-                <Field label={language === 'en' ? 'Or paste image URL' : 'Sau lipește URL imagine'}>
+                <Field
+                  label={language === 'en' ? 'Or paste the link of an uploaded image' : 'Sau lipește linkul unei imagini încărcate'}
+                  error={showErrors || !isArchiveMediaUrl(mediaUrl) ? errorFor('mediaUrl')?.message : undefined}
+                >
                   <input
                     type="url"
                     placeholder="https://..."

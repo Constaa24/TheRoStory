@@ -14,6 +14,7 @@ import { countLabel, joinMeta, type CountNoun } from "@/lib/article-utils";
 import { shelfBlurb, categoryImageSources, getCategoryImage } from "@/lib/category-copy";
 import { formatYear, kindWord, placeOf } from "@/lib/story-facts";
 import { StoryLoading } from "@/components/story/Ornaments";
+import NotFound from "@/pages/NotFound";
 import { MiniMap } from "@/components/story/MiniMap";
 
 // Fetched in pages so a large category doesn't pull hundreds of full-content
@@ -84,6 +85,7 @@ const CategoryDetail: React.FC = () => {
   // the dedupe drops a row, which left "Load more" visible forever.
   const [reachedEnd, setReachedEnd] = useState(false);
   const [loadFailed, setLoadFailed] = useState(false);
+  const [notFound, setNotFound] = useState(false);
   const [moreFailed, setMoreFailed] = useState(false);
   const [otherShelves, setOtherShelves] = useState<Category[]>([]);
   const [journey, setJourney] = useState<{ journey: Journey; stops: Article[] } | null>(null);
@@ -111,6 +113,7 @@ const CategoryDetail: React.FC = () => {
     if (!id) { navigate("/categories"); return; }
     setIsLoading(true);
     setLoadFailed(false);
+    setNotFound(false);
     setArticles([]);
     setTotalCount(0);
     setLoadedPages(1);
@@ -125,7 +128,10 @@ const CategoryDetail: React.FC = () => {
       ]);
       if (isCancelled()) return;
       if (categoryRes.error) throw categoryRes.error;
-      if (!categoryRes.data) { navigate("/categories"); return; }
+      // An unknown shelf is a 404 page, as an unknown story is, rather than a
+      // silent redirect to the shelves (a soft 404 to search engines, and no
+      // word to the reader of why they landed there).
+      if (!categoryRes.data) { setNotFound(true); return; }
       setCategory(toCamelCase<Category>(categoryRes.data));
       setArticles(articlesPage.articles);
       setTotalCount(articlesPage.total);
@@ -241,6 +247,7 @@ const CategoryDetail: React.FC = () => {
   if (isLoading) {
     return <StoryLoading language={language} className="items-center" style={{ minHeight: '100vh' }} />;
   }
+  if (notFound) return <NotFound />;
   if (loadFailed) {
     return (
       <div className="rs-in">

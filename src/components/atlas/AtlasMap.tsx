@@ -25,7 +25,7 @@ export type AtlasLayers = { rivers: boolean; regions: boolean; unwritten: boolea
 export type AtlasMapHandle = {
   flyTo: (x: number, y: number, k: number) => void;
   fitPoints: (pts: [number, number][], maxK?: number, padPx?: number) => void;
-  /** Fly to a story, close enough that its nearest visible neighbour sits apart. */
+  /** Fly to a story, at the zoom set by FOCUS_K (or the current one, if closer). */
   focusStory: (s: AtlasStory) => void;
   fitCounty: (name: string) => void;
   reset: () => void;
@@ -150,7 +150,10 @@ const AtlasMap: React.FC<Props> = ({
 
   // ---------------------------------------------------------------- camera
   const flyTo = useCallback((cx: number, cy: number, nk: number) => {
-    const end = clampView({ k: clamp(nk, 1, MAX_K), tx: W / 2 - cx * nk, ty: H / 2 - cy * nk });
+    // Centred with the zoom it will actually use: centring with the zoom it
+    // was asked for put a capped flight off-centre.
+    const k = clamp(nk, 1, MAX_K);
+    const end = clampView({ k, tx: W / 2 - cx * k, ty: H / 2 - cy * k });
     if (flight.current) cancelAnimationFrame(flight.current);
     if (live.current.reduceMotion) { setView(end); return; }
     const start = viewRef.current;
@@ -181,15 +184,13 @@ const AtlasMap: React.FC<Props> = ({
     flyTo((x0 + x1) / 2, (y0 + y1) / 2, clamp(k, 1, maxK));
   }, [flyTo]);
 
-  const zoomToSeparate = useCallback((s: AtlasStory) => {
-    let min = Infinity;
-    for (const o of live.current.stories) {
-      if (o === s || o.x == null || !live.current.shown.has(o.id)) continue;
-      min = Math.min(min, Math.hypot(o.x - s.x!, o.y! - s.y!));
-    }
-    const need = min === Infinity ? 3 : (28 * usRef.current) / min;
-    return clamp(Math.max(viewRef.current.k, Math.min(Math.max(3, need), FOCUS_K)), 1, MAX_K);
-  }, []);
+  // The zoom for a chosen story: FOCUS_K, or closer if the reader is already
+  // closer. Neighbours still too near to tell apart there merge into a
+  // numbered cluster beside the chosen pin (see `layout`). This used to work
+  // out the zoom that would separate the nearest neighbour, then cap it at a
+  // floor of 3 and a ceiling of FOCUS_K (2.6) — so the result was always
+  // FOCUS_K and the distance it measured never counted.
+  const focusZoom = useCallback(() => clamp(Math.max(viewRef.current.k, FOCUS_K), 1, MAX_K), []);
 
   const zoomAt = useCallback((px: number, py: number, f: number) => {
     const v = viewRef.current;
@@ -200,14 +201,14 @@ const AtlasMap: React.FC<Props> = ({
   useImperativeHandle(ref, () => ({
     flyTo,
     fitPoints,
-    focusStory: (s) => { if (s.x != null) flyTo(s.x, s.y!, zoomToSeparate(s)); },
+    focusStory: (s) => { if (s.x != null) flyTo(s.x, s.y!, focusZoom()); },
     fitCounty: (name) => {
       const b = countyBBox(name);
       if (b) fitPoints([[b[0], b[1]], [b[2], b[3]]], 6, 60);
     },
     reset: () => { setSpider(null); flyTo(W / 2, H / 2, 1); },
     focus: () => frameRef.current?.focus({ preventScroll: true }),
-  }), [flyTo, fitPoints, zoomToSeparate]);
+  }), [flyTo, fitPoints, focusZoom]);
 
   const toScreen = (x: number, y: number): [number, number] => [x * view.k + view.tx, y * view.k + view.ty];
 

@@ -47,8 +47,15 @@ export default defineConfig({
           '**/CarouselStoryCreate-*.js',
           '**/StoryPreview-*.js',
           '**/Map-*.js',
+          // The Atlas's own stylesheet goes with its code (atlas.css,
+          // imported by Map.tsx): 26 KB that only the map needs.
+          '**/Map-*.css',
           '**/map-*.js',
           '**/motion-*.js',
+          // The fields the three story editors share (see manualChunks):
+          // left unnamed, Rollup called the chunk after whichever module it
+          // met first, so no pattern here could follow it.
+          '**/editor-*.js',
           'fonts/**',
         ],
         // The auth callback exchanges PKCE codes against Supabase and must
@@ -79,7 +86,7 @@ export default defineConfig({
             // entry can never be stale, only orphaned (and the expiration
             // below reaps those).
             urlPattern: ({ url, sameOrigin }) =>
-              !!sameOrigin && /^\/assets\/.*\.js$/.test(url.pathname),
+              !!sameOrigin && /^\/assets\/.*\.(?:js|css)$/.test(url.pathname),
             handler: 'CacheFirst',
             options: {
               cacheName: 'route-chunks',
@@ -156,6 +163,24 @@ export default defineConfig({
     target: 'es2020',
     rollupOptions: {
       output: {
+        // The chunk the three story editors share (their field groups, the
+        // form layout, the unsaved-work machinery) is named `editor`, so
+        // globIgnores can keep it out of every reader's precache. Left alone,
+        // Rollup names it after whichever module it meets first, which no
+        // pattern can follow. It is only renamed while every module in it is
+        // one of these editor-only files: if a reader's page ever shares it,
+        // it keeps its own name and is precached as before, rather than
+        // silently leaving a reader's code out of the cache. (A manualChunks
+        // rule can't do this: Rollup moves a manual chunk's dependencies in
+        // with it, and reader pages then load the editors' chunk.)
+        chunkFileNames: (chunk) => {
+          const editorOnly =
+            chunk.moduleIds.length > 0 &&
+            chunk.moduleIds.every((id) =>
+              /[\\/]src[\\/](?:components[\\/]organisms[\\/](?:StoryNoteFields|PlaceTimeFields|PublishingFields|StoryDraftUi|FilmExtrasFields)|components[\\/]ui[\\/](?:form-field|unsaved-changes-dialog)|hooks[\\/](?:use-story-draft|use-unsaved-changes)|lib[\\/]atlas[\\/]place-date)\.tsx?$/.test(id)
+            );
+          return editorOnly ? 'assets/editor-[hash].js' : 'assets/[name]-[hash].js';
+        },
         manualChunks(id: string) {
           // The Atlas's geometry (~330 KB of county, border and river paths)
           // is shared by the map page and the story editors' pin picker.

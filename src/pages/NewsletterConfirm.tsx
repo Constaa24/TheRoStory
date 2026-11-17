@@ -13,6 +13,8 @@ const NewsletterConfirm: React.FC = () => {
   const { language } = useLanguage();
   const [status, setStatus] = useState<Status>("loading");
   const [errorKind, setErrorKind] = useState<ErrorKind>("invalid");
+  // A link opened a second time (or by a mail scanner first) is still good.
+  const [already, setAlready] = useState(false);
   // The confirm call must run exactly once, even under StrictMode's
   // double-mount in dev.
   const handledRef = useRef(false);
@@ -37,6 +39,7 @@ const NewsletterConfirm: React.FC = () => {
           return;
         }
         if (data.ok) {
+          setAlready(data.already === true);
           setStatus("success");
         } else {
           setStatus("error");
@@ -57,6 +60,9 @@ const NewsletterConfirm: React.FC = () => {
     successBody: language === "en"
       ? "Your subscription is confirmed. One letter a month, from the road — see you in your inbox."
       : "Abonarea ta este confirmată. O scrisoare pe lună, de pe drum — ne vedem în inbox.",
+    alreadyBody: language === "en"
+      ? "Your subscription was already confirmed — there's nothing more to do. See you in your inbox."
+      : "Abonarea ta era deja confirmată — nu mai e nimic de făcut. Ne vedem în inbox.",
     errorTitle: language === "en" ? "Confirmation failed" : "Confirmarea a eșuat",
     invalid: language === "en"
       ? "This confirmation link is invalid. Try subscribing again from the home page."
@@ -102,7 +108,7 @@ const NewsletterConfirm: React.FC = () => {
               {status === "success" ? copy.successTitle : copy.errorTitle}
             </h1>
             <p className="m-0 mb-[26px]" style={{ fontSize: 18, lineHeight: 1.6, color: 'var(--text-dim)' }}>
-              {status === "success" ? copy.successBody : copy[errorKind]}
+              {status === "success" ? (already ? copy.alreadyBody : copy.successBody) : copy[errorKind]}
             </p>
             <Link to="/" className={status === "success" ? "rs-btn" : "rs-btn rs-btn-ghost"}>{copy.home}</Link>
           </>

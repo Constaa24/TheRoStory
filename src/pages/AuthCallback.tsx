@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
+import { takeReturnPath } from "@/lib/return-path";
 import type { EmailOtpType } from "@supabase/supabase-js";
 import { useAuth } from "@/hooks/use-auth";
 import { useLanguage } from "@/hooks/use-language";
@@ -196,11 +197,11 @@ const AuthCallback: React.FC = () => {
             if (existingSession) {
               void exitRecoveryMode();
               setStatus("success");
-              scheduleRedirect("/", 2000);
+              scheduleRedirect(takeReturnPath() ?? "/", 2000);
               return;
             }
             setStatus("error");
-            setErrorMessage(error.message);
+            setErrorMessage(authErrorMessage((error as { code?: string }).code ?? null, languageRef.current));
             return;
           }
 
@@ -214,7 +215,7 @@ const AuthCallback: React.FC = () => {
 
           void exitRecoveryMode();
           setStatus("success");
-          scheduleRedirect("/", 2000);
+          scheduleRedirect(takeReturnPath() ?? "/", 2000);
           return;
         }
 
@@ -246,7 +247,7 @@ const AuthCallback: React.FC = () => {
 
           if (error) {
             setStatus("error");
-            setErrorMessage(error.message);
+            setErrorMessage(authErrorMessage((error as { code?: string }).code ?? null, languageRef.current));
             return;
           }
 
@@ -257,7 +258,7 @@ const AuthCallback: React.FC = () => {
             scheduleRedirect("/reset-password?mode=reset", 1500);
           } else {
             void exitRecoveryMode();
-            scheduleRedirect("/", 2000);
+            scheduleRedirect(takeReturnPath() ?? "/", 2000);
           }
           return;
         }
@@ -297,7 +298,7 @@ const AuthCallback: React.FC = () => {
 
           void exitRecoveryMode();
           setStatus("success");
-          scheduleRedirect(session ? "/" : "/auth", 2000);
+          scheduleRedirect(session ? (takeReturnPath() ?? "/") : "/auth", 2000);
           return;
         }
 
@@ -309,7 +310,7 @@ const AuthCallback: React.FC = () => {
         if (fallbackSession) {
           void exitRecoveryMode();
           setStatus("success");
-          scheduleRedirect("/", 2000);
+          scheduleRedirect(takeReturnPath() ?? "/", 2000);
           return;
         }
 
@@ -323,7 +324,7 @@ const AuthCallback: React.FC = () => {
         }
 
         setStatus("error");
-        setErrorMessage(err instanceof Error ? err.message : "An unexpected error occurred.");
+        setErrorMessage(authErrorMessage(null, languageRef.current));
       }
     };
 

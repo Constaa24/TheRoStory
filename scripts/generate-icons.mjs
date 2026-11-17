@@ -22,7 +22,7 @@
  *   favicon-16x16.png  favicon-32x32.png  favicon.ico (16/32/48)
  *   apple-touch-icon.png (180)  android-chrome-192x192.png
  *   android-chrome-512x512.png  maskable-icon-512x512.png
- *   logo.png (256)  logo.webp (256)  logo-128.png  logo-128.webp
+ *   logo.png (256)  logo-128.png  logo-128.webp
  *
  * Every one uses the MARK — the illustration alone, no wordmark. Apple's HIG
  * and Android's icon guidance both advise against text in app icons because
@@ -86,10 +86,9 @@ const JOBS = [
   { name: "android-chrome-192x192.png", size: 192, fill: 0.88, bg: null },
   { name: "android-chrome-512x512.png", size: 512, fill: 0.88, bg: null },
   { name: "maskable-icon-512x512.png", size: 512, fill: 0.64, bg: BRAND_BG },
-  // The 256px master logo, for structured data (Organization.logo) and
-  // anything that wants the full-size mark.
+  // The 256px master logo, for structured data (Organization.logo), which
+  // asks for a PNG; nothing on the page shows it, so it has no WebP twin.
   { name: "logo.png", size: 256, fill: 1.0, bg: null },
-  { name: "logo.webp", size: 256, fill: 1.0, bg: null, type: "image/webp" },
   // What the navbar, footer and newsletter stamp actually display, at
   // 42-60px: 128px covers a 2x screen at the largest of those. Serving the
   // 256 there sent ~21 KB for a 44px picture on every page.

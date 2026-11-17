@@ -35,12 +35,16 @@ export const Navbar: React.FC = () => {
   const [isMenuOpen, setIsMenuOpen] = React.useState(false);
   const [profileOpen, setProfileOpen] = React.useState(false);
   const [searchOpen, setSearchOpen] = React.useState(false);
-  const mobileMenuRef = React.useRef<HTMLDivElement>(null);
+  const headerRef = React.useRef<HTMLElement>(null);
   const profileRootRef = React.useRef<HTMLDivElement>(null);
   const profileDropdownRef = React.useRef<HTMLDivElement>(null);
   const en = language === "en";
 
-  useFocusTrap(mobileMenuRef, isMenuOpen);
+  // While the menu is open, Tab cycles through the header and the menu
+  // together. Trapping the menu alone left its own close button (the toggle,
+  // up in the header) out of reach: a keyboard user could close it only with
+  // Escape.
+  useFocusTrap(headerRef, isMenuOpen);
   // Trap focus in the profile dropdown while open and restore it to the
   // trigger on close — keyboard users could previously tab straight past
   // an open menu into the page underneath.
@@ -79,6 +83,12 @@ export const Navbar: React.FC = () => {
   React.useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (!(e.metaKey || e.ctrlKey) || e.altKey || e.key.toLowerCase() !== "k") return;
+      // Not while typing elsewhere: in a text field ⌘K/Ctrl K belongs to
+      // that field (the editors, a note), not to the site. In the search
+      // box itself it still closes the search.
+      const target = e.target as HTMLElement | null;
+      const typing = !!target && (target.isContentEditable || /^(?:INPUT|TEXTAREA|SELECT)$/.test(target.tagName));
+      if (typing && !target.closest(".rs-search")) return;
       e.preventDefault();
       setIsMenuOpen(false);
       setProfileOpen(false);
@@ -125,7 +135,7 @@ export const Navbar: React.FC = () => {
 
   return (
     <>
-      <header className="ed-nav">
+      <header ref={headerRef} className="ed-nav">
         <div className="ed-container flex items-center gap-5" style={{ height: 72 }}>
           <Link to="/" className="flex items-center gap-3 shrink-0" aria-label={en ? "The RoStory, home" : "The RoStory, acasă"}>
             <picture>
@@ -273,6 +283,7 @@ export const Navbar: React.FC = () => {
               onClick={() => { setProfileOpen(false); setIsMenuOpen((o) => !o); }}
               aria-label={isMenuOpen ? t("nav.closeMenu") : t("nav.openMenu")}
               aria-expanded={isMenuOpen}
+              aria-controls={isMenuOpen ? "site-menu" : undefined}
               className="sb-icon-btn grid min-[1180px]:hidden"
               style={{ width: 42, height: 42 }}
             >
@@ -282,7 +293,7 @@ export const Navbar: React.FC = () => {
         </div>
 
         {isMenuOpen && (
-          <div ref={mobileMenuRef} role="dialog" aria-modal="true" aria-label={en ? "Menu" : "Meniu"} className="rs-menu min-[1180px]:hidden rs-in">
+          <div id="site-menu" role="dialog" aria-label={en ? "Menu" : "Meniu"} className="rs-menu min-[1180px]:hidden rs-in">
             <div className="mx-auto" style={{ maxWidth: 640, padding: "32px clamp(20px, 5vw, 40px) 40px" }}>
               <p className="rs-kicker" style={{ marginBottom: 12 }}>{en ? "Where to?" : "Încotro?"}</p>
               {[...navLinks, { name: t("nav.support"), path: "/support" }].map((link) => (
@@ -428,6 +439,7 @@ const SearchDialog: React.FC<{ onClose: () => void; language: "en" | "ro" }> = (
   const trimmed = query.trim();
   const showResults = trimmed.length > 0;
   const isBelowMinLength = showResults && trimmed.length < SEARCH_MIN_LENGTH;
+  const showList = showResults && !isBelowMinLength && !fetchError && results.length > 0;
   const quiet = (text: React.ReactNode) => (
     <p className="m-0 text-center" style={{ padding: "22px 12px", fontFamily: "var(--display)", fontStyle: "italic", fontSize: 20, color: "var(--text-dim)" }}>{text}</p>
   );
@@ -450,15 +462,23 @@ const SearchDialog: React.FC<{ onClose: () => void; language: "en" | "ro" }> = (
             </button>
           </div>
           <div className="relative" style={{ margin: "8px 26px 0" }}>
+            {/* A combobox over the listbox of results below: the arrows move
+                the highlighted option, Enter opens it, and focus stays in the
+                box (aria-activedescendant names the option for assistive
+                tech). */}
             <input
               ref={inputRef}
               type="text"
+              role="combobox"
+              aria-autocomplete="list"
+              aria-expanded={showList}
+              aria-controls="nav-search-list"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               onKeyDown={onInputKey}
               aria-labelledby="nav-search-title"
               aria-describedby="nav-search-hint"
-              aria-activedescendant={results.length ? `nav-search-r${selected}` : undefined}
+              aria-activedescendant={showList ? `nav-search-r${selected}` : undefined}
               placeholder={en ? "Try ‘Voroneț’, ‘salt mines’, ‘Mărțișor’…" : "Încearcă ‘Voroneț’, ‘saline’, ‘Mărțișor’…"}
               className="rs-search-input"
             />
@@ -487,55 +507,61 @@ const SearchDialog: React.FC<{ onClose: () => void; language: "en" | "ro" }> = (
               once there was finally a browser to catch it in. The "wander"
               chips sit outside it for the same reason: they are there from
               the start, and must not make the region announce on opening. */}
-          <div role="status" aria-live="polite" className="overflow-y-auto" style={{ maxHeight: "min(52vh, 460px)", padding: showResults ? "12px 14px 8px" : 0 }}>
-            {!showResults ? null : isBelowMinLength ? (
-              quiet(en
-                ? `Keep typing — at least ${SEARCH_MIN_LENGTH} characters.`
-                : `Continuă să scrii — cel puțin ${SEARCH_MIN_LENGTH} caractere.`)
-            ) : isSearching && results.length === 0 ? (
-              <p className="m-0 flex items-center justify-center gap-2" style={{ padding: "22px 12px", fontFamily: "var(--display)", fontStyle: "italic", fontSize: 20, color: "var(--text-dim)" }}>
-                <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
-                {en ? "Searching…" : "Se caută…"}
-              </p>
-            ) : fetchError ? (
-              quiet(en ? "Search is unavailable right now." : "Căutarea nu este disponibilă acum.")
-            ) : results.length > 0 ? (
-              <>
+          <div className="overflow-y-auto" style={{ maxHeight: "min(52vh, 460px)", padding: showResults ? "12px 14px 8px" : 0 }}>
+            {/* The live region carries the state of the search in a few
+                words: "Searching…", "3 stories found", "No stories found".
+                The results themselves sit outside it, in the listbox, so a
+                screen reader announces how many and not every title. */}
+            <div role="status" aria-live="polite">
+              {!showResults ? null : isBelowMinLength ? (
+                quiet(en
+                  ? `Keep typing — at least ${SEARCH_MIN_LENGTH} characters.`
+                  : `Continuă să scrii — cel puțin ${SEARCH_MIN_LENGTH} caractere.`)
+              ) : isSearching && results.length === 0 ? (
+                <p className="m-0 flex items-center justify-center gap-2" style={{ padding: "22px 12px", fontFamily: "var(--display)", fontStyle: "italic", fontSize: 20, color: "var(--text-dim)" }}>
+                  <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
+                  {en ? "Searching…" : "Se caută…"}
+                </p>
+              ) : fetchError ? (
+                quiet(en ? "Search is unavailable right now." : "Căutarea nu este disponibilă acum.")
+              ) : results.length > 0 ? (
                 <p className="m-0" style={{ margin: "6px 12px 8px", fontFamily: "var(--ui)", fontSize: 12, fontWeight: 600, color: "var(--text-mute)" }}>
                   {en ? `${countLabel(results.length, "story", "en")} found` : `${countLabel(results.length, "story", "ro")} găsite`}
                 </p>
-                <ul className="list-none m-0 p-0">
-                  {results.map((article, i) => {
-                    const cat = categories.find((c) => c.id === article.categoryId);
-                    const thumb = storageImage(articleCoverUrl(article), "thumb");
-                    const where = placeAndTime(article, language) || (cat ? getLocalized(cat, "name", language) : null);
-                    return (
-                      <li key={article.id}>
-                        <button
-                          id={`nav-search-r${i}`}
-                          type="button"
-                          onClick={() => open(article)}
-                          onMouseEnter={() => setSelected(i)}
-                          className={cn("rs-result", i === selected && "is-selected")}
-                        >
-                          <span className="rs-result-thumb">{thumb && <img src={thumb} alt="" className="rs-result-img" />}</span>
-                          <span className="flex flex-col gap-0.5 min-w-0">
-                            {where && <span className="rs-result-where">{where}</span>}
-                            <span style={{ fontFamily: "var(--display)", fontSize: 22, lineHeight: 1.15, color: "var(--parchment)" }}>
-                              {getLocalized(article, "title", language)}
-                            </span>
-                          </span>
-                          <span className="hidden sm:block whitespace-nowrap" style={{ fontFamily: "var(--ui)", fontSize: 12, color: "var(--text-mute)" }}>
-                            {kindPhrase(article, language)}
-                          </span>
-                        </button>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </>
-            ) : (
-              quiet(en ? "No stories found." : "Nu am găsit povești.")
+              ) : (
+                quiet(en ? "No stories found." : "Nu am găsit povești.")
+              )}
+            </div>
+            {showList && (
+              <ul id="nav-search-list" role="listbox" aria-labelledby="nav-search-title" className="list-none m-0 p-0">
+                {results.map((article, i) => {
+                  const cat = categories.find((c) => c.id === article.categoryId);
+                  const thumb = storageImage(articleCoverUrl(article), "thumb");
+                  const where = placeAndTime(article, language) || (cat ? getLocalized(cat, "name", language) : null);
+                  return (
+                    <li
+                      key={article.id}
+                      id={`nav-search-r${i}`}
+                      role="option"
+                      aria-selected={i === selected}
+                      onClick={() => open(article)}
+                      onMouseEnter={() => setSelected(i)}
+                      className={cn("rs-result", i === selected && "is-selected")}
+                    >
+                      <span className="rs-result-thumb">{thumb && <img src={thumb} alt="" className="rs-result-img" />}</span>
+                      <span className="flex flex-col gap-0.5 min-w-0">
+                        {where && <span className="rs-result-where">{where}</span>}
+                        <span style={{ fontFamily: "var(--display)", fontSize: 22, lineHeight: 1.15, color: "var(--parchment)" }}>
+                          {getLocalized(article, "title", language)}
+                        </span>
+                      </span>
+                      <span className="hidden sm:block whitespace-nowrap" style={{ fontFamily: "var(--ui)", fontSize: 12, color: "var(--text-mute)" }}>
+                        {kindPhrase(article, language)}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
             )}
           </div>
 

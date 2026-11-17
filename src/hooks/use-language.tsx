@@ -26,7 +26,6 @@ const translations = {
     "nav.closeMenu": "Close menu",
     "articles.noArticles": "No stories found in this category.",
     "admin.title": "Admin Dashboard",
-    "admin.addArticle": "Add New Story",
     "admin.tabs.myStories": "My Stories",
     "admin.tabs.stories": "Stories",
     "admin.tabs.categories": "Shelves",
@@ -89,28 +88,7 @@ const translations = {
     "admin.storage.errScan": "Could not scan storage",
     "admin.storage.errPurge": "Could not delete the files",
     "admin.articles.heading": "Stories",
-    "admin.articles.title": "Title",
-    "admin.articles.category": "Category",
-    "admin.articles.status": "Status",
-    "admin.articles.date": "Date",
     "admin.articles.actions": "Actions",
-    "admin.articles.uncategorized": "Uncategorized",
-    "admin.articles.published": "Published",
-    "admin.articles.draft": "Draft",
-    "admin.articles.empty": "No stories found. Create your first one!",
-    "admin.articles.deleted": "Article deleted",
-    "admin.articles.publishedToast": "Published",
-    "admin.articles.unpublishedToast": "Unpublished",
-    "admin.articles.adminOnlyPublish": "Only admins can publish articles",
-    "admin.articles.errUpdate": "Error updating article",
-    "admin.articles.errDelete": "Error deleting article",
-    "admin.articles.deleteTitle": "Delete this story?",
-    "admin.articles.deleteDesc": "This will permanently remove the story. This action cannot be undone.",
-    "admin.articles.typeSelect": "Choose story type",
-    "admin.articles.typeSelectDesc": "Pick the format that fits your story best.",
-    "admin.articles.typeText": "Text Story",
-    "admin.articles.typeVideo": "Video Story",
-    "admin.articles.typeCarousel": "Carousel Story",
     "admin.categories.add": "Add a shelf",
     "admin.categories.addBtn": "Add shelf",
     "admin.categories.nameEn": "Name (EN)",
@@ -127,8 +105,6 @@ const translations = {
     "admin.categories.deleteDesc": "Stories on this shelf keep their content but lose their shelf. You can move them to another one afterwards.",
     "admin.categories.confirm": "Delete",
     "admin.users.heading": "Readers",
-    "admin.users.user": "User",
-    "admin.users.email": "Email",
     "admin.users.role": "Role",
     "admin.users.joined": "Joined",
     "admin.users.anonymous": "Anonymous",
@@ -164,7 +140,6 @@ const translations = {
     "contact.validation.name": "Name must be at least 2 characters.",
     "contact.validation.email": "Please enter a valid email address.",
     "contact.validation.message": "Message must be at least 10 characters.",
-    "profile.title": "Your Profile",
     "profile.subtitle": "Manage your personal information and preferences",
     "profile.displayName": "Display Name",
     "profile.email": "Email Address",
@@ -179,7 +154,6 @@ const translations = {
     "location.select": "Select a location",
     "nav.favorites": "Favorites",
     "nav.dashboard": "Dashboard",
-    "common.loading": "Loading...",
     "auth.welcomeBack": "Welcome back!",
     "auth.loginFailed": "Login failed. Please try again.",
     "auth.invalidCredentials": "Invalid email or password.",
@@ -239,7 +213,6 @@ const translations = {
     "nav.closeMenu": "Închide meniul",
     "articles.noArticles": "Nu au fost găsite povești în această categorie.",
     "admin.title": "Panou Admin",
-    "admin.addArticle": "Adaugă poveste nouă",
     "admin.tabs.myStories": "Poveștile mele",
     "admin.tabs.stories": "Povești",
     "admin.tabs.categories": "Rafturi",
@@ -302,28 +275,7 @@ const translations = {
     "admin.storage.errScan": "Scanarea stocării a eșuat",
     "admin.storage.errPurge": "Ștergerea fișierelor a eșuat",
     "admin.articles.heading": "Povești",
-    "admin.articles.title": "Titlu",
-    "admin.articles.category": "Categorie",
-    "admin.articles.status": "Status",
-    "admin.articles.date": "Data",
     "admin.articles.actions": "Acțiuni",
-    "admin.articles.uncategorized": "Necategorizat",
-    "admin.articles.published": "Publicat",
-    "admin.articles.draft": "Ciornă",
-    "admin.articles.empty": "Nu s-au găsit povești. Creează prima ta poveste!",
-    "admin.articles.deleted": "Articol șters",
-    "admin.articles.publishedToast": "Publicat",
-    "admin.articles.unpublishedToast": "Despublicat",
-    "admin.articles.adminOnlyPublish": "Doar administratorii pot publica articole",
-    "admin.articles.errUpdate": "Eroare la actualizarea articolului",
-    "admin.articles.errDelete": "Eroare la ștergerea articolului",
-    "admin.articles.deleteTitle": "Ștergi această poveste?",
-    "admin.articles.deleteDesc": "Aceasta va șterge permanent povestea. Acțiunea nu poate fi anulată.",
-    "admin.articles.typeSelect": "Alege tipul poveștii",
-    "admin.articles.typeSelectDesc": "Alege formatul care se potrivește cel mai bine.",
-    "admin.articles.typeText": "Poveste text",
-    "admin.articles.typeVideo": "Poveste video",
-    "admin.articles.typeCarousel": "Poveste tip carusel",
     "admin.categories.add": "Adaugă un raft",
     "admin.categories.addBtn": "Adaugă raftul",
     "admin.categories.nameEn": "Nume (EN)",
@@ -340,8 +292,6 @@ const translations = {
     "admin.categories.deleteDesc": "Poveștile de pe acest raft își păstrează conținutul, dar rămân fără raft. Le poți muta pe altul ulterior.",
     "admin.categories.confirm": "Șterge",
     "admin.users.heading": "Cititori",
-    "admin.users.user": "Utilizator",
-    "admin.users.email": "Email",
     "admin.users.role": "Rol",
     "admin.users.joined": "Înregistrat",
     "admin.users.anonymous": "Anonim",
@@ -372,7 +322,6 @@ const translations = {
     "contact.validation.name": "Numele trebuie să aibă cel puțin 2 caractere.",
     "contact.validation.email": "Te rugăm să introduci o adresă de email validă.",
     "contact.validation.message": "Mesajul trebuie să aibă cel puțin 10 caractere.",
-    "profile.title": "Profilul Tău",
     "profile.subtitle": "Gestionează-ți informațiile personale și preferințele",
     "profile.displayName": "Nume Afișat",
     "profile.email": "Adresă de Email",
@@ -387,7 +336,6 @@ const translations = {
     "location.select": "Selectează o locație",
     "nav.favorites": "Favorite",
     "nav.dashboard": "Panou control",
-    "common.loading": "Se încarcă...",
     "auth.welcomeBack": "Bine ai revenit!",
     "auth.loginFailed": "Autentificare eșuată. Te rugăm să încerci din nou.",
     "auth.invalidCredentials": "Email sau parolă incorecte.",
@@ -446,17 +394,15 @@ const LanguageContext = createContext<LanguageContextType | undefined>(undefined
  * which is exactly why both languages shared one address and only English
  * was ever indexed — see lib/locale.ts.
  *
- * localStorage is still written, but it is now a *preference* rather than the
- * source of truth: it only decides where a visitor landing on the bare root
- * gets sent (see the redirect in App.tsx), and the URL always wins over it.
+ * localStorage still holds a *preference*, not the source of truth: it only
+ * decides where a visitor landing on the bare root gets sent (see the
+ * redirect in main.tsx), and the URL always wins over it. It is written only
+ * when the reader switches language themselves (setLanguage below). It used
+ * to be written on every page load, so a reader who opened one shared
+ * Romanian link was sent to Romanian on every later visit to the home page.
  */
 export const LanguageProvider: React.FC<{ children: React.ReactNode; language: Language }> = ({ children, language }) => {
   useEffect(() => {
-    try {
-      window.localStorage.setItem("rostory_lang", language);
-    } catch {
-      // Ignore browser storage restrictions
-    }
     if (typeof document !== "undefined") {
       document.documentElement.lang = language;
     }

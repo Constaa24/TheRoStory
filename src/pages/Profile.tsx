@@ -80,13 +80,15 @@ const Profile: React.FC = () => {
   const isMountedRef = useRef(true);
   useEffect(() => () => { isMountedRef.current = false; }, []);
 
-  // Sync state with user data when user changes
+  // Sync state with the account's saved name and picture. Keyed on the
+  // values, not the user object: use-auth builds a new object on every
+  // token refresh (about hourly), which used to reset a name half typed.
+  const savedName = user?.displayName || "";
+  const savedAvatar = user?.avatarUrl || "";
   useEffect(() => {
-    if (user) {
-      setDisplayName(user.displayName || "");
-      setAvatarUrl(user.avatarUrl || "");
-    }
-  }, [user]);
+    setDisplayName(savedName);
+    setAvatarUrl(savedAvatar);
+  }, [user?.id, savedName, savedAvatar]);
 
   // The shelf sits beside the account form now rather than behind a tab,
   // so it loads with the page.
@@ -200,15 +202,18 @@ const Profile: React.FC = () => {
     setIsLoading(true);
 
     try {
-      const { error } = await supabase
+      const { data: saved, error } = await supabase
         .from('profiles')
         .update({
           display_name: displayName.trim(),
           updated_at: new Date().toISOString()
         })
-        .eq('id', user.id);
-      
+        .eq('id', user.id)
+        .select('id');
+
       if (error) throw error;
+      // An update that matched no row isn't a save, whatever the status says.
+      if (!saved?.length) throw new Error('Profile not found');
       
       // Refresh user data to update the UI
       await refreshUser();
@@ -285,6 +290,15 @@ const Profile: React.FC = () => {
   };
 
   const en = language === 'en';
+  const roleName =
+    role === 'admin' ? t("admin.permissions.role.admin")
+      : role === 'writer' ? t("admin.permissions.role.writer")
+        : role === 'reader' ? t("admin.permissions.role.reader")
+          : t("admin.permissions.role.guest");
+  // The admin's account holds the archive: every story belongs to its writer
+  // and goes with their account. admin-api refuses to delete it; the page
+  // doesn't offer to, and says why.
+  const isAdminAccount = role === 'admin';
   const initial = (displayName || user.email || 'U').charAt(0).toUpperCase();
   // Greet by the whole display name when it fits on a line. Taking only the
   // first word suits "Ana Popescu" but turned "The RoStory Admin" into
@@ -320,7 +334,7 @@ const Profile: React.FC = () => {
               {en ? 'Your profile' : 'Profilul tău'}
               <span className="sb-tag" style={{ padding: '4px 11px', background: 'transparent', color: 'var(--gold)' }}>
                 <Shield className="h-3.5 w-3.5" aria-hidden="true" />
-                <span className="capitalize">{role}</span>
+                <span>{roleName}</span>
               </span>
             </p>
             <h1 className="rs-display break-words" style={{ fontSize: 'clamp(40px, 5vw, 76px)', lineHeight: 1 }}>
@@ -449,9 +463,13 @@ const Profile: React.FC = () => {
             <div className="grid gap-3" style={{ border: '1px dashed var(--gold-deep)', borderRadius: 20, padding: '24px 28px' }}>
               <h2 className="rs-display" style={{ fontSize: 28, letterSpacing: 0 }}>{en ? 'Your data' : 'Datele tale'}</h2>
               <p className="sb-dim text-[16px] leading-relaxed">
-                {en
-                  ? 'Download a JSON copy of your account, profile, articles, comments, and favorites — or close your account for good.'
-                  : 'Descarcă o copie JSON a contului, profilului, articolelor, comentariilor și favoritelor tale — sau închide contul definitiv.'}
+                {isAdminAccount
+                  ? (en
+                    ? 'Download a JSON copy of your account, profile, articles, comments, and favorites.'
+                    : 'Descarcă o copie JSON a contului, profilului, articolelor, comentariilor și favoritelor tale.')
+                  : (en
+                    ? 'Download a JSON copy of your account, profile, articles, comments, and favorites — or close your account for good.'
+                    : 'Descarcă o copie JSON a contului, profilului, articolelor, comentariilor și favoritelor tale — sau închide contul definitiv.')}
               </p>
               <div className="flex flex-wrap gap-2.5">
                 <button type="button" className="sb-btn sb-btn-ghost" onClick={handleExportData} disabled={isExporting}>
@@ -462,6 +480,7 @@ const Profile: React.FC = () => {
                     ? (en ? 'Preparing…' : 'Se pregătește…')
                     : (en ? 'Download my data' : 'Descarcă datele mele')}
                 </button>
+                {!isAdminAccount && (
                 <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
                   <AlertDialogTrigger asChild>
                     <button type="button" className="sb-btn sb-btn-ghost sb-btn-danger">
@@ -509,7 +528,15 @@ const Profile: React.FC = () => {
                     </AlertDialogFooter>
                   </AlertDialogContent>
                 </AlertDialog>
+                )}
               </div>
+              {isAdminAccount && (
+                <p className="sb-dim m-0 text-[15px] leading-relaxed">
+                  {en
+                    ? 'As the archive’s admin you can’t delete your account here: every story you have published would go with it. To leave, hand the admin role to someone else first.'
+                    : 'Ca administrator al arhivei nu îți poți șterge contul de aici: toate poveștile publicate de tine ar dispărea odată cu el. Ca să pleci, dă mai întâi rolul de administrator altcuiva.'}
+                </p>
+              )}
             </div>
           </div>
           )}

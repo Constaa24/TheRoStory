@@ -8,7 +8,6 @@ import {
   joinMeta,
   articleCoverUrl,
   toneFor,
-  placeLabel,
   TONES,
 } from './article-utils';
 import { CHAPTER_DELIMITER, type Article } from './supabase';
@@ -306,12 +305,5 @@ describe('toneFor', () => {
   it('spreads ids across more than one tone', () => {
     const seen = new Set(Array.from({ length: 60 }, (_, i) => toneFor(`art_${i}`)));
     expect(seen.size).toBeGreaterThan(1);
-  });
-});
-
-describe('placeLabel', () => {
-  it('uppercases, and is empty when there is no location', () => {
-    expect(placeLabel({ location: 'Bucovina' })).toBe('BUCOVINA');
-    expect(placeLabel({ location: undefined })).toBe('');
   });
 });

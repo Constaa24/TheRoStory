@@ -110,7 +110,7 @@ const Support: React.FC = () => {
 
       cta: en ? 'Give with Revolut' : 'Contribuie prin Revolut',
 
-      onClick: () => window.open("https://revolut.me/manu2492", "_blank", "noopener,noreferrer"),
+      href: "https://revolut.me/manu2492",
 
       // Our recommendation, and labelled as one. The badge used to say "Most
 
@@ -130,7 +130,7 @@ const Support: React.FC = () => {
 
       cta: en ? 'Give with PayPal' : 'Contribuie prin PayPal',
 
-      onClick: () => window.open("https://paypal.me/Constaa24?locale.x=ro_RO&country.x=RO", "_blank", "noopener,noreferrer"),
+      href: "https://paypal.me/Constaa24?locale.x=ro_RO&country.x=RO",
 
     },
 
@@ -175,16 +175,32 @@ const Support: React.FC = () => {
               </span>
               <h2 className="rs-display" style={{ fontSize: 36, lineHeight: 1, letterSpacing: 0 }}>{tier.label}</h2>
               <p className="m-0" style={{ fontSize: 16, lineHeight: 1.55, color: 'var(--text-dim)', minHeight: '3.1em' }}>{tier.desc}</p>
-              <button
-                type="button"
-                className={tier.recommended ? 'rs-btn w-full' : 'rs-btn rs-btn-ghost w-full'}
-                style={tier.recommended ? undefined : { borderColor: 'var(--gold)', color: 'var(--gold)' }}
-                onClick={tier.isDialog ? () => setShowBank((s) => !s) : tier.onClick}
-                aria-expanded={tier.isDialog ? showBank : undefined}
-                aria-controls={tier.isDialog ? 'bank-details' : undefined}
-              >
-                {tier.isDialog && showBank ? (en ? 'Hide bank details' : 'Ascunde detaliile bancare') : tier.cta}
-              </button>
+              {/* Revolut and PayPal are links out, so they are links: the
+                  address shows on hover, and they open in a new tab the way
+                  any link does. Only the bank details are a button. */}
+              {tier.href ? (
+                <a
+                  href={tier.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={tier.recommended ? 'rs-btn w-full' : 'rs-btn rs-btn-ghost w-full'}
+                  style={tier.recommended ? undefined : { borderColor: 'var(--gold)', color: 'var(--gold)' }}
+                >
+                  {tier.cta}
+                  <span className="sr-only">{en ? ' (opens in a new tab)' : ' (se deschide într-o filă nouă)'}</span>
+                </a>
+              ) : (
+                <button
+                  type="button"
+                  className={tier.recommended ? 'rs-btn w-full' : 'rs-btn rs-btn-ghost w-full'}
+                  style={tier.recommended ? undefined : { borderColor: 'var(--gold)', color: 'var(--gold)' }}
+                  onClick={() => setShowBank((s) => !s)}
+                  aria-expanded={showBank}
+                  aria-controls="bank-details"
+                >
+                  {showBank ? (en ? 'Hide bank details' : 'Ascunde detaliile bancare') : tier.cta}
+                </button>
+              )}
             </li>
           ))}
         </ul>

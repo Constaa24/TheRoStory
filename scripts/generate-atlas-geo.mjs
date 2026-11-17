@@ -18,7 +18,7 @@
  *
  * WHY THE BORDERS ARE RECOVERED, NOT MESHED
  *
- * src/lib/counties_topo.js is not a true topology. Every county is its own
+ * scripts/atlas-sources/counties_topo.js is not a true topology. Every county is its own
  * closed arc and neighbouring counties were digitised separately, about two
  * map units apart. So topojson.mesh(a !== b) finds no shared edges and
  * topojson.merge cannot dissolve a national outline: drawn naively, every
@@ -36,7 +36,7 @@
  *
  * SOURCES
  *
- *   src/lib/counties_topo.js                   the site's county shapes
+ *   scripts/atlas-sources/counties_topo.js     the site's county shapes
  *   scripts/atlas-sources/natural-earth-rivers.json
  *       Natural Earth 10m "rivers + lake centerlines" and "rivers Europe"
  *       (public domain, naturalearthdata.com), cut to a box around Romania
@@ -52,7 +52,7 @@ import * as topojson from 'topojson-client';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const OUT = path.join(ROOT, 'src/lib/atlas/atlas-geo.json');
 
-const topo = (await import(pathToFileURL(path.join(ROOT, 'src/lib/counties_topo.js')).href)).default;
+const topo = (await import(pathToFileURL(path.join(ROOT, 'scripts/atlas-sources/counties_topo.js')).href)).default;
 const riversSource = JSON.parse(fs.readFileSync(path.join(ROOT, 'scripts/atlas-sources/natural-earth-rivers.json'), 'utf8'));
 
 const W = 1000;

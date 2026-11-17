@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { useParams, useNavigate, useLocation } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { Article, getLocalized } from "@/lib/supabase";
 import { fetchPublicArticle, incrementView, takePrefetchedArticle } from "@/lib/supabase";
 import { useLanguage } from "@/hooks/use-language";
@@ -7,6 +7,7 @@ import { EditorialArticle } from "@/components/organisms/EditorialArticle";
 import { logError, toJsonLd } from "@/lib/utils";
 import { articleCoverUrl, articleExcerpt } from "@/lib/article-utils";
 import { PageHead } from "@/components/layout/PageHead";
+import { LoadError } from "@/components/ui/load-error";
 import NotFound from "@/pages/NotFound";
 import { SITE_NAME, SITE_URL } from "@/lib/constants";
 import { localizedPath } from "@/lib/locale";
@@ -14,27 +15,29 @@ import { localizedPath } from "@/lib/locale";
 const ArticleDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const location = useLocation();
   const { language } = useLanguage();
   const [article, setArticle] = useState<Article | null>(null);
   const [views, setViews] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
-
-  const fromState = location.state as { from?: string } | null;
-  const fromPath = fromState?.from || "/";
+  const [loadFailed, setLoadFailed] = useState(false);
+  // Bumped by "Try again" to run the load once more.
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     if (!id) return;
     let cancelled = false;
     setIsLoading(true);
     setNotFound(false);
+    setLoadFailed(false);
 
     (async () => {
       try {
         // Usually already under way: main.tsx asks for the story in the
-        // address bar at boot (see prefetchPublicArticle).
-        const { article, views } = await (takePrefetchedArticle(id) ?? fetchPublicArticle(id));
+        // address bar at boot (see prefetchPublicArticle). A retry always
+        // asks afresh.
+        const prefetched = attempt === 0 ? takePrefetchedArticle(id) : undefined;
+        const { article, views } = await (prefetched ?? fetchPublicArticle(id));
         if (cancelled) return;
         if (article) {
           setArticle(article);
@@ -56,19 +59,20 @@ const ArticleDetailPage: React.FC = () => {
       } catch (error) {
         if (cancelled) return;
         // A fetch *failure* is different from an absent article — the story
-        // may well exist and Supabase is simply unreachable. Claiming 404
-        // would be wrong, so this path still returns the reader where they
-        // came from.
+        // may well exist and Supabase is simply unreachable — so it is not a
+        // 404. It used to send the reader back where they came from, which
+        // for a shared link meant the home page, with no word of what went
+        // wrong and the link gone from the address bar. Now the page stays,
+        // says so, and offers to try again.
         logError("ArticleDetail.fetchArticle", error);
-        navigate(fromPath, { replace: true });
+        setLoadFailed(true);
       } finally {
         if (!cancelled) setIsLoading(false);
       }
     })();
 
     return () => { cancelled = true; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id]);
+  }, [id, attempt]);
 
   if (isLoading) {
     return (
@@ -81,6 +85,24 @@ const ArticleDetailPage: React.FC = () => {
   }
 
   if (notFound) return <NotFound />;
+
+  if (loadFailed) {
+    return (
+      <div className="ed-container rs-in" style={{ minHeight: "60vh" }}>
+        <LoadError
+          message={language === "en"
+            ? "This story could not be opened right now. It is usually a passing connection problem."
+            : "Povestea nu a putut fi deschisă acum. De obicei este o problemă temporară de conexiune."}
+          onRetry={() => setAttempt((n) => n + 1)}
+        />
+        <p className="text-center m-0" style={{ marginTop: -40 }}>
+          <button type="button" className="rs-word" onClick={() => (window.history.state?.idx ? navigate(-1) : navigate("/"))}>
+            {language === "en" ? "← Go back" : "← Înapoi"}
+          </button>
+        </p>
+      </div>
+    );
+  }
 
   if (!article) return null;
 

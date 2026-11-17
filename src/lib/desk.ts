@@ -7,8 +7,13 @@
  */
 import {
   supabase, toCamelCase, toCamelCaseArray, invalidatePublicContentCache, extractStoragePath, deleteStorageFile,
-  invokeAdminFunction, type Article, type Comment,
+  invokeAdminFunction, fetchAllRows, type Article, type Comment,
 } from "@/lib/supabase";
+
+// Every list on the desk is read through fetchAllRows: PostgREST answers at
+// most 1,000 rows whatever .limit() asks for, and says nothing when it stops
+// short. The daily reads alone are a row per story per day, so the 60-day
+// window passes that with 17 stories read every day.
 
 // ---------------------------------------------------------------- overview
 
@@ -29,13 +34,17 @@ export type DailyRead = { articleId: string; day: string; views: number };
 
 /** Reads per story per day, for the last `days` days (Bucharest days, as the database counts them). */
 export const fetchDailyReads = async (days: number): Promise<DailyRead[]> => {
-  const { data, error } = await supabase
-    .from("article_reads_daily")
-    .select("article_id, day, views")
-    .gte("day", lastDays(days)[0])
-    .limit(20000);
-  if (error) throw error;
-  return ((data || []) as { article_id: string; day: string; views: number }[]).map((r) => ({ articleId: r.article_id, day: r.day, views: r.views }));
+  const since = lastDays(days)[0];
+  const rows = await fetchAllRows<{ article_id: string; day: string; views: number }>((from, to) =>
+    supabase
+      .from("article_reads_daily")
+      .select("article_id, day, views")
+      .gte("day", since)
+      .order("day", { ascending: true })
+      .order("article_id", { ascending: true })
+      .range(from, to)
+  );
+  return rows.map((r) => ({ articleId: r.article_id, day: r.day, views: r.views }));
 };
 
 /**
@@ -61,19 +70,21 @@ export const statusOf = (a: Pick<Article, "isPublished" | "publishAt">): StorySt
 
 /** Every story the desk may see (an admin: all; a writer: their own and the published), newest first. */
 export const fetchDeskArticles = async (ownerId?: string): Promise<Article[]> => {
-  let q = supabase.from("articles").select(DESK_COLUMNS).order("created_at", { ascending: false }).order("id", { ascending: true }).limit(2000);
-  if (ownerId) q = q.eq("user_id", ownerId);
-  const { data, error } = await q;
-  if (error) throw error;
-  return toCamelCaseArray<Article>((data || []) as Record<string, unknown>[]);
+  const rows = await fetchAllRows<Record<string, unknown>>((from, to) => {
+    let q = supabase.from("articles").select(DESK_COLUMNS);
+    if (ownerId) q = q.eq("user_id", ownerId);
+    return q.order("created_at", { ascending: false }).order("id", { ascending: true }).range(from, to);
+  });
+  return toCamelCaseArray<Article>(rows);
 };
 
 /** Lifetime reads for every story that has any. */
 export const fetchAllViewCounts = async (): Promise<Record<string, number>> => {
-  const { data, error } = await supabase.from("article_views").select("article_id, view_count").limit(5000);
-  if (error) throw error;
+  const rows = await fetchAllRows<{ article_id: string; view_count: number | null }>((from, to) =>
+    supabase.from("article_views").select("article_id, view_count").order("article_id", { ascending: true }).range(from, to)
+  );
   const out: Record<string, number> = {};
-  for (const r of (data || []) as { article_id: string; view_count: number | null }[]) out[r.article_id] = r.view_count || 0;
+  for (const r of rows) out[r.article_id] = r.view_count || 0;
   return out;
 };
 
@@ -117,11 +128,21 @@ export const updateShelf = async (id: string, patch: { descriptionEn?: string | 
   invalidatePublicContentCache();
 };
 
-/** Saves the site's shelf order: each shelf's place in `ids`. */
+/**
+ * Saves the site's shelf order: each shelf's place in `ids`, in one
+ * statement (set_shelf_order, migration 20261117120000), so a failure leaves
+ * the old order whole rather than half of each. Before that migration runs,
+ * one update per shelf, as it always was.
+ */
 export const saveShelfOrder = async (ids: string[]): Promise<void> => {
-  const results = await Promise.all(ids.map((id, i) => supabase.from("categories").update({ sort_order: i + 1 }).eq("id", id)));
-  const failed = results.find((r) => r.error);
-  if (failed?.error) throw failed.error;
+  const { error } = await supabase.rpc("set_shelf_order", { p_ids: ids });
+  if (error) {
+    const missing = error.code === "PGRST202" || error.code === "42883";
+    if (!missing) throw error;
+    const results = await Promise.all(ids.map((id, i) => supabase.from("categories").update({ sort_order: i + 1 }).eq("id", id)));
+    const failed = results.find((r) => r.error);
+    if (failed?.error) throw failed.error;
+  }
   invalidatePublicContentCache();
 };
 
@@ -142,15 +163,18 @@ export const groupNotes = <T extends Pick<DeskNote, "hiddenAt" | "flags">>(notes
 
 /** Every note (an admin sees hidden ones too), flagged first, then newest. */
 export const fetchDeskNotes = async (): Promise<DeskNote[]> => {
+  type NoteRow = Record<string, unknown> & { articles?: { title_en?: string; title_ro?: string } | null };
   const [notes, flags] = await Promise.all([
-    supabase.from("comments").select("*, articles(title_en, title_ro)").order("created_at", { ascending: false }).limit(1000),
-    supabase.from("comment_flags").select("comment_id").limit(5000),
+    fetchAllRows<NoteRow>((from, to) =>
+      supabase.from("comments").select("*, articles(title_en, title_ro)").order("created_at", { ascending: false }).order("id", { ascending: true }).range(from, to)
+    ),
+    fetchAllRows<{ comment_id: string }>((from, to) =>
+      supabase.from("comment_flags").select("comment_id").order("comment_id", { ascending: true }).order("user_id", { ascending: true }).range(from, to)
+    ),
   ]);
-  if (notes.error) throw notes.error;
-  if (flags.error) throw flags.error;
   const count = new Map<string, number>();
-  for (const f of (flags.data || []) as { comment_id: string }[]) count.set(f.comment_id, (count.get(f.comment_id) || 0) + 1);
-  return ((notes.data || []) as (Record<string, unknown> & { articles?: { title_en?: string; title_ro?: string } | null })[]).map((r) => {
+  for (const f of flags) count.set(f.comment_id, (count.get(f.comment_id) || 0) + 1);
+  return notes.map((r) => {
     const { articles, ...rest } = r;
     const c = toCamelCase<Comment>(rest);
     return { ...c, flags: count.get(c.id) || 0, storyTitleEn: articles?.title_en || "", storyTitleRo: articles?.title_ro || "" };
@@ -192,10 +216,11 @@ export const fetchMyFlags = async (commentIds: string[]): Promise<Set<string>> =
 
 /** How many notes each reader has left. */
 export const fetchNoteCounts = async (): Promise<Record<string, number>> => {
-  const { data, error } = await supabase.from("comments").select("user_id").limit(10000);
-  if (error) throw error;
+  const rows = await fetchAllRows<{ user_id: string }>((from, to) =>
+    supabase.from("comments").select("user_id").order("id", { ascending: true }).range(from, to)
+  );
   const out: Record<string, number> = {};
-  for (const r of (data || []) as { user_id: string }[]) out[r.user_id] = (out[r.user_id] || 0) + 1;
+  for (const r of rows) out[r.user_id] = (out[r.user_id] || 0) + 1;
   return out;
 };
 
@@ -204,7 +229,9 @@ export const fetchNoteCounts = async (): Promise<Record<string, number>> => {
 export type Dispatch = { id: string; subject: string; storyIds: string[]; recipients: number; sentAt: string };
 
 export const fetchDispatches = async (): Promise<Dispatch[]> => {
-  const { data, error } = await supabase.from("newsletter_dispatches").select("id, subject, story_ids, recipients, sent_at").order("sent_at", { ascending: false }).limit(50);
+  // recipients > 0: a send in progress holds a row with none yet (the
+  // dispatch function's guard against sending twice), which isn't a letter.
+  const { data, error } = await supabase.from("newsletter_dispatches").select("id, subject, story_ids, recipients, sent_at").gt("recipients", 0).order("sent_at", { ascending: false }).limit(50);
   if (error) throw error;
   return ((data || []) as { id: string; subject: string; story_ids: string[]; recipients: number; sent_at: string }[])
     .map((r) => ({ id: r.id, subject: r.subject, storyIds: r.story_ids || [], recipients: r.recipients, sentAt: r.sent_at }));

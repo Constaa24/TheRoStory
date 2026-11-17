@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardFooter } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PageHead } from "@/components/layout/PageHead";
+import { takeReturnPath } from "@/lib/return-path";
 import { toast } from "sonner";
 import { Loader2, Mail, Lock, User, Eye, EyeOff } from "lucide-react";
 import { motion } from "framer-motion";
@@ -126,7 +127,7 @@ const Auth: React.FC = () => {
       const result = await signIn(email.trim(), password);
       if (result?.error) throw result.error;
       toast.success(t("auth.welcomeBack"));
-      navigate("/");
+      navigate(takeReturnPath() ?? "/");
     } catch (error) {
       const message = error instanceof Error ? error.message : "";
       // Supabase rejects sign-in on unconfirmed accounts with this error.
@@ -183,7 +184,7 @@ const Auth: React.FC = () => {
       } else {
         // Autoconfirm is on — user is immediately signed in
         toast.success(t("auth.accountCreatedWelcome"));
-        navigate("/");
+        navigate(takeReturnPath() ?? "/");
       }
     } catch {
       // Don't surface the underlying error message — generic toast only,
@@ -396,6 +397,7 @@ const Auth: React.FC = () => {
                     <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" aria-hidden="true" />
                     <Input
                       id="reset-email"
+                      autoComplete="email"
                       type="email"
                       placeholder="email@example.com"
                       className={`pl-10 ${INPUT}`}
@@ -505,6 +507,7 @@ const Auth: React.FC = () => {
                     <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" aria-hidden="true" />
                     <Input
                       id="new-password"
+                      autoComplete="new-password"
                       type={showNewPwd ? "text" : "password"}
                       className={`pl-10 pr-11 ${INPUT}`}
                       value={newPassword}
@@ -581,6 +584,7 @@ const Auth: React.FC = () => {
                       <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" aria-hidden="true" />
                       <Input
                         id="email"
+                        autoComplete="email"
                         type="email"
                         placeholder="email@example.com"
                         className={`pl-10 ${INPUT}`}
@@ -597,6 +601,7 @@ const Auth: React.FC = () => {
                       <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" aria-hidden="true" />
                       <Input
                         id="password"
+                        autoComplete="current-password"
                         type={showLoginPwd ? "text" : "password"}
                         className={`pl-10 pr-11 ${INPUT}`}
                         value={password}
@@ -658,6 +663,7 @@ const Auth: React.FC = () => {
                       <User className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" aria-hidden="true" />
                       <Input
                         id="name"
+                        autoComplete="name"
                         placeholder="Ion Popescu"
                         className={`pl-10 ${INPUT}`}
                         value={displayName}
@@ -673,6 +679,7 @@ const Auth: React.FC = () => {
                       <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" aria-hidden="true" />
                       <Input
                         id="signup-email"
+                        autoComplete="email"
                         type="email"
                         placeholder="email@example.com"
                         className={`pl-10 ${INPUT}`}
@@ -689,6 +696,7 @@ const Auth: React.FC = () => {
                       <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" aria-hidden="true" />
                       <Input
                         id="signup-password"
+                        autoComplete="new-password"
                         type={showSignupPwd ? "text" : "password"}
                         className={`pl-10 pr-11 ${INPUT}`}
                         value={password}

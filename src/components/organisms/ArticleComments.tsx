@@ -144,8 +144,8 @@ export const ArticleComments: React.FC<Props> = ({ articleId }) => {
     if (!user) {
       toast.error(
         language === "en"
-          ? "Please log in to comment"
-          : "Vă rugăm să vă autentificați pentru a comenta"
+          ? "Sign in to leave a note"
+          : "Intră în cont ca să lași o notă"
       );
       login();
       return;
@@ -158,8 +158,8 @@ export const ArticleComments: React.FC<Props> = ({ articleId }) => {
     if (trimmed.length > 2000) {
       toast.error(
         language === "en"
-          ? "Comment must be under 2000 characters"
-          : "Comentariul trebuie să aibă sub 2000 de caractere"
+          ? "A note can be at most 2,000 characters"
+          : "O notă poate avea cel mult 2.000 de caractere"
       );
       return;
     }
@@ -190,12 +190,18 @@ export const ArticleComments: React.FC<Props> = ({ articleId }) => {
 
     setIsPosting(true);
     try {
-      const success = await postComment({
+      const result = await postComment({
         articleId,
         userId: user.id,
         content: trimmed,
       });
-      if (success) {
+      if (result === "rate-limited") {
+        toast.error(
+          language === "en"
+            ? "You've left several notes in the last minute. Wait a moment, then try again."
+            : "Ai lăsat mai multe note în ultimul minut. Așteaptă puțin, apoi încearcă din nou."
+        );
+      } else if (result === "ok") {
         // Inside the try, so an unguarded throw here would be caught below and
         // reported as "Failed to post comment" — for a comment that had just
         // been posted successfully, while skipping the reset and the reload.
@@ -207,19 +213,19 @@ export const ArticleComments: React.FC<Props> = ({ articleId }) => {
         }
         setNewComment("");
         await reloadComments();
-        toast.success(language === "en" ? "Comment posted" : "Comentariu postat");
+        toast.success(language === "en" ? "Your note is posted" : "Nota ta a fost publicată");
       } else {
         toast.error(
           language === "en"
-            ? "Failed to post comment"
-            : "Eroare la postarea comentariului"
+            ? "Your note could not be posted. Try again."
+            : "Nota nu a putut fi publicată. Încearcă din nou."
         );
       }
     } catch {
       toast.error(
         language === "en"
-          ? "Failed to post comment"
-          : "Eroare la postarea comentariului"
+          ? "Your note could not be posted. Try again."
+          : "Nota nu a putut fi publicată. Încearcă din nou."
       );
     } finally {
       if (mountedRef.current) setIsPosting(false);
@@ -256,19 +262,19 @@ export const ArticleComments: React.FC<Props> = ({ articleId }) => {
       const success = await deleteComment(commentId, user.id);
       if (success) {
         await reloadComments();
-        toast.success(language === "en" ? "Comment deleted" : "Comentariu șters");
+        toast.success(language === "en" ? "Your note is deleted" : "Nota ta a fost ștearsă");
       } else {
         toast.error(
           language === "en"
-            ? "Failed to delete comment"
-            : "Eroare la ștergerea comentariului"
+            ? "The note could not be deleted. Try again."
+            : "Nota nu a putut fi ștearsă. Încearcă din nou."
         );
       }
     } catch {
       toast.error(
         language === "en"
-          ? "Failed to delete comment"
-          : "Eroare la ștergerea comentariului"
+          ? "The note could not be deleted. Try again."
+          : "Nota nu a putut fi ștearsă. Încearcă din nou."
       );
     } finally {
       if (mountedRef.current) setIsDeleting(null);
@@ -292,8 +298,8 @@ export const ArticleComments: React.FC<Props> = ({ articleId }) => {
     if (trimmed.length > 2000) {
       toast.error(
         language === "en"
-          ? "Comment must be under 2000 characters"
-          : "Comentariul trebuie să aibă sub 2000 de caractere"
+          ? "A note can be at most 2,000 characters"
+          : "O notă poate avea cel mult 2.000 de caractere"
       );
       return;
     }
@@ -304,19 +310,19 @@ export const ArticleComments: React.FC<Props> = ({ articleId }) => {
         setEditingCommentId(null);
         setEditContent("");
         await reloadComments();
-        toast.success(language === "en" ? "Comment updated" : "Comentariu actualizat");
+        toast.success(language === "en" ? "Your note is updated" : "Nota ta a fost actualizată");
       } else {
         toast.error(
           language === "en"
-            ? "Failed to update comment"
-            : "Eroare la actualizarea comentariului"
+            ? "The note could not be updated. Try again."
+            : "Nota nu a putut fi actualizată. Încearcă din nou."
         );
       }
     } catch {
       toast.error(
         language === "en"
-          ? "Failed to update comment"
-          : "Eroare la actualizarea comentariului"
+          ? "The note could not be updated. Try again."
+          : "Nota nu a putut fi actualizată. Încearcă din nou."
       );
     } finally {
       if (mountedRef.current) setIsPosting(false);

@@ -104,7 +104,13 @@ Deno.serve(async (req) => {
     if (lookupError) throw lookupError;
 
     if (!row) return json({ ok: false, error: "invalid" }, corsHeaders);
+    // The link keeps working after it has been used, so a second click (or
+    // a mail scanner that opened it first) says "already confirmed" rather
+    // than "invalid link".
     if (row.status === "confirmed") return json({ ok: true, already: true }, corsHeaders);
+    // A link from before an unsubscribe never signs anyone back up: that
+    // takes a new subscription, which issues a new token.
+    if (row.status !== "pending") return json({ ok: false, error: "invalid" }, corsHeaders);
     if (Date.now() - new Date(row.confirm_sent_at).getTime() > TOKEN_TTL_MS) {
       return json({ ok: false, error: "expired" }, corsHeaders);
     }
@@ -132,12 +138,15 @@ Deno.serve(async (req) => {
         // A confirmed subscriber is no longer unsubscribed — clear any stale
         // timestamp from a previous unsubscribe so the row carries one state.
         unsubscribed_at: null,
-        // Rotate the token so the just-used confirmation link can't be
-        // replayed. The column is NOT NULL, so we rotate to a fresh random
-        // value (never emailed → unusable) rather than clearing it.
-        confirm_token: crypto.randomUUID(),
+        // The token is kept: replaying the link only ever answers "already
+        // confirmed" (above). It used to be rotated here, which made a
+        // second click — or a mail scanner opening the link before the
+        // reader did — report the reader's own link as invalid.
       })
-      .eq("id", row.id);
+      .eq("id", row.id)
+      // Only a row still pending: a concurrent click that already confirmed
+      // it leaves nothing for this one to do.
+      .eq("status", "pending");
     if (updateError) throw updateError;
 
     return json({ ok: true }, corsHeaders);

@@ -214,9 +214,18 @@ const App: React.FC = () => {
   const shouldRedirectForRecovery = isRecoveryMode && !isRecoveryAllowedPath && !recoveryRedirectBypass;
   const hideAppChrome = isRecoveryMode;
 
-  // Let /auth/callback render even while auth is loading so it can exchange the
-  // PKCE code. Blocking it behind isLoading can deadlock the auth flow.
-  if (isLoading && location.pathname !== '/auth/callback') {
+  // Only the pages that depend on who is signed in wait for the session and
+  // role: the desk (a guest is sent home), the profile (a guest is sent to
+  // sign in) and the sign-in pages (a signed-in reader is sent on). Every
+  // other page renders at once. Holding them all used to keep a signed-in
+  // reader on the splash screen for the profile and role queries — up to
+  // ten seconds on a slow line — on every load and every language switch.
+  // /auth/callback renders while auth is loading so it can exchange the
+  // PKCE code; blocking it behind isLoading can deadlock the auth flow.
+  const waitsForAuth =
+    location.pathname !== '/auth/callback' &&
+    /^\/(?:admin|profile|auth|reset-password)(?:\/|$)/.test(location.pathname);
+  if (isLoading && waitsForAuth) {
     return (
       <div className="h-screen w-screen flex items-center justify-center bg-background">
         <PaperOverlay />
