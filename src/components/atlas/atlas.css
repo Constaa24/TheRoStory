@@ -292,9 +292,11 @@
 .at-lv tr.at-sel td { background: var(--glow); }
 
 /* ---------- timeline ----------
-   The plate's lower margin: a label, the years in view and Play; then the
-   dated track with the timeless column beside it. */
-.at-tl { padding: 16px 22px 8px; border-top: 1px solid var(--line-soft); overflow: hidden; }
+   The plate's lower margin: a label, Play and the years in view; then the
+   strip (the eras as bands, a dot per dated story piled where they crowd),
+   the rail with the two year handles, the boundary years; and last a row
+   for the stories with no date. */
+.at-tl { padding: 18px 22px 14px; border-top: 1px solid var(--line-soft); overflow: hidden; }
 .at-tl-head { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; margin-bottom: 14px; }
 .at-tl-head h2 {
   margin: 0; font-family: var(--ui); font-size: 12px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--gold);
@@ -306,48 +308,94 @@
 }
 .at-play:hover { background: var(--glow); border-color: var(--gold); }
 .at-play[aria-pressed="true"] { background: var(--gold); border-color: var(--gold); color: var(--on-gold); }
-.at-tl-range { margin-left: auto; font-family: var(--ui); font-size: 12px; font-weight: 700; color: var(--text-dim); font-variant-numeric: tabular-nums; }
-.at-tl-body { display: flex; align-items: stretch; gap: 14px; }
-.at-tl-track { position: relative; flex: 1; min-width: 0; margin: 0 9px; }
-.at-tl-tcol { flex: none; width: 112px; display: grid; align-content: start; gap: 10px; padding-left: 12px; border-left: 1px dashed var(--line); }
+.at-tl-range { margin-left: auto; font-family: var(--ui); font-size: 12.5px; font-weight: 700; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+/* Narrowed years read in gold, like the handles that set them. */
+.at-tl-range.is-narrowed { color: var(--gold); }
+/* Side margins so the end handles sit fully inside the plate. */
+.at-tl-track { position: relative; margin: 0 10px; }
+
+/* The strip: the eras as bands, alternate ones faintly filled. */
+.at-tl-strip { position: relative; }
+.at-tl-band { position: absolute; top: 0; bottom: 0; border-left: 1px solid var(--line-soft); }
+.at-tl-band:first-child { border-left: 0; }
+.at-tl-band.is-alt { background: rgba(var(--line-rgb), 0.05); }
+.at-tl-band.is-on { background: var(--glow); }
+.at-tl-era {
+  position: absolute; top: 5px; left: 50%; transform: translateX(-50%); z-index: 2;
+  padding: 2px 6px; border: 0; border-radius: 6px; background: none; cursor: pointer; white-space: nowrap;
+  font-family: var(--ui); font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-mute);
+}
+.at-tl-era:hover { color: var(--gold); }
+.at-tl-era[aria-pressed="true"] { color: var(--gold); }
+.at-tl-era:focus-visible { outline: 2px solid var(--gold); outline-offset: 1px; }
+.at-tl-shade { position: absolute; top: 0; bottom: 0; z-index: 1; background: var(--at-shade); pointer-events: none; }
+
+/* A dot per dated story. */
+.at-tl-dots { position: absolute; inset: 0; z-index: 2; pointer-events: none; }
+.at-tl-mark { position: absolute; width: 10px; height: 10px; margin-left: -5px; cursor: pointer; pointer-events: auto; }
+/* A 18 px touch area round each 10 px dot. */
+.at-tl-mark::after { content: ""; position: absolute; inset: -4px; }
+.at-tl-dot {
+  display: block; width: 10px; height: 10px; border-radius: 50%;
+  background: var(--gold); box-shadow: 0 0 0 2px var(--ink-2); transition: transform 0.15s ease;
+}
+/* A story the filters (or Play) leave out: its dot fades, never its label,
+   which stays readable when the dot is hovered. */
+.at-tl-mark.at-out .at-tl-dot { opacity: 0.25; }
+.at-tl-mark.at-stop .at-tl-dot { box-shadow: 0 0 0 2px var(--ink-2), 0 0 0 4px rgba(var(--line-rgb), 0.55); }
+.at-tl-mark.at-hot,
+.at-tl-mark.at-sel { z-index: 3; }
+.at-tl-mark.at-hot .at-tl-dot,
+.at-tl-mark.at-sel .at-tl-dot { transform: scale(1.3); background: var(--gold-2); box-shadow: 0 0 0 2px var(--ink-2), 0 0 0 3.5px var(--gold); }
+/* The span of the story in hand: from the year it begins to the year it ends. */
+.at-tl-span { position: absolute; z-index: 2; height: 4px; border-radius: 2px; background: var(--gold); opacity: 0.6; pointer-events: none; }
+.at-tl-lbl {
+  position: absolute; bottom: 17px; left: 50%; z-index: 4; display: none; transform: translateX(-50%); white-space: nowrap;
+  padding: 5px 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--ink-2); box-shadow: var(--shadow-dropdown);
+  font-family: var(--display); font-size: 16px; color: var(--parchment);
+}
+/* Near either end the label opens inward, so it never runs off the plate. */
+.at-tl-lbl-start { left: -6px; transform: none; }
+.at-tl-lbl-end { left: auto; right: -6px; transform: none; }
+.at-tl-mark.at-hot .at-tl-lbl { display: block; }
+.at-tl-cursor { position: absolute; top: 0; bottom: 0; z-index: 3; width: 2px; margin-left: -1px; background: var(--gold-2); box-shadow: 0 0 12px var(--gold); pointer-events: none; }
+
+/* The rail: the chosen years in gold, a handle at each end. */
+.at-tl-rail { position: relative; height: 4px; border-radius: 2px; background: var(--line); }
+.at-tl-rail-on { position: absolute; top: 0; bottom: 0; border-radius: 2px; background: var(--gold); }
+.at-tl-handle {
+  position: absolute; top: 50%; z-index: 3; width: 18px; height: 18px; margin: -9px 0 0 -9px; border-radius: 50%; cursor: ew-resize; touch-action: none;
+  background: var(--gold); border: 3px solid var(--ink-2); box-shadow: 0 0 0 1px var(--gold);
+}
+/* A 40 px touch area round each 18 px handle. */
+.at-tl-handle::after { content: ""; position: absolute; inset: -11px; }
+.at-tl-handle:focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; }
+.at-tl-years { position: relative; height: 26px; }
+.at-tl-years span {
+  position: absolute; top: 9px; transform: translateX(-50%); white-space: nowrap;
+  font-family: var(--ui); font-size: 12px; font-weight: 600; color: var(--text-mute); font-variant-numeric: tabular-nums;
+}
+.at-tl-years .is-start { transform: none; }
+.at-tl-years .is-end { transform: translateX(-100%); }
+
+/* The stories with no date: the switch, then a star for each. */
+.at-tl-foot {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px;
+  margin-top: 8px; padding-top: 12px; border-top: 1px dashed var(--line-soft);
+}
 .at-tl-timeless {
-  display: inline-flex; align-items: center; gap: 6px; width: 100%; min-height: 28px; padding: 0 10px; cursor: pointer; white-space: nowrap; overflow: hidden;
+  display: inline-flex; align-items: center; gap: 7px; min-height: 32px; padding: 0 12px; cursor: pointer; white-space: nowrap;
   border: 1px solid var(--gold-deep); border-radius: 999px; background: var(--glow);
   font-family: var(--ui); font-size: 12px; font-weight: 700; color: var(--gold-2);
 }
 .at-tl-timeless:hover { border-color: var(--gold); }
 /* Off reads as an empty dashed pill, not faded text, so the label keeps its contrast. */
 .at-tl-timeless[aria-pressed="false"] { background: transparent; border-style: dashed; border-color: var(--line); color: var(--text-dim); }
-.at-tl-marks { position: relative; }
-.at-tl-mark { position: absolute; height: 10px; cursor: pointer; }
-.at-tl-bar { position: absolute; left: 0; right: 0; top: 4px; height: 2px; background: repeating-linear-gradient(90deg, var(--gold-deep) 0 6px, transparent 6px 10px); }
-.at-tl-dot { position: absolute; left: -5px; top: 0; width: 10px; height: 10px; transform: rotate(45deg); background: var(--ink-2); border: 1.5px solid var(--gold); }
-.at-tl-mark.at-out { opacity: 0.25; }
-.at-tl-mark.at-hot .at-tl-dot,
-.at-tl-mark.at-sel .at-tl-dot { background: var(--gold); }
-.at-tl-mark.at-stop .at-tl-dot { box-shadow: 0 0 0 3px rgba(var(--line-rgb), 0.26); }
-.at-tl-lbl {
-  position: absolute; bottom: 17px; left: 0; z-index: 2; display: none; transform: translateX(-30%); white-space: nowrap;
-  padding: 5px 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--ink-2); box-shadow: var(--shadow-dropdown);
-  font-family: var(--display); font-size: 16px; color: var(--parchment);
+.at-tl-count {
+  min-width: 20px; padding: 1px 6px; border-radius: 999px; text-align: center;
+  background: rgba(var(--line-rgb), 0.18); font-variant-numeric: tabular-nums;
 }
-.at-tl-mark.at-hot .at-tl-lbl { display: block; }
-.at-tl-axis { position: relative; height: 30px; border-top: 1px dashed var(--gold-deep); }
-.at-tl-tick { position: absolute; top: 0; height: 5px; border-left: 1px solid var(--gold-deep); }
-.at-tl-tick span {
-  position: absolute; top: 8px; transform: translateX(-50%);
-  font-family: var(--ui); font-size: 12px; font-weight: 600; color: var(--text-mute); font-variant-numeric: tabular-nums;
-}
-.at-tl-shade { position: absolute; top: 0; bottom: 30px; background: var(--at-shade); pointer-events: none; }
-.at-tl-handle {
-  position: absolute; bottom: 22px; z-index: 3; width: 16px; height: 16px; margin-left: -8px; border-radius: 50%; cursor: ew-resize; touch-action: none;
-  background: var(--gold); border: 3px solid var(--ink-2); box-shadow: 0 0 0 1px var(--gold);
-}
-/* A 40 px touch area round each 16 px handle. */
-.at-tl-handle::after { content: ""; position: absolute; inset: -12px; }
-.at-tl-handle:focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; }
-.at-tl-cursor { position: absolute; top: 0; bottom: 30px; width: 2px; margin-left: -1px; background: var(--gold-2); box-shadow: 0 0 12px var(--gold); pointer-events: none; }
-.at-tl-stars { display: flex; flex-wrap: wrap; gap: 7px 9px; }
+.at-tl-stars { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
 .at-tl-star {
   position: relative; display: grid; place-items: center; width: 16px; height: 16px; padding: 0; cursor: pointer;
   border: 0; background: none; color: var(--gold);
@@ -358,9 +406,10 @@
 .at-tl-timeless .at-star-ico { width: 10px; height: 10px; }
 .at-tl-star.at-hot .at-star-ico,
 .at-tl-star.at-sel .at-star-ico { width: 16px; height: 16px; color: var(--gold-2); }
-.at-tl-star.at-out { opacity: 0.3; }
-.at-tl-lbl-r { bottom: 22px; left: auto; right: -4px; transform: none; }
+.at-tl-star.at-out .at-star-ico { opacity: 0.3; }
+.at-tl-lbl-star { bottom: 22px; }
 .at-tl-star.at-hot .at-tl-lbl { display: block; }
+.at-tl-note { margin-left: auto; font-family: var(--ui); font-size: 12px; color: var(--text-mute); }
 .at-tl-empty { margin: 4px 0 12px; font-family: var(--ui); font-size: 13px; color: var(--text-mute); }
 
 /* ---------- side column ---------- */
@@ -522,13 +571,11 @@
   .at-filter-lbl { flex-basis: 100%; }
   .at-chips { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 4px; scrollbar-width: none; }
   .at-dd-format { margin-left: 0; }
-  .at-tl { padding: 14px 14px 6px; }
-  .at-tl-track { margin: 0 6px; }
-  .at-tl-tcol { width: 44px; padding-left: 8px; }
-  /* The band keeps its star and its spoken name; the word itself won't fit. */
-  .at-tl-timeless { justify-content: center; padding: 0; }
-  .at-tl-timeless-txt { display: none; }
+  .at-tl { padding: 14px 14px 10px; }
+  .at-tl-track { margin: 0 9px; }
   .at-tl-range { margin-left: 0; }
+  /* The note goes under the stars rather than squeezing beside them. */
+  .at-tl-note { flex-basis: 100%; margin-left: 0; }
   /* A phone's plate is ~340 px wide: the zoom stack shrinks, and the tools
      move to the top-left corner (empty sky over the map) instead of sitting
      on the Danube delta. Their popovers are then placed against the whole

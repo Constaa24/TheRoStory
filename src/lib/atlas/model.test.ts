@@ -9,10 +9,10 @@ import {
   yearOf,
   matches,
   eraOf,
-  ticksFor,
+  eraTicks,
   centuriesSpanned,
   excerpt,
-  layoutLanes,
+  stackDots,
   compareStories,
   countyAt,
   filtersActive,
@@ -164,13 +164,22 @@ describe('time scale', () => {
     expect(buildTimeScale([story({ y0: 2040, y1: 2044 })]).end).toBe(2050);
   });
 
-  it('drops ticks that would print on top of each other', () => {
-    expect(ticksFor(base, 900)).toEqual([1300, 1400, 1500, 1800, 1850, 1900, 1925, 1950, 1975, 2000]);
-    const phone = ticksFor(base, 310);
-    expect(phone).toContain(1300);
-    expect(phone).toContain(2000);
+  it('prints only the era boundaries and the two ends', () => {
+    expect(eraTicks(base, 900)).toEqual([1300, 1500, 1800, 1900, 2000, 2030]);
+  });
+
+  it('drops a boundary that would print on top of its neighbour, never an end', () => {
+    const phone = eraTicks(base, 310);
+    expect(phone[0]).toBe(base.start);
+    expect(phone[phone.length - 1]).toBe(base.end);
     const xs = phone.map((y) => (xOf(base, y) / 100) * 310);
-    for (let i = 1; i < xs.length; i++) expect(xs[i] - xs[i - 1]).toBeGreaterThanOrEqual(40);
+    // Next to an end (printed flush with the edge) a boundary needs 54 px,
+    // between two centred ones 36 px.
+    for (let i = 1; i < xs.length; i++) {
+      const nearEnd = i === 1 || i === xs.length - 1;
+      expect(xs[i] - xs[i - 1]).toBeGreaterThanOrEqual(nearEnd ? 54 : 36);
+    }
+    expect(phone).not.toContain(1500); // 50 px from the start's label at this width
   });
 
   it('files stories under eras', () => {
@@ -248,16 +257,25 @@ describe('order and lanes', () => {
     expect(list.sort(compareStories).map((s) => s.id)).toEqual(['a', 'b', 't', 'u']);
   });
 
-  it('stacks overlapping spans into lanes', () => {
+  it('piles dots that would touch, each into the lowest row with room', () => {
     const scale = buildTimeScale([]);
-    const { lanes, count } = layoutLanes(
-      [story({ id: 'a', y0: 1850, y1: 1950 }), story({ id: 'b', y0: 1900, y1: 1900 }), story({ id: 'c', y0: 1990, y1: 1990 })],
+    const { rows, count } = stackDots(
+      [
+        // A long span no longer pushes later stories up: only the start year counts.
+        story({ id: 'a', y0: 1850, y1: 1950 }),
+        story({ id: 'b', y0: 1851, y1: 1851 }),
+        story({ id: 'c', y0: 1852, y1: 1852 }),
+        story({ id: 'd', y0: 1900, y1: 1900 }),
+        story({ id: 'u' }),
+      ],
       1000,
       scale
     );
-    expect(lanes.get('a')).toBe(0);
-    expect(lanes.get('b')).toBe(1);
-    expect(lanes.get('c')).toBe(0);
-    expect(count).toBe(2);
+    expect(rows.get('a')).toBe(0);
+    expect(rows.get('b')).toBe(1);
+    expect(rows.get('c')).toBe(2);
+    expect(rows.get('d')).toBe(0);
+    expect(rows.has('u')).toBe(false);
+    expect(count).toBe(3);
   });
 });

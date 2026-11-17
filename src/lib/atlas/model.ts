@@ -246,20 +246,28 @@ export const yearOf = (scale: TimeScale, pct: number): number => {
 };
 
 /**
- * Axis ticks that fit the track: era boundaries are placed first, then the
- * in-between years, and any tick closer than `minGapPx` to one already
- * placed is dropped. On a phone that keeps "1500" and "1800" from printing
- * as "15001800".
+ * The years printed under the timeline: where one era meets the next, and
+ * the two ends. Only those, because the axis is not even (each era has its
+ * own width) and years in between made it look like it was. A boundary
+ * closer than `minGapPx` to the one before is left out, so on a phone
+ * "1500" and "1800" never print as "15001800"; the ends always stay, and
+ * the end is the archive's "today".
  */
-export const ticksFor = (scale: TimeScale, widthPx: number, minGapPx = 40): number[] => {
-  const boundaries = [...new Set([scale.start, ...scale.eras.map((e) => e.to)])].filter((y) => y < scale.end);
-  const between = [1400, 1850, 1950, 1925, 1975].filter((y) => y > scale.start && y < scale.end);
-  const placed: { y: number; x: number }[] = [];
-  for (const y of [...boundaries, ...between]) {
-    const x = (xOf(scale, y) / 100) * widthPx;
-    if (placed.every((p) => Math.abs(p.x - x) >= minGapPx)) placed.push({ y, x });
+export const eraTicks = (scale: TimeScale, widthPx: number, minGapPx = 36): number[] => {
+  const boundaries = [...new Set(scale.eras.map((e) => e.from))].filter((y) => y > scale.start && y < scale.end);
+  const xAt = (y: number) => (xOf(scale, y) / 100) * widthPx;
+  // The two ends are printed flush with the edges (the first label runs
+  // right from its year, the last runs left), so a boundary needs half as
+  // much room again to clear them as it needs to clear another centred one.
+  const endGap = minGapPx * 1.5;
+  const placed = [scale.start];
+  for (const y of boundaries) {
+    const prev = placed[placed.length - 1];
+    const clearsPrev = xAt(y) - xAt(prev) >= (prev === scale.start ? endGap : minGapPx);
+    const clearsEnd = xAt(scale.end) - xAt(y) >= endGap;
+    if (clearsPrev && clearsEnd) placed.push(y);
   }
-  return placed.map((p) => p.y).sort((a, b) => a - b);
+  return [...placed, scale.end];
 };
 
 /** The era a story is listed under: an era id, 'timeless' or 'undated'. */
@@ -349,28 +357,32 @@ export const excerpt = (text: string, max = 170, poem = false): string => excerp
 // ---------------------------------------------------------------- layout
 
 /**
- * Timeline lanes: each dated mark takes the first row where it clears the
- * previous mark by a few pixels, so overlapping spans stack instead of
- * hiding each other.
+ * The timeline's dots: one per dated story, at the year it begins. Dots that
+ * would touch pile upward, each into the lowest row with room, so the strip
+ * reads like a small bar chart of the archive: the tall stacks are where
+ * the stories are. (Spans are drawn only for the story in hand; drawn for
+ * every story, they were what made the old timeline a tangle.)
  */
-export const layoutLanes = (
+export const stackDots = (
   dated: readonly AtlasStory[],
   widthPx: number,
-  scale: TimeScale
-): { lanes: Map<string, number>; count: number } => {
-  const ends: number[] = [];
-  const lanes = new Map<string, number>();
-  for (const s of dated) {
-    if (s.y0 == null) continue;
-    const a = (xOf(scale, s.y0) / 100) * widthPx;
-    const b = (xOf(scale, s.y1 ?? s.y0) / 100) * widthPx;
-    let lane = ends.findIndex((end) => a - 10 > end);
-    if (lane === -1) {
-      lane = ends.length;
-      ends.push(0);
+  scale: TimeScale,
+  gapPx = 13
+): { rows: Map<string, number>; count: number } => {
+  const placed = dated
+    .filter((s) => s.y0 != null)
+    .map((s) => ({ id: s.id, x: (xOf(scale, s.y0!) / 100) * widthPx }))
+    .sort((a, b) => a.x - b.x || a.id.localeCompare(b.id));
+  const lastX: number[] = [];
+  const rows = new Map<string, number>();
+  for (const { id, x } of placed) {
+    let row = lastX.findIndex((last) => x - last >= gapPx);
+    if (row === -1) {
+      row = lastX.length;
+      lastX.push(x);
     }
-    ends[lane] = Math.max(a, b) + 8;
-    lanes.set(s.id, lane);
+    lastX[row] = x;
+    rows.set(id, row);
   }
-  return { lanes, count: ends.length };
+  return { rows, count: lastX.length };
 };

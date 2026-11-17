@@ -1,9 +1,9 @@
 import React, { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
-  formatYear, layoutLanes, pick, ticksFor, whenOf, xOf, yearOf,
+  eraTicks, formatYear, pick, stackDots, whenOf, xOf, yearOf,
   type AtlasStory, type Lang, type TimeScale,
 } from '@/lib/atlas/model';
-import type { AtlasCopy } from './copy';
+import { fill, type AtlasCopy } from './copy';
 import { StarIcon } from './glyphs';
 
 type Props = {
@@ -35,6 +35,35 @@ const PlayIcon: React.FC<{ playing: boolean }> = ({ playing }) => (
   </svg>
 );
 
+/** Room for the era names along the top of the strip. */
+const LABEL_H = 26;
+/** Space under the lowest row of dots. */
+const BASE = 8;
+/** One row of dots. */
+const ROW = 13;
+/** A dot's size (CSS draws it; the layout needs to know it). */
+const DOT = 10;
+/** Roughly how wide an era name prints, in px, at the label's size. */
+const labelWidth = (text: string) => text.length * 7.4 + 14;
+
+/**
+ * The Atlas's timeline, laid out to be read at a glance:
+ *
+ *   - the eras as labelled bands, so the uneven axis explains itself (the
+ *     19th and 20th centuries, where most stories are, get most of the
+ *     width); a band's name is also the quickest way to pick that era;
+ *   - each dated story as one dot at the year it begins, dots that would
+ *     touch piled upward, so the tall stacks show where the stories are;
+ *     a story's span is drawn only for the one being hovered or chosen;
+ *   - one rail under the bands with the two handles that choose the years,
+ *     and the boundary years under that;
+ *   - the stories with no date in a row of their own, after the switch that
+ *     shows or hides them.
+ *
+ * Every mark is also a row in the story list (the map's accessible
+ * equivalent), so the marks stay out of the tab order and reading order.
+ * The handles, the era names, Play and the Timeless switch do not.
+ */
 const AtlasTimeline: React.FC<Props> = ({
   stories, scale, range, showTimeless, onRange, onToggleTimeless, matched, stops, selected, hover, onHover, onSelect,
   playing, cursorPct, playLabel, onPlay, copy, lang,
@@ -54,10 +83,11 @@ const AtlasTimeline: React.FC<Props> = ({
 
   const dated = useMemo(() => stories.filter((s) => s.y0 != null), [stories]);
   const timeless = useMemo(() => stories.filter((s) => s.timeless), [stories]);
-  const { lanes, count: laneCount } = useMemo(() => layoutLanes(dated, width || 1, scale), [dated, width, scale]);
+  const { rows, count: rowCount } = useMemo(() => stackDots(dated, width || 1, scale), [dated, width, scale]);
 
   const yearText = (y: number) => (y >= scale.end ? copy.today : formatYear(y, lang));
   const [a, b] = range;
+  const full = a <= scale.start && b >= scale.end;
 
   const setHandle = (i: 0 | 1, year: number) => {
     const next: [number, number] = [a, b];
@@ -113,6 +143,15 @@ const AtlasTimeline: React.FC<Props> = ({
     );
   }
 
+  // The story in hand, whose span is drawn: the one under the pointer (here,
+  // on the map or in the list), else the one chosen.
+  const focusId = hover ?? selected;
+  const focus = focusId ? dated.find((s) => s.id === focusId) : undefined;
+  const rowBottom = (row: number) => BASE + row * ROW;
+  const stripH = LABEL_H + rowBottom(Math.max(rowCount, 1)) + 4;
+  const xa = xOf(scale, a);
+  const xb = xOf(scale, b);
+
   return (
     <section className="at-tl" aria-labelledby="at-tl-title">
       <div className="at-tl-head">
@@ -123,84 +162,157 @@ const AtlasTimeline: React.FC<Props> = ({
             {playLabel}
           </button>
         )}
-        <span className="at-tl-range">{formatYear(a, lang)} – {yearText(b)}</span>
+        {dated.length > 0 && (
+          <span className={`at-tl-range${full ? '' : ' is-narrowed'}`}>{formatYear(a, lang)} – {yearText(b)}</span>
+        )}
       </div>
-      <div className="at-tl-body">
+
+      {dated.length > 0 ? (
         <div className="at-tl-track" ref={trackRef}>
-          {/* Every mark is also a row in the story list, so the marks
-              themselves stay out of the tab order and the reading order. */}
-          <div className="at-tl-marks" aria-hidden="true" style={{ height: 10 + laneCount * 14 }}>
-            {dated.map((s) => (
+          <div className="at-tl-strip" style={{ height: stripH }}>
+            {/* The eras, as bands across the strip. */}
+            {scale.eras.map((e, i) => {
+              const left = xOf(scale, e.from);
+              const w = xOf(scale, e.to) - left;
+              const px = (w / 100) * width;
+              const long = pick(e.long, lang);
+              const short = pick(e.short, lang);
+              const text = labelWidth(long) <= px ? long : labelWidth(short) <= px ? short : '';
+              const on = a === e.from && b === e.to;
+              return (
+                <div key={e.id} className={`at-tl-band${i % 2 ? ' is-alt' : ''}${on ? ' is-on' : ''}`} style={{ left: `${left}%`, width: `${w}%` }}>
+                  {text && (
+                    <button
+                      type="button"
+                      className="at-tl-era"
+                      aria-pressed={on}
+                      title={long}
+                      onClick={() => onRange(on ? [scale.start, scale.end] : [e.from, e.to])}
+                    >
+                      {/* The spoken name starts with the printed one (which
+                          may be the short form), so "click Med." works by
+                          voice, then says what pressing it does. */}
+                      {text}
+                      <span className="sr-only">{`: ${fill(copy.eraPick, { era: long, from: formatYear(e.from, lang), to: yearText(e.to) })}`}</span>
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+
+            {/* The years outside the chosen range, dimmed. */}
+            <div className="at-tl-shade" style={{ left: 0, width: `${xa}%` }} />
+            <div className="at-tl-shade" style={{ left: `${xb}%`, width: `${100 - xb}%` }} />
+
+            {/* The span of the story in hand. */}
+            {focus && focus.y1! > focus.y0! && (
               <div
-                key={s.id}
-                className={`at-tl-mark ${markState(s)}`}
+                className="at-tl-span"
+                aria-hidden="true"
                 style={{
-                  left: `${xOf(scale, s.y0!)}%`,
-                  width: `${Math.max(0, xOf(scale, s.y1!) - xOf(scale, s.y0!))}%`,
-                  top: 6 + (lanes.get(s.id) ?? 0) * 14,
+                  left: `${xOf(scale, focus.y0!)}%`,
+                  width: `${xOf(scale, focus.y1!) - xOf(scale, focus.y0!)}%`,
+                  bottom: rowBottom(rows.get(focus.id) ?? 0) + DOT / 2 - 2,
                 }}
+              />
+            )}
+
+            <div className="at-tl-dots" aria-hidden="true">
+              {dated.map((s) => {
+                const x = xOf(scale, s.y0!);
+                const edge = x > 72 ? ' at-tl-lbl-end' : x < 18 ? ' at-tl-lbl-start' : '';
+                return (
+                  <div
+                    key={s.id}
+                    className={`at-tl-mark ${markState(s)}`}
+                    style={{ left: `${x}%`, bottom: rowBottom(rows.get(s.id) ?? 0) }}
+                    onPointerEnter={() => onHover(s.id)}
+                    onPointerLeave={() => onHover(null)}
+                    onClick={() => onSelect(s.id)}
+                  >
+                    <span className="at-tl-dot" />
+                    <span className={`at-tl-lbl${edge}`}>{pick(s.title, lang)} · {whenOf(s, lang)}</span>
+                  </div>
+                );
+              })}
+            </div>
+
+            {cursorPct != null && <div className="at-tl-cursor" style={{ left: `${cursorPct}%` }} />}
+          </div>
+
+          {/* The rail: the chosen years in gold, a handle at each end. */}
+          <div className="at-tl-rail">
+            <div className="at-tl-rail-on" style={{ left: `${xa}%`, width: `${xb - xa}%` }} />
+            {([0, 1] as const).map((i) => (
+              <div
+                key={i}
+                className="at-tl-handle"
+                role="slider"
+                tabIndex={0}
+                aria-label={i ? copy.toYear : copy.fromYear}
+                aria-valuemin={scale.start}
+                aria-valuemax={scale.end}
+                aria-valuenow={range[i]}
+                aria-valuetext={yearText(range[i])}
+                aria-describedby="at-tl-hint"
+                style={{ left: `${xOf(scale, range[i])}%` }}
+                onPointerDown={onHandleDown(i)}
+                onKeyDown={onHandleKey(i)}
+              />
+            ))}
+          </div>
+
+          <div className="at-tl-years" aria-hidden="true">
+            {eraTicks(scale, width || 600).map((y, i, all) => (
+              <span
+                key={y}
+                className={i === 0 ? 'is-start' : i === all.length - 1 ? 'is-end' : undefined}
+                style={{ left: `${xOf(scale, y)}%` }}
+              >
+                {yearText(y)}
+              </span>
+            ))}
+          </div>
+        </div>
+      ) : (
+        <p className="at-tl-empty">{copy.noDates}</p>
+      )}
+
+      {timeless.length > 0 && (
+        <div className="at-tl-foot">
+          {/* The switch that shows or hides the stories with no date, and
+              how many there are. */}
+          <button
+            type="button"
+            className="at-tl-timeless"
+            aria-pressed={showTimeless}
+            onClick={onToggleTimeless}
+          >
+            {/* Named by what it shows ("Timeless 5"), then what it does. */}
+            <StarIcon />
+            <span>{copy.timelessBand}</span>
+            <span className="at-tl-count">{timeless.length}</span>
+            <span className="sr-only">{`: ${copy.showTimeless}`}</span>
+          </button>
+          <div className="at-tl-stars" aria-hidden="true">
+            {timeless.map((s) => (
+              <button
+                key={s.id}
+                type="button"
+                tabIndex={-1}
+                className={`at-tl-star ${markState(s)}`}
                 onPointerEnter={() => onHover(s.id)}
                 onPointerLeave={() => onHover(null)}
                 onClick={() => onSelect(s.id)}
               >
-                <span className="at-tl-bar" />
-                <span className="at-tl-dot" />
-                <span className="at-tl-lbl">{pick(s.title, lang)} · {whenOf(s, lang)}</span>
-              </div>
+                <StarIcon />
+                <span className="at-tl-lbl at-tl-lbl-start at-tl-lbl-star">{pick(s.title, lang)}</span>
+              </button>
             ))}
           </div>
-          <div className="at-tl-axis">
-            {ticksFor(scale, width || 600).map((y) => (
-              <div key={y} className="at-tl-tick" style={{ left: `${xOf(scale, y)}%` }}><span>{formatYear(y, lang)}</span></div>
-            ))}
-          </div>
-          <div className="at-tl-shade" style={{ left: 0, width: `${xOf(scale, a)}%` }} />
-          <div className="at-tl-shade" style={{ left: `${xOf(scale, b)}%`, width: `${100 - xOf(scale, b)}%` }} />
-          {cursorPct != null && <div className="at-tl-cursor" style={{ left: `${cursorPct}%` }} />}
-          {([0, 1] as const).map((i) => (
-            <div
-              key={i}
-              className="at-tl-handle"
-              role="slider"
-              tabIndex={0}
-              aria-label={i ? copy.toYear : copy.fromYear}
-              aria-valuemin={scale.start}
-              aria-valuemax={scale.end}
-              aria-valuenow={range[i]}
-              aria-valuetext={yearText(range[i])}
-              aria-describedby="at-tl-hint"
-              style={{ left: `${xOf(scale, range[i])}%` }}
-              onPointerDown={onHandleDown(i)}
-              onKeyDown={onHandleKey(i)}
-            />
-          ))}
+          <span className="at-tl-note">{copy.timelessNote}</span>
         </div>
-        {timeless.length > 0 && (
-          <div className="at-tl-tcol">
-            {/* The Timeless band doubles as the switch that shows or hides them. */}
-            <button type="button" className="at-tl-timeless" aria-pressed={showTimeless} aria-label={copy.showTimeless} onClick={onToggleTimeless}>
-              <StarIcon />
-              <span className="at-tl-timeless-txt">{copy.timelessBand}</span>
-            </button>
-            <div className="at-tl-stars" aria-hidden="true">
-              {timeless.map((s) => (
-                <button
-                  key={s.id}
-                  type="button"
-                  tabIndex={-1}
-                  className={`at-tl-star ${markState(s)}`}
-                  onPointerEnter={() => onHover(s.id)}
-                  onPointerLeave={() => onHover(null)}
-                  onClick={() => onSelect(s.id)}
-                >
-                  <StarIcon />
-                  <span className="at-tl-lbl at-tl-lbl-r">{pick(s.title, lang)}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
+      )}
       <p className="sr-only" id="at-tl-hint">{copy.tlHint}</p>
     </section>
   );
