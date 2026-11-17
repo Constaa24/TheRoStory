@@ -617,7 +617,7 @@ const MapPage: React.FC = () => {
         )}
       </div>
 
-      {/* Portalled to <body>: the page wrapper's entrance animation leaves a
+      {/* Portalled to <body>: the page wrapper's entrance animation puts a
           transform on it, and a transformed ancestor turns position:fixed
           into "fixed to that ancestor" — the sheet would sit at the foot of
           the page instead of the foot of the screen. */}

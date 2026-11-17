@@ -64,6 +64,13 @@ const CommentsWhenNear: React.FC<{ articleId: string }> = ({ articleId }) => {
 interface Props {
   article: Article;
   views?: number;
+  /**
+   * The editors' Preview: the page as readers will see it, but nothing on it
+   * acts on the story (it may not be saved, or exist, yet). Saving to a
+   * shelf and passing it on are switched off and readers' notes are left
+   * out; the language and the text size still change.
+   */
+  preview?: boolean;
 }
 
 type Lang = "en" | "ro";
@@ -241,7 +248,7 @@ const framesOf = (article: Article): Frame[] => {
  * stories nearby, the writer's note, how it was made), the readers' notes,
  * and more from the same shelf.
  */
-export const EditorialArticle: React.FC<Props> = ({ article, views }) => {
+export const EditorialArticle: React.FC<Props> = ({ article, views, preview = false }) => {
   const { language, setLanguage } = useLanguage();
   const { handleFavoriteToggle, isFavorited } = useFavorites();
   const navigate = useNavigate();
@@ -368,11 +375,11 @@ export const EditorialArticle: React.FC<Props> = ({ article, views }) => {
               <dt>{en ? "Published" : "Publicată"}</dt><dd>{published}</dd>
             </dl>
             <div className="no-print flex flex-wrap gap-2.5 mt-1">
-              <button type="button" className={cn("rs-act", fav && "is-on")} aria-pressed={fav} onClick={(e) => handleFavoriteToggle(e, article.id)}>
+              <button type="button" className={cn("rs-act", fav && "is-on")} aria-pressed={fav} disabled={preview} onClick={(e) => handleFavoriteToggle(e, article.id)}>
                 <Heart className={cn("w-[15px] h-[15px]", fav && "fill-current")} strokeWidth={1.75} aria-hidden="true" />
                 {fav ? (en ? "On your shelf" : "Pe raftul tău") : (en ? "Save to your shelf" : "Păstrează pe raft")}
               </button>
-              <button type="button" className="rs-act" onClick={onShare}>
+              <button type="button" className="rs-act" disabled={preview} onClick={onShare}>
                 <Link2 className="w-[15px] h-[15px]" strokeWidth={1.75} aria-hidden="true" />
                 {canShare ? (en ? "Pass it on" : "Dă-o mai departe") : (en ? "Copy link" : "Copiază linkul")}
               </button>
@@ -427,7 +434,13 @@ export const EditorialArticle: React.FC<Props> = ({ article, views }) => {
             <Rosette size="lg" />
             <p className="rs-display m-0" style={{ fontSize: 32, lineHeight: 1.1, letterSpacing: 0 }}>{en ? "The end" : "Sfârșit"}</p>
           </div>
-          <CommentsWhenNear articleId={article.id} />
+          {preview ? (
+            <p className="no-print m-0 max-w-[680px] font-display italic text-center" style={{ padding: "28px 20px", border: "1px dashed var(--line)", borderRadius: 20, fontSize: 19, color: "var(--text-dim)" }}>
+              {en ? "Readers' notes appear here once the story is published." : "Notele cititorilor apar aici după ce povestea e publicată."}
+            </p>
+          ) : (
+            <CommentsWhenNear articleId={article.id} />
+          )}
         </div>
 
         <aside className="rs-aside">

@@ -93,6 +93,7 @@ const AdminDashboard = lazyWithReload(() => import("@/pages/AdminDashboard"));
 const VideoStoryCreate = lazyWithReload(() => import("@/pages/VideoStoryCreate"));
 const CarouselStoryCreate = lazyWithReload(() => import("@/pages/CarouselStoryCreate"));
 const TextStoryCreate = lazyWithReload(() => import("@/pages/TextStoryCreate"));
+const StoryPreview = lazyWithReload(() => import("@/pages/StoryPreview"));
 const Categories = lazyWithReload(() => import("@/pages/Categories"));
 const CategoryDetail = lazyWithReload(() => import("@/pages/CategoryDetail"));
 const Support = lazyWithReload(() => import("@/pages/Support"));
@@ -381,6 +382,11 @@ const App: React.FC = () => {
             <Route
               path="/admin/text-story/edit/:id"
               element={canAccessAdmin ? <TextStoryCreate /> : <Navigate to="/" replace />}
+            />
+            {/* The editors' Preview: the story as readers will see it. */}
+            <Route
+              path="/admin/preview"
+              element={canAccessAdmin ? <StoryPreview /> : <Navigate to="/" replace />}
             />
             <Route
               path="/admin/*"

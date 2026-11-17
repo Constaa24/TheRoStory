@@ -1,14 +1,16 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Category, MediaCaption } from "@/lib/supabase";
-import { fetchCategories, uploadUserFile, createArticle, updateArticle, deleteStorageFile, fetchAnyArticle, extractStoragePath, ARTICLE_LIMITS } from "@/lib/supabase";
+import { fetchCategories, uploadUserFile, createArticle, updateArticle, deleteStorageFile, fetchAnyArticle, extractStoragePath, ARTICLE_LIMITS, previewArticle, type Article } from "@/lib/supabase";
 
 type GalleryItem = { id: string; url: string; storagePath: string | null };
 import { useLanguage } from "@/hooks/use-language";
 import { useAuth } from "@/hooks/use-auth";
 import { useUnsavedChangesWarning } from "@/hooks/use-unsaved-changes";
 import { UnsavedChangesDialog } from "@/components/ui/unsaved-changes-dialog";
-import { PublishingFields, usePublishGuard, publishAtToSave, scheduleProblem, toLocalInput, type CheckItem } from "@/components/organisms/PublishingFields";
+import { PublishingFields, usePublishGuard, publishAtToSave, scheduleProblem, toLocalInput, fromLocalInput, type CheckItem } from "@/components/organisms/PublishingFields";
+import { useStoryDraft } from "@/hooks/use-story-draft";
+import { DraftOfferBanner, PreviewLink, useSaveBar } from "@/components/organisms/StoryDraftUi";
 import { FormBlock, Field } from "@/components/ui/form-field";
 import { PageHead } from "@/components/layout/PageHead";
 import {
@@ -95,13 +97,34 @@ const CarouselStoryCreate: React.FC = () => {
   const [publishAt, setPublishAt] = useState("");
   const [hadSchedule, setHadSchedule] = useState(false);
   const [wasPublished, setWasPublished] = useState(false);
+  // The saved story's dates: when it was last saved (does a kept copy
+  // predate that?) and the date readers see (for the preview).
+  const [loadedUpdatedAt, setLoadedUpdatedAt] = useState<string | null>(null);
+  const [loadedCreatedAt, setLoadedCreatedAt] = useState<string | null>(null);
 
   // The status and the schedule count as changes too: leaving after
   // choosing "Scheduled" and a time would otherwise lose them silently.
-  const formSnapshot = JSON.stringify({ titleEn, titleRo, descriptionEn, descriptionRo, categoryId, location, posterUrl, items: items.map(i => i.url), mediaCaptions, placeDate, note, published: isPublished, publishAt });
+  const formState = { titleEn, titleRo, descriptionEn, descriptionRo, categoryId, location, posterUrl, items: items.map(i => i.url), mediaCaptions, placeDate, note, published: isPublished, publishAt };
+  const formSnapshot = JSON.stringify(formState);
   const isDirty = initialSnapshotRef.current !== null && formSnapshot !== initialSnapshotRef.current;
 
   useUnsavedChangesWarning(isDirty && !isSaving);
+
+  useSaveBar();
+
+  // A copy of unsaved work kept in this browser, and the Preview tab.
+  const draft = useStoryDraft<typeof formState>({
+    userId: user?.id,
+    kind: 'carousel',
+    storyId: editingId ?? null,
+    ready: !isLoading && initialSnapshotRef.current !== null,
+    form: formState,
+    snapshot: formSnapshot,
+    dirty: isDirty,
+    updatedAt: loadedUpdatedAt,
+    buildPreview: () => buildPreviewArticle(),
+    onRestore: (f) => applyForm(f),
+  });
 
   // Confirm before leaving via the in-editor Back/Cancel buttons while there
   // are unsaved changes, using the site's styled dialog. (beforeunload covers
@@ -163,6 +186,8 @@ const CarouselStoryCreate: React.FC = () => {
           setPublishAt(article.isPublished ? "" : toLocalInput(article.publishAt));
           setHadSchedule(!!article.publishAt);
           setWasPublished(!!article.isPublished);
+          setLoadedUpdatedAt(article.updatedAt ?? article.createdAt ?? null);
+          setLoadedCreatedAt(article.createdAt ?? null);
           setPosterUrl(article.posterUrl || '');
           setPosterStoragePath(article.posterUrl ? extractStoragePath(article.posterUrl, 'articles') : null);
           const urls = article.mediaUrls || (article.mediaUrl ? [article.mediaUrl] : []);
@@ -219,12 +244,17 @@ const CarouselStoryCreate: React.FC = () => {
   // Clean up files uploaded this session if the user leaves without saving.
   // savedRef gates it so a successful save (which navigates away) keeps its
   // media. Only session uploads are tracked, never pre-existing article media.
+  // A copy kept for later (unsaved work, see useStoryDraft) points at them,
+  // so then they stay; the storage sweep finds any that are never used.
+  // (flushDraft never changes: this runs once, on leaving.)
+  const flushDraft = draft.flush;
   useEffect(() => () => {
-    if (savedRef.current) return;
+    const kept = flushDraft();
+    if (savedRef.current || kept) return;
     for (const path of sessionUploadsRef.current) {
       void deleteStorageFile('articles', path);
     }
-  }, []);
+  }, [flushDraft]);
 
   const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -342,6 +372,58 @@ const CarouselStoryCreate: React.FC = () => {
     });
   };
 
+  /** What a save sends: the frames in order, with their captions if any were written. */
+  const buildPayload = () => {
+    const mediaUrls = items.map(i => i.url);
+    const hasAnyCaption = mediaCaptions.some(c => c?.en?.trim() || c?.ro?.trim());
+    return {
+      type: 'carousel' as const,
+      titleEn,
+      titleRo,
+      contentEn: descriptionEn,
+      contentRo: descriptionRo,
+      categoryId,
+      location: location || undefined,
+      mediaUrl: mediaUrls[0],
+      mediaUrls,
+      mediaCaptions: hasAnyCaption ? mediaCaptions : undefined,
+      posterUrl: posterUrl || null,
+      ...(shouldSendPlaceDate(placeDate, placeDateSupportedRef.current) ? { placeDate: draftToPlaceDate(placeDate) } : {}),
+      ...(shouldSendNote(note, noteSupportedRef.current) ? { note: { en: note.en, ro: note.ro } } : {}),
+    };
+  };
+
+  /** The visual essay as readers would see it once saved: the Preview tab's page. */
+  const buildPreviewArticle = (): Article => {
+    const at = isPublished ? null : fromLocalInput(publishAt);
+    return previewArticle(
+      { ...buildPayload(), userId: user?.id ?? '', isPublished, publishAt: at },
+      // A scheduled story takes its time as its date; otherwise the date it has, or today's.
+      { id: editingId ?? 'preview', createdAt: at ?? loadedCreatedAt ?? new Date().toISOString() },
+    );
+  };
+
+  /** Puts a kept copy back into the form. */
+  const applyForm = (f: typeof formState) => {
+    setTitleEn(f.titleEn ?? '');
+    setTitleRo(f.titleRo ?? '');
+    setDescriptionEn(f.descriptionEn ?? '');
+    setDescriptionRo(f.descriptionRo ?? '');
+    setCategoryId(f.categoryId ?? '');
+    setLocation(f.location ?? '');
+    setPosterUrl(f.posterUrl ?? '');
+    setPosterStoragePath(f.posterUrl ? extractStoragePath(f.posterUrl, 'articles') : null);
+    const urls = f.items ?? [];
+    setItems(urls.map((url) => ({ id: crypto.randomUUID(), url, storagePath: extractStoragePath(url, 'articles') })));
+    setMediaCaptions(f.mediaCaptions?.length === urls.length ? f.mediaCaptions : urls.map(() => ({ en: '', ro: '' })));
+    setPlaceDate(f.placeDate ?? EMPTY_PLACE_DATE);
+    setNote(f.note ?? EMPTY_NOTE);
+    if (isAdmin) {
+      setIsPublished(!!f.published);
+      setPublishAt(f.published ? '' : f.publishAt ?? '');
+    }
+  };
+
   const handleSave = async () => {
     const scheduleError = isAdmin ? scheduleProblem(isPublished, publishAt, language) : null;
     if (scheduleError) {
@@ -359,24 +441,7 @@ const CarouselStoryCreate: React.FC = () => {
     }
     setIsSaving(true);
     try {
-      const mediaUrls = items.map(i => i.url);
-      const hasAnyCaption = mediaCaptions.some(c => c?.en?.trim() || c?.ro?.trim());
-
-      const payload = {
-        type: 'carousel' as const,
-        titleEn,
-        titleRo,
-        contentEn: descriptionEn,
-        contentRo: descriptionRo,
-        categoryId,
-        location: location || undefined,
-        mediaUrl: mediaUrls[0],
-        mediaUrls,
-        mediaCaptions: hasAnyCaption ? mediaCaptions : undefined,
-        posterUrl: posterUrl || null,
-        ...(shouldSendPlaceDate(placeDate, placeDateSupportedRef.current) ? { placeDate: draftToPlaceDate(placeDate) } : {}),
-        ...(shouldSendNote(note, noteSupportedRef.current) ? { note: { en: note.en, ro: note.ro } } : {}),
-      };
+      const payload = buildPayload();
 
       // The visibility checkbox is admin-only; writers pass their story's
       // loaded state through and the DB trigger
@@ -392,6 +457,7 @@ const CarouselStoryCreate: React.FC = () => {
         toast.success(language === 'en' ? "Visual essay created!" : "Eseul a fost creat!");
       }
       savedRef.current = true;
+      draft.clear();
       // The save committed — the article no longer references media the
       // user removed/replaced this session, so it's safe to delete now.
       for (const path of pendingDeletesRef.current) {
@@ -440,7 +506,7 @@ const CarouselStoryCreate: React.FC = () => {
       <UnsavedChangesDialog
         open={showLeaveConfirm}
         onOpenChange={setShowLeaveConfirm}
-        onConfirm={() => navigate('/admin')}
+        onConfirm={() => { draft.clear(); navigate('/admin'); }}
         language={language}
       />
       {/* Page hero */}
@@ -471,6 +537,8 @@ const CarouselStoryCreate: React.FC = () => {
           </p>
         </div>
       </section>
+
+      <DraftOfferBanner offer={draft.offer} language={language} onRestore={draft.restore} onDiscard={draft.dismiss} />
 
       <section style={{ padding: '40px 0 60px' }} className="ed-form">
         <div className="ed-container">
@@ -840,7 +908,7 @@ const CarouselStoryCreate: React.FC = () => {
         </div>
       </section>
 
-      {/* Sticky save bar */}
+      {/* Sticky save bar. Its vertical padding is inline: .ed-container's own padding shorthand outranks py-4. */}
       <div
         className="fixed bottom-0 left-0 right-0 z-30"
         style={{
@@ -850,7 +918,8 @@ const CarouselStoryCreate: React.FC = () => {
           WebkitBackdropFilter: 'blur(14px)',
         }}
       >
-        <div className="ed-container py-4 flex items-center justify-end gap-3">
+        <div className="ed-container flex items-center justify-end gap-3" style={{ paddingTop: 12, paddingBottom: 'calc(12px + env(safe-area-inset-bottom, 0px))' }}>
+          <PreviewLink kind="carousel" storyId={editingId ?? null} language={language} />
           <button
             onClick={leaveToDashboard}
             disabled={isSaving}

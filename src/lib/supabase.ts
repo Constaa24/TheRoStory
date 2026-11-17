@@ -849,44 +849,53 @@ export const createArticle = async (input: NewArticleInput): Promise<{ id: strin
 
   const id = `art_${crypto.randomUUID()}`;
 
-  const row: Record<string, unknown> = {
-    id,
-    title_en: titleEn,
-    title_ro: titleRo,
-    content_en: input.contentEn,
-    content_ro: input.contentRo,
-    category_id: input.categoryId,
-    location,
-    media_url: input.mediaUrl ?? null,
-    poster_url: input.posterUrl ?? null,
-    media_urls: input.mediaUrls ?? null,
-    media_captions: input.mediaCaptions ?? null,
-    user_id: input.userId,
-    is_published: input.isPublished,
-    type: input.type,
-    subtype: input.type === 'text' ? (input.subtype ?? null) : null,
-    // created_at is deliberately NOT sent. The column defaults to now(), and
-    // updated_at is set by the same default in the same transaction — so
-    // letting the server stamp both keeps them on one clock. Sending a
-    // client timestamp made created_at lead updated_at by the round-trip
-    // latency (~230ms on the row that exposed this), which the article page
-    // publishes as an article:modified_time *earlier* than its
-    // article:published_time. It also made the archive's sort key
-    // client-controlled for no benefit.
-    ...(input.placeDate ? placeDateRow(input.placeDate) : {}),
-    ...(input.note ? noteRow(input.note) : {}),
-    ...(input.film ? filmRow(input.film) : {}),
-    ...(input.moments !== undefined ? momentsRow(input.moments) : {}),
-    // A published story has no schedule left to keep.
-    ...(input.publishAt !== undefined ? { publish_at: input.isPublished ? null : input.publishAt } : {}),
-  };
-
-  const { error } = await supabase.from('articles').insert(row);
+  const { error } = await supabase.from('articles').insert(articleRow(input, id));
   if (error) throw explainPlaceDateError(error);
 
   invalidatePublicContentCache();
   return { id };
 };
+
+/** The row a new story is saved as (createArticle), and what the editors' Preview shows. */
+const articleRow = (input: NewArticleInput, id: string): Record<string, unknown> => ({
+  id,
+  title_en: input.titleEn.trim(),
+  title_ro: input.titleRo.trim(),
+  content_en: input.contentEn,
+  content_ro: input.contentRo,
+  category_id: input.categoryId,
+  location: input.location?.trim() || null,
+  media_url: input.mediaUrl ?? null,
+  poster_url: input.posterUrl ?? null,
+  media_urls: input.mediaUrls ?? null,
+  media_captions: input.mediaCaptions ?? null,
+  user_id: input.userId,
+  is_published: input.isPublished,
+  type: input.type,
+  subtype: input.type === 'text' ? (input.subtype ?? null) : null,
+  // created_at is deliberately NOT sent. The column defaults to now(), and
+  // updated_at is set by the same default in the same transaction — so
+  // letting the server stamp both keeps them on one clock. Sending a
+  // client timestamp made created_at lead updated_at by the round-trip
+  // latency (~230ms on the row that exposed this), which the article page
+  // publishes as an article:modified_time *earlier* than its
+  // article:published_time. It also made the archive's sort key
+  // client-controlled for no benefit.
+  ...(input.placeDate ? placeDateRow(input.placeDate) : {}),
+  ...(input.note ? noteRow(input.note) : {}),
+  ...(input.film ? filmRow(input.film) : {}),
+  ...(input.moments !== undefined ? momentsRow(input.moments) : {}),
+  // A published story has no schedule left to keep.
+  ...(input.publishAt !== undefined ? { publish_at: input.isPublished ? null : input.publishAt } : {}),
+});
+
+/**
+ * The story as it would read once saved, for the editors' Preview: the row
+ * createArticle builds from the same input, as an Article. Nothing is
+ * checked and nothing is sent. `createdAt` is the date readers would see.
+ */
+export const previewArticle = (input: NewArticleInput, at: { id: string; createdAt: string }): Article =>
+  toCamelCase<Article>({ ...articleRow(input, at.id), created_at: at.createdAt, updated_at: at.createdAt });
 
 export type UpdateArticleInput = Omit<NewArticleInput, 'userId'> & { id: string };
 

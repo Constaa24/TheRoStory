@@ -45,6 +45,7 @@ export default defineConfig({
           '**/TextStoryCreate-*.js',
           '**/VideoStoryCreate-*.js',
           '**/CarouselStoryCreate-*.js',
+          '**/StoryPreview-*.js',
           '**/Map-*.js',
           '**/map-*.js',
           '**/motion-*.js',

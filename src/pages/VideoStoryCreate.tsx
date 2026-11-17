@@ -1,13 +1,15 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Category } from "@/lib/supabase";
-import { fetchCategories, uploadUserFile, uploadSubtitleFile, createArticle, updateArticle, deleteStorageFile, fetchAnyArticle, extractStoragePath } from "@/lib/supabase";
+import { fetchCategories, uploadUserFile, uploadSubtitleFile, createArticle, updateArticle, deleteStorageFile, fetchAnyArticle, extractStoragePath, previewArticle, type Article } from "@/lib/supabase";
 import { ARTICLE_LIMITS, MAX_VIDEO_BYTES, asMb } from "@/lib/supabase";
 import { useLanguage } from "@/hooks/use-language";
 import { useAuth } from "@/hooks/use-auth";
 import { useUnsavedChangesWarning } from "@/hooks/use-unsaved-changes";
 import { UnsavedChangesDialog } from "@/components/ui/unsaved-changes-dialog";
-import { PublishingFields, usePublishGuard, publishAtToSave, scheduleProblem, toLocalInput, type CheckItem } from "@/components/organisms/PublishingFields";
+import { PublishingFields, usePublishGuard, publishAtToSave, scheduleProblem, toLocalInput, fromLocalInput, type CheckItem } from "@/components/organisms/PublishingFields";
+import { useStoryDraft } from "@/hooks/use-story-draft";
+import { DraftOfferBanner, PreviewLink, useSaveBar } from "@/components/organisms/StoryDraftUi";
 import { FormBlock, Field } from "@/components/ui/form-field";
 import { PageHead } from "@/components/layout/PageHead";
 import {
@@ -103,13 +105,34 @@ const VideoStoryCreate: React.FC = () => {
   const [publishAt, setPublishAt] = useState("");
   const [hadSchedule, setHadSchedule] = useState(false);
   const [wasPublished, setWasPublished] = useState(false);
+  // The saved story's dates: when it was last saved (does a kept copy
+  // predate that?) and the date readers see (for the preview).
+  const [loadedUpdatedAt, setLoadedUpdatedAt] = useState<string | null>(null);
+  const [loadedCreatedAt, setLoadedCreatedAt] = useState<string | null>(null);
 
   // The status and the schedule count as changes too: leaving after
   // choosing "Scheduled" and a time would otherwise lose them silently.
-  const formSnapshot = JSON.stringify({ titleEn, titleRo, descriptionEn, descriptionRo, categoryId, location, videoUrl, posterUrl, placeDate, note, film: filmExtrasSnapshot(film), published: isPublished, publishAt });
+  const formState = { titleEn, titleRo, descriptionEn, descriptionRo, categoryId, location, videoUrl, posterUrl, placeDate, note, film: filmExtrasSnapshot(film), published: isPublished, publishAt };
+  const formSnapshot = JSON.stringify(formState);
   const isDirty = initialSnapshotRef.current !== null && formSnapshot !== initialSnapshotRef.current;
 
   useUnsavedChangesWarning(isDirty && !isSaving);
+
+  useSaveBar();
+
+  // A copy of unsaved work kept in this browser, and the Preview tab.
+  const draft = useStoryDraft<typeof formState>({
+    userId: user?.id,
+    kind: 'video',
+    storyId: editingId ?? null,
+    ready: !isLoading && initialSnapshotRef.current !== null,
+    form: formState,
+    snapshot: formSnapshot,
+    dirty: isDirty,
+    updatedAt: loadedUpdatedAt,
+    buildPreview: () => buildPreviewArticle(),
+    onRestore: (f) => applyForm(f),
+  });
 
   // Confirm before leaving via the in-editor Back/Cancel buttons while there
   // are unsaved changes, using the site's styled dialog. (beforeunload covers
@@ -178,6 +201,8 @@ const VideoStoryCreate: React.FC = () => {
           setPublishAt(article.isPublished ? "" : toLocalInput(article.publishAt));
           setHadSchedule(!!article.publishAt);
           setWasPublished(!!article.isPublished);
+          setLoadedUpdatedAt(article.updatedAt ?? article.createdAt ?? null);
+          setLoadedCreatedAt(article.createdAt ?? null);
           const loadedPlaceDate = draftFromArticle(article);
           setPlaceDate(loadedPlaceDate.draft);
           placeDateSupportedRef.current = loadedPlaceDate.supported;
@@ -223,12 +248,17 @@ const VideoStoryCreate: React.FC = () => {
   // Clean up files uploaded this session if the user leaves without saving.
   // savedRef gates it so a successful save (which navigates away) keeps its
   // media. Only session uploads are tracked, never pre-existing article media.
+  // A copy kept for later (unsaved work, see useStoryDraft) points at them,
+  // so then they stay; the storage sweep finds any that are never used.
+  // (flushDraft never changes: this runs once, on leaving.)
+  const flushDraft = draft.flush;
   useEffect(() => () => {
-    if (savedRef.current) return;
+    const kept = flushDraft();
+    if (savedRef.current || kept) return;
     for (const path of sessionUploadsRef.current) {
       void deleteStorageFile('articles', path);
     }
-  }, []);
+  }, [flushDraft]);
 
   const handleVideoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -365,6 +395,55 @@ const VideoStoryCreate: React.FC = () => {
     setFilm((prev) => ({ ...prev, subtitles: { ...prev.subtitles, [lang]: null } }));
   };
 
+  /** What a save sends. */
+  const buildPayload = () => ({
+    type: 'video' as const,
+    titleEn,
+    titleRo,
+    contentEn: descriptionEn,
+    contentRo: descriptionRo,
+    categoryId,
+    location: location || undefined,
+    mediaUrl: videoUrl,
+    posterUrl: posterUrl || null,
+    ...(shouldSendPlaceDate(placeDate, placeDateSupportedRef.current) ? { placeDate: draftToPlaceDate(placeDate) } : {}),
+    ...(shouldSendNote(note, noteSupportedRef.current) ? { note: { en: note.en, ro: note.ro } } : {}),
+    ...(shouldSendFilmExtras(film, filmSupportedRef.current) ? { film: draftToFilm(film) } : {}),
+  });
+
+  /** The film as readers would see it once saved: the Preview tab's page. */
+  const buildPreviewArticle = (): Article => {
+    const at = isPublished ? null : fromLocalInput(publishAt);
+    return previewArticle(
+      { ...buildPayload(), userId: user?.id ?? '', isPublished, publishAt: at },
+      // A scheduled story takes its time as its date; otherwise the date it has, or today's.
+      { id: editingId ?? 'preview', createdAt: at ?? loadedCreatedAt ?? new Date().toISOString() },
+    );
+  };
+
+  /** Puts a kept copy back into the form. */
+  const applyForm = (f: typeof formState) => {
+    setTitleEn(f.titleEn ?? '');
+    setTitleRo(f.titleRo ?? '');
+    setDescriptionEn(f.descriptionEn ?? '');
+    setDescriptionRo(f.descriptionRo ?? '');
+    setCategoryId(f.categoryId ?? '');
+    setLocation(f.location ?? '');
+    setVideoUrl(f.videoUrl ?? '');
+    setVideoStoragePath(f.videoUrl ? extractStoragePath(f.videoUrl, 'articles') : null);
+    setPosterUrl(f.posterUrl ?? '');
+    setPosterStoragePath(f.posterUrl ? extractStoragePath(f.posterUrl, 'articles') : null);
+    setPlaceDate(f.placeDate ?? EMPTY_PLACE_DATE);
+    setNote(f.note ?? EMPTY_NOTE);
+    // The copy keeps the subtitle files' addresses; their paths follow from them.
+    const sub = (url: string | null | undefined) => (url ? { url, path: extractStoragePath(url, 'articles') } : null);
+    setFilm({ subtitles: { en: sub(f.film?.en), ro: sub(f.film?.ro) }, chapters: f.film?.chapters ?? [] });
+    if (isAdmin) {
+      setIsPublished(!!f.published);
+      setPublishAt(f.published ? '' : f.publishAt ?? '');
+    }
+  };
+
   const handleSave = async () => {
     const scheduleError = isAdmin ? scheduleProblem(isPublished, publishAt, language) : null;
     if (scheduleError) {
@@ -388,20 +467,7 @@ const VideoStoryCreate: React.FC = () => {
     }
     setIsSaving(true);
     try {
-      const payload = {
-        type: 'video' as const,
-        titleEn,
-        titleRo,
-        contentEn: descriptionEn,
-        contentRo: descriptionRo,
-        categoryId,
-        location: location || undefined,
-        mediaUrl: videoUrl,
-        posterUrl: posterUrl || null,
-        ...(shouldSendPlaceDate(placeDate, placeDateSupportedRef.current) ? { placeDate: draftToPlaceDate(placeDate) } : {}),
-        ...(shouldSendNote(note, noteSupportedRef.current) ? { note: { en: note.en, ro: note.ro } } : {}),
-        ...(shouldSendFilmExtras(film, filmSupportedRef.current) ? { film: draftToFilm(film) } : {}),
-      };
+      const payload = buildPayload();
       // The visibility checkbox is admin-only; writers pass their story's
       // loaded state through and the DB trigger
       // (enforce_article_publish_rights) pins it server-side regardless.
@@ -416,6 +482,7 @@ const VideoStoryCreate: React.FC = () => {
         toast.success(language === 'en' ? "Film created!" : "Filmul a fost creat!");
       }
       savedRef.current = true;
+      draft.clear();
       // The save committed — the article no longer references media the
       // user removed/replaced this session, so it's safe to delete now.
       for (const path of pendingDeletesRef.current) {
@@ -462,7 +529,7 @@ const VideoStoryCreate: React.FC = () => {
       <UnsavedChangesDialog
         open={showLeaveConfirm}
         onOpenChange={setShowLeaveConfirm}
-        onConfirm={() => navigate('/admin')}
+        onConfirm={() => { draft.clear(); navigate('/admin'); }}
         language={language}
       />
       {/* Page hero */}
@@ -493,6 +560,8 @@ const VideoStoryCreate: React.FC = () => {
           </p>
         </div>
       </section>
+
+      <DraftOfferBanner offer={draft.offer} language={language} onRestore={draft.restore} onDiscard={draft.dismiss} />
 
       <section style={{ padding: '40px 0 60px' }} className="ed-form">
         <div className="ed-container">
@@ -771,7 +840,7 @@ const VideoStoryCreate: React.FC = () => {
         </div>
       </section>
 
-      {/* Sticky save bar */}
+      {/* Sticky save bar. Its vertical padding is inline: .ed-container's own padding shorthand outranks py-4. */}
       <div
         className="fixed bottom-0 left-0 right-0 z-30"
         style={{
@@ -781,7 +850,8 @@ const VideoStoryCreate: React.FC = () => {
           WebkitBackdropFilter: 'blur(14px)',
         }}
       >
-        <div className="ed-container py-4 flex items-center justify-end gap-3">
+        <div className="ed-container flex items-center justify-end gap-3" style={{ paddingTop: 12, paddingBottom: 'calc(12px + env(safe-area-inset-bottom, 0px))' }}>
+          <PreviewLink kind="video" storyId={editingId ?? null} language={language} />
           <button
             onClick={leaveToDashboard}
             disabled={isSaving}

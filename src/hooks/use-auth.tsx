@@ -3,6 +3,7 @@ import { supabase } from "@/lib/supabase";
 import type { AuthResponse, AuthTokenResponsePassword, OAuthResponse, User, UserResponse } from "@supabase/supabase-js";
 import { isAbortError } from "@/lib/utils";
 import { detectLanguage, localizedPath } from "@/lib/locale";
+import { clearStoryDrafts } from "@/lib/story-draft";
 
 // Extended user type that includes our custom profile fields
 interface ExtendedUser extends User {
@@ -318,6 +319,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const logout = () => {
     persistRecoveryMode(false);
+    // Unsaved story copies belong to the person who made them: a shared
+    // computer shouldn't keep them for the next one (lib/story-draft).
+    clearStoryDrafts(user?.id);
     void supabase.auth.signOut();
   };
 

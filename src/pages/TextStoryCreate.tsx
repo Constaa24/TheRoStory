@@ -1,12 +1,14 @@
 import React, { useState, useRef, useEffect, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Category, CHAPTER_DELIMITER, ARTICLE_LIMITS, parseChapters, ArticleSubtype, MAX_IMAGE_BYTES, asMb, MOMENT_LIMITS, type Article, type StoryMoment } from "@/lib/supabase";
-import { fetchCategories, uploadUserFile, createArticle, updateArticle, fetchAnyArticle, deleteStorageFile, extractStoragePath } from "@/lib/supabase";
+import { fetchCategories, uploadUserFile, createArticle, updateArticle, fetchAnyArticle, deleteStorageFile, extractStoragePath, previewArticle } from "@/lib/supabase";
 import { useLanguage } from "@/hooks/use-language";
 import { useAuth } from "@/hooks/use-auth";
 import { useUnsavedChangesWarning } from "@/hooks/use-unsaved-changes";
 import { UnsavedChangesDialog } from "@/components/ui/unsaved-changes-dialog";
-import { PublishingFields, usePublishGuard, publishAtToSave, scheduleProblem, toLocalInput, type CheckItem } from "@/components/organisms/PublishingFields";
+import { PublishingFields, usePublishGuard, publishAtToSave, scheduleProblem, toLocalInput, fromLocalInput, type CheckItem } from "@/components/organisms/PublishingFields";
+import { useStoryDraft } from "@/hooks/use-story-draft";
+import { DraftOfferBanner, PreviewLink, useSaveBar } from "@/components/organisms/StoryDraftUi";
 import { FormBlock, Field } from "@/components/ui/form-field";
 import { PageHead } from "@/components/layout/PageHead";
 import {
@@ -142,13 +144,34 @@ const TextStoryCreate: React.FC = () => {
   const [publishAt, setPublishAt] = useState("");
   const [hadSchedule, setHadSchedule] = useState(false);
   const [wasPublished, setWasPublished] = useState(false);
+  // The saved story's dates: when it was last saved (does a kept copy
+  // predate that?) and the date readers see (for the preview).
+  const [loadedUpdatedAt, setLoadedUpdatedAt] = useState<string | null>(null);
+  const [loadedCreatedAt, setLoadedCreatedAt] = useState<string | null>(null);
 
   // The status and the schedule count as changes too: leaving after
   // choosing "Scheduled" and a time would otherwise lose them silently.
-  const formSnapshot = JSON.stringify({ titleEn, titleRo, categoryId, location, mediaUrl, subtype, chaptersEn, chaptersRo, placeDate, note, moments, published: publishImmediately, publishAt });
+  const formState = { titleEn, titleRo, categoryId, location, mediaUrl, subtype, chaptersEn, chaptersRo, placeDate, note, moments, published: publishImmediately, publishAt };
+  const formSnapshot = JSON.stringify(formState);
   const isDirty = initialSnapshotRef.current !== null && formSnapshot !== initialSnapshotRef.current;
 
   useUnsavedChangesWarning(isDirty && !isSaving);
+
+  useSaveBar();
+
+  // A copy of unsaved work kept in this browser, and the Preview tab.
+  const draft = useStoryDraft<typeof formState>({
+    userId: user?.id,
+    kind: 'text',
+    storyId: editingId ?? null,
+    ready: !isLoading && initialSnapshotRef.current !== null,
+    form: formState,
+    snapshot: formSnapshot,
+    dirty: isDirty,
+    updatedAt: loadedUpdatedAt,
+    buildPreview: () => buildPreviewArticle(),
+    onRestore: (f) => applyForm(f),
+  });
 
   // Confirm before leaving via the in-editor Back/Cancel buttons while there
   // are unsaved changes, using the site's styled dialog. (beforeunload covers
@@ -213,6 +236,8 @@ const TextStoryCreate: React.FC = () => {
           setPublishAt(article.isPublished ? "" : toLocalInput(article.publishAt));
           setHadSchedule(!!article.publishAt);
           setWasPublished(!!article.isPublished);
+          setLoadedUpdatedAt(article.updatedAt ?? article.createdAt ?? null);
+          setLoadedCreatedAt(article.createdAt ?? null);
           const loadedPlaceDate = draftFromArticle(article);
           setPlaceDate(loadedPlaceDate.draft);
           placeDateSupportedRef.current = loadedPlaceDate.supported;
@@ -270,12 +295,17 @@ const TextStoryCreate: React.FC = () => {
   // Clean up files uploaded this session if the user leaves without saving.
   // savedRef gates it so a successful save (which navigates away) keeps its
   // media. Only session uploads are tracked, never pre-existing article media.
+  // A copy kept for later (unsaved work, see useStoryDraft) points at them,
+  // so then they stay; the storage sweep finds any that are never used.
+  // (flushDraft never changes: this runs once, on leaving.)
+  const flushDraft = draft.flush;
   useEffect(() => () => {
-    if (savedRef.current) return;
+    const kept = flushDraft();
+    if (savedRef.current || kept) return;
     for (const path of sessionUploadsRef.current) {
       void deleteStorageFile('articles', path);
     }
-  }, []);
+  }, [flushDraft]);
 
   const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -365,6 +395,62 @@ const TextStoryCreate: React.FC = () => {
 
   const errorFor = (field: string) => validationErrors.find(e => e.field === field);
 
+  /** What a save sends: the form, with trailing empty chapters dropped. */
+  const buildPayload = () => {
+    const filledEn = [...chaptersEn];
+    const filledRo = [...chaptersRo];
+    while (filledEn.length > 1 && !filledEn[filledEn.length - 1].trim() && !filledRo[filledRo.length - 1]?.trim()) {
+      filledEn.pop();
+      filledRo.pop();
+    }
+    return {
+      type: 'text' as const,
+      subtype,
+      titleEn,
+      titleRo,
+      contentEn: filledEn.join(CHAPTER_DELIMITER),
+      contentRo: filledRo.join(CHAPTER_DELIMITER),
+      categoryId,
+      location: location || undefined,
+      mediaUrl: mediaUrl || null,
+      ...(shouldSendPlaceDate(placeDate, placeDateSupportedRef.current) ? { placeDate: draftToPlaceDate(placeDate) } : {}),
+      ...(shouldSendNote(note, noteSupportedRef.current) ? { note: { en: note.en, ro: note.ro } } : {}),
+      ...momentsPayload(moments, filledEn.length, momentsSupportedRef.current),
+    };
+  };
+
+  /** The story as readers would see it once saved: the Preview tab's page. */
+  const buildPreviewArticle = (): Article => {
+    const at = publishImmediately ? null : fromLocalInput(publishAt);
+    return previewArticle(
+      { ...buildPayload(), userId: user?.id ?? '', isPublished: publishImmediately, publishAt: at },
+      // A scheduled story takes its time as its date; otherwise the date it has, or today's.
+      { id: editingId ?? 'preview', createdAt: at ?? loadedCreatedAt ?? new Date().toISOString() },
+    );
+  };
+
+  /** Puts a kept copy back into the form. */
+  const applyForm = (f: typeof formState) => {
+    setTitleEn(f.titleEn ?? '');
+    setTitleRo(f.titleRo ?? '');
+    setCategoryId(f.categoryId ?? '');
+    setLocation(f.location ?? '');
+    setMediaUrl(f.mediaUrl ?? '');
+    setMediaStoragePath(f.mediaUrl ? extractStoragePath(f.mediaUrl, 'articles') : null);
+    setSubtype(f.subtype ?? 'essay');
+    const en = f.chaptersEn?.length ? f.chaptersEn : [''];
+    const ro = f.chaptersRo?.length ? f.chaptersRo : [''];
+    setChaptersEn(en);
+    setChaptersRo(ro);
+    setPlaceDate(f.placeDate ?? EMPTY_PLACE_DATE);
+    setNote(f.note ?? EMPTY_NOTE);
+    setMoments(f.moments?.length ? f.moments : en.map(() => EMPTY_MOMENT));
+    if (isAdmin) {
+      setPublishImmediately(!!f.published);
+      setPublishAt(f.published ? '' : f.publishAt ?? '');
+    }
+  };
+
   const handleSave = async () => {
     const scheduleError = isAdmin ? scheduleProblem(publishImmediately, publishAt, language) : null;
     if (scheduleError) {
@@ -379,27 +465,7 @@ const TextStoryCreate: React.FC = () => {
     }
     setIsSaving(true);
     try {
-      const filledEn = [...chaptersEn];
-      const filledRo = [...chaptersRo];
-      while (filledEn.length > 1 && !filledEn[filledEn.length - 1].trim() && !filledRo[filledRo.length - 1]?.trim()) {
-        filledEn.pop();
-        filledRo.pop();
-      }
-
-      const payload = {
-        type: 'text' as const,
-        subtype,
-        titleEn,
-        titleRo,
-        contentEn: filledEn.join(CHAPTER_DELIMITER),
-        contentRo: filledRo.join(CHAPTER_DELIMITER),
-        categoryId,
-        location: location || undefined,
-        mediaUrl: mediaUrl || null,
-        ...(shouldSendPlaceDate(placeDate, placeDateSupportedRef.current) ? { placeDate: draftToPlaceDate(placeDate) } : {}),
-        ...(shouldSendNote(note, noteSupportedRef.current) ? { note: { en: note.en, ro: note.ro } } : {}),
-        ...momentsPayload(moments, filledEn.length, momentsSupportedRef.current),
-      };
+      const payload = buildPayload();
 
       // publishImmediately is loaded from the article and only togglable by
       // admins, so writers pass their story's current state through — the
@@ -417,6 +483,7 @@ const TextStoryCreate: React.FC = () => {
         toast.success(language === "en" ? "Story created!" : "Povestea a fost creată!");
       }
       savedRef.current = true;
+      draft.clear();
       // The save committed — the article no longer references media the
       // user removed/replaced this session, so it's safe to delete now.
       for (const path of pendingDeletesRef.current) {
@@ -463,7 +530,7 @@ const TextStoryCreate: React.FC = () => {
       <UnsavedChangesDialog
         open={showLeaveConfirm}
         onOpenChange={setShowLeaveConfirm}
-        onConfirm={() => navigate('/admin')}
+        onConfirm={() => { draft.clear(); navigate('/admin'); }}
         language={language}
       />
       {/* Page hero */}
@@ -496,6 +563,8 @@ const TextStoryCreate: React.FC = () => {
           </p>
         </div>
       </section>
+
+      <DraftOfferBanner offer={draft.offer} language={language} onRestore={draft.restore} onDiscard={draft.dismiss} />
 
       {/* Validation summary */}
       {showErrors && validationErrors.length > 0 && (
@@ -827,7 +896,7 @@ const TextStoryCreate: React.FC = () => {
         </div>
       </section>
 
-      {/* Sticky save bar */}
+      {/* Sticky save bar. Its vertical padding is inline: .ed-container's own padding shorthand outranks py-4. */}
       <div
         className="fixed bottom-0 left-0 right-0 z-30"
         style={{
@@ -837,7 +906,8 @@ const TextStoryCreate: React.FC = () => {
           WebkitBackdropFilter: 'blur(14px)',
         }}
       >
-        <div className="ed-container py-4 flex items-center justify-end gap-3">
+        <div className="ed-container flex items-center justify-end gap-3" style={{ paddingTop: 12, paddingBottom: 'calc(12px + env(safe-area-inset-bottom, 0px))' }}>
+          <PreviewLink kind="text" storyId={editingId ?? null} language={language} />
           <button
             onClick={leaveToDashboard}
             disabled={isSaving}

@@ -295,6 +295,9 @@ textarea.sb-input { min-height: 190px; resize: vertical; line-height: 1.6; }
   body[data-chapter-pill="on"] .scroll-to-top { bottom: 92px; }
   body[data-chapter-pill="open"] .scroll-to-top { visibility: hidden; opacity: 0; }
 }
+/* The story editors' save bar is fixed to the foot of the screen at every
+   width (useSaveBar): back-to-top waits above it. */
+body[data-save-bar="on"] .scroll-to-top { bottom: 96px; }
 .sb-chapter-menu {
   max-height: 50vh; overflow-y: auto; padding: 20px 20px 20px 44px; border-radius: 20px;
   background: var(--ink-2); border: 1px solid var(--line); box-shadow: var(--shadow-soft);
@@ -629,6 +632,8 @@ textarea.sb-input { min-height: 190px; resize: vertical; line-height: 1.6; }
 .rs-act.is-dim { color: var(--text-dim); }
 .rs-act.is-dim:hover { color: var(--parchment); }
 .rs-act.is-on { border-color: var(--gold); background: var(--glow); color: var(--gold-2); }
+.rs-act:disabled { opacity: 0.5; cursor: default; }
+.rs-act:disabled:hover { border-color: var(--line); }
 .rs-story-grid { grid-template-columns: minmax(0, 1fr); gap: clamp(40px, 5vw, 88px); align-items: start; }
 .rs-aside { flex-direction: column; gap: 28px; }
 /* One column on tablets: keep the line a readable length, and set the margin
@@ -838,6 +843,16 @@ textarea.sb-input { min-height: 190px; resize: vertical; line-height: 1.6; }
   min-width: 22px; padding: 1px 7px; border-radius: 999px; background: var(--gold); color: var(--on-gold);
   font-family: var(--ui); font-size: 11px; font-weight: 800; text-align: center;
 }
+
+/* The editors' offer of unsaved changes kept in this browser, and the
+   Preview tab's bar. */
+:where(.rs-draft-offer) { display: flex; }
+.rs-draft-offer {
+  flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 20px; padding: 14px 18px;
+  border: 1px dashed var(--gold-deep); border-radius: 16px; background: var(--glow);
+  font-family: var(--ui); font-size: 14px; line-height: 1.5; color: var(--text);
+}
+.rs-preview-bar { border-bottom: 1px dashed var(--gold-deep); background: var(--glow); font-family: var(--ui); font-size: 13.5px; color: var(--text); }
 
 /* The editors' "Before it goes out" list: a knot, filled once the thing is there. */
 .rs-check-knot { flex: none; width: 9px; height: 9px; transform: rotate(45deg); border: 1.5px solid var(--gold-deep); }
