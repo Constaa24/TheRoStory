@@ -59,14 +59,18 @@ describe('lastDays', () => {
   });
 
   it('gives consecutive, distinct days at every hour of the year', () => {
+    // The hours that go wrong are collected and checked once: an expect()
+    // per day per hour (over 250,000 of them) took this test past the 5 s
+    // timeout on CI's slower machines.
     const start = Date.parse('2026-01-01T00:00:00Z');
+    const wrong: string[] = [];
     for (let h = 0; h < 365 * 24; h++) {
-      const days = lastDays(30, new Date(start + h * 3_600_000));
-      expect(new Set(days).size).toBe(30);
-      for (let i = 1; i < days.length; i++) {
-        expect(Date.parse(days[i]) - Date.parse(days[i - 1])).toBe(86_400_000);
-      }
+      const at = new Date(start + h * 3_600_000);
+      const days = lastDays(30, at);
+      const consecutive = days.every((d, i) => i === 0 || Date.parse(d) - Date.parse(days[i - 1]) === 86_400_000);
+      if (new Set(days).size !== 30 || !consecutive) wrong.push(at.toISOString());
     }
+    expect(wrong).toEqual([]);
   });
 });
 

@@ -53,8 +53,11 @@ export const fetchDailyReads = async (days: number): Promise<DailyRead[]> => {
  * 24 hours from now: across a clock change those land on the same day twice
  * (or skip one) in the hour after midnight.
  */
+// Made once: building an Intl.DateTimeFormat is far slower than using one.
+const BUCHAREST_DAY = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Bucharest", year: "numeric", month: "2-digit", day: "2-digit" });
+
 export const lastDays = (days: number, now = new Date()): string[] => {
-  const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Bucharest", year: "numeric", month: "2-digit", day: "2-digit" }).format(now);
+  const today = BUCHAREST_DAY.format(now);
   const [y, m, d] = today.split("-").map(Number);
   return Array.from({ length: days }, (_, i) => new Date(Date.UTC(y, m - 1, d - (days - 1 - i))).toISOString().slice(0, 10));
 };
